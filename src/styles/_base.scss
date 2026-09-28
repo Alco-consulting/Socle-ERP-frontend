@@ -1,0 +1,169 @@
+// Global base: reset, typography scale, focus, utilities. No component styles here.
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  background: var(--color-bg);
+  color: var(--color-text);
+  font-family: var(--font-family-base);
+  font-size: var(--font-size-body);
+  line-height: var(--line-height-base);
+  font-feature-settings: 'cv11', 'ss01';
+  -webkit-font-smoothing: antialiased;
+}
+
+h1,
+h2,
+h3,
+h4,
+p,
+figure,
+dl,
+dd {
+  margin: 0;
+}
+
+ul[role='list'],
+ol[role='list'] {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+img,
+svg {
+  display: block;
+  max-width: 100%;
+}
+
+button,
+input,
+select,
+textarea {
+  font: inherit;
+  color: inherit;
+}
+
+a {
+  color: var(--color-primary-text);
+}
+
+// ---- Focus: always visible for keyboard users, never for mouse clicks ---------------
+:focus {
+  outline: none;
+}
+
+:focus-visible {
+  outline: var(--focus-ring-width) solid var(--color-focus-ring);
+  outline-offset: var(--focus-ring-offset);
+}
+
+// ---- Typography scale (5 levels + dashboard figure) ---------------------------------
+.alco-page-title {
+  font-size: var(--font-size-page-title);
+  font-weight: var(--font-weight-semibold);
+  line-height: var(--line-height-tight);
+}
+
+.alco-section-title {
+  font-size: var(--font-size-section-title);
+  font-weight: var(--font-weight-semibold);
+  line-height: var(--line-height-tight);
+}
+
+.alco-subtitle {
+  font-size: var(--font-size-subtitle);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-muted);
+}
+
+.alco-caption {
+  font-size: var(--font-size-caption);
+  color: var(--color-text-muted);
+}
+
+.alco-figure {
+  font-size: var(--font-size-figure);
+  font-weight: var(--font-weight-semibold);
+  line-height: var(--line-height-tight);
+  font-variant-numeric: tabular-nums;
+}
+
+// ---- Numbers: tabular figures, right aligned ----------------------------------------
+.alco-num {
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+  white-space: nowrap;
+}
+
+// ---- Accessibility helpers ---------------------------------------------------------
+.alco-sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.alco-skip-link {
+  position: absolute;
+  left: var(--space-4);
+  top: calc(-1 * var(--space-8));
+  z-index: var(--z-toast);
+  padding: var(--space-2) var(--space-4);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+  color: var(--color-primary-text);
+  box-shadow: var(--shadow-md);
+  font-weight: var(--font-weight-semibold);
+
+  &:focus {
+    top: var(--space-2);
+  }
+}
+
+// ---- Slots of <alco-page-header> ------------------------------------------------------
+// Projected elements are outside the header's encapsulated styles: the slot containers are
+// styled here, once, so every page gets the same action row.
+[alcoPageActions],
+[alcoPageStatus] {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+// ---- Page skeleton shared by every module screen -----------------------------------
+.alco-page {
+  width: 100%;
+  max-width: var(--content-max-width);
+  margin: 0 auto;
+  padding: var(--space-4) var(--page-gutter) var(--space-7);
+}
+
+.alco-stack {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+
+  // Flex children may shrink below their content: wide tables scroll in their own frame
+  // instead of widening the page.
+  > * {
+    min-width: 0;
+  }
+}

@@ -1,0 +1,108 @@
+:host {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  height: var(--control-height);
+  padding: 0 var(--space-4);
+  border: var(--border-width) solid transparent;
+  border-radius: var(--radius-md);
+  font-size: var(--font-size-body);
+  font-weight: var(--font-weight-medium);
+  line-height: 1;
+  white-space: nowrap;
+  text-decoration: none;
+  cursor: pointer;
+  user-select: none;
+  transition:
+    background-color var(--duration-fast) var(--easing-standard),
+    border-color var(--duration-fast) var(--easing-standard),
+    color var(--duration-fast) var(--easing-standard);
+}
+
+:host(.alco-button--sm) {
+  height: var(--control-height-sm);
+  padding: 0 var(--space-3);
+  font-size: var(--font-size-caption);
+}
+
+:host(.alco-button--icon-only) {
+  width: var(--control-height);
+  padding: 0;
+}
+
+:host(.alco-button--icon-only.alco-button--sm) {
+  width: var(--control-height-sm);
+}
+
+:host(.alco-button--primary) {
+  background: var(--color-primary);
+  color: var(--color-text-inverse);
+
+  &:hover {
+    background: var(--color-primary-hover);
+  }
+
+  &:active {
+    background: var(--color-primary-active);
+  }
+}
+
+:host(.alco-button--secondary) {
+  background: var(--color-surface);
+  border-color: var(--color-border-strong);
+  color: var(--color-text);
+
+  &:hover {
+    background: var(--color-surface-sunken);
+  }
+}
+
+:host(.alco-button--ghost) {
+  background: transparent;
+  color: var(--color-text);
+
+  &:hover {
+    background: var(--color-surface-sunken);
+  }
+}
+
+:host(.alco-button--danger) {
+  background: var(--color-danger);
+  color: var(--color-text-inverse);
+
+  &:hover {
+    background: var(--color-danger-hover);
+  }
+}
+
+:host([disabled]) {
+  cursor: not-allowed;
+  opacity: 0.55;
+  pointer-events: none;
+}
+
+:host([aria-busy='true']) {
+  opacity: 0.85;
+}
+
+.spinner {
+  width: 14px;
+  height: 14px;
+  border: 2px solid currentColor;
+  border-right-color: transparent;
+  border-radius: 50%;
+  animation: alco-spin 0.7s linear infinite;
+}
+
+@keyframes alco-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .spinner {
+    animation-duration: 2s;
+  }
+}

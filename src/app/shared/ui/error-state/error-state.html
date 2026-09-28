@@ -1,0 +1,47 @@
+<span class="error-icon"><alco-icon name="alert-circle" [size]="inline() ? 20 : 28" /></span>
+<div class="error-body">
+  <h2 class="error-title">{{ title() }}</h2>
+  @if (message()) {
+    <p>{{ message() }}</p>
+  }
+
+  @if (helpOpen() && help()) {
+    <p class="error-help" [id]="'help-' + code()">{{ help() }}</p>
+  }
+
+  <div class="error-actions">
+    @if (help()) {
+      <button
+        alcoButton
+        type="button"
+        size="sm"
+        variant="ghost"
+        [attr.aria-expanded]="helpOpen()"
+        (click)="helpOpen.set(!helpOpen())"
+      >
+        {{ helpOpen() ? 'Masquer l’explication' : 'Comprendre l’erreur' }}
+      </button>
+    }
+    @if (retryLabel()) {
+      <button alcoButton type="button" size="sm" icon="refresh" (click)="retry.emit()">
+        {{ retryLabel() }}
+      </button>
+    }
+  </div>
+
+  @if (code() || correlationId()) {
+    <details class="error-technical">
+      <summary>Détails techniques (support)</summary>
+      <dl>
+        @if (code()) {
+          <dt>Code</dt>
+          <dd>{{ code() }}</dd>
+        }
+        @if (correlationId()) {
+          <dt>Référence</dt>
+          <dd>{{ correlationId() }}</dd>
+        }
+      </dl>
+    </details>
+  }
+</div>

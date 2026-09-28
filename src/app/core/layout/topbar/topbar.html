@@ -1,0 +1,86 @@
+<header class="bar">
+  <div class="start">
+    @if (app(); as current) {
+      <a class="icon-link" routerLink="/" aria-label="Toutes les applications" title="Applications">
+        <alco-icon name="apps" [size]="20" />
+      </a>
+    }
+    <a
+      class="brand"
+      [class.brand--in-app]="!!app()"
+      routerLink="/"
+      aria-label="Alco Consulting — accueil des applications"
+    >
+      <alco-logo />
+    </a>
+    @if (app(); as current) {
+      <span class="divider" aria-hidden="true"></span>
+      <span class="app-name">
+        <span class="app-mark" [attr.data-family]="current.family">
+          <alco-icon [name]="current.icon" [size]="16" />
+        </span>
+        {{ current.label }}
+      </span>
+    }
+  </div>
+
+  <div class="end">
+    @if (session.activeCompany(); as company) {
+      <alco-dropdown
+        trigger="topbar"
+        mode="single"
+        align="end"
+        icon="company"
+        heading="Société active"
+        [items]="companyItems()"
+        [ariaLabel]="'Société active : ' + company.name + '. Changer de société'"
+        (selected)="onCompanySelected($event)"
+      >
+        <span class="company">
+          <span class="company-name">{{ company.name }}</span>
+          <span class="company-context">{{ company.fiscalYearLabel }}</span>
+        </span>
+      </alco-dropdown>
+    }
+
+    <alco-dropdown
+      trigger="topbar"
+      align="end"
+      icon="help"
+      ariaLabel="Aide"
+      [showChevron]="false"
+      [items]="helpItems"
+      (selected)="onHelpSelected($event)"
+    />
+
+    <span class="bell">
+      <alco-dropdown
+        trigger="topbar"
+        align="end"
+        icon="bell"
+        heading="Notifications"
+        [ariaLabel]="unread() > 0 ? 'Notifications, ' + unread() + ' non lues' : 'Notifications'"
+        [showChevron]="false"
+        [items]="notificationItems()"
+        (selected)="onNotificationSelected($event)"
+      />
+      @if (unread() > 0) {
+        <span class="bell-count" aria-hidden="true">{{ unread() }}</span>
+      }
+    </span>
+
+    @if (session.user(); as user) {
+      <alco-dropdown
+        trigger="topbar"
+        align="end"
+        [heading]="user.displayName"
+        [subheading]="user.email"
+        [ariaLabel]="'Compte de ' + user.displayName"
+        [showChevron]="false"
+        [items]="userItems"
+      >
+        <span class="avatar" aria-hidden="true">{{ session.initials() }}</span>
+      </alco-dropdown>
+    }
+  </div>
+</header>

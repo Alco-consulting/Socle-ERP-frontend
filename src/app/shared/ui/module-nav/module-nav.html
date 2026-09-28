@@ -1,0 +1,33 @@
+<nav class="nav" [attr.aria-label]="label()">
+  <ul class="entries" role="list">
+    @for (entry of entries(); track entry.label) {
+      <li>
+        @if (entry.children) {
+          <alco-dropdown
+            trigger="nav"
+            mode="single"
+            [class.group-active]="groupActive(entry)"
+            [items]="groupItems(entry)"
+          >
+            {{ entry.label }}
+          </alco-dropdown>
+        } @else if (entry.url) {
+          <a
+            class="link"
+            [routerLink]="entry.url"
+            routerLinkActive="active"
+            ariaCurrentWhenActive="page"
+          >
+            {{ entry.label }}
+          </a>
+        }
+      </li>
+    }
+  </ul>
+
+  <div class="compact">
+    <alco-dropdown trigger="nav" mode="single" [items]="compactItems()" ariaLabel="Menu du module">
+      {{ currentLabel() }}
+    </alco-dropdown>
+  </div>
+</nav>

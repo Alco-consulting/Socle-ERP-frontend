@@ -1,0 +1,93 @@
+@if (trigger() === 'topbar' || trigger() === 'nav') {
+  <button
+    type="button"
+    [class]="trigger() + '-trigger'"
+    [cdkMenuTriggerFor]="menu"
+    [cdkMenuPosition]="align() === 'end' ? positionsEnd : positionsStart"
+    [attr.aria-label]="ariaLabel()"
+  >
+    @if (icon(); as name) {
+      <alco-icon [name]="name" [size]="20" />
+    }
+    <ng-container *ngTemplateOutlet="projected" />
+    @if (showChevron()) {
+      <alco-icon class="chevron" name="chevron-down" [size]="16" />
+    }
+  </button>
+} @else {
+  <button
+    alcoButton
+    type="button"
+    [variant]="buttonVariant()"
+    [size]="size()"
+    [icon]="icon()"
+    [iconOnly]="iconOnly()"
+    [trailingIcon]="showChevron() && !iconOnly() ? 'chevron-down' : undefined"
+    [cdkMenuTriggerFor]="menu"
+    [cdkMenuPosition]="align() === 'end' ? positionsEnd : positionsStart"
+    [attr.aria-label]="ariaLabel()"
+  >
+    <ng-container *ngTemplateOutlet="projected" />
+  </button>
+}
+
+<ng-template #projected><ng-content /></ng-template>
+
+<ng-template #menu>
+  <div class="menu" cdkMenu>
+    @if (heading()) {
+      <div class="menu-heading">
+        <strong>{{ heading() }}</strong>
+        @if (subheading()) {
+          <span>{{ subheading() }}</span>
+        }
+      </div>
+    }
+    @for (item of items(); track item.id) {
+      @if (item.dividerBefore) {
+        <div class="menu-divider" role="separator"></div>
+      }
+      @if (mode() === 'single') {
+        <button
+          type="button"
+          class="menu-item"
+          cdkMenuItemRadio
+          [cdkMenuItemChecked]="!!item.checked"
+          [cdkMenuItemDisabled]="!!item.disabled"
+          (cdkMenuItemTriggered)="choose(item)"
+        >
+          <span class="menu-check" aria-hidden="true">
+            @if (item.checked) {
+              <alco-icon name="check" [size]="16" />
+            }
+          </span>
+          <span class="menu-text">
+            {{ item.label }}
+            @if (item.description) {
+              <span class="menu-description">{{ item.description }}</span>
+            }
+          </span>
+        </button>
+      } @else {
+        <button
+          type="button"
+          class="menu-item"
+          [class.menu-item--danger]="item.danger"
+          cdkMenuItem
+          [cdkMenuItemDisabled]="!!item.disabled"
+          (cdkMenuItemTriggered)="choose(item)"
+        >
+          @if (item.icon) {
+            <alco-icon [name]="item.icon" [size]="16" />
+          }
+          <span class="menu-text">
+            {{ item.label }}
+            @if (item.description) {
+              <span class="menu-description">{{ item.description }}</span>
+            }
+          </span>
+        </button>
+      }
+    }
+  </div>
+</ng-template>

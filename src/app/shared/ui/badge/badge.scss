@@ -1,0 +1,44 @@
+:host {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  height: 22px;
+  padding: 0 var(--space-2);
+  border: var(--border-width) solid transparent;
+  border-radius: var(--radius-pill);
+  font-size: var(--font-size-caption);
+  font-weight: var(--font-weight-medium);
+  line-height: 1;
+  white-space: nowrap;
+}
+
+:host(.alco-badge--neutral) {
+  background: var(--color-neutral-soft);
+  border-color: var(--color-border);
+  color: var(--color-neutral-text);
+}
+
+:host(.alco-badge--info) {
+  background: var(--color-info-soft);
+  color: var(--color-info-text);
+}
+
+:host(.alco-badge--warning) {
+  background: var(--color-warning-soft);
+  color: var(--color-warning-text);
+}
+
+:host(.alco-badge--success) {
+  background: var(--color-success-soft);
+  color: var(--color-success-text);
+}
+
+:host(.alco-badge--danger) {
+  background: var(--color-danger-soft);
+  color: var(--color-danger-text);
+}
+
+:host(.alco-badge--primary) {
+  background: var(--color-primary-soft);
+  color: var(--color-primary-text);
+}

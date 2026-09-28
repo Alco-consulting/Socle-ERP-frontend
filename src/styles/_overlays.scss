@@ -1,0 +1,20 @@
+// Overlay surfaces rendered by the Angular CDK outside component trees (dialogs, menus).
+// Their content keeps its component styles; only the containers are themed here.
+
+.cdk-overlay-container {
+  z-index: var(--z-dropdown);
+}
+
+.alco-dialog-backdrop {
+  background: var(--color-overlay);
+}
+
+.alco-dialog-panel {
+  z-index: var(--z-modal);
+  max-width: calc(100vw - 2 * var(--space-4));
+  max-height: calc(100vh - 2 * var(--space-6));
+}
+
+.cdk-dialog-container {
+  outline: none;
+}

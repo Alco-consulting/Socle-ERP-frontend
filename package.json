@@ -1,0 +1,46 @@
+{
+  "name": "alco-frontend",
+  "version": "0.0.0",
+  "scripts": {
+    "ng": "ng",
+    "start": "ng serve",
+    "build": "ng build",
+    "watch": "ng build --watch --configuration development",
+    "test": "ng test --watch=false",
+    "lint": "eslint . && stylelint \"src/**/*.scss\" && prettier --check \"src/**/*.{ts,html,scss}\" \"e2e/**/*.ts\"",
+    "format": "prettier --write \"src/**/*.{ts,html,scss}\" \"e2e/**/*.ts\"",
+    "e2e": "playwright test",
+    "captures": "playwright test --project=captures"
+  },
+  "private": true,
+  "packageManager": "npm@11.5.2",
+  "dependencies": {
+    "@angular/cdk": "^21.2.14",
+    "@angular/common": "^21.2.0",
+    "@angular/compiler": "^21.2.0",
+    "@angular/core": "^21.2.0",
+    "@angular/forms": "^21.2.0",
+    "@angular/platform-browser": "^21.2.0",
+    "@angular/router": "^21.2.0",
+    "@fontsource-variable/inter": "^5.3.0",
+    "rxjs": "~7.8.0",
+    "tslib": "^2.3.0"
+  },
+  "devDependencies": {
+    "@angular/build": "^21.2.24",
+    "@angular/cli": "^21.2.24",
+    "@angular/compiler-cli": "^21.2.0",
+    "@axe-core/playwright": "^4.13.0",
+    "@eslint/js": "^10.0.1",
+    "@playwright/test": "^1.63.0",
+    "angular-eslint": "^21.4.0",
+    "eslint": "^10.11.0",
+    "jsdom": "^28.0.0",
+    "postcss-scss": "^4.0.9",
+    "prettier": "^3.8.1",
+    "stylelint": "^17.15.0",
+    "typescript": "~5.9.2",
+    "typescript-eslint": "^8.71.0",
+    "vitest": "^4.0.8"
+  }
+}

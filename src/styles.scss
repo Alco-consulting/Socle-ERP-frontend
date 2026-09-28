@@ -1,0 +1,7 @@
+// Global stylesheet: tokens first, then base rules and the CDK primitives we rely on.
+@use '@fontsource-variable/inter';
+@use '@angular/cdk/overlay-prebuilt.css';
+@use 'tokens';
+@use 'base';
+@use 'overlays';
+@use 'forms';

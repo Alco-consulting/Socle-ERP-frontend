@@ -1,0 +1,130 @@
+<div class="scroll" tabindex="0" role="region" [attr.aria-label]="caption()">
+  <table>
+    <caption class="alco-sr-only">
+      {{
+        caption()
+      }}
+    </caption>
+    <thead>
+      <tr>
+        @if (selectable()) {
+          <th scope="col" class="select-cell">
+            <input
+              type="checkbox"
+              aria-label="Sélectionner toutes les lignes affichées"
+              [checked]="allSelected()"
+              [indeterminate]="someSelected()"
+              (change)="toggleAll()"
+            />
+          </th>
+        }
+        @for (column of columns(); track column.key) {
+          <th
+            scope="col"
+            [class.num]="column.numeric"
+            [class]="column.hideBelow ? 'hide-below-' + column.hideBelow : ''"
+            [style.width]="column.width ?? null"
+            [attr.aria-sort]="ariaSort(column)"
+          >
+            @if (column.sortable) {
+              <button type="button" class="sort" (click)="toggleSort(column)">
+                {{ column.label }}
+                @switch (ariaSort(column)) {
+                  @case ('ascending') {
+                    <alco-icon name="arrow-up" [size]="14" />
+                  }
+                  @case ('descending') {
+                    <alco-icon name="arrow-down" [size]="14" />
+                  }
+                  @default {
+                    <alco-icon class="sort-idle" name="sort" [size]="14" />
+                  }
+                }
+              </button>
+            } @else {
+              {{ column.label }}
+            }
+          </th>
+        }
+      </tr>
+    </thead>
+
+    @for (group of sections(); track group.key) {
+      <tbody>
+        @if (isGrouped()) {
+          <tr class="group-row">
+            <th scope="colgroup" [attr.colspan]="columnCount()">
+              <button
+                type="button"
+                class="group-toggle"
+                [attr.aria-expanded]="!collapsed().has(group.key)"
+                (click)="toggleGroup(group.key)"
+              >
+                <alco-icon
+                  [name]="collapsed().has(group.key) ? 'chevron-right' : 'chevron-down'"
+                  [size]="16"
+                />
+                {{ group.label }}
+                <span class="group-count">({{ group.rows.length }})</span>
+              </button>
+            </th>
+          </tr>
+        }
+        @if (!collapsed().has(group.key)) {
+          @for (row of group.rows; track rowId()(row)) {
+            <tr
+              [class.selected]="isSelected(row)"
+              [class.clickable]="clickableRows()"
+              (click)="onRowClick($event, row)"
+            >
+              @if (selectable()) {
+                <td class="select-cell">
+                  <input
+                    type="checkbox"
+                    [attr.aria-label]="'Sélectionner ' + rowLabel()(row)"
+                    [checked]="isSelected(row)"
+                    (change)="toggleRow(row)"
+                  />
+                </td>
+              }
+              @for (column of columns(); track column.key) {
+                <td
+                  [class.num]="column.numeric"
+                  [class]="column.hideBelow ? 'hide-below-' + column.hideBelow : ''"
+                >
+                  @if (cellTemplates().get(column.key); as template) {
+                    <ng-container *ngTemplateOutlet="template; context: { $implicit: row }" />
+                  } @else {
+                    {{ cellValue(row, column.key) }}
+                  }
+                </td>
+              }
+            </tr>
+          }
+        }
+      </tbody>
+    }
+
+    @if (totals(); as totalRow) {
+      <tfoot>
+        <tr>
+          @if (selectable()) {
+            <td></td>
+          }
+          @for (column of columns(); track column.key; let first = $first) {
+            <td
+              [class.num]="column.numeric"
+              [class]="column.hideBelow ? 'hide-below-' + column.hideBelow : ''"
+            >
+              @if (first && !totalRow[column.key]) {
+                {{ totalsLabel() }}
+              } @else {
+                {{ totalRow[column.key] }}
+              }
+            </td>
+          }
+        </tr>
+      </tfoot>
+    }
+  </table>
+</div>

@@ -1,0 +1,63 @@
+@if (hasFilters()) {
+  <button
+    alcoButton
+    type="button"
+    icon="filter"
+    trailingIcon="chevron-down"
+    cdkOverlayOrigin
+    #origin="cdkOverlayOrigin"
+    aria-haspopup="dialog"
+    [attr.aria-expanded]="panelOpen()"
+    (click)="togglePanel()"
+  >
+    {{ filterLabel() }}
+  </button>
+
+  <ng-template
+    cdkConnectedOverlay
+    [cdkConnectedOverlayOrigin]="origin"
+    [cdkConnectedOverlayOpen]="panelOpen()"
+    [cdkConnectedOverlayPositions]="panelPositions"
+    (overlayOutsideClick)="onOutsideClick($event)"
+    (detach)="closePanel()"
+  >
+    <div
+      class="panel"
+      role="dialog"
+      aria-label="Filtres"
+      cdkTrapFocus
+      [cdkTrapFocusAutoCapture]="true"
+      (keydown)="onKeydown($event)"
+    >
+      <h2 class="alco-section-title">Filtres</h2>
+      <div class="fields"><ng-content select="[alcoFilterFields]" /></div>
+      <div class="panel-actions">
+        <button alcoButton type="button" variant="ghost" (click)="cleared.emit()">
+          Réinitialiser
+        </button>
+        <button alcoButton type="button" variant="primary" (click)="apply()">Appliquer</button>
+      </div>
+    </div>
+  </ng-template>
+}
+
+@if (groupOptions().length > 0) {
+  <alco-dropdown
+    icon="group"
+    mode="single"
+    [items]="groupItems()"
+    (selected)="onGroupSelected($event)"
+  >
+    Regrouper
+  </alco-dropdown>
+}
+
+@if (favorites().length > 0) {
+  <alco-dropdown
+    icon="star"
+    [items]="favoriteItems()"
+    (selected)="favoriteSelected.emit($event.id)"
+  >
+    Favoris
+  </alco-dropdown>
+}

@@ -1,0 +1,38 @@
+<div class="box" role="search">
+  <alco-icon class="search-icon" name="search" [size]="18" />
+  @if (facets().length > 0) {
+    <ul class="facets" role="list" aria-label="Critères actifs">
+      @for (facet of facets(); track facet.id) {
+        <li [class]="'facet facet--' + facet.kind">
+          <alco-icon [name]="icons[facet.kind]" [size]="14" />
+          <span class="facet-label">{{ facet.label }}</span>
+          <span class="facet-value">{{ facet.value }}</span>
+          <button
+            type="button"
+            class="facet-remove"
+            [attr.aria-label]="'Retirer le critère ' + facet.label + ' : ' + facet.value"
+            (click)="facetRemoved.emit(facet); $event.stopPropagation()"
+          >
+            <alco-icon name="close" [size]="12" />
+          </button>
+        </li>
+      }
+    </ul>
+  }
+  <input
+    #field
+    type="search"
+    class="input"
+    autocomplete="off"
+    [value]="query()"
+    [placeholder]="placeholder()"
+    [attr.aria-label]="label()"
+    (input)="onInput($event)"
+    (keydown)="onKeydown($event)"
+  />
+  @if (query()) {
+    <button type="button" class="clear" aria-label="Effacer la recherche" (click)="clear(field)">
+      <alco-icon name="close" [size]="14" />
+    </button>
+  }
+</div>

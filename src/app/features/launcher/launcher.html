@@ -1,0 +1,62 @@
+<div class="sticky"><alco-topbar /></div>
+
+<main id="contenu" class="launcher" tabindex="-1">
+  <header class="intro">
+    @if (firstName()) {
+      <p class="greeting">Bonjour {{ firstName() }}</p>
+    }
+    <h1 class="alco-page-title">Sélectionnez une application</h1>
+    @if (session.activeCompany(); as company) {
+      <p class="context">
+        <alco-icon name="company" [size]="16" />
+        {{ company.name }} · {{ company.fiscalYearLabel }} ·
+        {{ applications().length }}
+        {{ applications().length > 1 ? 'applications disponibles' : 'application disponible' }}
+      </p>
+    }
+  </header>
+
+  @if (showSearch()) {
+    <div class="search">
+      <alco-icon name="search" [size]="18" />
+      <input
+        type="search"
+        placeholder="Rechercher une application (ex. banque, TVA, clients)"
+        aria-label="Rechercher une application"
+        aria-controls="launcher-grid"
+        autocomplete="off"
+        [value]="query()"
+        (input)="onSearchInput($event)"
+        (keydown.enter)="openFirst()"
+      />
+    </div>
+  }
+
+  @if (results().length > 0) {
+    <ul id="launcher-grid" class="grid" role="list" aria-label="Applications">
+      @for (app of results(); track app.id) {
+        <li>
+          <a class="tile" [routerLink]="homeUrl(app)">
+            <span class="tile-icon" [attr.data-family]="app.family">
+              <alco-icon [name]="app.icon" [size]="30" />
+            </span>
+            <span class="tile-label">{{ app.label }}</span>
+            <span class="tile-description">{{ app.description }}</span>
+          </a>
+        </li>
+      }
+    </ul>
+  } @else if (applications().length === 0) {
+    <alco-empty-state
+      icon="lock"
+      title="Aucune application disponible dans cette société."
+      message="Demandez à un administrateur de vous donner accès, ou choisissez une autre société en haut à droite."
+    />
+  } @else {
+    <alco-empty-state
+      icon="search"
+      title="Aucune application ne correspond à « {{ query() }} »."
+      message="Essayez un autre mot : comptabilité, banque, TVA, clients…"
+    />
+  }
+</main>

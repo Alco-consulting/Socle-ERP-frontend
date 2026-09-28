@@ -1,0 +1,236 @@
+<div class="sticky"><alco-topbar /></div>
+
+<main id="contenu" class="alco-page alco-stack" tabindex="-1">
+  <alco-breadcrumb
+    [items]="[{ label: 'Applications', url: '/' }, { label: 'Catalogue du design system' }]"
+  />
+  <alco-page-header
+    title="Catalogue du design system"
+    subtitle="Tokens, composants et états d’écran d’Alco. Tous les exemples sont fictifs."
+  />
+
+  <nav class="toc" aria-label="Sommaire du catalogue">
+    <a href="#couleurs" (click)="$event.preventDefault(); couleurs.scrollIntoView()">Couleurs</a>
+    <a href="#typographie" (click)="$event.preventDefault(); typographie.scrollIntoView()"
+      >Typographie</a
+    >
+    <a href="#actions" (click)="$event.preventDefault(); actions.scrollIntoView()">Actions</a>
+    <a href="#etats" (click)="$event.preventDefault(); etats.scrollIntoView()">États</a>
+    <a href="#formulaires" (click)="$event.preventDefault(); formulaires.scrollIntoView()"
+      >Formulaires</a
+    >
+    <a href="#donnees" (click)="$event.preventDefault(); donnees.scrollIntoView()">Données</a>
+  </nav>
+
+  <!-- Colors -->
+  <section #couleurs id="couleurs" class="block" aria-labelledby="t-colors">
+    <h2 id="t-colors" class="alco-section-title">Couleurs</h2>
+    @for (group of swatches; track group.group) {
+      <h3 class="alco-subtitle">{{ group.group }}</h3>
+      <ul class="swatches" role="list">
+        @for (swatch of group.items; track swatch.token) {
+          <li class="swatch">
+            <span class="chip" [style.background]="'var(' + swatch.token + ')'"></span>
+            <code>{{ swatch.token }}</code>
+            <span class="alco-caption">{{ swatch.role }}</span>
+          </li>
+        }
+      </ul>
+    }
+  </section>
+
+  <!-- Typography -->
+  <section #typographie id="typographie" class="block" aria-labelledby="t-type">
+    <h2 id="t-type" class="alco-section-title">Typographie</h2>
+    <alco-card>
+      <div class="type-scale">
+        <p class="alco-page-title">Titre de page — Écritures</p>
+        <p class="alco-section-title">Titre de section — Informations générales</p>
+        <p class="alco-subtitle">Sous-titre — Exercice 2026</p>
+        <p>Corps de texte — Une écriture validée ne peut plus être modifiée.</p>
+        <p class="alco-caption">Légende — Données fictives du prototype.</p>
+        <p class="alco-figure">1 250 000</p>
+      </div>
+    </alco-card>
+  </section>
+
+  <!-- Actions -->
+  <section #actions id="actions" class="block" aria-labelledby="t-actions">
+    <h2 id="t-actions" class="alco-section-title">Actions et hiérarchie</h2>
+    <alco-card title="Boutons" subtitle="Une seule action principale par écran, placée en dernier.">
+      <div class="row">
+        <button alcoButton type="button" variant="primary" icon="plus">Nouveau</button>
+        <button alcoButton type="button">Modifier</button>
+        <button alcoButton type="button" icon="check">Valider</button>
+        <alco-dropdown [items]="actionItems">Actions</alco-dropdown>
+        <button alcoButton type="button" variant="ghost">Annuler</button>
+        <button alcoButton type="button" variant="danger" icon="trash">Supprimer</button>
+      </div>
+      <div class="row">
+        <button
+          alcoButton
+          type="button"
+          variant="primary"
+          [loading]="busy()"
+          loadingLabel="Validation en cours…"
+          (click)="simulateBusy()"
+        >
+          Valider (cliquer pour l’état « en cours »)
+        </button>
+        <button alcoButton type="button" [disabled]="true">Désactivé</button>
+        <button alcoButton type="button" size="sm" icon="refresh">Petit</button>
+        <button alcoButton type="button" variant="ghost" icon="edit" [iconOnly]="true">
+          Modifier
+        </button>
+      </div>
+    </alco-card>
+    <alco-card
+      title="États (badges)"
+      subtitle="Toujours un texte et un pictogramme, jamais la couleur seule."
+    >
+      <div class="row">
+        @for (status of statuses; track status) {
+          <alco-badge [status]="status" />
+        }
+      </div>
+      <div class="workflow">
+        <alco-workflow-steps
+          [steps]="[
+            { id: 'draft', label: 'Brouillon' },
+            { id: 'pending', label: 'En attente' },
+            { id: 'validated', label: 'Validé' },
+            { id: 'closed', label: 'Clôturé' },
+          ]"
+          current="validated"
+          label="Exemple de workflow"
+        />
+      </div>
+    </alco-card>
+  </section>
+
+  <!-- States -->
+  <section #etats id="etats" class="block" aria-labelledby="t-states">
+    <h2 id="t-states" class="alco-section-title">États d’écran</h2>
+    <div class="grid">
+      <alco-card title="Chargement" subtitle="Squelette local, jamais un chargeur plein écran.">
+        <alco-loading variant="table" [rows]="3" [columns]="4" />
+      </alco-card>
+      <alco-card
+        title="Liste vide"
+        subtitle="Explique et propose l’action utile (selon les droits)."
+      >
+        <alco-empty-state
+          title="Aucune écriture trouvée."
+          message="Commencez par créer votre première écriture."
+        >
+          <button alcoButton type="button" variant="primary" icon="plus">Nouvelle écriture</button>
+        </alco-empty-state>
+      </alco-card>
+      <alco-card title="Erreur (bloc)" subtitle="Message humain, explication à la demande.">
+        <alco-error-state
+          title="Impossible de valider cette écriture."
+          message="Le total Débit ne correspond pas au total Crédit."
+          help="Une écriture est validée seulement si la somme des débits est égale à la somme des crédits. Corrigez un montant, enregistrez, puis validez à nouveau."
+          code="accounting_entry_unbalanced"
+          correlationId="exemple-7f3a"
+        />
+      </alco-card>
+      <alco-card title="Erreur (dans un formulaire)" subtitle="Bandeau au-dessus du formulaire.">
+        <alco-error-state
+          [inline]="true"
+          title="Certaines informations sont manquantes ou incorrectes."
+          message="Corrigez les champs signalés en rouge, puis enregistrez à nouveau."
+        />
+        <div class="spacer"></div>
+        <alco-error-state
+          title="Le serveur ne répond pas."
+          message="Vérifiez votre connexion internet puis réessayez."
+          retryLabel="Réessayer"
+          [inline]="true"
+        />
+      </alco-card>
+      <alco-card title="Notifications" subtitle="Retour bref après une action.">
+        <div class="row">
+          <button alcoButton type="button" size="sm" (click)="showToast('success')">Succès</button>
+          <button alcoButton type="button" size="sm" (click)="showToast('info')">
+            Information
+          </button>
+          <button alcoButton type="button" size="sm" (click)="showToast('warning')">
+            Avertissement
+          </button>
+          <button alcoButton type="button" size="sm" (click)="showToast('danger')">Erreur</button>
+        </div>
+      </alco-card>
+      <alco-card title="Confirmation" subtitle="Pour les actions sensibles uniquement.">
+        <div class="row">
+          <button alcoButton type="button" size="sm" (click)="confirm('primary')">Valider…</button>
+          <button alcoButton type="button" size="sm" (click)="confirm('danger')">Supprimer…</button>
+        </div>
+        @if (confirmResult()) {
+          <p class="alco-caption result" role="status">{{ confirmResult() }}</p>
+        }
+      </alco-card>
+    </div>
+  </section>
+
+  <!-- Forms -->
+  <section #formulaires id="formulaires" class="block" aria-labelledby="t-forms">
+    <h2 id="t-forms" class="alco-section-title">Formulaires</h2>
+    <alco-card>
+      <div class="alco-form-grid">
+        <alco-form-field
+          label="Libellé"
+          [required]="true"
+          hint="Décrit l’opération en quelques mots."
+        >
+          <input alcoInput [formControl]="requiredField" />
+        </alco-form-field>
+        <alco-form-field label="Montant (GNF)" hint="Sans décimales pour le franc guinéen.">
+          <input alcoInput [numeric]="true" inputmode="decimal" [formControl]="amountField" />
+        </alco-form-field>
+        <alco-form-field label="Journal">
+          <select alcoSelect>
+            <option>ACH — Achats</option>
+            <option>VTE — Ventes</option>
+          </select>
+        </alco-form-field>
+        <alco-form-field label="Date">
+          <input alcoDatePicker type="date" value="2026-09-28" />
+        </alco-form-field>
+      </div>
+    </alco-card>
+    <alco-card>
+      <alco-tabs
+        label="Exemple d’onglets"
+        [tabs]="[
+          { id: 'first', label: 'Lignes comptables', count: 3 },
+          { id: 'second', label: 'Pièces justificatives', count: 0 },
+          { id: 'third', label: 'Informations avancées' },
+        ]"
+        [(selected)]="tab"
+      >
+        <ng-template alcoTabPanel="first"><p>Contenu du premier onglet.</p></ng-template>
+        <ng-template alcoTabPanel="second"><p>Contenu du deuxième onglet.</p></ng-template>
+        <ng-template alcoTabPanel="third"
+          ><p>Champs rarement utiles, masqués par défaut.</p></ng-template
+        >
+      </alco-tabs>
+    </alco-card>
+  </section>
+
+  <!-- Data -->
+  <section #donnees id="donnees" class="block" aria-labelledby="t-data">
+    <h2 id="t-data" class="alco-section-title">Tableaux de montants</h2>
+    <alco-table
+      caption="Exemple de lignes comptables"
+      [columns]="columns"
+      [rows]="rows"
+      [rowId]="rowId"
+      [totals]="{ debit: ('1475000' | alcoAmount: 0), credit: ('1475000' | alcoAmount: 0) }"
+    />
+    <p class="alco-caption">
+      Chiffres alignés à droite, séparateur de milliers, décimales selon la devise, unité dans
+      l’en-tête, ligne de total distincte.
+    </p>
+  </section>
+</main>

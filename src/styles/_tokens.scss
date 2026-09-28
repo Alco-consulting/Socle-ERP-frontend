@@ -1,0 +1,153 @@
+// Alco design tokens — the ONLY place where raw colors, sizes and timings are written.
+// Components consume `var(--…)`; stylelint rejects hex/rgb colors anywhere else.
+// Documented in docs/frontend/design-system.md (section « Design tokens »).
+
+:root {
+  // ---- Colors: neutrals -------------------------------------------------------------
+  --color-bg: #f4f6f9;
+  --color-surface: #ffffff;
+  --color-surface-muted: #f7f9fb;
+  --color-surface-sunken: #edf1f5;
+  --color-border: #d9dfe7;
+  --color-border-strong: #b3bdca;
+
+  --color-text: #14213d;
+  --color-text-muted: #505d6e;
+  --color-text-subtle: #677284;
+  --color-text-inverse: #ffffff;
+
+  // ---- Colors: identity ------------------------------------------------------------
+  --color-primary: #155e8b;
+  --color-primary-hover: #104b70;
+  --color-primary-active: #0c3b58;
+  --color-primary-soft: #e6f0f7;
+  --color-primary-text: #115078;
+
+  --color-brand-night: #0f2238;
+  --color-brand-night-hover: #1b3350;
+  --color-brand-accent: #e3a42b;
+
+  --color-focus-ring: #2f7fd1;
+  --color-overlay: rgba(15, 34, 56, 0.45);
+
+  // ---- Colors: feedback (strong = icons/borders, soft = backgrounds, text = on soft) --
+  --color-success: #1b7a4b;
+  --color-success-soft: #e4f3ea;
+  --color-success-text: #14603a;
+
+  --color-warning: #b25e00;
+  --color-warning-soft: #fdf0db;
+  --color-warning-text: #7f4300;
+
+  --color-danger: #b42318;
+  --color-danger-hover: #93190f;
+  --color-danger-soft: #fdeceb;
+  --color-danger-text: #97190f;
+
+  --color-info: #1f5fad;
+  --color-info-soft: #e7f0fb;
+  --color-info-text: #1a4f91;
+
+  --color-neutral: #5b6778;
+  --color-neutral-soft: #edf0f3;
+  --color-neutral-text: #3b4656;
+
+  // ---- Colors: application families (App Launcher tiles, module mark) ---------------
+  // One color per family of applications, never one random color per application.
+  --app-family-finance: #155e8b; // Comptabilité, Taxes, Analytique
+  --app-family-flows: #0f7a68; // Trésorerie, Emprunts
+  --app-family-relations: #3b55a0; // Tiers, Documents
+  --app-family-steering: #a35a10; // Immobilisations, Reporting, Tableau de bord
+  --app-family-control: #4a5668; // Audit, Imports / Exports, Paramètres
+
+  // ---- Typography --------------------------------------------------------------------
+  --font-family-base:
+    'Inter Variable', 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue',
+    Arial, sans-serif;
+  --font-family-mono: ui-monospace, 'Cascadia Mono', 'Segoe UI Mono', Consolas, monospace;
+
+  --font-size-page-title: 1.375rem; // 22px
+  --font-size-section-title: 1rem; // 16px
+  --font-size-subtitle: 0.875rem; // 14px, semibold
+  --font-size-body: 0.875rem; // 14px
+  --font-size-caption: 0.75rem; // 12px
+  --font-size-figure: 1.5rem; // 24px, dashboard figures only
+
+  --font-weight-regular: 400;
+  --font-weight-medium: 500;
+  --font-weight-semibold: 600;
+
+  --line-height-tight: 1.25;
+  --line-height-base: 1.5;
+
+  // ---- Spacing (4px grid) ---------------------------------------------------------------
+  --space-0: 0;
+  --space-1: 0.25rem; // 4
+  --space-2: 0.5rem; // 8
+  --space-3: 0.75rem; // 12
+  --space-4: 1rem; // 16
+  --space-5: 1.5rem; // 24
+  --space-6: 2rem; // 32
+  --space-7: 3rem; // 48
+  --space-8: 4rem; // 64
+
+  // ---- Radius ---------------------------------------------------------------------------
+  --radius-sm: 4px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+  --radius-xl: 16px;
+  --radius-pill: 999px;
+
+  // ---- Borders -------------------------------------------------------------------------
+  --border-width: 1px;
+  --focus-ring-width: 2px;
+  --focus-ring-offset: 2px;
+
+  // ---- Shadows --------------------------------------------------------------------------
+  --shadow-sm: 0 1px 2px rgba(15, 34, 56, 0.06), 0 1px 1px rgba(15, 34, 56, 0.04);
+  --shadow-md: 0 4px 12px rgba(15, 34, 56, 0.08), 0 1px 3px rgba(15, 34, 56, 0.06);
+  --shadow-lg: 0 16px 40px rgba(15, 34, 56, 0.16), 0 2px 6px rgba(15, 34, 56, 0.08);
+
+  // ---- Motion ----------------------------------------------------------------------------
+  --duration-fast: 120ms;
+  --duration-base: 200ms;
+  --easing-standard: cubic-bezier(0.2, 0, 0, 1);
+
+  // ---- Layers ----------------------------------------------------------------------------
+  --z-base: 0;
+  --z-sticky: 100;
+  --z-header: 200;
+  --z-dropdown: 1000;
+  --z-drawer: 1100;
+  --z-modal: 1200;
+  --z-toast: 1300;
+
+  // ---- Standard dimensions ---------------------------------------------------------------
+  --topbar-height: 52px;
+  --module-nav-height: 44px;
+  --prototype-banner-height: 32px;
+  --control-height: 36px;
+  --control-height-sm: 30px;
+  --icon-size-sm: 16px;
+  --icon-size-md: 20px;
+  --icon-size-lg: 24px;
+  --app-icon-size: 64px;
+  --page-gutter: var(--space-5);
+  --content-max-width: 1440px;
+  --form-max-width: 1080px;
+  --launcher-max-width: 920px;
+}
+
+@media (max-width: 767.98px) {
+  :root {
+    --page-gutter: var(--space-4);
+    --app-icon-size: 56px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --duration-fast: 0ms;
+    --duration-base: 0ms;
+  }
+}

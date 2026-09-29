@@ -3,7 +3,7 @@ import { CanActivateChildFn, CanActivateFn, RedirectFunction, Router } from '@an
 
 import { AlcoToastService } from '../../shared/ui/toast/toast.service';
 import { SessionStore } from '../session/session.store';
-import { findApplication, findSection } from './applications';
+import { APP_ROOT, findApplication, findSection } from './applications';
 import { NavigationService } from './navigation.service';
 
 /**
@@ -21,7 +21,7 @@ export const appAccessGuard: CanActivateFn = (route) => {
       ? `Vous n’avez pas accès à l’application ${app.label} dans cette société.`
       : 'Cette application n’existe pas.',
   );
-  return inject(Router).createUrlTree(['/']);
+  return inject(Router).createUrlTree([APP_ROOT]);
 };
 
 /**
@@ -43,7 +43,7 @@ export const screenAccessGuard: CanActivateChildFn = (route, state) => {
     'warning',
     'Cet écran n’est pas disponible pour votre profil ou pour cette société.',
   );
-  return inject(Router).parseUrl(app ? navigation.homeUrl(app) : '/');
+  return inject(Router).parseUrl(app ? navigation.homeUrl(app) : APP_ROOT);
 };
 
 /** Screen reserved to permissions (e.g. `accounting.create` for « Nouvelle écriture »). */
@@ -55,7 +55,7 @@ export function permissionGuard(...permissions: string[]): CanActivateFn {
     }
     inject(AlcoToastService).show('warning', 'Votre profil ne permet pas d’ouvrir cet écran.');
     const parent = state.url.split('?')[0].split('/').slice(0, -1).join('/');
-    return inject(Router).parseUrl(parent || '/');
+    return inject(Router).parseUrl(parent || APP_ROOT);
   };
 }
 
@@ -63,7 +63,7 @@ export function permissionGuard(...permissions: string[]): CanActivateFn {
 export function appHome(appId: string): RedirectFunction {
   return () => {
     const app = findApplication(appId);
-    return app ? inject(NavigationService).homeUrl(app) : '/';
+    return app ? inject(NavigationService).homeUrl(app) : APP_ROOT;
   };
 }
 
@@ -73,6 +73,6 @@ export function sectionHome(appId: string, sectionPath: string): RedirectFunctio
     const navigation = inject(NavigationService);
     const app = findApplication(appId);
     const section = app ? findSection(app, sectionPath) : undefined;
-    return app && section ? navigation.sectionHomeUrl(app, section) : '/';
+    return app && section ? navigation.sectionHomeUrl(app, section) : APP_ROOT;
   };
 }

@@ -1,18 +1,35 @@
 import { Routes } from '@angular/router';
 
+import { authGuard, guestGuard } from './core/auth/auth.guard';
 import { APPLICATION_ROUTES } from './features/prototype/prototype-routes';
 
 /**
- * App Launcher at the root; one shell per application (no global sidebar). The domains
- * of an application (Comptabilité › Trésorerie…) are routes of that application, never
- * applications of their own. Screens not built yet show a placeholder.
+ * - `/login`: public (anonymous visitors);
+ * - `/app`: the authenticated area — App Launcher, then one shell per application
+ *   (`/app/comptabilite/…`), no global sidebar; every screen is lazy-loaded;
+ * - `/design-system`: the living catalogue;
+ * - `/` goes to `/app`.
  */
 export const routes: Routes = [
+  { path: '', pathMatch: 'full', redirectTo: 'app' },
   {
-    path: '',
-    pathMatch: 'full',
-    title: 'Applications',
-    loadComponent: () => import('./features/launcher/launcher').then((m) => m.AlcoLauncher),
+    path: 'login',
+    title: 'Connexion',
+    canActivate: [guestGuard],
+    loadComponent: () => import('./features/auth/login').then((m) => m.LoginPage),
+  },
+  {
+    path: 'app',
+    canActivate: [authGuard],
+    children: [
+      {
+        path: '',
+        pathMatch: 'full',
+        title: 'Applications',
+        loadComponent: () => import('./features/launcher/launcher').then((m) => m.AlcoLauncher),
+      },
+      ...APPLICATION_ROUTES,
+    ],
   },
   {
     path: 'design-system',
@@ -20,7 +37,6 @@ export const routes: Routes = [
     loadComponent: () =>
       import('./features/design-system/catalog').then((m) => m.DesignSystemCatalogPage),
   },
-  ...APPLICATION_ROUTES,
   {
     path: '**',
     title: 'Page introuvable',

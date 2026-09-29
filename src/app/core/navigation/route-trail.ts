@@ -11,7 +11,7 @@ import { Title } from '@angular/platform-browser';
 import { filter, map } from 'rxjs';
 
 import { BreadcrumbItem } from '../../shared/ui/breadcrumb/breadcrumb';
-import { findApplication } from './applications';
+import { APP_ROOT, findApplication } from './applications';
 
 /**
  * Route conventions:
@@ -32,7 +32,7 @@ export function buildTrail(root: ActivatedRouteSnapshot): BreadcrumbItem[] {
       ? findApplication(config.data['appId'] as string)
       : undefined;
     if (app) {
-      items.push({ label: app.label, url: `/${app.path}` });
+      items.push({ label: app.label, url: `${APP_ROOT}/${app.path}` });
     }
     const ownsCrumb =
       config?.data?.['breadcrumb'] !== undefined || config?.resolve?.['breadcrumb'] !== undefined;

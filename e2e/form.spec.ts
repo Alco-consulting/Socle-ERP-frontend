@@ -2,7 +2,7 @@ import { expect, test } from '@playwright/test';
 
 test.describe('Vue formulaire : sections, validation, workflow piloté par le serveur', () => {
   test('saving an incomplete entry points to what is missing', async ({ page }) => {
-    await page.goto('/comptabilite/ecritures/nouvelle');
+    await page.goto('/app/comptabilite/ecritures/nouvelle');
     await page.getByRole('button', { name: 'Enregistrer' }).click();
     await expect(
       page.getByText('Certaines informations sont manquantes ou incorrectes.'),
@@ -13,7 +13,7 @@ test.describe('Vue formulaire : sections, validation, workflow piloté par le se
   });
 
   test('creates a balanced draft, then validates it', async ({ page }) => {
-    await page.goto('/comptabilite/ecritures/nouvelle?journal=ACH');
+    await page.goto('/app/comptabilite/ecritures/nouvelle?journal=ACH');
     await expect(page.getByLabel('Journal')).toHaveValue('ACH');
     await page.getByRole('textbox', { name: 'Libellé', exact: true }).fill('Achat de test (démo)');
     await page.getByLabel('Compte, ligne 1').selectOption('601100');
@@ -24,7 +24,7 @@ test.describe('Vue formulaire : sections, validation, workflow piloté par le se
 
     await page.getByRole('button', { name: 'Enregistrer' }).click();
     await expect(page.getByText(/Brouillon EC-2026-\d{6} enregistré\./)).toBeVisible();
-    await expect(page).toHaveURL(/\/comptabilite\/ecritures\/proto-new-\d+$/);
+    await expect(page).toHaveURL(/\/app\/comptabilite\/ecritures\/proto-new-\d+$/);
 
     await page.getByRole('button', { name: 'Valider', exact: true }).click();
     const dialog = page.getByRole('alertdialog', { name: 'Valider cette écriture ?' });
@@ -41,7 +41,7 @@ test.describe('Vue formulaire : sections, validation, workflow piloté par le se
   test('a server refusal is explained in plain words, the code stays in the details', async ({
     page,
   }) => {
-    await page.goto('/comptabilite/ecritures/proto-050');
+    await page.goto('/app/comptabilite/ecritures/proto-050');
     await expect(page.getByText(/Écart de 30\s000 GNF/)).toBeVisible();
     await page.getByRole('button', { name: 'Valider', exact: true }).click();
     await page.getByRole('button', { name: 'Valider l’écriture' }).click();
@@ -58,7 +58,7 @@ test.describe('Vue formulaire : sections, validation, workflow piloté par le se
   });
 
   test('tabs hold the secondary information', async ({ page }) => {
-    await page.goto('/comptabilite/ecritures/proto-045');
+    await page.goto('/app/comptabilite/ecritures/proto-045');
     await page.getByRole('tab', { name: /Pièces justificatives/ }).click();
     await expect(page.getByText('Aucune pièce justificative.')).toBeVisible();
     await page.getByRole('tab', { name: /Informations avancées/ }).click();

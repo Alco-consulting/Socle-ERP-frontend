@@ -85,6 +85,6 @@ export class AlcoPrototypeBanner {
     this.prototype.applyProfile(profile);
     this.toast.info(`Profil simulé : ${PROTOTYPE_PROFILES[profile].label}.`);
     // Back to the launcher: the visible applications depend on the profile.
-    void this.router.navigateByUrl('/');
+    void this.router.navigateByUrl('/app');
   }
 }

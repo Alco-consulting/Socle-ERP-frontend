@@ -58,7 +58,9 @@ function toRow(partner: Partner): PartnerRow {
       <div alcoPageActions>
         <alco-transfer-actions kind="partners" [count]="rows().length" />
         @if (session.can('partners.create')) {
-          <a alcoButton variant="primary" icon="plus" routerLink="/tiers/nouveau">Nouveau tiers</a>
+          <a alcoButton variant="primary" icon="plus" routerLink="/app/tiers/nouveau"
+            >Nouveau tiers</a
+          >
         }
       </div>
     </alco-page-header>

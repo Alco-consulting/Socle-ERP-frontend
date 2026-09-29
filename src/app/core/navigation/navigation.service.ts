@@ -4,11 +4,13 @@ import { NavEntry } from '../../shared/ui/module-nav/module-nav';
 import { SessionStore } from '../session/session.store';
 import {
   APPLICATIONS,
+  APP_ROOT,
   AlcoApplication,
   AppNavEntry,
   AppSection,
   findSection,
   menuLinks,
+  splitAppUrl,
 } from './applications';
 
 /** A condition on every URL under `path` (relative to its application). */
@@ -74,18 +76,18 @@ export class NavigationService {
 
   /** Whether an absolute URL may be opened (used by the route guard). */
   canOpenUrl(url: string): boolean {
-    const [appPath, ...rest] = url.split(/[?#]/)[0].split('/').filter(Boolean);
-    const app = APPLICATIONS.find((item) => item.path === appPath);
-    if (!app) {
+    const parts = splitAppUrl(url);
+    const app = parts ? APPLICATIONS.find((item) => item.path === parts.app) : undefined;
+    if (!parts || !app) {
       return true;
     }
-    return this.canOpen(app) && this.canOpenPath(app, rest.join('/'));
+    return this.canOpen(app) && this.canOpenPath(app, parts.rest.join('/'));
   }
 
   /** First screen of the application the user may open (the launcher otherwise). */
   homeUrl(app: AlcoApplication): string {
     const first = menuLinks(app.nav).find((link) => this.canOpenPath(app, link.path));
-    return first ? `/${app.path}/${first.path}` : '/';
+    return first ? `${APP_ROOT}/${app.path}/${first.path}` : APP_ROOT;
   }
 
   /**
@@ -96,7 +98,7 @@ export class NavigationService {
     const links = menuLinks(section.nav);
     const first =
       links.find((link) => this.canOpenPath(app, `${section.path}/${link.path}`)) ?? links[0];
-    return first ? `/${app.path}/${section.path}/${first.path}` : this.homeUrl(app);
+    return first ? `${APP_ROOT}/${app.path}/${section.path}/${first.path}` : this.homeUrl(app);
   }
 
   /** Module menu with absolute URLs, without what the user or the company does not use. */
@@ -109,10 +111,10 @@ export class NavigationService {
     return this.buildMenu(app, section.nav, section.path);
   }
 
-  /** The section an URL belongs to (`/comptabilite/tresorerie/operations` → Trésorerie). */
+  /** The section an URL belongs to (`/app/comptabilite/tresorerie/operations` → Trésorerie). */
   sectionOfUrl(app: AlcoApplication, url: string): AppSection | undefined {
-    const [appPath, sectionPath] = url.split(/[?#]/)[0].split('/').filter(Boolean);
-    return appPath === app.path && sectionPath ? findSection(app, sectionPath) : undefined;
+    const parts = splitAppUrl(url);
+    return parts?.app === app.path && parts.rest[0] ? findSection(app, parts.rest[0]) : undefined;
   }
 
   private buildMenu(
@@ -121,7 +123,7 @@ export class NavigationService {
     prefix: string,
   ): readonly NavEntry[] {
     const relative = (path: string) => (prefix ? `${prefix}/${path}` : path);
-    const url = (path: string) => `/${app.path}/${relative(path)}`;
+    const url = (path: string) => `${APP_ROOT}/${app.path}/${relative(path)}`;
     return nav
       .map((entry): NavEntry | null => {
         if (!entry.children) {

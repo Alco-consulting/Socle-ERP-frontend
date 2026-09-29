@@ -2,13 +2,13 @@ import { expect, test } from '@playwright/test';
 
 const SCREENS = [
   { name: 'App Launcher', url: '/' },
-  { name: 'Tableau de bord', url: '/comptabilite/tableau-de-bord' },
-  { name: 'Liste', url: '/comptabilite/ecritures' },
-  { name: 'Formulaire', url: '/comptabilite/ecritures/proto-050' },
-  { name: 'Nouvelle écriture', url: '/comptabilite/ecritures/nouvelle' },
-  { name: 'Trésorerie (domaine de Comptabilité)', url: '/comptabilite/tresorerie/operations' },
-  { name: 'Import d’écritures', url: '/comptabilite/ecritures/import' },
-  { name: 'Tiers', url: '/tiers/liste' },
+  { name: 'Tableau de bord', url: '/app/comptabilite/tableau-de-bord' },
+  { name: 'Liste', url: '/app/comptabilite/ecritures' },
+  { name: 'Formulaire', url: '/app/comptabilite/ecritures/proto-050' },
+  { name: 'Nouvelle écriture', url: '/app/comptabilite/ecritures/nouvelle' },
+  { name: 'Trésorerie (domaine de Comptabilité)', url: '/app/comptabilite/tresorerie/operations' },
+  { name: 'Import d’écritures', url: '/app/comptabilite/ecritures/import' },
+  { name: 'Tiers', url: '/app/tiers/liste' },
   { name: 'Catalogue', url: '/design-system' },
 ];
 
@@ -44,7 +44,7 @@ test.describe('Règles de mise en page', () => {
   test('inside an application: top bar with company, then the module navigation', async ({
     page,
   }) => {
-    await page.goto('/comptabilite/ecritures');
+    await page.goto('/app/comptabilite/ecritures');
     await expect(
       page.getByRole('button', { name: /Société active : ALCO DÉMO SARL/ }),
     ).toBeVisible();

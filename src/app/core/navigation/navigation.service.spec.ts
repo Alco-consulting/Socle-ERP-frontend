@@ -166,11 +166,11 @@ describe('NavigationService', () => {
 
   it('closes the URL of a hidden screen as well (used by the route guard)', () => {
     const navigation = signIn(['accounting.read', 'assets.read'], ['treasury']);
-    expect(navigation.canOpenUrl('/comptabilite/ecritures')).toBe(true);
-    expect(navigation.canOpenUrl('/comptabilite/immobilisations/actifs')).toBe(false); // feature
-    expect(navigation.canOpenUrl('/comptabilite/tresorerie/operations')).toBe(false); // permission
-    expect(navigation.canOpenUrl('/comptabilite/rapports/balance')).toBe(false); // group permission
-    expect(navigation.canOpenUrl('/tiers/liste')).toBe(false); // application
+    expect(navigation.canOpenUrl('/app/comptabilite/ecritures')).toBe(true);
+    expect(navigation.canOpenUrl('/app/comptabilite/immobilisations/actifs')).toBe(false); // feature
+    expect(navigation.canOpenUrl('/app/comptabilite/tresorerie/operations')).toBe(false); // permission
+    expect(navigation.canOpenUrl('/app/comptabilite/rapports/balance')).toBe(false); // group permission
+    expect(navigation.canOpenUrl('/app/tiers/liste')).toBe(false); // application
   });
 
   it('builds the menu of a section and its first screen', () => {
@@ -185,28 +185,28 @@ describe('NavigationService', () => {
       'Plus',
     ]);
     expect(navigation.sectionHomeUrl(accounting(), treasury)).toBe(
-      '/comptabilite/tresorerie/comptes',
+      '/app/comptabilite/tresorerie/comptes',
     );
     expect(
-      navigation.sectionOfUrl(accounting(), '/comptabilite/tresorerie/operations?x=1')?.label,
+      navigation.sectionOfUrl(accounting(), '/app/comptabilite/tresorerie/operations?x=1')?.label,
     ).toBe('Trésorerie');
-    expect(navigation.sectionOfUrl(accounting(), '/comptabilite/ecritures')).toBeUndefined();
+    expect(navigation.sectionOfUrl(accounting(), '/app/comptabilite/ecritures')).toBeUndefined();
   });
 
   it('sends a closed section to its first screen, so that the guard explains why', () => {
     const navigation = signIn(['accounting.read', 'loans.read'], ['treasury']);
     const loans = findSection(accounting(), 'emprunts')!;
     const target = navigation.sectionHomeUrl(accounting(), loans);
-    expect(target).toBe('/comptabilite/emprunts/liste');
+    expect(target).toBe('/app/comptabilite/emprunts/liste');
     expect(navigation.canOpenUrl(target)).toBe(false);
   });
 
   it('starts an application on its first screen the user may open', () => {
     const navigation = signIn(['accounting.read', 'partners.read']);
-    expect(navigation.homeUrl(accounting())).toBe('/comptabilite/tableau-de-bord');
+    expect(navigation.homeUrl(accounting())).toBe('/app/comptabilite/tableau-de-bord');
     expect(navigation.menu(accounting())[1]).toEqual({
       label: 'Écritures',
-      url: '/comptabilite/ecritures',
+      url: '/app/comptabilite/ecritures',
     });
   });
 });

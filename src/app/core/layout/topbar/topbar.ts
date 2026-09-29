@@ -4,7 +4,12 @@ import { Router, RouterLink } from '@angular/router';
 import { AlcoDropdown, DropdownItem } from '../../../shared/ui/dropdown/dropdown';
 import { AlcoIcon } from '../../../shared/ui/icon/icon';
 import { AlcoToastService } from '../../../shared/ui/toast/toast.service';
-import { AlcoApplication } from '../../navigation/applications';
+import { SessionService } from '../../auth/session.service';
+import { CompanyContextService } from '../../company/company-context.service';
+import { APP_CONFIG } from '../../config/app-config';
+import { toUserError } from '../../errors/user-error';
+import { ApiError } from '../../http/api-error';
+import { APP_ROOT, AlcoApplication } from '../../navigation/applications';
 import { NavigationService } from '../../navigation/navigation.service';
 import { NotificationCenter } from '../../notifications/notification-center';
 import { SessionStore } from '../../session/session.store';
@@ -27,17 +32,21 @@ export class AlcoTopbar {
   private readonly toast = inject(AlcoToastService);
   private readonly navigation = inject(NavigationService);
   private readonly router = inject(Router);
+  private readonly companyContext = inject(CompanyContextService);
+  private readonly sessionService = inject(SessionService);
+  private readonly prototype = inject(APP_CONFIG).sessionSource === 'prototype';
 
   /** Current application; absent on the launcher. */
   readonly app = input<AlcoApplication | null>(null);
 
   protected readonly unread = this.notificationCenter.unreadCount;
+  protected readonly home = APP_ROOT;
 
   protected readonly companyItems = computed<readonly DropdownItem[]>(() =>
     this.session.companies().map((company) => ({
       id: company.id,
       label: company.name,
-      description: `${company.fiscalYearLabel} · ${company.currency}`,
+      description: [company.fiscalYearLabel, company.currency].filter(Boolean).join(' · '),
       checked: company.id === this.session.activeCompany()?.id,
     })),
   );
@@ -78,23 +87,50 @@ export class AlcoTopbar {
       id: 'logout',
       label: 'Se déconnecter',
       icon: 'logout',
-      description: 'Inactif dans le prototype',
-      disabled: true,
+      description: this.prototype ? 'Inactif dans le prototype' : undefined,
+      disabled: this.prototype,
       dividerBefore: true,
     },
   ];
 
-  protected onCompanySelected(item: DropdownItem): void {
-    if (item.id !== this.session.activeCompany()?.id) {
-      this.session.switchCompany(item.id);
-      this.toast.info(`Société active : ${item.label}.`);
-      // Menus depend on the company (permissions, domains it uses): restart from the home
-      // of the current application when it is still available, from the launcher otherwise.
-      const app = this.app();
-      void this.router.navigateByUrl(
-        app && this.navigation.canOpen(app) ? this.navigation.homeUrl(app) : '/',
-      );
+  protected async onCompanySelected(item: DropdownItem): Promise<void> {
+    if (item.id === this.session.activeCompany()?.id) {
+      return;
     }
+    try {
+      // The server returns the permissions of the chosen company with it.
+      await this.companyContext.select(item.id);
+    } catch (failure) {
+      this.report(failure);
+      return;
+    }
+    this.toast.info(`Société active : ${item.label}.`);
+    // Menus depend on the company (permissions, domains it uses): restart from the home
+    // of the current application when it is still available, from the launcher otherwise.
+    const app = this.app();
+    void this.router.navigateByUrl(
+      app && this.navigation.canOpen(app) ? this.navigation.homeUrl(app) : APP_ROOT,
+    );
+  }
+
+  protected async onUserSelected(item: DropdownItem): Promise<void> {
+    if (item.id !== 'logout') {
+      return;
+    }
+    try {
+      await this.sessionService.logout();
+    } catch (failure) {
+      this.report(failure);
+    }
+  }
+
+  /** An ended session is explained by the login screen: no second message here. */
+  private report(failure: unknown): void {
+    if (failure instanceof ApiError && failure.kind === 'unauthenticated') {
+      return;
+    }
+    const error = toUserError(failure);
+    this.toast.error(`${error.title} ${error.message}`);
   }
 
   protected onNotificationSelected(item: DropdownItem): void {

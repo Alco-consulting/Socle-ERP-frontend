@@ -6,23 +6,30 @@ export interface SessionUser {
 }
 
 export interface CompanySummary {
+  /** `public_id` of the company: the value of `X-Company-ID`. */
   readonly id: string;
   readonly name: string;
-  /** « Exercice 2026 » — shown next to the company in the top bar. */
+  /** « Exercice 2026 » — shown next to the company in the top bar; empty when unknown. */
   readonly fiscalYearLabel: string;
   readonly currency: string;
-  /** Permissions of the user in this company (backend codes, e.g. `accounting.read`). */
+  /**
+   * Permissions of the user in this company (backend codes, e.g. `accounting.read`). The API
+   * returns them for the current company only: other companies get theirs when selected.
+   */
   readonly permissions: readonly string[];
   /**
    * Optional functional domains the company uses (`treasury`, `assets`, `loans`, `taxes`,
    * `analytics`): a services company without fixed assets never sees « Immobilisations ».
-   * Simulated by the prototype; the real company configuration is not built yet.
+   * `null` = not configured, nothing hidden (the backend has no such setting yet; the
+   * prototype simulates it).
    */
-  readonly features: readonly string[];
+  readonly features: readonly string[] | null;
 }
 
 export interface SessionSnapshot {
   readonly user: SessionUser;
+  /** Permissions granted outside any company (`users.read`…), from `auth/me/`. */
+  readonly globalPermissions?: readonly string[];
   readonly companies: readonly CompanySummary[];
   readonly activeCompanyId: string;
 }
@@ -30,7 +37,7 @@ export interface SessionSnapshot {
 /**
  * Who is connected, in which company, with which permissions. UX only: hiding what the
  * user cannot do. The backend remains the authority on every request.
- * Filled by the prototype today; by `auth/me` and `company-context/` in Module F2.
+ * Filled by `SessionService` (API mode) or by the prototype (simulated session).
  */
 @Injectable({ providedIn: 'root' })
 export class SessionStore {
@@ -42,8 +49,13 @@ export class SessionStore {
     const state = this.state();
     return state?.companies.find((company) => company.id === state.activeCompanyId) ?? null;
   });
-  readonly permissions = computed(() => new Set(this.activeCompany()?.permissions ?? []));
-  readonly features = computed(() => new Set(this.activeCompany()?.features ?? []));
+  readonly permissions = computed(
+    () =>
+      new Set([
+        ...(this.state()?.globalPermissions ?? []),
+        ...(this.activeCompany()?.permissions ?? []),
+      ]),
+  );
   readonly initials = computed(() =>
     (this.user()?.displayName ?? '')
       .split(/\s+/)
@@ -55,6 +67,16 @@ export class SessionStore {
 
   load(snapshot: SessionSnapshot): void {
     this.state.set(snapshot);
+  }
+
+  /** New company context from the server; the user stays. */
+  setCompanies(companies: readonly CompanySummary[], activeCompanyId: string): void {
+    this.state.update((state) => (state ? { ...state, companies, activeCompanyId } : state));
+  }
+
+  /** Forgets everything (logout, expired session). */
+  clear(): void {
+    this.state.set(null);
   }
 
   switchCompany(companyId: string): void {
@@ -71,6 +93,7 @@ export class SessionStore {
 
   /** Whether the active company uses an optional functional domain. */
   uses(feature: string): boolean {
-    return this.features().has(feature);
+    const company = this.activeCompany();
+    return !!company && (company.features === null || company.features.includes(feature));
   }
 }

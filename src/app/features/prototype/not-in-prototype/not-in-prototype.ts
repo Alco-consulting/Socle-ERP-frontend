@@ -30,7 +30,7 @@ import { TransferKindId } from '../transfers/transfer-kinds';
       message="Ce prototype montre la navigation et le design system. Cet écran sera réalisé avec son module métier, branché sur l’API."
     >
       <a alcoButton [routerLink]="homeUrl()">Retour à {{ appLabel() }}</a>
-      <a alcoButton variant="ghost" routerLink="/">Toutes les applications</a>
+      <a alcoButton variant="ghost" routerLink="/app">Toutes les applications</a>
     </alco-empty-state>
   `,
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -45,5 +45,5 @@ export class NotInPrototypePage {
   );
   protected readonly title = computed(() => this.trail().at(-1)?.label ?? 'Écran');
   protected readonly appLabel = computed(() => this.trail()[0]?.label ?? 'l’application');
-  protected readonly homeUrl = computed(() => this.trail()[0]?.url ?? '/');
+  protected readonly homeUrl = computed(() => this.trail()[0]?.url ?? '/app');
 }

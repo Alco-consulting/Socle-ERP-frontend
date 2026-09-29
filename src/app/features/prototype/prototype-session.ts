@@ -133,7 +133,7 @@ export class PrototypeSession {
         id: 'n1',
         title: 'Écriture à valider',
         detail: 'EC-2026-000132 soumise par un collègue (démo)',
-        url: '/comptabilite/ecritures?etat=submitted',
+        url: '/app/comptabilite/ecritures?etat=submitted',
         read: false,
       },
       {

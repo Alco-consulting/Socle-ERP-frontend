@@ -284,6 +284,18 @@ export const APPLICATIONS: readonly AlcoApplication[] = [
   },
 ];
 
+/** Root of the authenticated area: `/app` is the launcher, `/app/<application>/…` the rest. */
+export const APP_ROOT = '/app';
+
+/**
+ * Path of an application URL relative to its application: `/app/comptabilite/ecritures?x`
+ * → `{ app: 'comptabilite', rest: ['ecritures'] }`; `null` outside the applications.
+ */
+export function splitAppUrl(url: string): { app: string; rest: string[] } | null {
+  const [root, app, ...rest] = url.split(/[?#]/)[0].split('/').filter(Boolean);
+  return `/${root}` === APP_ROOT && app ? { app, rest } : null;
+}
+
 export function findApplication(id: string): AlcoApplication | undefined {
   return APPLICATIONS.find((app) => app.id === id);
 }

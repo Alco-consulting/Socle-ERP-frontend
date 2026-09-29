@@ -1,14 +1,19 @@
 <header class="bar">
   <div class="start">
     @if (app(); as current) {
-      <a class="icon-link" routerLink="/" aria-label="Toutes les applications" title="Applications">
+      <a
+        class="icon-link"
+        [routerLink]="home"
+        aria-label="Toutes les applications"
+        title="Applications"
+      >
         <alco-icon name="apps" [size]="20" />
       </a>
     }
     <a
       class="brand"
       [class.brand--in-app]="!!app()"
-      routerLink="/"
+      [routerLink]="home"
       aria-label="Alco Consulting — accueil des applications"
     >
       <alco-logo />
@@ -38,7 +43,9 @@
       >
         <span class="company">
           <span class="company-name">{{ company.name }}</span>
-          <span class="company-context">{{ company.fiscalYearLabel }}</span>
+          @if (company.fiscalYearLabel) {
+            <span class="company-context">{{ company.fiscalYearLabel }}</span>
+          }
         </span>
       </alco-dropdown>
     }
@@ -78,6 +85,7 @@
         [ariaLabel]="'Compte de ' + user.displayName"
         [showChevron]="false"
         [items]="userItems"
+        (selected)="onUserSelected($event)"
       >
         <span class="avatar" aria-hidden="true">{{ session.initials() }}</span>
       </alco-dropdown>

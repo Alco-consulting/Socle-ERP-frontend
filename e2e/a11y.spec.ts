@@ -3,14 +3,14 @@ import { expect, test } from '@playwright/test';
 
 const SCREENS = [
   { name: 'App Launcher', url: '/' },
-  { name: 'Tableau de bord', url: '/comptabilite/tableau-de-bord' },
-  { name: 'Liste', url: '/comptabilite/ecritures' },
-  { name: 'Liste regroupée', url: '/comptabilite/ecritures?groupe=journal' },
-  { name: 'Formulaire', url: '/comptabilite/ecritures/proto-050' },
-  { name: 'Écran non construit', url: '/comptabilite/journaux' },
-  { name: 'Trésorerie (navigation de domaine)', url: '/comptabilite/tresorerie/operations' },
-  { name: 'Import d’écritures', url: '/comptabilite/ecritures/import' },
-  { name: 'Tiers', url: '/tiers/liste' },
+  { name: 'Tableau de bord', url: '/app/comptabilite/tableau-de-bord' },
+  { name: 'Liste', url: '/app/comptabilite/ecritures' },
+  { name: 'Liste regroupée', url: '/app/comptabilite/ecritures?groupe=journal' },
+  { name: 'Formulaire', url: '/app/comptabilite/ecritures/proto-050' },
+  { name: 'Écran non construit', url: '/app/comptabilite/journaux' },
+  { name: 'Trésorerie (navigation de domaine)', url: '/app/comptabilite/tresorerie/operations' },
+  { name: 'Import d’écritures', url: '/app/comptabilite/ecritures/import' },
+  { name: 'Tiers', url: '/app/tiers/liste' },
   { name: 'Catalogue', url: '/design-system' },
 ];
 
@@ -32,7 +32,7 @@ test.describe('Accessibilité (axe-core, WCAG 2.1 A/AA)', () => {
   }
 
   test('open menus and the filter panel stay accessible', async ({ page }) => {
-    await page.goto('/comptabilite/ecritures');
+    await page.goto('/app/comptabilite/ecritures');
     await page.getByRole('button', { name: 'Filtres' }).click();
     await expect(page.getByRole('dialog', { name: 'Filtres' })).toBeVisible();
     const results = await new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa']).analyze();

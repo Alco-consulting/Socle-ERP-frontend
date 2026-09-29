@@ -4,12 +4,13 @@
   "scripts": {
     "ng": "ng",
     "start": "ng serve",
+    "start:api": "ng serve --configuration development-api",
     "build": "ng build",
     "watch": "ng build --watch --configuration development",
     "test": "ng test --watch=false",
     "lint": "eslint . && stylelint \"src/**/*.scss\" && prettier --check \"src/**/*.{ts,html,scss}\" \"e2e/**/*.ts\"",
     "format": "prettier --write \"src/**/*.{ts,html,scss}\" \"e2e/**/*.ts\"",
-    "e2e": "playwright test",
+    "e2e": "playwright test --project=desktop --project=tablet --project=phone --project=api",
     "captures": "playwright test --project=captures"
   },
   "private": true,

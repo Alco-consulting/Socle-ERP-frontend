@@ -4,7 +4,7 @@
 >
   @if (session.can('accounting.create')) {
     <div alcoPageActions>
-      <a alcoButton variant="primary" icon="plus" routerLink="/comptabilite/ecritures/nouvelle">
+      <a alcoButton variant="primary" icon="plus" routerLink="/app/comptabilite/ecritures/nouvelle">
         Nouvelle écriture
       </a>
     </div>
@@ -26,26 +26,26 @@
     <alco-card title="Écritures" subtitle="À traiter et activité du mois" icon="accounting">
       <ul class="figures" role="list">
         <li>
-          <a routerLink="/comptabilite/ecritures" [queryParams]="{ etat: 'draft' }">
+          <a routerLink="/app/comptabilite/ecritures" [queryParams]="{ etat: 'draft' }">
             <span>Brouillons</span>
             <span class="figure">{{ board.entries.draft }}</span>
           </a>
         </li>
         <li>
-          <a routerLink="/comptabilite/ecritures" [queryParams]="{ etat: 'submitted' }">
+          <a routerLink="/app/comptabilite/ecritures" [queryParams]="{ etat: 'submitted' }">
             <span>Soumises, à valider</span>
             <span class="figure">{{ board.entries.submitted }}</span>
           </a>
         </li>
         <li>
-          <a routerLink="/comptabilite/ecritures" [queryParams]="{ etat: 'validated' }">
+          <a routerLink="/app/comptabilite/ecritures" [queryParams]="{ etat: 'validated' }">
             <span>Validées en septembre</span>
             <span class="figure">{{ board.entries.validatedThisMonth }}</span>
           </a>
         </li>
       </ul>
       <div alcoCardFooter class="card-footer">
-        <a routerLink="/comptabilite/ecritures">Voir toutes les écritures</a>
+        <a routerLink="/app/comptabilite/ecritures">Voir toutes les écritures</a>
       </div>
     </alco-card>
 
@@ -78,9 +78,9 @@
           </dd>
         </div>
       </dl>
-      @if (navigation.canOpenUrl('/comptabilite/cloture')) {
+      @if (navigation.canOpenUrl('/app/comptabilite/cloture')) {
         <div alcoCardFooter class="card-footer">
-          <a routerLink="/comptabilite/cloture">Préparer la clôture</a>
+          <a routerLink="/app/comptabilite/cloture">Préparer la clôture</a>
         </div>
       }
     </alco-card>
@@ -112,7 +112,7 @@
             <a
               alcoButton
               size="sm"
-              routerLink="/comptabilite/ecritures"
+              routerLink="/app/comptabilite/ecritures"
               [queryParams]="{ journal: activity.journal.code }"
             >
               Voir
@@ -123,7 +123,7 @@
                 size="sm"
                 variant="ghost"
                 icon="plus"
-                routerLink="/comptabilite/ecritures/nouvelle"
+                routerLink="/app/comptabilite/ecritures/nouvelle"
                 [queryParams]="{ journal: activity.journal.code }"
               >
                 Saisir
@@ -137,7 +137,7 @@
 
   <!-- Domains of Comptabilité: shown only when the company uses them and the user may see them -->
   <div class="grid grid--two">
-    @if (navigation.canOpenUrl('/comptabilite/tresorerie')) {
+    @if (navigation.canOpenUrl('/app/comptabilite/tresorerie')) {
       <alco-card
         title="Trésorerie"
         [subtitle]="'Soldes au 28/09/2026 · ' + board.currency"
@@ -170,12 +170,12 @@
           </tbody>
         </table>
         <div alcoCardFooter class="card-footer">
-          <a routerLink="/comptabilite/tresorerie">Ouvrir la trésorerie</a>
+          <a routerLink="/app/comptabilite/tresorerie">Ouvrir la trésorerie</a>
         </div>
       </alco-card>
     }
 
-    @if (navigation.canOpenUrl('/comptabilite/taxes')) {
+    @if (navigation.canOpenUrl('/app/comptabilite/taxes')) {
       <alco-card title="TVA" [subtitle]="'Septembre 2026 · ' + board.currency" icon="taxes">
         <table class="amounts">
           <caption class="alco-sr-only">
@@ -202,7 +202,7 @@
           </tfoot>
         </table>
         <div alcoCardFooter class="card-footer">
-          <a routerLink="/comptabilite/taxes/declarations">Voir les déclarations</a>
+          <a routerLink="/app/comptabilite/taxes/declarations">Voir les déclarations</a>
         </div>
       </alco-card>
     }

@@ -3,7 +3,7 @@ import { Page, expect, test } from '@playwright/test';
 async function useProfile(page: Page, profile: 'Administrateur' | 'Comptable' | 'Consultation') {
   await page.goto('/');
   await page.getByLabel('Profil simulé').selectOption({ label: profile });
-  await expect(page).toHaveURL(/\/$/);
+  await expect(page).toHaveURL(/\/app$/);
 }
 
 const tiles = (page: Page) => page.locator('.tile-label');
@@ -39,18 +39,18 @@ test.describe('Affichage selon les permissions (confort d’interface ; l’API 
     page,
   }) => {
     await useProfile(page, 'Consultation');
-    await page.goto('/parametres');
-    await expect(page).toHaveURL(/\/$/);
+    await page.goto('/app/parametres');
+    await expect(page).toHaveURL(/\/app$/);
     await expect(
       page.getByText('Vous n’avez pas accès à l’application Paramètres dans cette société.'),
     ).toBeVisible();
 
-    await page.goto('/comptabilite/ecritures/nouvelle');
-    await expect(page).toHaveURL(/\/comptabilite\/ecritures$/);
+    await page.goto('/app/comptabilite/ecritures/nouvelle');
+    await expect(page).toHaveURL(/\/app\/comptabilite\/ecritures$/);
     await expect(page.getByText('Votre profil ne permet pas d’ouvrir cet écran.')).toBeVisible();
 
-    await page.goto('/comptabilite/immobilisations/actifs');
-    await expect(page).toHaveURL(/\/comptabilite\/tableau-de-bord$/);
+    await page.goto('/app/comptabilite/immobilisations/actifs');
+    await expect(page).toHaveURL(/\/app\/comptabilite\/tableau-de-bord$/);
     await expect(
       page.getByText('Cet écran n’est pas disponible pour votre profil ou pour cette société.'),
     ).toBeVisible();

@@ -106,7 +106,7 @@ describe('AlcoLauncher', () => {
     ]);
     expect(tiles()).toEqual(['Comptabilité', 'Reporting', 'Tableau de bord']);
     const link = element.querySelector('a.tile') as HTMLAnchorElement;
-    expect(link.getAttribute('href')).toBe('/comptabilite/tableau-de-bord');
+    expect(link.getAttribute('href')).toBe('/app/comptabilite/tableau-de-bord');
   });
 
   it('says on the Comptabilité tile that the financial domains live there', async () => {

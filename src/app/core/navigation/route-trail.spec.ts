@@ -14,18 +14,23 @@ describe('route trail (breadcrumb + tab title)', () => {
       providers: [
         provideRouter([
           {
-            path: 'comptabilite',
-            data: { appId: 'accounting' },
+            path: 'app',
             children: [
               {
-                path: 'ecritures',
-                data: { breadcrumb: 'Écritures' },
+                path: 'comptabilite',
+                data: { appId: 'accounting' },
                 children: [
-                  { path: '', component: Blank },
                   {
-                    path: ':id',
-                    resolve: { breadcrumb: () => 'EC-2026-000145' },
-                    component: Blank,
+                    path: 'ecritures',
+                    data: { breadcrumb: 'Écritures' },
+                    children: [
+                      { path: '', component: Blank },
+                      {
+                        path: ':id',
+                        resolve: { breadcrumb: () => 'EC-2026-000145' },
+                        component: Blank,
+                      },
+                    ],
                   },
                 ],
               },
@@ -38,15 +43,15 @@ describe('route trail (breadcrumb + tab title)', () => {
   });
 
   it('application / screen, without repeating inherited labels', async () => {
-    await TestBed.inject(Router).navigateByUrl('/comptabilite/ecritures');
+    await TestBed.inject(Router).navigateByUrl('/app/comptabilite/ecritures');
     expect(TestBed.inject(BreadcrumbService).items()).toEqual([
-      { label: 'Comptabilité', url: '/comptabilite' },
-      { label: 'Écritures', url: '/comptabilite/ecritures' },
+      { label: 'Comptabilité', url: '/app/comptabilite' },
+      { label: 'Écritures', url: '/app/comptabilite/ecritures' },
     ]);
   });
 
   it('application / screen / record, with the resolved record number', async () => {
-    await TestBed.inject(Router).navigateByUrl('/comptabilite/ecritures/proto-001');
+    await TestBed.inject(Router).navigateByUrl('/app/comptabilite/ecritures/proto-001');
     const labels = TestBed.inject(BreadcrumbService)
       .items()
       .map((item) => item.label);
@@ -54,7 +59,7 @@ describe('route trail (breadcrumb + tab title)', () => {
   });
 
   it('writes the same trail, most specific first, in the tab title', async () => {
-    await TestBed.inject(Router).navigateByUrl('/comptabilite/ecritures/proto-001');
+    await TestBed.inject(Router).navigateByUrl('/app/comptabilite/ecritures/proto-001');
     expect(TestBed.inject(Title).getTitle()).toBe(
       'EC-2026-000145 · Écritures · Comptabilité · Alco',
     );

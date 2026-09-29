@@ -2,7 +2,7 @@ import { expect, test } from '@playwright/test';
 
 test.describe('Vue liste : recherche, filtres, regroupement, favoris, pagination', () => {
   test.beforeEach(async ({ page }) => {
-    await page.goto('/comptabilite/ecritures');
+    await page.goto('/app/comptabilite/ecritures');
     await expect(page.getByRole('table')).toBeVisible();
   });
 

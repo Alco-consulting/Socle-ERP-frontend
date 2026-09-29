@@ -17,7 +17,7 @@ import { AlcoTopbar } from '../topbar/topbar';
         title="Cette page n’existe pas."
         message="Le lien est peut-être incomplet ou l’écran a été déplacé."
       >
-        <a alcoButton variant="primary" routerLink="/">Revenir aux applications</a>
+        <a alcoButton variant="primary" routerLink="/app">Revenir aux applications</a>
       </alco-empty-state>
     </main>
   `,

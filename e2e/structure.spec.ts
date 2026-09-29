@@ -7,7 +7,7 @@ const breadcrumb = (page: Page) => page.getByRole('navigation', { name: 'Fil d�
 async function useProfile(page: Page, profile: 'Administrateur' | 'Comptable' | 'Consultation') {
   await page.goto('/');
   await page.getByLabel('Profil simulé').selectOption({ label: profile });
-  await expect(page).toHaveURL(/\/$/);
+  await expect(page).toHaveURL(/\/app$/);
 }
 
 async function openFromMore(page: Page, label: string) {
@@ -40,9 +40,9 @@ test.describe('Regroupement : peu d’applications, les domaines financiers dans
   });
 
   test('Trésorerie opens from Comptabilité, with its own navigation', async ({ page }) => {
-    await page.goto('/comptabilite/tableau-de-bord');
+    await page.goto('/app/comptabilite/tableau-de-bord');
     await moduleNav(page).getByRole('link', { name: 'Trésorerie' }).click();
-    await expect(page).toHaveURL(/\/comptabilite\/tresorerie\/comptes$/);
+    await expect(page).toHaveURL(/\/app\/comptabilite\/tresorerie\/comptes$/);
     const sectionNav = page.getByRole('navigation', { name: 'Navigation Trésorerie' });
     await expect(sectionNav).toBeVisible();
     await sectionNav.getByRole('link', { name: 'Opérations' }).click();
@@ -55,15 +55,19 @@ test.describe('Regroupement : peu d’applications, les domaines financiers dans
   });
 
   const FROM_MORE = [
-    { label: 'Immobilisations', url: /\/comptabilite\/immobilisations\/actifs$/, first: 'Actifs' },
-    { label: 'Emprunts', url: /\/comptabilite\/emprunts\/liste$/, first: 'Emprunts' },
-    { label: 'Taxes', url: /\/comptabilite\/taxes\/liste$/, first: 'Taxes' },
-    { label: 'Analytique', url: /\/comptabilite\/analytique\/axes$/, first: 'Axes' },
-    { label: 'Audit', url: /\/comptabilite\/audit\/journal$/, first: 'Journal d’audit' },
+    {
+      label: 'Immobilisations',
+      url: /\/app\/comptabilite\/immobilisations\/actifs$/,
+      first: 'Actifs',
+    },
+    { label: 'Emprunts', url: /\/app\/comptabilite\/emprunts\/liste$/, first: 'Emprunts' },
+    { label: 'Taxes', url: /\/app\/comptabilite\/taxes\/liste$/, first: 'Taxes' },
+    { label: 'Analytique', url: /\/app\/comptabilite\/analytique\/axes$/, first: 'Axes' },
+    { label: 'Audit', url: /\/app\/comptabilite\/audit\/journal$/, first: 'Journal d’audit' },
   ];
   for (const domain of FROM_MORE) {
     test(`${domain.label} opens from Comptabilité › Plus`, async ({ page }) => {
-      await page.goto('/comptabilite/tableau-de-bord');
+      await page.goto('/app/comptabilite/tableau-de-bord');
       await openFromMore(page, domain.label);
       await expect(page).toHaveURL(domain.url);
       await expect(breadcrumb(page)).toHaveText(
@@ -78,9 +82,9 @@ test.describe('Regroupement : peu d’applications, les domaines financiers dans
   test('Tiers is both an application (records) and a domain of Comptabilité (follow-up)', async ({
     page,
   }) => {
-    await page.goto('/comptabilite/tableau-de-bord');
+    await page.goto('/app/comptabilite/tableau-de-bord');
     await moduleNav(page).getByRole('link', { name: 'Tiers' }).click();
-    await expect(page).toHaveURL(/\/comptabilite\/tiers\/clients$/);
+    await expect(page).toHaveURL(/\/app\/comptabilite\/tiers\/clients$/);
     await expect(
       page
         .getByRole('navigation', { name: 'Navigation Tiers' })
@@ -91,11 +95,11 @@ test.describe('Regroupement : peu d’applications, les domaines financiers dans
 
 test.describe('Import / export contextuels', () => {
   test('import is started from Écritures and imports entries only', async ({ page }) => {
-    await page.goto('/comptabilite/ecritures');
+    await page.goto('/app/comptabilite/ecritures');
     await page.getByRole('button', { name: 'Actions' }).click();
     await expect(page.getByRole('menuitem', { name: /Exporter les écritures/ })).toBeDisabled();
     await page.getByRole('menuitem', { name: 'Importer des écritures' }).click();
-    await expect(page).toHaveURL(/\/comptabilite\/ecritures\/import$/);
+    await expect(page).toHaveURL(/\/app\/comptabilite\/ecritures\/import$/);
     await expect(page.getByRole('heading', { level: 1 })).toHaveText('Import d’écritures');
     await expect(breadcrumb(page)).toHaveText(/Comptabilité\s*Écritures\s*Import d’écritures/);
     await expect(
@@ -120,14 +124,14 @@ test.describe('Import / export contextuels', () => {
   test('there is no Import / Export application or route', async ({ page }) => {
     await page.goto('/imports-exports');
     await expect(page.getByText('Cette page n’existe pas.')).toBeVisible();
-    await page.goto('/comptabilite/tableau-de-bord');
+    await page.goto('/app/comptabilite/tableau-de-bord');
     await moduleNav(page).getByRole('button', { name: 'Plus' }).click();
     await expect(page.getByRole('menuitemradio', { name: /import|export/i })).toHaveCount(0);
   });
 
   test('a read-only profile has no import / export action', async ({ page }) => {
     await useProfile(page, 'Consultation');
-    await page.goto('/comptabilite/ecritures');
+    await page.goto('/app/comptabilite/ecritures');
     await expect(page.getByRole('table')).toBeVisible();
     await expect(page.getByRole('button', { name: 'Actions' })).toHaveCount(0);
   });
@@ -135,10 +139,10 @@ test.describe('Import / export contextuels', () => {
 
 test.describe('Personnalisation par société (simulée)', () => {
   test('a services company does not see fixed assets, loans nor analytics', async ({ page }) => {
-    await page.goto('/comptabilite/tableau-de-bord');
+    await page.goto('/app/comptabilite/tableau-de-bord');
     await page.getByRole('button', { name: /Société active/ }).click();
     await page.getByRole('menuitemradio', { name: /FILIALE SERVICES DÉMO SA/ }).click();
-    await expect(page).toHaveURL(/\/comptabilite\/tableau-de-bord$/);
+    await expect(page).toHaveURL(/\/app\/comptabilite\/tableau-de-bord$/);
     await moduleNav(page).getByRole('button', { name: 'Plus' }).click();
     for (const hidden of ['Immobilisations', 'Emprunts', 'Analytique']) {
       await expect(page.getByRole('menuitemradio', { name: hidden })).toHaveCount(0);
@@ -146,8 +150,8 @@ test.describe('Personnalisation par société (simulée)', () => {
     await expect(page.getByRole('menuitemradio', { name: 'Taxes' })).toBeVisible();
     await page.keyboard.press('Escape');
 
-    await page.goto('/comptabilite/emprunts');
-    await expect(page).toHaveURL(/\/comptabilite\/tableau-de-bord$/);
+    await page.goto('/app/comptabilite/emprunts');
+    await expect(page).toHaveURL(/\/app\/comptabilite\/tableau-de-bord$/);
     await expect(
       page.getByText('Cet écran n’est pas disponible pour votre profil ou pour cette société.'),
     ).toBeVisible();

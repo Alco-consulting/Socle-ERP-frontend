@@ -85,6 +85,11 @@ export class CompanyContextService {
     writePreference(companyId);
   }
 
+  /** Forgets the remembered company (end of session: the next user starts from their default). */
+  forget(): void {
+    writePreference(null);
+  }
+
   private apply(context: CompanyContextDto): void {
     this.store.setCompanies(toCompanies(context), context.current?.company.public_id ?? '');
   }

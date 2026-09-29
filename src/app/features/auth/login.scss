@@ -1,0 +1,112 @@
+@use 'breakpoints' as bp;
+
+.page {
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  min-height: 100vh;
+  padding: var(--space-8) var(--space-4);
+  background:
+    radial-gradient(circle at 50% -20%, var(--color-primary-soft) 0%, transparent 60%),
+    var(--color-bg);
+
+  &:focus {
+    outline: none;
+  }
+
+  @include bp.below-tablet {
+    padding-top: var(--space-6);
+  }
+}
+
+.panel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  width: min(420px, 100%);
+  padding: var(--space-6) var(--space-5);
+  border: var(--border-width) solid var(--color-border);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface);
+  box-shadow: var(--shadow-md);
+
+  @include bp.below-tablet {
+    padding: var(--space-5) var(--space-4);
+  }
+}
+
+.logo {
+  color: var(--color-text);
+}
+
+.heading {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.notice {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-2);
+  padding: var(--space-3) var(--space-4);
+  border-radius: var(--radius-md);
+}
+
+.notice--warning {
+  background: var(--color-warning-soft);
+  color: var(--color-warning-text);
+}
+
+.notice--success {
+  background: var(--color-success-soft);
+  color: var(--color-success-text);
+}
+
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.password {
+  position: relative;
+
+  input {
+    padding-right: calc(var(--control-height) + var(--space-1));
+  }
+}
+
+.reveal {
+  position: absolute;
+  top: 0;
+  right: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--control-height);
+  height: var(--control-height);
+  border: 0;
+  border-radius: 0 var(--radius-md) var(--radius-md) 0;
+  background: transparent;
+  color: var(--color-text-muted);
+  cursor: pointer;
+
+  &:hover {
+    color: var(--color-text);
+  }
+
+  &:focus-visible {
+    outline-offset: -2px;
+  }
+}
+
+.submit {
+  width: 100%;
+  margin-top: var(--space-1);
+}
+
+.help {
+  padding-top: var(--space-3);
+  border-top: var(--border-width) solid var(--color-border);
+}

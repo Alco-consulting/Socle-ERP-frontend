@@ -1,5 +1,18 @@
 import { Injectable, computed, signal } from '@angular/core';
 
+import type { ApiError } from '../http/api-error';
+
+/**
+ * - `unknown`: not checked yet (or the server could not be reached);
+ * - `authenticated`: a Django session is open;
+ * - `anonymous`: no session — the login screen;
+ * - `expired`: the session ended while the user was working.
+ */
+export type SessionStatus = 'unknown' | 'authenticated' | 'anonymous' | 'expired';
+
+/** What the session is doing right now (`null` = nothing). */
+export type SessionActivity = 'checking' | 'signing-in' | 'signing-out' | null;
+
 export interface SessionUser {
   readonly displayName: string;
   readonly email: string;
@@ -35,13 +48,25 @@ export interface SessionSnapshot {
 }
 
 /**
- * Who is connected, in which company, with which permissions. UX only: hiding what the
- * user cannot do. The backend remains the authority on every request.
- * Filled by `SessionService` (API mode) or by the prototype (simulated session).
+ * The single store of the session: status, current activity and last session error, who
+ * is connected, in which company, with which permissions. UX only: hiding what the user
+ * cannot do; the backend remains the authority on every request. Written by
+ * `SessionService` (API mode) or by the prototype (simulated session); read everywhere.
+ * Never holds a token or a password: the session is an HttpOnly cookie of the browser.
  */
 @Injectable({ providedIn: 'root' })
 export class SessionStore {
   private readonly state = signal<SessionSnapshot | null>(null);
+  private readonly statusState = signal<SessionStatus>('unknown');
+  private readonly activityState = signal<SessionActivity>(null);
+  private readonly errorState = signal<ApiError | null>(null);
+
+  readonly status = this.statusState.asReadonly();
+  readonly authenticated = computed(() => this.statusState() === 'authenticated');
+  /** A session request is running (check, login, logout). */
+  readonly activity = this.activityState.asReadonly();
+  /** Last failure of a session request (unreachable server…); `null` after a success. */
+  readonly error = this.errorState.asReadonly();
 
   readonly user = computed(() => this.state()?.user ?? null);
   readonly companies = computed(() => this.state()?.companies ?? []);
@@ -74,9 +99,21 @@ export class SessionStore {
     this.state.update((state) => (state ? { ...state, companies, activeCompanyId } : state));
   }
 
-  /** Forgets everything (logout, expired session). */
+  /** Forgets who was connected (logout, expired session); the status is set by the caller. */
   clear(): void {
     this.state.set(null);
+  }
+
+  setStatus(status: SessionStatus): void {
+    this.statusState.set(status);
+  }
+
+  setActivity(activity: SessionActivity): void {
+    this.activityState.set(activity);
+  }
+
+  setError(error: ApiError | null): void {
+    this.errorState.set(error);
   }
 
   switchCompany(companyId: string): void {

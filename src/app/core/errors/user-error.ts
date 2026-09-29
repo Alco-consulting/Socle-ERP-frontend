@@ -118,6 +118,7 @@ export function toUserError(failure: unknown, catalog: ErrorCatalog = {}): UserE
   const fallback = KIND_MESSAGES[error.kind];
   const text =
     (error.code ? (catalog[error.code] ?? GENERIC_ERRORS[error.code]) : undefined) ??
+    catalog[fallback] ??
     GENERIC_ERRORS[fallback];
   return {
     ...(text ?? GENERIC_ERRORS['server_error']),

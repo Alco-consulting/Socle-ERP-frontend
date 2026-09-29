@@ -5,10 +5,11 @@ backend Django est terminé et en production (`https://api.alcoconsulting.tech`,
 `../backend/CLAUDE.md`).
 
 **État actuel : phase UX/UI 0 (design system, App Launcher de 6 applications, coquille des
-modules, prototype Comptabilité sur données fictives) et Module 0 (socle technique) livrés.**
+modules, prototype Comptabilité sur données fictives), Module 0 (socle technique) et
+Module 1 (authentification) livrés.**
 Le socle parle à l'API Django : environnements, `ApiClient`, intercepteurs (session, CSRF,
-`X-Company-ID`, erreurs, chargement), session et contexte société, gardes. Aucun écran
-métier n'appelle encore l'API ; l'écran de connexion est provisoire.
+`X-Company-ID`, erreurs, chargement), session et contexte société, gardes. L'écran de connexion est réel (session Django, `POST auth/login/`), la déconnexion aussi ;
+aucun écran métier n'appelle encore l'API.
 Architecture technique : `../docs/frontend/technical-architecture.md`. Prochaine étape : Module 0
 (socle Angular : HttpClient, intercepteurs, environnements, proxy vers l'API), puis
 auth + contexte société (F2), puis les modules métier un par un.
@@ -55,7 +56,7 @@ src/app/
                 titre d'onglet) · session (utilisateur, société active, permissions,
                 features) · errors (code API → message humain) · notifications
   shared/       ui · forms · filters · tables · pipes · utils — composants de présentation
-  features/     launcher · auth (écran de connexion provisoire) · design-system · prototype
+  features/     launcher · auth (écran de connexion) · design-system · prototype
   app.routes.ts `/` → `/app` (lanceur, zone authentifiée), `/app/<application>/…`, `/login`,
                 `/design-system` ; une coquille AlcoModuleShell par application
                 (features/prototype/prototype-routes.ts : écrans construits + écrans prévus
@@ -154,6 +155,14 @@ session vient de l'API et le bandeau disparaît.
 - **CSRF** : l'intercepteur intégré d'Angular est remplacé (`withNoXsrfProtection`) par
   `csrfInterceptor` (mêmes noms, même règle d'origine, + récupération du cookie et une
   nouvelle tentative après `csrf_failed`). La protection reste active côté serveur.
+- **Connexion** : contrat `backend/docs/api/openapi.yaml` (`UsersLoginRequest` =
+  `{email, password}`) ; la réponse est l'utilisateur (pas de second `auth/me/`) ;
+  `invalid_credentials` couvre aussi le compte désactivé (choix du backend) ; 429 +
+  `Retry-After` → compte à rebours, aucun limiteur côté Angular ; retour après connexion par
+  `safeReturnUrl()` (seulement `/app…`). Pas de « se souvenir de moi », pas de faux « mot de
+  passe oublié ».
+- **Un seul store de session** : `SessionStore` (statut, activité, erreur, utilisateur,
+  sociétés, permissions) ; `SessionService` seul écrivain ; `ended$` pour vider les caches.
 - **Délai des requêtes** : `timeout({ each })` et non `first` (le premier événement « envoyé »
   arrive tout de suite).
 - `environment.testing.ts` (et non `.test.ts`, que Vitest prendrait pour un fichier de tests) ;
@@ -165,8 +174,9 @@ session vient de l'API et le bandeau disparaît.
 
 ## TODO
 
-- Module Authentification : formulaire de connexion (`AuthApi.login` puis
-  `SessionService.restart()`), changement de mot de passe, fin du mode prototype.
+- Changement de mot de passe (`POST auth/password/change/` existe) ; réinitialisation par
+  e-mail quand le backend l'exposera ; fin du mode prototype (quand les modules métier
+  remplaceront les données fictives).
 - Décider l'origine du frontend en production (technical-architecture.md § 12).
 - `AlcoDrawer` (non construit, pas d'usage) ; mode sombre (tokens prêts à être redéfinis).
 - Garde « modifications non enregistrées » sur les formulaires.

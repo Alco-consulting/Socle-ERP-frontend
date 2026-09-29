@@ -2,8 +2,8 @@
 
 Angular 21 (standalone, signaux, zoneless, TypeScript strict). État actuel : **UX/UI 0**
 (design system, App Launcher, coquille des modules, prototype sur données fictives) et
-**Module 0** (socle technique : API, session Django, CSRF, contexte société). Aucun module
-métier.
+**Module 0** (socle technique : API, session Django, CSRF, contexte société) et
+**Module 1** (connexion et déconnexion par la session Django). Aucun module métier.
 
 Documentation : [`../docs/frontend/design-system.md`](../docs/frontend/design-system.md),
 [`../docs/frontend/ux-guidelines.md`](../docs/frontend/ux-guidelines.md),
@@ -14,7 +14,7 @@ dans [`CLAUDE.md`](CLAUDE.md).
 | --- | --- |
 | Installer (Node ≥ 22.12 ou ≥ 24) | `npm ci` |
 | Lancer le prototype (<http://localhost:4200>) | `npm start` |
-| Lancer contre l'API (vraie session, proxy) | `npm run start:api` |
+| Lancer contre l'API (vraie session et écran de connexion, proxy) | `npm run start:api` |
 | Lint (ESLint, Stylelint, Prettier) | `npm run lint` |
 | Tests unitaires (Vitest) | `npm test` |
 | Build de production | `npm run build` |

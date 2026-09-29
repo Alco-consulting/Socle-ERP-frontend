@@ -53,11 +53,10 @@ const SWATCHES: readonly { group: string; items: readonly Swatch[] }[] = [
   {
     group: 'Familles d’applications',
     items: [
-      { token: '--app-family-finance', role: 'Comptabilité, Taxes, Analytique' },
-      { token: '--app-family-flows', role: 'Trésorerie, Emprunts' },
+      { token: '--app-family-finance', role: 'Comptabilité (trésorerie, taxes… comprises)' },
       { token: '--app-family-relations', role: 'Tiers, Documents' },
-      { token: '--app-family-steering', role: 'Immobilisations, Reporting, Tableau de bord' },
-      { token: '--app-family-control', role: 'Audit, Imports / Exports, Paramètres' },
+      { token: '--app-family-steering', role: 'Reporting, Tableau de bord' },
+      { token: '--app-family-control', role: 'Paramètres' },
     ],
   },
 ];

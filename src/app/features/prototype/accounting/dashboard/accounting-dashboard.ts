@@ -3,6 +3,7 @@ import { ChangeDetectionStrategy, Component, DestroyRef, inject, signal } from '
 import { RouterLink } from '@angular/router';
 
 import { UserError, toUserError } from '../../../../core/errors/user-error';
+import { NavigationService } from '../../../../core/navigation/navigation.service';
 import { SessionStore } from '../../../../core/session/session.store';
 import { AlcoAmountPipe } from '../../../../shared/pipes/amount.pipe';
 import { AlcoButton } from '../../../../shared/ui/button/button';
@@ -41,6 +42,7 @@ export class AccountingDashboardPage {
   private readonly api = inject(PrototypeAccountingApi);
   private readonly destroyRef = inject(DestroyRef);
   protected readonly session = inject(SessionStore);
+  protected readonly navigation = inject(NavigationService);
 
   protected readonly data = signal<AccountingDashboard | null>(null);
   protected readonly error = signal<UserError | null>(null);

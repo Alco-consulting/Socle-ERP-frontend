@@ -1,9 +1,10 @@
 <alco-page-header title="Écritures">
-  @if (session.can('accounting.create')) {
-    <div alcoPageActions>
+  <div alcoPageActions>
+    <alco-transfer-actions kind="entries" [count]="result()?.count ?? null" />
+    @if (session.can('accounting.create')) {
       <a alcoButton variant="primary" icon="plus" routerLink="nouvelle">Nouvelle écriture</a>
-    </div>
-  }
+    }
+  </div>
 </alco-page-header>
 
 <!-- Control panel: search + Filtres / Regrouper / Favoris + pagination -->
@@ -79,7 +80,7 @@
   <div class="selection-bar" role="status">
     <strong> {{ selection().size }} sélectionnée{{ selection().size > 1 ? 's' : '' }} </strong>
     <alco-dropdown size="sm" [items]="bulkItems()" (selected)="onBulkAction($event)">
-      Actions
+      Actions sur la sélection
     </alco-dropdown>
     <button alcoButton type="button" size="sm" variant="ghost" (click)="clearSelection()">
       Tout désélectionner

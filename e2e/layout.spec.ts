@@ -6,6 +6,9 @@ const SCREENS = [
   { name: 'Liste', url: '/comptabilite/ecritures' },
   { name: 'Formulaire', url: '/comptabilite/ecritures/proto-050' },
   { name: 'Nouvelle écriture', url: '/comptabilite/ecritures/nouvelle' },
+  { name: 'Trésorerie (domaine de Comptabilité)', url: '/comptabilite/tresorerie/operations' },
+  { name: 'Import d’écritures', url: '/comptabilite/ecritures/import' },
+  { name: 'Tiers', url: '/tiers/liste' },
   { name: 'Catalogue', url: '/design-system' },
 ];
 

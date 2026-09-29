@@ -1,10 +1,11 @@
 import { ChangeDetectionStrategy, Component, computed, inject, input } from '@angular/core';
-import { RouterLink } from '@angular/router';
+import { Router, RouterLink } from '@angular/router';
 
 import { AlcoDropdown, DropdownItem } from '../../../shared/ui/dropdown/dropdown';
 import { AlcoIcon } from '../../../shared/ui/icon/icon';
 import { AlcoToastService } from '../../../shared/ui/toast/toast.service';
 import { AlcoApplication } from '../../navigation/applications';
+import { NavigationService } from '../../navigation/navigation.service';
 import { NotificationCenter } from '../../notifications/notification-center';
 import { SessionStore } from '../../session/session.store';
 import { AlcoLogo } from '../logo/logo';
@@ -24,6 +25,8 @@ export class AlcoTopbar {
   protected readonly session = inject(SessionStore);
   private readonly notificationCenter = inject(NotificationCenter);
   private readonly toast = inject(AlcoToastService);
+  private readonly navigation = inject(NavigationService);
+  private readonly router = inject(Router);
 
   /** Current application; absent on the launcher. */
   readonly app = input<AlcoApplication | null>(null);
@@ -85,6 +88,12 @@ export class AlcoTopbar {
     if (item.id !== this.session.activeCompany()?.id) {
       this.session.switchCompany(item.id);
       this.toast.info(`Société active : ${item.label}.`);
+      // Menus depend on the company (permissions, domains it uses): restart from the home
+      // of the current application when it is still available, from the launcher otherwise.
+      const app = this.app();
+      void this.router.navigateByUrl(
+        app && this.navigation.canOpen(app) ? this.navigation.homeUrl(app) : '/',
+      );
     }
   }
 

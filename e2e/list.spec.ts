@@ -74,7 +74,7 @@ test.describe('Vue liste : recherche, filtres, regroupement, favoris, pagination
       .first()
       .check();
     await expect(page.getByText('1 sélectionnée')).toBeVisible();
-    await page.getByRole('button', { name: 'Actions' }).click();
+    await page.getByRole('button', { name: 'Actions sur la sélection' }).click();
     await expect(page.getByRole('menuitem', { name: 'Valider la sélection' })).toBeVisible();
   });
 });

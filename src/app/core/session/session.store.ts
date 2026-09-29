@@ -13,6 +13,12 @@ export interface CompanySummary {
   readonly currency: string;
   /** Permissions of the user in this company (backend codes, e.g. `accounting.read`). */
   readonly permissions: readonly string[];
+  /**
+   * Optional functional domains the company uses (`treasury`, `assets`, `loans`, `taxes`,
+   * `analytics`): a services company without fixed assets never sees « Immobilisations ».
+   * Simulated by the prototype; the real company configuration is not built yet.
+   */
+  readonly features: readonly string[];
 }
 
 export interface SessionSnapshot {
@@ -37,6 +43,7 @@ export class SessionStore {
     return state?.companies.find((company) => company.id === state.activeCompanyId) ?? null;
   });
   readonly permissions = computed(() => new Set(this.activeCompany()?.permissions ?? []));
+  readonly features = computed(() => new Set(this.activeCompany()?.features ?? []));
   readonly initials = computed(() =>
     (this.user()?.displayName ?? '')
       .split(/\s+/)
@@ -60,5 +67,10 @@ export class SessionStore {
 
   can(permission: string): boolean {
     return this.permissions().has(permission);
+  }
+
+  /** Whether the active company uses an optional functional domain. */
+  uses(feature: string): boolean {
+    return this.features().has(feature);
   }
 }

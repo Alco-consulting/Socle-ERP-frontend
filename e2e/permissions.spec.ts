@@ -7,15 +7,13 @@ async function useProfile(page: Page, profile: 'Administrateur' | 'Comptable' | 
 }
 
 const tiles = (page: Page) => page.locator('.tile-label');
+const moduleNav = (page: Page) => page.getByRole('navigation', { name: 'Navigation Comptabilité' });
 
 test.describe('Affichage selon les permissions (confort d’interface ; l’API reste l’autorité)', () => {
   test('the launcher lists only the permitted applications', async ({ page }) => {
     await useProfile(page, 'Administrateur');
-    await expect(tiles(page)).toHaveCount(13);
+    await expect(tiles(page)).toHaveCount(6);
     await useProfile(page, 'Comptable');
-    await expect(tiles(page)).toHaveCount(12);
-    await expect(tiles(page).filter({ hasText: 'Paramètres' })).toHaveCount(0);
-    await useProfile(page, 'Consultation');
     await expect(tiles(page)).toHaveText([
       'Comptabilité',
       'Tiers',
@@ -23,41 +21,48 @@ test.describe('Affichage selon les permissions (confort d’interface ; l’API 
       'Documents',
       'Tableau de bord',
     ]);
+    await useProfile(page, 'Consultation');
+    await expect(tiles(page)).toHaveText(['Comptabilité', 'Reporting', 'Tableau de bord']);
   });
 
-  test('a read-only profile sees no creation action, and the empty state adapts', async ({
-    page,
-  }) => {
+  test('a read-only profile sees no creation action', async ({ page }) => {
     await useProfile(page, 'Consultation');
     await page.getByRole('link', { name: /Comptabilité/ }).click();
     await expect(page.getByRole('link', { name: 'Nouvelle écriture' })).toHaveCount(0);
-    await page
-      .getByRole('navigation', { name: 'Navigation Comptabilité' })
-      .getByRole('link', { name: 'Écritures' })
-      .click();
+    await moduleNav(page).getByRole('link', { name: 'Écritures' }).click();
+    await expect(page.getByRole('heading', { level: 1 })).toHaveText('Écritures');
+    await expect(page.getByRole('table')).toBeVisible();
     await expect(page.getByRole('link', { name: 'Nouvelle écriture' })).toHaveCount(0);
   });
 
-  test('a forbidden application or screen sends back with an explanation', async ({ page }) => {
+  test('a forbidden application, screen or domain sends back with an explanation', async ({
+    page,
+  }) => {
     await useProfile(page, 'Consultation');
-    await page.goto('/tresorerie');
+    await page.goto('/parametres');
     await expect(page).toHaveURL(/\/$/);
     await expect(
-      page.getByText('Vous n’avez pas accès à l’application Trésorerie dans cette société.'),
+      page.getByText('Vous n’avez pas accès à l’application Paramètres dans cette société.'),
     ).toBeVisible();
 
     await page.goto('/comptabilite/ecritures/nouvelle');
     await expect(page).toHaveURL(/\/comptabilite\/ecritures$/);
     await expect(page.getByText('Votre profil ne permet pas d’ouvrir cet écran.')).toBeVisible();
+
+    await page.goto('/comptabilite/immobilisations/actifs');
+    await expect(page).toHaveURL(/\/comptabilite\/tableau-de-bord$/);
+    await expect(
+      page.getByText('Cet écran n’est pas disponible pour votre profil ou pour cette société.'),
+    ).toBeVisible();
   });
 
-  test('the module menu hides the entries of a missing permission', async ({ page }) => {
+  test('the module menu hides the domains of a missing permission', async ({ page }) => {
     await useProfile(page, 'Consultation');
     await page.getByRole('link', { name: /Comptabilité/ }).click();
-    const nav = page.getByRole('navigation', { name: 'Navigation Comptabilité' });
-    await expect(nav.getByRole('button', { name: 'Rapports' })).toBeVisible();
-    await nav.getByRole('button', { name: 'Plus' }).click();
-    await expect(page.getByRole('menuitemradio', { name: 'Clôture' })).toHaveCount(0);
-    await expect(page.getByRole('menuitemradio', { name: 'Lettrage' })).toBeVisible();
+    await expect(moduleNav(page).getByRole('link', { name: 'Trésorerie' })).toBeVisible();
+    await expect(moduleNav(page).getByRole('link', { name: 'Tiers' })).toHaveCount(0);
+    await expect(moduleNav(page).getByRole('button', { name: 'Rapports' })).toBeVisible();
+    await moduleNav(page).getByRole('button', { name: 'Plus' }).click();
+    await expect(page.getByRole('menuitemradio')).toHaveText(['Taxes']);
   });
 });

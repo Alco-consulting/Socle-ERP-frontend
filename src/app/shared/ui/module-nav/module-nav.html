@@ -1,5 +1,6 @@
 <nav class="nav" [attr.aria-label]="label()">
-  <ul class="entries" role="list">
+  <!-- Wide screens (all widths from 768px when the menu is short) -->
+  <ul class="entries entries--full" [class.collapsible]="collapses()" role="list">
     @for (entry of entries(); track entry.label) {
       <li>
         @if (entry.children) {
@@ -25,8 +26,53 @@
     }
   </ul>
 
+  <!-- Tablets: first entries + one « Plus ▾ » -->
+  @if (collapses()) {
+    <ul class="entries entries--tablet" role="list">
+      @for (entry of keptEntries(); track entry.label) {
+        <li>
+          @if (entry.children) {
+            <alco-dropdown
+              trigger="nav"
+              mode="single"
+              [class.group-active]="groupActive(entry)"
+              [items]="groupItems(entry)"
+            >
+              {{ entry.label }}
+            </alco-dropdown>
+          } @else if (entry.url) {
+            <a
+              class="link"
+              [routerLink]="entry.url"
+              routerLinkActive="active"
+              ariaCurrentWhenActive="page"
+            >
+              {{ entry.label }}
+            </a>
+          }
+        </li>
+      }
+      <li>
+        <alco-dropdown
+          trigger="nav"
+          mode="single"
+          [class.group-active]="overflowActive()"
+          [items]="overflowItems()"
+        >
+          Plus
+        </alco-dropdown>
+      </li>
+    </ul>
+  }
+
+  <!-- Phones: one menu -->
   <div class="compact">
-    <alco-dropdown trigger="nav" mode="single" [items]="compactItems()" ariaLabel="Menu du module">
+    <alco-dropdown
+      trigger="nav"
+      mode="single"
+      [items]="compactItems()"
+      [ariaLabel]="label() + ' : ' + currentLabel()"
+    >
       {{ currentLabel() }}
     </alco-dropdown>
   </div>

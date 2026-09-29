@@ -36,6 +36,7 @@ import { AlcoLoading } from '../../../../shared/ui/loading/loading';
 import { AlcoPageHeader } from '../../../../shared/ui/page-header/page-header';
 import { AlcoPagination } from '../../../../shared/ui/pagination/pagination';
 import { AlcoToastService } from '../../../../shared/ui/toast/toast.service';
+import { AlcoTransferActions } from '../../transfers/transfer-actions';
 import { ENTRY_STATUS } from '../entry-presentation';
 import {
   CURRENCY,
@@ -122,6 +123,7 @@ function formatDay(iso: string): string {
     AlcoPagination,
     AlcoSearchBar,
     AlcoTable,
+    AlcoTransferActions,
   ],
   templateUrl: './entry-list.html',
   styleUrl: './entry-list.scss',

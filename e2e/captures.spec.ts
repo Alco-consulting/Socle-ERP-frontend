@@ -71,6 +71,58 @@ test('desktop 1440 × 900', async ({ page }) => {
   await shoot(page, '14-screen-not-in-prototype');
 });
 
+const moduleNav = (page: Page) => page.getByRole('navigation', { name: 'Navigation Comptabilité' });
+
+test('regroupement: applications and domains of Comptabilité', async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto('/');
+  await page.getByLabel('Profil simulé').selectOption({ label: 'Administrateur' });
+  await shoot(page, '40-launcher-administrator');
+  await page.getByLabel('Profil simulé').selectOption({ label: 'Comptable' });
+
+  await page.goto('/comptabilite/tableau-de-bord');
+  await moduleNav(page).getByRole('button', { name: 'Plus' }).click();
+  await shoot(page, '41-accounting-more-menu');
+  await page.keyboard.press('Escape');
+
+  const domains: [string, string][] = [
+    ['/comptabilite/tresorerie/comptes', '42-domain-treasury'],
+    ['/comptabilite/emprunts/liste', '44-domain-loans'],
+    ['/comptabilite/taxes/declarations', '45-domain-taxes'],
+    ['/comptabilite/analytique/axes', '46-domain-analytics'],
+    ['/comptabilite/audit/journal', '47-domain-audit'],
+    ['/comptabilite/tiers/clients', '48-domain-partners-follow-up'],
+  ];
+  for (const [url, name] of domains) {
+    await page.goto(url);
+    await shoot(page, name);
+  }
+
+  await page.goto('/comptabilite/immobilisations/actifs');
+  await page.getByRole('button', { name: 'Actions' }).click();
+  await shoot(page, '43-domain-assets-actions');
+  await page.keyboard.press('Escape');
+
+  await page.goto('/comptabilite/ecritures');
+  await page.getByRole('button', { name: 'Actions' }).click();
+  await shoot(page, '50-entries-actions-import');
+  await page.getByRole('menuitem', { name: 'Importer des écritures' }).click();
+  await shoot(page, '51-entries-import', true);
+
+  await page.goto('/tiers/liste');
+  await page.getByRole('button', { name: 'Actions' }).click();
+  await page.getByRole('menuitem', { name: 'Exporter les tiers' }).click();
+  await expect(page.getByRole('alertdialog')).toBeVisible();
+  await shoot(page, '52-partners-export');
+  await page.keyboard.press('Escape');
+
+  await page.goto('/comptabilite/tableau-de-bord');
+  await page.getByRole('button', { name: /Société active/ }).click();
+  await page.getByRole('menuitemradio', { name: /FILIALE SERVICES DÉMO SA/ }).click();
+  await moduleNav(page).getByRole('button', { name: 'Plus' }).click();
+  await shoot(page, '53-services-company-more-menu');
+});
+
 test('loading state', async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.goto('/comptabilite/tableau-de-bord');
@@ -98,6 +150,9 @@ test('tablet 820 × 1180', async ({ page }) => {
   await shoot(page, '22-tablet-list');
   await page.goto('/comptabilite/ecritures/proto-050');
   await shoot(page, '23-tablet-form', true);
+  await page.goto('/comptabilite/tresorerie/operations');
+  await moduleNav(page).getByRole('button', { name: 'Plus' }).click();
+  await shoot(page, '24-tablet-compact-navigation');
 });
 
 test('phone 390 × 844', async ({ page }) => {
@@ -106,7 +161,7 @@ test('phone 390 × 844', async ({ page }) => {
   await shoot(page, '30-phone-launcher', true);
   await page.goto('/comptabilite/tableau-de-bord');
   await shoot(page, '31-phone-dashboard');
-  await page.getByRole('button', { name: 'Menu du module' }).click();
+  await page.getByRole('button', { name: /^Navigation Comptabilité :/ }).click();
   await shoot(page, '32-phone-module-menu');
   await page.keyboard.press('Escape');
   await page.goto('/comptabilite/ecritures');

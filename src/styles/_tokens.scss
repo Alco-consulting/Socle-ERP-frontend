@@ -54,11 +54,10 @@
 
   // ---- Colors: application families (App Launcher tiles, module mark) ---------------
   // One color per family of applications, never one random color per application.
-  --app-family-finance: #155e8b; // Comptabilité, Taxes, Analytique
-  --app-family-flows: #0f7a68; // Trésorerie, Emprunts
+  --app-family-finance: #155e8b; // Comptabilité (and its domains: trésorerie, taxes…)
   --app-family-relations: #3b55a0; // Tiers, Documents
-  --app-family-steering: #a35a10; // Immobilisations, Reporting, Tableau de bord
-  --app-family-control: #4a5668; // Audit, Imports / Exports, Paramètres
+  --app-family-steering: #a35a10; // Reporting, Tableau de bord
+  --app-family-control: #4a5668; // Paramètres
 
   // ---- Typography --------------------------------------------------------------------
   --font-family-base:

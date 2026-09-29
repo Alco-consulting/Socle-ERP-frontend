@@ -8,6 +8,9 @@ const SCREENS = [
   { name: 'Liste regroupée', url: '/comptabilite/ecritures?groupe=journal' },
   { name: 'Formulaire', url: '/comptabilite/ecritures/proto-050' },
   { name: 'Écran non construit', url: '/comptabilite/journaux' },
+  { name: 'Trésorerie (navigation de domaine)', url: '/comptabilite/tresorerie/operations' },
+  { name: 'Import d’écritures', url: '/comptabilite/ecritures/import' },
+  { name: 'Tiers', url: '/tiers/liste' },
   { name: 'Catalogue', url: '/design-system' },
 ];
 

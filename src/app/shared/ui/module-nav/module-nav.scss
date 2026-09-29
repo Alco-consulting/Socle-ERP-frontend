@@ -15,20 +15,58 @@
   padding: 0 calc(var(--page-gutter) - var(--space-2));
 }
 
+// Second level (a domain inside an application): lighter, aligned with the page content.
+:host(.section) {
+  background: transparent;
+
+  .nav {
+    height: 40px;
+    max-width: none;
+    padding: 0;
+    // The first tab's text lines up with the page content, not its hover padding.
+    margin-left: calc(-1 * var(--space-3));
+  }
+
+  .link,
+  alco-dropdown {
+    font-size: var(--font-size-body);
+  }
+}
+
 .entries {
   display: flex;
   align-items: stretch;
   gap: var(--space-1);
   height: 100%;
 
-  @include bp.below-tablet {
-    display: none;
-  }
-
   li {
     display: flex;
     align-items: center;
     position: relative;
+  }
+}
+
+.entries--full {
+  @include bp.below-tablet {
+    display: none;
+  }
+
+  &.collapsible {
+    @include bp.below-laptop {
+      display: none;
+    }
+  }
+}
+
+.entries--tablet {
+  display: none;
+
+  @include bp.below-laptop {
+    display: flex;
+  }
+
+  @include bp.below-tablet {
+    display: none;
   }
 }
 
@@ -68,7 +106,6 @@
 
 .group-active {
   position: static;
-  color: var(--color-primary-text);
 }
 
 .compact {

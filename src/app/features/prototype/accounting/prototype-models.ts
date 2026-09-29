@@ -21,7 +21,12 @@ export interface Account {
 
 export interface Partner {
   readonly id: string;
+  readonly code: string;
   readonly name: string;
+  readonly customer: boolean;
+  readonly supplier: boolean;
+  readonly country: string;
+  readonly city: string;
 }
 
 export interface EntryLine {

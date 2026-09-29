@@ -1,14 +1,11 @@
 import { Routes } from '@angular/router';
 
-import { AlcoModuleShell } from './core/layout/module-shell/module-shell';
-import { appAccessGuard } from './core/navigation/app-access.guard';
-import { APPLICATIONS } from './core/navigation/applications';
-import { placeholderApplication } from './features/prototype/placeholder-routes';
+import { APPLICATION_ROUTES } from './features/prototype/prototype-routes';
 
 /**
- * App Launcher at the root; one shell per application (no global sidebar).
- * Only « Comptabilité » has prototype screens; the other applications show their real
- * navigation over placeholder screens until their module is built.
+ * App Launcher at the root; one shell per application (no global sidebar). The domains
+ * of an application (Comptabilité › Trésorerie…) are routes of that application, never
+ * applications of their own. Screens not built yet show a placeholder.
  */
 export const routes: Routes = [
   {
@@ -23,17 +20,7 @@ export const routes: Routes = [
     loadComponent: () =>
       import('./features/design-system/catalog').then((m) => m.DesignSystemCatalogPage),
   },
-  {
-    path: 'comptabilite',
-    component: AlcoModuleShell,
-    data: { appId: 'accounting' },
-    canActivate: [appAccessGuard],
-    loadChildren: () =>
-      import('./features/prototype/accounting/accounting.routes').then(
-        (m) => m.ACCOUNTING_PROTOTYPE_ROUTES,
-      ),
-  },
-  ...APPLICATIONS.filter((app) => app.id !== 'accounting').map(placeholderApplication),
+  ...APPLICATION_ROUTES,
   {
     path: '**',
     title: 'Page introuvable',

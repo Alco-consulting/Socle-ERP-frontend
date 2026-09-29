@@ -78,9 +78,11 @@
           </dd>
         </div>
       </dl>
-      <div alcoCardFooter class="card-footer">
-        <a routerLink="/comptabilite/cloture">Préparer la clôture</a>
-      </div>
+      @if (navigation.canOpenUrl('/comptabilite/cloture')) {
+        <div alcoCardFooter class="card-footer">
+          <a routerLink="/comptabilite/cloture">Préparer la clôture</a>
+        </div>
+      }
     </alco-card>
   </div>
 
@@ -133,66 +135,77 @@
     </ul>
   </section>
 
+  <!-- Domains of Comptabilité: shown only when the company uses them and the user may see them -->
   <div class="grid grid--two">
-    <alco-card
-      title="Trésorerie"
-      [subtitle]="'Soldes au 28/09/2026 · ' + board.currency"
-      icon="treasury"
-    >
-      <table class="amounts">
-        <caption class="alco-sr-only">
-          Trésorerie en
-          {{
-            board.currency
-          }}
-        </caption>
-        <tbody>
-          <tr>
-            <th scope="row">Banque principale</th>
-            <td class="alco-num">{{ board.treasury.bank | alcoAmount: decimals }}</td>
-          </tr>
-          <tr>
-            <th scope="row">Caisse</th>
-            <td class="alco-num">{{ board.treasury.cash | alcoAmount: decimals }}</td>
-          </tr>
-          <tr class="muted">
-            <th scope="row">Entrées du mois</th>
-            <td class="alco-num">{{ board.treasury.inflows | alcoAmount: decimals }}</td>
-          </tr>
-          <tr class="muted">
-            <th scope="row">Sorties du mois</th>
-            <td class="alco-num">{{ board.treasury.outflows | alcoAmount: decimals }}</td>
-          </tr>
-        </tbody>
-      </table>
-    </alco-card>
+    @if (navigation.canOpenUrl('/comptabilite/tresorerie')) {
+      <alco-card
+        title="Trésorerie"
+        [subtitle]="'Soldes au 28/09/2026 · ' + board.currency"
+        icon="treasury"
+      >
+        <table class="amounts">
+          <caption class="alco-sr-only">
+            Trésorerie en
+            {{
+              board.currency
+            }}
+          </caption>
+          <tbody>
+            <tr>
+              <th scope="row">Banque principale</th>
+              <td class="alco-num">{{ board.treasury.bank | alcoAmount: decimals }}</td>
+            </tr>
+            <tr>
+              <th scope="row">Caisse</th>
+              <td class="alco-num">{{ board.treasury.cash | alcoAmount: decimals }}</td>
+            </tr>
+            <tr class="muted">
+              <th scope="row">Entrées du mois</th>
+              <td class="alco-num">{{ board.treasury.inflows | alcoAmount: decimals }}</td>
+            </tr>
+            <tr class="muted">
+              <th scope="row">Sorties du mois</th>
+              <td class="alco-num">{{ board.treasury.outflows | alcoAmount: decimals }}</td>
+            </tr>
+          </tbody>
+        </table>
+        <div alcoCardFooter class="card-footer">
+          <a routerLink="/comptabilite/tresorerie">Ouvrir la trésorerie</a>
+        </div>
+      </alco-card>
+    }
 
-    <alco-card title="TVA" [subtitle]="'Septembre 2026 · ' + board.currency" icon="taxes">
-      <table class="amounts">
-        <caption class="alco-sr-only">
-          TVA de septembre en
-          {{
-            board.currency
-          }}
-        </caption>
-        <tbody>
-          <tr>
-            <th scope="row">TVA collectée</th>
-            <td class="alco-num">{{ board.vat.collected | alcoAmount: decimals }}</td>
-          </tr>
-          <tr>
-            <th scope="row">TVA déductible</th>
-            <td class="alco-num">{{ board.vat.deductible | alcoAmount: decimals }}</td>
-          </tr>
-        </tbody>
-        <tfoot>
-          <tr>
-            <th scope="row">TVA à reverser</th>
-            <td class="alco-num">{{ board.vat.due | alcoAmount: decimals }}</td>
-          </tr>
-        </tfoot>
-      </table>
-    </alco-card>
+    @if (navigation.canOpenUrl('/comptabilite/taxes')) {
+      <alco-card title="TVA" [subtitle]="'Septembre 2026 · ' + board.currency" icon="taxes">
+        <table class="amounts">
+          <caption class="alco-sr-only">
+            TVA de septembre en
+            {{
+              board.currency
+            }}
+          </caption>
+          <tbody>
+            <tr>
+              <th scope="row">TVA collectée</th>
+              <td class="alco-num">{{ board.vat.collected | alcoAmount: decimals }}</td>
+            </tr>
+            <tr>
+              <th scope="row">TVA déductible</th>
+              <td class="alco-num">{{ board.vat.deductible | alcoAmount: decimals }}</td>
+            </tr>
+          </tbody>
+          <tfoot>
+            <tr>
+              <th scope="row">TVA à reverser</th>
+              <td class="alco-num">{{ board.vat.due | alcoAmount: decimals }}</td>
+            </tr>
+          </tfoot>
+        </table>
+        <div alcoCardFooter class="card-footer">
+          <a routerLink="/comptabilite/taxes/declarations">Voir les déclarations</a>
+        </div>
+      </alco-card>
+    }
   </div>
 } @else {
   <alco-loading variant="cards" [rows]="4" label="Chargement du tableau de bord…" />

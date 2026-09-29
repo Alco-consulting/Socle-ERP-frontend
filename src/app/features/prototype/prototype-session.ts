@@ -1,4 +1,4 @@
-import { Injectable, inject, provideAppInitializer, signal } from '@angular/core';
+import { Injectable, effect, inject, provideAppInitializer, signal } from '@angular/core';
 
 import { NotificationCenter } from '../../core/notifications/notification-center';
 import { CompanySummary, SessionStore } from '../../core/session/session.store';
@@ -10,19 +10,33 @@ import { CompanySummary, SessionStore } from '../../core/session/session.store';
  */
 export type PrototypeProfile = 'admin' | 'accountant' | 'viewer';
 
-/** The simulated profile survives a reload of the tab (review convenience only). */
+/** Profile and company survive a reload of the tab (review convenience only). */
 const PROFILE_KEY = 'alco.prototype.profile';
+const COMPANY_KEY = 'alco.prototype.company';
 
-function storedProfile(): PrototypeProfile {
+function read(key: string): string | null {
   try {
-    const value = sessionStorage.getItem(PROFILE_KEY);
-    return value === 'admin' || value === 'viewer' ? value : 'accountant';
+    return sessionStorage.getItem(key);
   } catch {
-    return 'accountant';
+    return null;
   }
 }
 
-const READ_ALL = [
+function write(key: string, value: string): void {
+  try {
+    sessionStorage.setItem(key, value);
+  } catch {
+    // Storage unavailable (private mode): the choice simply resets on reload.
+  }
+}
+
+function storedProfile(): PrototypeProfile {
+  const value = read(PROFILE_KEY);
+  return value === 'admin' || value === 'viewer' ? value : 'accountant';
+}
+
+/** Everything an accountant reads, domain by domain (backend permission codes). */
+const ACCOUNTANT_READ = [
   'accounting.read',
   'treasury.read',
   'partners.read',
@@ -38,24 +52,36 @@ const READ_ALL = [
   'dashboards.read',
 ];
 
+const ACCOUNTANT_WRITE = [
+  'accounting.create',
+  'accounting.validate',
+  'partners.create',
+  'imports_exports.create',
+  'imports_exports.export',
+];
+
 export const PROTOTYPE_PROFILES: Readonly<
   Record<PrototypeProfile, { label: string; permissions: readonly string[] }>
 > = {
+  // Launcher: Comptabilité, Tiers, Reporting, Documents, Tableau de bord, Paramètres.
   admin: {
     label: 'Administrateur',
-    permissions: [...READ_ALL, 'users.read', 'accounting.create', 'accounting.validate'],
+    permissions: [...ACCOUNTANT_READ, ...ACCOUNTANT_WRITE, 'users.read'],
   },
+  // Launcher: Comptabilité, Tiers, Reporting, Documents, Tableau de bord.
   accountant: {
     label: 'Comptable',
-    permissions: [...READ_ALL, 'accounting.create', 'accounting.validate'],
+    permissions: [...ACCOUNTANT_READ, ...ACCOUNTANT_WRITE],
   },
+  // Launcher: Comptabilité, Reporting, Tableau de bord. In Comptabilité: no Tiers,
+  // Immobilisations, Emprunts, Analytique, Audit or Clôture; no creation, no import/export.
   viewer: {
     label: 'Consultation',
     permissions: [
       'accounting.read',
+      'treasury.read',
+      'taxes.read',
       'reporting.read',
-      'partners.read',
-      'documents.read',
       'dashboards.read',
     ],
   },
@@ -64,18 +90,22 @@ export const PROTOTYPE_PROFILES: Readonly<
 function companies(permissions: readonly string[]): CompanySummary[] {
   return [
     {
+      // Uses every financial domain.
       id: 'demo-gn',
       name: 'ALCO DÉMO SARL',
       fiscalYearLabel: 'Exercice 2026',
       currency: 'GNF',
       permissions,
+      features: ['treasury', 'assets', 'loans', 'taxes', 'analytics'],
     },
     {
+      // Services company: no fixed assets, no loans, no cost accounting.
       id: 'demo-sn',
-      name: 'FILIALE DÉMO SA',
+      name: 'FILIALE SERVICES DÉMO SA',
       fiscalYearLabel: 'Exercice 2026',
       currency: 'XOF',
       permissions,
+      features: ['treasury', 'taxes'],
     },
   ];
 }
@@ -86,6 +116,15 @@ export class PrototypeSession {
   private readonly notifications = inject(NotificationCenter);
 
   readonly profile = signal<PrototypeProfile>('accountant');
+
+  constructor() {
+    effect(() => {
+      const company = this.session.activeCompany();
+      if (company) {
+        write(COMPANY_KEY, company.id);
+      }
+    });
+  }
 
   start(): void {
     this.applyProfile(storedProfile());
@@ -108,16 +147,13 @@ export class PrototypeSession {
 
   applyProfile(profile: PrototypeProfile): void {
     this.profile.set(profile);
-    try {
-      sessionStorage.setItem(PROFILE_KEY, profile);
-    } catch {
-      // Storage unavailable (private mode): the profile simply resets on reload.
-    }
-    const current = this.session.activeCompany()?.id ?? 'demo-gn';
+    write(PROFILE_KEY, profile);
+    const list = companies(PROTOTYPE_PROFILES[profile].permissions);
+    const wanted = this.session.activeCompany()?.id ?? read(COMPANY_KEY);
     this.session.load({
       user: { displayName: 'Aïssatou Démo', email: 'utilisateur.demo@alco.example' },
-      companies: companies(PROTOTYPE_PROFILES[profile].permissions),
-      activeCompanyId: current,
+      companies: list,
+      activeCompanyId: list.some((company) => company.id === wanted) ? (wanted ?? '') : list[0].id,
     });
   }
 }

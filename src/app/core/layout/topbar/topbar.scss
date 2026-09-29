@@ -89,10 +89,6 @@
   border-radius: var(--radius-sm);
   background: var(--app-family-finance);
 
-  &[data-family='flows'] {
-    background: var(--app-family-flows);
-  }
-
   &[data-family='relations'] {
     background: var(--app-family-relations);
   }

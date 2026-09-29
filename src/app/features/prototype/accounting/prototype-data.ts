@@ -39,13 +39,29 @@ export const ACCOUNTS: readonly Account[] = [
   { code: '706100', name: 'Services vendus' },
 ];
 
+const partner = (
+  id: string,
+  code: string,
+  name: string,
+  role: 'customer' | 'supplier',
+  city: string,
+): Partner => ({
+  id,
+  code,
+  name,
+  customer: role === 'customer',
+  supplier: role === 'supplier',
+  country: 'GN',
+  city,
+});
+
 export const PARTNERS: readonly Partner[] = [
-  { id: 'p-c1', name: 'Client Alpha (démo)' },
-  { id: 'p-c2', name: 'Client Bêta (démo)' },
-  { id: 'p-c3', name: 'Client Gamma (démo)' },
-  { id: 'p-f1', name: 'Fournisseur Delta (démo)' },
-  { id: 'p-f2', name: 'Fournisseur Epsilon (démo)' },
-  { id: 'p-f3', name: 'Bailleur Zêta (démo)' },
+  partner('p-c1', 'CLI-001', 'Client Alpha (démo)', 'customer', 'Conakry'),
+  partner('p-c2', 'CLI-002', 'Client Bêta (démo)', 'customer', 'Kindia'),
+  partner('p-c3', 'CLI-003', 'Client Gamma (démo)', 'customer', 'Conakry'),
+  partner('p-f1', 'FOU-001', 'Fournisseur Delta (démo)', 'supplier', 'Conakry'),
+  partner('p-f2', 'FOU-002', 'Fournisseur Epsilon (démo)', 'supplier', 'Boké'),
+  partner('p-f3', 'FOU-003', 'Bailleur Zêta (démo)', 'supplier', 'Conakry'),
 ];
 
 const AMOUNTS = [250000, 1200000, 480000, 75000, 3600000, 150000, 920000, 2150000, 640000];

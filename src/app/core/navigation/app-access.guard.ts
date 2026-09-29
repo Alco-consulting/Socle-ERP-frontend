@@ -1,5 +1,5 @@
 import { inject } from '@angular/core';
-import { CanActivateChildFn, CanActivateFn, RedirectFunction, Router } from '@angular/router';
+import { CanActivateChildFn, CanActivateFn, Router } from '@angular/router';
 
 import { AlcoToastService } from '../../shared/ui/toast/toast.service';
 import { SessionStore } from '../session/session.store';
@@ -59,20 +59,29 @@ export function permissionGuard(...permissions: string[]): CanActivateFn {
   };
 }
 
+/*
+ * The home of an application or a section depends on the permissions: a guard, not a
+ * `redirectTo` — redirects are computed before the guards, so on a first load (bookmark,
+ * reload) the session and its company would not be loaded yet. Guards run parent first:
+ * `authGuard` has loaded them when these run.
+ */
+
 /** Empty path of an application → its first screen the user may open. */
-export function appHome(appId: string): RedirectFunction {
+export function appHome(appId: string): CanActivateFn {
   return () => {
     const app = findApplication(appId);
-    return app ? inject(NavigationService).homeUrl(app) : APP_ROOT;
+    return inject(Router).parseUrl(app ? inject(NavigationService).homeUrl(app) : APP_ROOT);
   };
 }
 
 /** Empty path of a section → its first screen the user may open. */
-export function sectionHome(appId: string, sectionPath: string): RedirectFunction {
+export function sectionHome(appId: string, sectionPath: string): CanActivateFn {
   return () => {
     const navigation = inject(NavigationService);
     const app = findApplication(appId);
     const section = app ? findSection(app, sectionPath) : undefined;
-    return app && section ? navigation.sectionHomeUrl(app, section) : APP_ROOT;
+    return inject(Router).parseUrl(
+      app && section ? navigation.sectionHomeUrl(app, section) : APP_ROOT,
+    );
   };
 }

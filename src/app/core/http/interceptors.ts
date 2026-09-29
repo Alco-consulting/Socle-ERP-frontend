@@ -40,7 +40,8 @@ export const loadingInterceptor: HttpInterceptorFn = (request, next) => {
 /**
  * Every failure of an API call becomes an `ApiError` (network, timeout, envelope…). A
  * « not authenticated » answer is reported once to the session; a 403 permission refusal
- * is NOT a logout.
+ * is NOT a logout. A refusal of the active company (`company_access_denied`) is reported to
+ * the company context, with the company the request was sent for.
  */
 export const errorInterceptor: HttpInterceptorFn = (request, next) => {
   if (!inject(ApiConfig).isApiUrl(request.url)) {
@@ -49,6 +50,10 @@ export const errorInterceptor: HttpInterceptorFn = (request, next) => {
   const config = inject(APP_CONFIG);
   const failures = inject(AuthFailures);
   const limit = request.context.get(REQUEST_TIMEOUT) ?? config.requestTimeoutMs;
+  // The company this request is sent for (the header itself is added further down the chain).
+  const companyId = request.context.get(SKIP_COMPANY)
+    ? null
+    : (request.headers.get(COMPANY_HEADER) ?? inject(SessionStore).activeCompany()?.id ?? null);
   return next(request).pipe(
     // `each`, not `first`: the first event (« sent ») comes at once; what must arrive in time
     // is the answer (for an upload, each progress step).
@@ -57,6 +62,9 @@ export const errorInterceptor: HttpInterceptorFn = (request, next) => {
       const error = toApiError(failure);
       if (error.kind === 'unauthenticated' && !request.context.get(SKIP_SESSION_EXPIRY)) {
         failures.report();
+      }
+      if (error.code === 'company_access_denied' && companyId) {
+        failures.reportCompanyRefused(companyId);
       }
       return throwError(() => error);
     }),

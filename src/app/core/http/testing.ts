@@ -14,7 +14,6 @@ export const TEST_CONFIG: AppConfig = {
   apiBaseUrl: '/api/v1',
   requestTimeoutMs: 5_000,
   uploadTimeoutMs: 5_000,
-  sessionSource: 'api',
 };
 
 export function provideHttpTesting(

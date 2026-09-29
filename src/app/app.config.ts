@@ -17,10 +17,10 @@ import {
 import { environment } from '../environments/environment';
 import { routes } from './app.routes';
 import { SessionService } from './core/auth/session.service';
+import { CompanyContextService } from './core/company/company-context.service';
 import { provideAppConfig } from './core/config/app-config';
 import { provideApi } from './core/http/provide-api';
 import { AlcoTitleStrategy } from './core/navigation/route-trail';
-import { providePrototypeSession } from './features/prototype/prototype-session';
 
 registerLocaleData(localeFr);
 
@@ -36,9 +36,10 @@ export const appConfig: ApplicationConfig = {
     ),
     { provide: TitleStrategy, useClass: AlcoTitleStrategy },
     { provide: LOCALE_ID, useValue: 'fr-FR' },
-    // The session listens to « not authenticated » answers from the very first request.
-    provideAppInitializer(() => void inject(SessionService)),
-    // PROTOTYPE — simulated user and permissions, until the Authentication module.
-    ...(environment.sessionSource === 'prototype' ? [providePrototypeSession()] : []),
+    // The session and the company context listen to the HTTP layer from the first request.
+    provideAppInitializer(() => {
+      inject(SessionService);
+      inject(CompanyContextService);
+    }),
   ],
 };

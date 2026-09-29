@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test';
+import { expect, test } from './support/fake-api';
 
 const SCREENS = [
   { name: 'App Launcher', url: '/' },
@@ -46,7 +46,7 @@ test.describe('Règles de mise en page', () => {
   }) => {
     await page.goto('/app/comptabilite/ecritures');
     await expect(
-      page.getByRole('button', { name: /Société active : ALCO DÉMO SARL/ }),
+      page.getByRole('button', { name: /Société active : ALCO GUINÉE \(test\)/ }),
     ).toBeVisible();
     await expect(page.getByRole('link', { name: 'Toutes les applications' })).toBeVisible();
     await expect(page.getByRole('navigation', { name: 'Navigation Comptabilité' })).toBeVisible();

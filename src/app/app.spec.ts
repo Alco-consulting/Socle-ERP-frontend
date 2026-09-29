@@ -1,5 +1,5 @@
 import { TestBed } from '@angular/core/testing';
-import { provideRouter } from '@angular/router';
+import { Router, provideRouter } from '@angular/router';
 
 import { App } from './app';
 
@@ -15,10 +15,22 @@ describe('App', () => {
     expect(link?.textContent).toBe('Aller au contenu');
   });
 
-  it('states permanently that the prototype data is fictitious', async () => {
+  it('shows no demonstration strip outside the demonstration screens', async () => {
     const fixture = TestBed.createComponent(App);
     await fixture.whenStable();
+    expect((fixture.nativeElement as HTMLElement).querySelector('[role=note]')).toBeNull();
+  });
+
+  it('says on a demonstration screen that its data is fictitious', async () => {
+    TestBed.resetTestingModule();
+    TestBed.configureTestingModule({
+      providers: [provideRouter([{ path: 'demo', data: { demo: true }, children: [] }])],
+    });
+    const fixture = TestBed.createComponent(App);
+    await TestBed.inject(Router).navigateByUrl('/demo');
+    await fixture.whenStable();
     const banner = (fixture.nativeElement as HTMLElement).querySelector('[role=note]');
-    expect(banner?.textContent).toContain('données fictives, aucune donnée comptable réelle');
+    expect(banner?.getAttribute('aria-label')).toBe('Démonstration');
+    expect(banner?.textContent).toContain('données fictives, sans lien avec la société active');
   });
 });

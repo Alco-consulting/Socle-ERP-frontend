@@ -45,8 +45,11 @@ export interface AlcoApplication {
   readonly family: AppFamily;
   /** URL segment: /comptabilite */
   readonly path: string;
-  /** Backend permission that makes the application visible (`<domain>.read`). */
-  readonly permission: string;
+  /**
+   * Backend permission that makes the application visible (`<domain>.read`). Without one, the
+   * application is visible as soon as one of its screens is (each screen has its own).
+   */
+  readonly permission?: string;
   readonly nav: readonly AppNavEntry[];
   readonly sections?: readonly AppSection[];
   /** Words that also find the application in the launcher search. */
@@ -273,13 +276,14 @@ export const APPLICATIONS: readonly AlcoApplication[] = [
     icon: 'settings',
     family: 'control',
     path: 'parametres',
-    permission: 'users.read',
     keywords: ['utilisateur', 'rôle', 'droit', 'société', 'devise'],
+    // Each screen needs the permission of its API (OpenAPI x-permissions): a company
+    // administrator without the global `users.read` still reaches its company and members.
     nav: [
-      { label: 'Société', path: 'societe' },
-      { label: 'Utilisateurs', path: 'utilisateurs' },
-      { label: 'Rôles et droits', path: 'roles' },
-      { label: 'Devises', path: 'devises' },
+      { label: 'Société', path: 'societe', permission: 'companies.read' },
+      { label: 'Utilisateurs', path: 'utilisateurs', permission: 'users.read' },
+      { label: 'Rôles et droits', path: 'roles', permission: 'companies.manage_members' },
+      { label: 'Devises', path: 'devises', permission: 'currencies.read' },
     ],
   },
 ];
@@ -298,6 +302,11 @@ export function splitAppUrl(url: string): { app: string; rest: string[] } | null
 
 export function findApplication(id: string): AlcoApplication | undefined {
   return APPLICATIONS.find((app) => app.id === id);
+}
+
+/** The application of an URL segment (`comptabilite` → Comptabilité). */
+export function applicationAt(path: string): AlcoApplication | undefined {
+  return APPLICATIONS.find((app) => app.path === path);
 }
 
 export function findSection(app: AlcoApplication, path: string): AppSection | undefined {

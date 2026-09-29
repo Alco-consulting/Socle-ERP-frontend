@@ -5,7 +5,7 @@
  * CORS needed.
  *
  * - Target: `ALCO_API_TARGET` (default: the deployed API). A local backend:
- *   `ALCO_API_TARGET=http://localhost:8000 npm run start:api`.
+ *   `ALCO_API_TARGET=http://localhost:8000 npm start`.
  * - The server still checks the CSRF Origin: http://localhost:4200 must be in its
  *   `DJANGO_CSRF_TRUSTED_ORIGINS` (done on the deployed API, default in `config.settings.local`).
  * - Development only: it never relaxes a protection of the server.

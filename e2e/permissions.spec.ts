@@ -1,8 +1,17 @@
-import { Page, expect, test } from '@playwright/test';
+import { Page } from '@playwright/test';
 
-async function useProfile(page: Page, profile: 'Administrateur' | 'Comptable' | 'Consultation') {
+import { COMPANY_A, FakeApi, PROFILES, expect, test } from './support/fake-api';
+
+/** The permissions the server gives in company A (`users.read` is global: `auth/me/`). */
+async function useProfile(
+  page: Page,
+  api: FakeApi,
+  profile: 'administrator' | 'accountant' | 'viewer',
+) {
+  api
+    .withGlobalPermissions(...(profile === 'administrator' ? ['users.read'] : []))
+    .withPermissions(COMPANY_A.public_id, PROFILES[profile === 'viewer' ? 'viewer' : 'accountant']);
   await page.goto('/');
-  await page.getByLabel('Profil simulé').selectOption({ label: profile });
   await expect(page).toHaveURL(/\/app$/);
 }
 
@@ -10,10 +19,10 @@ const tiles = (page: Page) => page.locator('.tile-label');
 const moduleNav = (page: Page) => page.getByRole('navigation', { name: 'Navigation Comptabilité' });
 
 test.describe('Affichage selon les permissions (confort d’interface ; l’API reste l’autorité)', () => {
-  test('the launcher lists only the permitted applications', async ({ page }) => {
-    await useProfile(page, 'Administrateur');
+  test('the launcher lists only the permitted applications', async ({ page, api }) => {
+    await useProfile(page, api, 'administrator');
     await expect(tiles(page)).toHaveCount(6);
-    await useProfile(page, 'Comptable');
+    await useProfile(page, api, 'accountant');
     await expect(tiles(page)).toHaveText([
       'Comptabilité',
       'Tiers',
@@ -21,12 +30,12 @@ test.describe('Affichage selon les permissions (confort d’interface ; l’API 
       'Documents',
       'Tableau de bord',
     ]);
-    await useProfile(page, 'Consultation');
+    await useProfile(page, api, 'viewer');
     await expect(tiles(page)).toHaveText(['Comptabilité', 'Reporting', 'Tableau de bord']);
   });
 
-  test('a read-only profile sees no creation action', async ({ page }) => {
-    await useProfile(page, 'Consultation');
+  test('a read-only profile sees no creation action', async ({ page, api }) => {
+    await useProfile(page, api, 'viewer');
     await page.getByRole('link', { name: /Comptabilité/ }).click();
     await expect(page.getByRole('link', { name: 'Nouvelle écriture' })).toHaveCount(0);
     await moduleNav(page).getByRole('link', { name: 'Écritures' }).click();
@@ -37,8 +46,9 @@ test.describe('Affichage selon les permissions (confort d’interface ; l’API 
 
   test('a forbidden application, screen or domain sends back with an explanation', async ({
     page,
+    api,
   }) => {
-    await useProfile(page, 'Consultation');
+    await useProfile(page, api, 'viewer');
     await page.goto('/app/parametres');
     await expect(page).toHaveURL(/\/app$/);
     await expect(
@@ -56,8 +66,8 @@ test.describe('Affichage selon les permissions (confort d’interface ; l’API 
     ).toBeVisible();
   });
 
-  test('the module menu hides the domains of a missing permission', async ({ page }) => {
-    await useProfile(page, 'Consultation');
+  test('the module menu hides the domains of a missing permission', async ({ page, api }) => {
+    await useProfile(page, api, 'viewer');
     await page.getByRole('link', { name: /Comptabilité/ }).click();
     await expect(moduleNav(page).getByRole('link', { name: 'Trésorerie' })).toBeVisible();
     await expect(moduleNav(page).getByRole('link', { name: 'Tiers' })).toHaveCount(0);

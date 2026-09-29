@@ -1,9 +1,11 @@
 # Frontend — application comptable Alco
 
 Angular 21 (standalone, signaux, zoneless, TypeScript strict). État actuel : **UX/UI 0**
-(design system, App Launcher, coquille des modules, prototype sur données fictives) et
-**Module 0** (socle technique : API, session Django, CSRF, contexte société) et
-**Module 1** (connexion et déconnexion par la session Django). Aucun module métier.
+(design system, App Launcher, coquille des modules), **Module 0** (socle technique : API,
+session Django, CSRF, `X-Company-ID`), **Module 1** (connexion et déconnexion) et
+**Module 2** (société active et App Launcher réels : utilisateur, sociétés, permissions de
+l'API). Aucun module métier : les écrans comptables restent des démonstrations sur données
+fictives, signalées comme telles.
 
 Documentation : [`../docs/frontend/design-system.md`](../docs/frontend/design-system.md),
 [`../docs/frontend/ux-guidelines.md`](../docs/frontend/ux-guidelines.md),
@@ -13,8 +15,7 @@ dans [`CLAUDE.md`](CLAUDE.md).
 | Action | Commande |
 | --- | --- |
 | Installer (Node ≥ 22.12 ou ≥ 24) | `npm ci` |
-| Lancer le prototype (<http://localhost:4200>) | `npm start` |
-| Lancer contre l'API (vraie session et écran de connexion, proxy) | `npm run start:api` |
+| Lancer (<http://localhost:4200>, API par le proxy, votre compte) | `npm start` (cible : `ALCO_API_TARGET`, défaut l'API déployée) |
 | Lint (ESLint, Stylelint, Prettier) | `npm run lint` |
 | Tests unitaires (Vitest) | `npm test` |
 | Build de production | `npm run build` |

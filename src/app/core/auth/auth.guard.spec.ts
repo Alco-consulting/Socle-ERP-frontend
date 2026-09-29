@@ -7,13 +7,20 @@ import {
 } from '@angular/router';
 
 import { ApiError } from '../http/api-error';
-import { authGuard, guestGuard } from './auth.guard';
+import { SessionStore } from '../session/session.store';
+import { openTestSession } from '../session/testing';
+import { authGuard, guestGuard, sessionGuard } from './auth.guard';
 import { SessionService } from './session.service';
 
-function run(guard: typeof authGuard, ensureLoaded: () => Promise<boolean>) {
+function run(
+  guard: typeof authGuard,
+  ensureLoaded: () => Promise<boolean>,
+  activeCompanyId: string | null = 'c1',
+) {
   TestBed.configureTestingModule({
     providers: [provideRouter([]), { provide: SessionService, useValue: { ensureLoaded } }],
   });
+  openTestSession(TestBed.inject(SessionStore), { activeCompanyId });
   return TestBed.runInInjectionContext(() =>
     guard(
       {} as ActivatedRouteSnapshot,
@@ -40,6 +47,20 @@ describe('authGuard (UX only: the server checks every call)', () => {
       raison: 'indisponible',
       retour: '/app/comptabilite/ecritures',
     });
+  });
+});
+
+describe('authGuard and the active company', () => {
+  it('an open session without a company goes to the choice of one, then back', async () => {
+    const result = (await run(authGuard, () => Promise.resolve(true), null)) as UrlTree;
+    expect(result.toString()).toBe('/societe?retour=%2Fapp%2Fcomptabilite%2Fecritures');
+  });
+
+  it('the choice of a company needs a session, not a company', async () => {
+    expect(await run(sessionGuard, () => Promise.resolve(true), null)).toBe(true);
+    TestBed.resetTestingModule();
+    const result = (await run(sessionGuard, () => Promise.resolve(false), null)) as UrlTree;
+    expect(result.toString()).toBe('/login?retour=%2Fapp%2Fcomptabilite%2Fecritures');
   });
 });
 

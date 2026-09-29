@@ -6,5 +6,4 @@ export const environment: AppConfig = {
   apiBaseUrl: '/api/v1',
   requestTimeoutMs: 5_000,
   uploadTimeoutMs: 5_000,
-  sessionSource: 'prototype',
 };

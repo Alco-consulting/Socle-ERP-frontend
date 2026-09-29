@@ -1,6 +1,7 @@
 import { TestBed } from '@angular/core/testing';
 
 import { SessionStore } from '../session/session.store';
+import { openTestSession } from '../session/testing';
 import { APPLICATIONS, findApplication, findSection, menuLinks } from './applications';
 import { NavigationService } from './navigation.service';
 
@@ -14,21 +15,12 @@ const FINANCIAL_DOMAINS = [
   'Audit',
 ];
 
-function signIn(permissions: string[], features: string[] = ALL_FEATURES): NavigationService {
-  TestBed.inject(SessionStore).load({
-    user: { displayName: 'Test Utilisateur', email: 'test@example.org' },
-    companies: [
-      {
-        id: 'c1',
-        name: 'Société test',
-        fiscalYearLabel: 'Exercice 2026',
-        currency: 'GNF',
-        permissions,
-        features,
-      },
-    ],
-    activeCompanyId: 'c1',
-  });
+function signIn(
+  permissions: string[],
+  features: string[] | null = ALL_FEATURES,
+  globalPermissions: string[] = [],
+): NavigationService {
+  openTestSession(TestBed.inject(SessionStore), { permissions, features, globalPermissions });
   return TestBed.inject(NavigationService);
 }
 
@@ -79,9 +71,16 @@ describe('Application catalogue', () => {
     }
   });
 
-  it('every application and section declares a backend read permission', () => {
+  it('every application and section needs a backend read permission', () => {
     for (const app of APPLICATIONS) {
-      expect(app.permission).toMatch(/^[a-z_]+\.read$/);
+      if (app.permission) {
+        expect(app.permission).toMatch(/^[a-z_]+\.read$/);
+      } else {
+        // No permission of its own: each of its screens has one.
+        for (const link of menuLinks(app.nav)) {
+          expect(link.permission, `${app.label} › ${link.label}`).toMatch(/^[a-z_]+\.[a-z_]+$/);
+        }
+      }
     }
     for (const section of accounting().sections ?? []) {
       expect(section.permission).toMatch(/^[a-z_]+\.read$/);
@@ -199,6 +198,75 @@ describe('NavigationService', () => {
     const target = navigation.sectionHomeUrl(accounting(), loans);
     expect(target).toBe('/app/comptabilite/emprunts/liste');
     expect(navigation.canOpenUrl(target)).toBe(false);
+  });
+
+  it('counts a global permission only when it is global on the server', () => {
+    // A platform administrator: auth/me/ lists every permission; in a company where it has
+    // no membership grant, the company gives nothing but the company management ones.
+    const navigation = signIn(['companies.read'], null, ['accounting.read', 'users.read']);
+    expect(labels(navigation.applications())).toEqual(['Paramètres']);
+    expect(navigation.canOpenUrl('/app/comptabilite/ecritures')).toBe(false);
+    expect(labels(navigation.menu(findApplication('settings')!))).toEqual([
+      'Société',
+      'Utilisateurs',
+    ]);
+  });
+
+  it('opens Paramètres as soon as one of its screens is permitted', () => {
+    expect(labels(signIn(['currencies.read']).applications())).toEqual(['Paramètres']);
+    expect(
+      signIn(['accounting.read'])
+        .applications()
+        .map((app) => app.id),
+    ).not.toContain('settings');
+    expect(signIn(['companies.manage_members']).canOpenUrl('/app/parametres/roles')).toBe(true);
+    expect(signIn(['companies.manage_members']).canOpenUrl('/app/parametres/societe')).toBe(false);
+  });
+
+  describe('landing after a company change', () => {
+    const accountant = ['accounting.read', 'treasury.read', 'assets.read', 'reporting.read'];
+
+    it('stays on the same menu screen when it is still open', () => {
+      const navigation = signIn(accountant);
+      expect(navigation.landingUrl('/app/comptabilite/ecritures')).toBe(
+        '/app/comptabilite/ecritures',
+      );
+      expect(navigation.landingUrl('/app/comptabilite/tresorerie/operations')).toBe(
+        '/app/comptabilite/tresorerie/operations',
+      );
+      expect(navigation.landingUrl('/app/comptabilite/rapports/balance')).toBe(
+        '/app/comptabilite/rapports/balance',
+      );
+    });
+
+    it('never keeps a record nor the filters of the previous company', () => {
+      const navigation = signIn(accountant);
+      expect(navigation.landingUrl('/app/comptabilite/ecritures/proto-050')).toBe(
+        '/app/comptabilite/ecritures',
+      );
+      expect(navigation.landingUrl('/app/comptabilite/ecritures?etat=draft&journal=ACH')).toBe(
+        '/app/comptabilite/ecritures',
+      );
+      expect(navigation.landingUrl('/app/comptabilite/ecritures/import')).toBe(
+        '/app/comptabilite/ecritures',
+      );
+    });
+
+    it('a screen closed in the new company: the home of the application', () => {
+      const navigation = signIn(['accounting.read', 'treasury.read']);
+      expect(navigation.landingUrl('/app/comptabilite/immobilisations/actifs')).toBe(
+        '/app/comptabilite/tableau-de-bord',
+      );
+      expect(navigation.landingUrl('/app/comptabilite/rapports/balance')).toBe(
+        '/app/comptabilite/tableau-de-bord',
+      );
+    });
+
+    it('an application closed in the new company, or the launcher: the launcher', () => {
+      const navigation = signIn(['accounting.read']);
+      expect(navigation.landingUrl('/app/tiers/liste')).toBe('/app');
+      expect(navigation.landingUrl('/app')).toBe('/app');
+    });
   });
 
   it('starts an application on its first screen the user may open', () => {

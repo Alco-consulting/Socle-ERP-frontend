@@ -5,14 +5,15 @@ backend Django est terminé et en production (`https://api.alcoconsulting.tech`,
 `../backend/CLAUDE.md`).
 
 **État actuel : phase UX/UI 0 (design system, App Launcher de 6 applications, coquille des
-modules, prototype Comptabilité sur données fictives), Module 0 (socle technique) et
-Module 1 (authentification) livrés.**
+modules), Module 0 (socle technique), Module 1 (authentification) et Module 2 (société active
+et App Launcher réels) livrés.**
 Le socle parle à l'API Django : environnements, `ApiClient`, intercepteurs (session, CSRF,
-`X-Company-ID`, erreurs, chargement), session et contexte société, gardes. L'écran de connexion est réel (session Django, `POST auth/login/`), la déconnexion aussi ;
-aucun écran métier n'appelle encore l'API.
-Architecture technique : `../docs/frontend/technical-architecture.md`. Prochaine étape : Module 0
-(socle Angular : HttpClient, intercepteurs, environnements, proxy vers l'API), puis
-auth + contexte société (F2), puis les modules métier un par un.
+`X-Company-ID`, erreurs, chargement), gardes. Connexion et déconnexion réelles ; utilisateur,
+sociétés accessibles, société active, permissions et lanceur viennent de l'API (plus de
+session simulée). Aucun écran métier n'appelle encore l'API : les écrans comptables du
+prototype restent sur données fictives, avec un bandeau « Écran de démonstration ».
+Architecture technique : `../docs/frontend/technical-architecture.md`. Prochaine étape : les
+modules métier un par un (chacun remplace ses écrans de démonstration).
 
 Sources : le guide de conception frontend (`../docs/Guide_Conception_Frontend_*.docx`) fixe
 l'ordre des modules et les règles techniques ; la phase UX/UI 0 du superviseur fixe
@@ -26,12 +27,11 @@ Ne jamais indexer les `.docx` de `../docs/` dans git.
 | Action | Commande |
 | --- | --- |
 | Installer | `npm ci` (`.npmrc` : `legacy-peer-deps`, voir Décisions) |
-| Serveur de dev (prototype, session simulée) | `npm start` → <http://localhost:4200> |
-| Serveur de dev contre l'API (vraie session, via proxy) | `npm run start:api` (cible : `ALCO_API_TARGET`, défaut API déployée) |
+| Serveur de dev (vraie session, via proxy, votre compte) | `npm start` → <http://localhost:4200> (cible : `ALCO_API_TARGET`, défaut API déployée) |
 | Lint | `npm run lint` (ESLint + Stylelint + Prettier `--check`) ; corriger le format : `npm run format` |
 | Tests unitaires | `npm test` (Vitest via `ng test`, jsdom) |
 | Build | `npm run build` (production, budgets actifs) |
-| E2E | `npm run e2e` (Playwright : bureau + tablette + téléphone + mode API à réseau simulé, axe-core) |
+| E2E | `npm run e2e` (Playwright : bureau + tablette + téléphone, faux serveur `e2e/support/fake-api.ts`, axe-core) |
 | Captures de revue | `npm run captures` → `../docs/frontend/captures/` |
 
 Sur ce poste, le Chromium de Playwright n'est pas installé : préfixer par
@@ -45,20 +45,24 @@ Après chaque module : **lint + tests + build + e2e**, tous verts. Ne jamais dé
 ```text
 src/styles/     _tokens (seul endroit des valeurs brutes) · _breakpoints · _base · _forms · _overlays
 src/app/
-  environments/ environment.ts (→ .production) · .development · .development-api · .testing
+  environments/ environment.ts (→ .production) · .development · .testing
   core/         config (APP_CONFIG) · http (ApiConfig, ApiClient, ApiError, intercepteurs,
                 CsrfToken, LoadingService, requestState) · auth (AuthApi, SessionService,
-                gardes) · company (CompanyApi, CompanyContextService) ·
-                layout (module-shell, topbar, logo, not-found) · navigation (applications.ts =
+                gardes) · company (CompanyApi, CompanyContextService : ouverture, choix,
+                changement, refus, société par défaut) ·
+                layout (company-scope, module-shell, topbar, logo, not-found) · navigation (applications.ts =
                 catalogue des applications, de leurs menus et de leurs sections ;
                 NavigationService = une seule règle de visibilité permissions + domaines
                 utilisés par la société ; gardes appAccess/screenAccess ; fil d'Ariane et
-                titre d'onglet) · session (utilisateur, société active, permissions,
-                features) · errors (code API → message humain) · notifications
+                titre d'onglet) · session (SessionStore : utilisateur, sociétés, société
+                active, permissions, features) · errors (code API → message humain) ·
+                notifications
   shared/       ui · forms · filters · tables · pipes · utils — composants de présentation
-  features/     launcher · auth (écran de connexion) · design-system · prototype
-  app.routes.ts `/` → `/app` (lanceur, zone authentifiée), `/app/<application>/…`, `/login`,
-                `/design-system` ; une coquille AlcoModuleShell par application
+  features/     launcher · auth (écran de connexion) · company-choice (`/societe`) ·
+                design-system · prototype
+  app.routes.ts `/` → `/app` (lanceur, zone authentifiée dans AlcoCompanyScope),
+                `/app/<application>/…`, `/login`, `/societe`, `/design-system` ; une coquille
+                AlcoModuleShell par application
                 (features/prototype/prototype-routes.ts : écrans construits + écrans prévus
                 et sections générés depuis le catalogue)
 ```
@@ -96,9 +100,14 @@ Sens des dépendances, vérifié par ESLint (`no-restricted-imports`) : `shared`
    une application indépendante (ni tuile, ni menu, ni route, ni écran générique) : chaque
    domaine a son « Actions ▾ » avec exactement son import/export, et seulement ce que l'API
    propose (V1 : import écritures et tiers ; export tiers, balance, grand livre).
-10. Une section peut être optionnelle pour une société (`feature` : treasury, assets, loans,
-    taxes, analytics) : masquée dans les menus, fermée par son URL (`screenAccessGuard`).
-    La configuration réelle par société n'existe pas encore (simulée par le prototype).
+10. **Contexte société** : la société active, la liste des sociétés et les permissions
+    viennent de `company-context/` (seul `CompanyContextService` écrit ce contexte). Une donnée
+    d'une société ne se garde que dans un écran (recréé au changement de société par
+    `AlcoCompanyScope`) ou dans un service vidé sur `CompanyContextService.changed$`. Seules
+    les permissions globales `users.*` et `companies.create` de `auth/me/` comptent hors
+    société (`isGlobalPermission`, règle du backend). Une section peut aussi dépendre d'un
+    domaine utilisé par la société (`feature`) ; le backend ne l'expose pas encore
+    (`features = null` : rien de masqué pour cette raison).
 11. **HTTP** : un service de domaine passe par `ApiClient` (chemins relatifs à l'API), jamais
     par une URL écrite en dur ; il n'écrit jamais `X-Company-ID`, `X-XSRF-TOKEN` ni cookie
     (intercepteurs) ; il reçoit une `ApiError` et l'affiche avec `toUserError`. Pas de JWT, pas
@@ -106,7 +115,8 @@ Sens des dépendances, vérifié par ESLint (`no-restricted-imports`) : `shared`
     `not_authenticated` (DRF, authentification de session). Tout nouveau service HTTP est
     testé avec `HttpTestingController` : aucun test n'appelle l'API réelle.
 12. Gardes et fonctions asynchrones : tout `inject()` **avant** le premier `await` (hors
-    contexte d'injection ensuite).
+    contexte d'injection ensuite). Une destination qui dépend des permissions est une garde,
+    jamais un `redirectTo` (calculé avant les gardes, donc avant le chargement de la session).
 13. Accessibilité : libellés, focus visible, clavier complet, pas d'information par la
     couleur seule ; axe-core doit rester sans violation.
 14. Code, identifiants et commentaires en anglais ; textes d'interface et documentation en
@@ -114,18 +124,16 @@ Sens des dépendances, vérifié par ESLint (`no-restricted-imports`) : `shared`
 
 ## Prototype (à retirer progressivement)
 
-`features/prototype/` : faux serveur en mémoire (`PrototypeAccountingApi`, latence simulée,
-codes d'erreur réels du backend), données fictives marquées « (démo) », profil simulé
-(`PrototypeSession`, sélecteur dans le bandeau) et société simulée (deux sociétés, dont une
-de services sans immobilisations/emprunts/analytique), tous deux conservés en
-`sessionStorage` ; écrans non construits (`NotInPrototypePage`) ; liste des tiers
-(`partners/`) ; import/export contextuels (`transfers/` : types calqués sur l'API V1, écran
-« Import d'écritures / de tiers », confirmation d'export). Branché dans `app.config.ts`
-(`providePrototypeSession`, seulement quand `sessionSource === 'prototype'`) et
-`app.routes.ts` (`APPLICATION_ROUTES`). Le mode API (`npm run start:api`) désactive la session
-simulée et le bandeau ; les écrans du prototype y restent sur données fictives. Quand un module métier arrive : il remplace
-ses routes de prototype et ses données, puis on supprime ce qui ne sert plus. En F2, la
-session vient de l'API et le bandeau disparaît.
+`features/prototype/` : écrans métier de démonstration — faux serveur en mémoire
+(`PrototypeAccountingApi`, latence simulée, codes d'erreur réels du backend, **une série de
+données par société active**, comme `X-Company-ID`), données fictives marquées « (démo) »,
+écrans non construits (`NotInPrototypePage`), liste des tiers (`partners/`), import/export
+contextuels (`transfers/` : types calqués sur l'API V1). Les écrans à données fictives portent
+`data: { demo: true }` : le bandeau « Écran de démonstration » (`prototype-banner.ts`, affiché
+par `app.ts`) n'apparaît que sur eux. Branché dans `app.routes.ts` (`APPLICATION_ROUTES`).
+Plus de session, de profil ni de société simulés (Module 2) : tout le contexte vient de l'API.
+Quand un module métier arrive : il remplace ses routes de prototype et ses données, puis on
+supprime ce qui ne sert plus.
 
 ## Décisions
 
@@ -152,6 +160,18 @@ session vient de l'API et le bandeau disparaît.
 - **Session Django uniquement** (cookie HttpOnly), `SessionService` : un seul appel
   `auth/me/` + `company-context/` ; fin de session = 403 `not_authenticated` → une seule
   navigation vers `/login?raison=session-expiree&retour=…`.
+- **Plus de session simulée** (Module 2) : `sessionSource` et la configuration
+  `development-api` sont supprimés ; `npm start` = API par le proxy. Les e2e répondent à l'API
+  eux-mêmes (`e2e/support/fake-api.ts`, sociétés « (test) »).
+- **Société active** : `company-context/` (société par défaut ; une seule société → elle ;
+  sinon choix sur `/societe`, avec `PUT company-context/default/` en option). Choix de
+  l'onglet dans `sessionStorage` (`alco.company`, identifiant revérifié par le serveur).
+  Changement : `SessionStore.activity = 'switching-company'` → `AlcoCompanyScope` retire les
+  écrans, contexte rechargé, atterrissage `NavigationService.landingUrl()` (même écran du menu
+  si permis, jamais une fiche), écrans recréés. `company_access_denied` (même réponse pour
+  inconnue, inaccessible, désactivée) : liste rafraîchie, message, société valide.
+- **Paramètres** n'a pas de permission propre : visible dès qu'un de ses écrans l'est
+  (`companies.read`, `users.read`, `companies.manage_members`, `currencies.read`).
 - **CSRF** : l'intercepteur intégré d'Angular est remplacé (`withNoXsrfProtection`) par
   `csrfInterceptor` (mêmes noms, même règle d'origine, + récupération du cookie et une
   nouvelle tentative après `csrf_failed`). La protection reste active côté serveur.
@@ -178,10 +198,15 @@ session vient de l'API et le bandeau disparaît.
   e-mail quand le backend l'exposera ; fin du mode prototype (quand les modules métier
   remplaceront les données fictives).
 - Décider l'origine du frontend en production (technical-architecture.md § 12).
+- Exercice en cours dans la barre supérieure et le lanceur (module Comptabilité, lu dans l'API).
+- Domaines utilisés par société (`features`) : à exposer par le backend (puis écran
+  Paramètres) avant de masquer quoi que ce soit pour cette raison.
+- Actions GitHub `checkout`/`setup-node` v4 → v5 (Node 20 déprécié) ; `ubuntu-latest` passe
+  à Ubuntu 26 le 19/10/2026.
 - `AlcoDrawer` (non construit, pas d'usage) ; mode sombre (tokens prêts à être redéfinis).
-- Garde « modifications non enregistrées » sur les formulaires.
+- Garde « modifications non enregistrées » sur les formulaires (aussi avant un changement de
+  société : aujourd'hui, un formulaire en cours est abandonné sans question).
 - Regroupement côté serveur (le prototype regroupe la page courante) et sous-totaux fournis
   par l'API.
 - Graphiques du tableau de bord (charger la compétence dataviz avant d'en dessiner).
-- Configuration réelle des domaines utilisés par société (backend + écran Paramètres).
 - Imports/exports non proposés par l'API V1 : décision métier puis backend.

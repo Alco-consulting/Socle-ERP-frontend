@@ -63,17 +63,6 @@
                 }
               ]
             },
-            "development-api": {
-              "optimization": false,
-              "extractLicenses": false,
-              "sourceMap": true,
-              "fileReplacements": [
-                {
-                  "replace": "src/environments/environment.ts",
-                  "with": "src/environments/environment.development-api.ts"
-                }
-              ]
-            },
             "test": {
               "optimization": false,
               "extractLicenses": false,
@@ -96,9 +85,6 @@
             },
             "development": {
               "buildTarget": "alco-frontend:build:development"
-            },
-            "development-api": {
-              "buildTarget": "alco-frontend:build:development-api"
             }
           },
           "defaultConfiguration": "development",

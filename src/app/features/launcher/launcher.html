@@ -9,7 +9,7 @@
     @if (session.activeCompany(); as company) {
       <p class="context">
         <alco-icon name="company" [size]="16" />
-        {{ company.name }} · {{ company.fiscalYearLabel }} ·
+        {{ company.name }} ·
         {{ applications().length }}
         {{ applications().length > 1 ? 'applications disponibles' : 'application disponible' }}
       </p>
@@ -50,7 +50,11 @@
     <alco-empty-state
       icon="lock"
       title="Aucune application disponible dans cette société."
-      message="Demandez à un administrateur de vous donner accès, ou choisissez une autre société en haut à droite."
+      [message]="
+        session.companies().length > 1
+          ? 'Demandez à un administrateur de vous donner accès, ou choisissez une autre société en haut à droite.'
+          : 'Demandez à un administrateur de vous donner accès.'
+      "
     />
   } @else {
     <alco-empty-state

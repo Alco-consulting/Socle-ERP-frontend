@@ -12,7 +12,7 @@ const contextualImport = () =>
 function partnerScreen(path: string, label: string, role: 'all' | 'customer' | 'supplier') {
   return {
     path,
-    data: { breadcrumb: label },
+    data: { breadcrumb: label, demo: true },
     children: [
       { path: '', data: { role }, loadComponent: partnerList },
       {
@@ -25,12 +25,15 @@ function partnerScreen(path: string, label: string, role: 'all' | 'customer' | '
   };
 }
 
-/** Screens built by the prototype, per application; every other screen is a placeholder. */
+/**
+ * Screens built by the prototype, per application; every other screen is a placeholder.
+ * `demo: true`: fictitious data, said by the demonstration strip (prototype-banner.ts).
+ */
 const SCREENS: Readonly<Record<string, Routes>> = {
   accounting: [
     {
       path: 'tableau-de-bord',
-      data: { breadcrumb: 'Tableau de bord' },
+      data: { breadcrumb: 'Tableau de bord', demo: true },
       loadComponent: () =>
         import('./accounting/dashboard/accounting-dashboard').then(
           (m) => m.AccountingDashboardPage,
@@ -38,7 +41,7 @@ const SCREENS: Readonly<Record<string, Routes>> = {
     },
     {
       path: 'ecritures',
-      data: { breadcrumb: 'Écritures' },
+      data: { breadcrumb: 'Écritures', demo: true },
       loadChildren: () => import('./accounting/entries.routes').then((m) => m.ENTRY_ROUTES),
     },
   ],

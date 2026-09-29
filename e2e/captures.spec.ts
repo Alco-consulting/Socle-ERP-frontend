@@ -1,4 +1,6 @@
-import { Page, expect, test } from '@playwright/test';
+import { Page } from '@playwright/test';
+
+import { COMPANY_A, COMPANY_B, COMPANY_C, PROFILES, expect, test } from './support/fake-api';
 
 /**
  * Screenshots for the design review (docs/frontend/captures). Not a test of behaviour:
@@ -73,12 +75,12 @@ test('desktop 1440 × 900', async ({ page }) => {
 
 const moduleNav = (page: Page) => page.getByRole('navigation', { name: 'Navigation Comptabilité' });
 
-test('regroupement: applications and domains of Comptabilité', async ({ page }) => {
+test('regroupement: applications and domains of Comptabilité', async ({ page, api }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
+  api.withGlobalPermissions('users.read'); // administrator
   await page.goto('/');
-  await page.getByLabel('Profil simulé').selectOption({ label: 'Administrateur' });
   await shoot(page, '40-launcher-administrator');
-  await page.getByLabel('Profil simulé').selectOption({ label: 'Comptable' });
+  api.withGlobalPermissions();
 
   await page.goto('/app/comptabilite/tableau-de-bord');
   await moduleNav(page).getByRole('button', { name: 'Plus' }).click();
@@ -118,7 +120,7 @@ test('regroupement: applications and domains of Comptabilité', async ({ page })
 
   await page.goto('/app/comptabilite/tableau-de-bord');
   await page.getByRole('button', { name: /Société active/ }).click();
-  await page.getByRole('menuitemradio', { name: /FILIALE SERVICES DÉMO SA/ }).click();
+  await page.getByRole('menuitemradio', { name: /FILIALE SÉNÉGAL/ }).click();
   await moduleNav(page).getByRole('button', { name: 'Plus' }).click();
   await shoot(page, '53-services-company-more-menu');
 });
@@ -133,11 +135,47 @@ test('loading state', async ({ page }) => {
   await page.screenshot({ path: `${OUT}/15-state-loading.png` });
 });
 
-test('permissions: read-only profile', async ({ page }) => {
+test('permissions: read-only profile', async ({ page, api }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
+  api.withPermissions(COMPANY_A.public_id, PROFILES.viewer);
   await page.goto('/');
-  await page.getByLabel('Profil simulé').selectOption({ label: 'Consultation' });
   await shoot(page, '16-launcher-read-only-profile');
+});
+
+test('company context: choice, selector, switch', async ({ page, api }) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  api.withCompanies(
+    [
+      { company: COMPANY_A, permissions: PROFILES.accountant },
+      { company: COMPANY_B, permissions: PROFILES.services },
+      { company: { ...COMPANY_C, status: 'inactive' }, permissions: PROFILES.viewer },
+    ],
+    null,
+  );
+  await page.goto('/app');
+  await shoot(page, '60-company-choice');
+  await page.getByRole('button', { name: /ALCO GUINÉE/ }).click();
+  await page.getByRole('button', { name: /^Société active/ }).click();
+  await shoot(page, '61-company-selector');
+  api.slowContext(1500);
+  await page.getByRole('menuitemradio', { name: /FILIALE SÉNÉGAL/ }).click();
+  await page.waitForTimeout(300);
+  await page.screenshot({ path: `${OUT}/62-company-switching.png` });
+  api.slowContext(0);
+  await expect(page.getByRole('button', { name: /^Société active/ })).toContainText('FILIALE');
+  await shoot(page, '63-launcher-after-switch');
+
+  await page.setViewportSize({ width: 390, height: 844 });
+  api.withCompanies(
+    [
+      { company: COMPANY_A, permissions: PROFILES.accountant },
+      { company: COMPANY_B, permissions: PROFILES.services },
+    ],
+    null,
+  );
+  await page.evaluate(() => sessionStorage.clear());
+  await page.goto('/app');
+  await shoot(page, '64-phone-company-choice', true);
 });
 
 test('tablet 820 × 1180', async ({ page }) => {

@@ -3,6 +3,7 @@ import { TestBed } from '@angular/core/testing';
 import { firstValueFrom } from 'rxjs';
 
 import { SessionStore } from '../session/session.store';
+import { TEST_COMPANY, openTestSession } from '../session/testing';
 import { ApiClient } from './api-client';
 import { ApiError } from './api-error';
 import { AuthFailures } from './auth-failures';
@@ -13,20 +14,7 @@ import { clearCookie, envelope, httpMock, provideHttpTesting, setCookie } from '
 const COMPANY = '7c5f0c3e-4b0a-4f3c-9a55-3b8f5a1d2e10';
 
 function signInCompany(): void {
-  TestBed.inject(SessionStore).load({
-    user: { displayName: 'Test', email: 'test@example.org' },
-    companies: [
-      {
-        id: COMPANY,
-        name: 'Société test',
-        fiscalYearLabel: '',
-        currency: 'GNF',
-        permissions: [],
-        features: null,
-      },
-    ],
-    activeCompanyId: COMPANY,
-  });
+  openTestSession(TestBed.inject(SessionStore), { companies: [{ ...TEST_COMPANY, id: COMPANY }] });
 }
 
 async function failureOf(promise: Promise<unknown>): Promise<ApiError> {
@@ -161,6 +149,31 @@ describe('API interceptors', () => {
       expect(httpMock().expectOne('/assets/data.json').request.headers.has('X-Company-ID')).toBe(
         false,
       );
+    });
+
+    it('a refusal of the active company is reported once, with that company', async () => {
+      signInCompany();
+      const refused: string[] = [];
+      TestBed.inject(AuthFailures).companyRefused$.subscribe((id) => refused.push(id));
+      const call = firstValueFrom(api.get('accounting/entries/'));
+      httpMock()
+        .expectOne('/api/v1/accounting/entries/')
+        .flush(envelope('company_access_denied'), { status: 403, statusText: 'Forbidden' });
+      const error = await failureOf(call);
+      expect(error.code).toBe('company_access_denied');
+      expect(refused).toEqual([COMPANY]);
+    });
+
+    it('a company named on purpose (company context) is not reported: its caller decides', async () => {
+      signInCompany();
+      const refused: string[] = [];
+      TestBed.inject(AuthFailures).companyRefused$.subscribe((id) => refused.push(id));
+      const call = firstValueFrom(api.get('company-context/', { skipCompany: true }));
+      httpMock()
+        .expectOne('/api/v1/company-context/')
+        .flush(envelope('company_access_denied'), { status: 403, statusText: 'Forbidden' });
+      await failureOf(call);
+      expect(refused).toEqual([]);
     });
   });
 

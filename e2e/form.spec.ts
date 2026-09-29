@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test';
+import { expect, test } from './support/fake-api';
 
 test.describe('Vue formulaire : sections, validation, workflow piloté par le serveur', () => {
   test('saving an incomplete entry points to what is missing', async ({ page }) => {

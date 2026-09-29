@@ -1,14 +1,10 @@
-import { Page, expect, test } from '@playwright/test';
+import { Page } from '@playwright/test';
+
+import { COMPANY_A, PROFILES, expect, test } from './support/fake-api';
 
 const tiles = (page: Page) => page.locator('.tile-label');
 const moduleNav = (page: Page) => page.getByRole('navigation', { name: 'Navigation Comptabilité' });
 const breadcrumb = (page: Page) => page.getByRole('navigation', { name: 'Fil d’Ariane' });
-
-async function useProfile(page: Page, profile: 'Administrateur' | 'Comptable' | 'Consultation') {
-  await page.goto('/');
-  await page.getByLabel('Profil simulé').selectOption({ label: profile });
-  await expect(page).toHaveURL(/\/app$/);
-}
 
 async function openFromMore(page: Page, label: string) {
   await moduleNav(page).getByRole('button', { name: 'Plus' }).click();
@@ -16,8 +12,12 @@ async function openFromMore(page: Page, label: string) {
 }
 
 test.describe('Regroupement : peu d’applications, les domaines financiers dans Comptabilité', () => {
-  test('the launcher shows no financial domain and no Import / Export tile', async ({ page }) => {
-    await useProfile(page, 'Administrateur');
+  test('the launcher shows no financial domain and no Import / Export tile', async ({
+    page,
+    api,
+  }) => {
+    api.withGlobalPermissions('users.read'); // administrator
+    await page.goto('/');
     await expect(tiles(page)).toHaveText([
       'Comptabilité',
       'Tiers',
@@ -129,19 +129,19 @@ test.describe('Import / export contextuels', () => {
     await expect(page.getByRole('menuitemradio', { name: /import|export/i })).toHaveCount(0);
   });
 
-  test('a read-only profile has no import / export action', async ({ page }) => {
-    await useProfile(page, 'Consultation');
+  test('a read-only profile has no import / export action', async ({ page, api }) => {
+    api.withPermissions(COMPANY_A.public_id, PROFILES.viewer);
     await page.goto('/app/comptabilite/ecritures');
     await expect(page.getByRole('table')).toBeVisible();
     await expect(page.getByRole('button', { name: 'Actions' })).toHaveCount(0);
   });
 });
 
-test.describe('Personnalisation par société (simulée)', () => {
+test.describe('Domaines selon la société (permissions données par le serveur)', () => {
   test('a services company does not see fixed assets, loans nor analytics', async ({ page }) => {
     await page.goto('/app/comptabilite/tableau-de-bord');
     await page.getByRole('button', { name: /Société active/ }).click();
-    await page.getByRole('menuitemradio', { name: /FILIALE SERVICES DÉMO SA/ }).click();
+    await page.getByRole('menuitemradio', { name: /FILIALE SÉNÉGAL/ }).click();
     await expect(page).toHaveURL(/\/app\/comptabilite\/tableau-de-bord$/);
     await moduleNav(page).getByRole('button', { name: 'Plus' }).click();
     for (const hidden of ['Immobilisations', 'Emprunts', 'Analytique']) {

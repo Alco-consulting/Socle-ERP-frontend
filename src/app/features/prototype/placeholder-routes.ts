@@ -54,7 +54,12 @@ export function sectionRoutes(app: AlcoApplication): Routes {
     path: section.path,
     data: { breadcrumb: section.label },
     children: [
-      { path: '', pathMatch: 'full', redirectTo: sectionHome(app.id, section.path) },
+      {
+        path: '',
+        pathMatch: 'full',
+        canActivate: [sectionHome(app.id, section.path)],
+        children: [],
+      },
       ...menuLinks(section.nav).map((link) =>
         placeholder(link.label, link.path, `${app.path}/${section.path}/${link.path}`),
       ),
@@ -76,7 +81,7 @@ export function applicationRoute(app: AlcoApplication, screens: Routes = []): Ro
     canActivate: [appAccessGuard],
     canActivateChild: [screenAccessGuard],
     children: [
-      { path: '', pathMatch: 'full', redirectTo: appHome(app.id) },
+      { path: '', pathMatch: 'full', canActivate: [appHome(app.id)], children: [] },
       ...screens,
       ...placeholderScreens(app, built),
       ...sectionRoutes(app),

@@ -1,0 +1,85 @@
+<main id="contenu" class="page">
+  <div class="panel">
+    <alco-logo class="logo" />
+
+    <div class="heading">
+      <h1 #heading class="alco-page-title" tabindex="-1">Choisissez une société</h1>
+      @if (companies().length > 0) {
+        <p class="alco-caption">
+          Vous travaillerez dans la société choisie. Vous pourrez en changer à tout moment depuis la
+          barre du haut.
+        </p>
+      }
+    </div>
+
+    @if (error(); as failure) {
+      <alco-error-state
+        [inline]="true"
+        [title]="failure.title"
+        [message]="failure.message"
+        [code]="failure.code"
+        [correlationId]="failure.correlationId ?? ''"
+      />
+    }
+
+    @if (companies().length > 0) {
+      <ul class="companies" role="list" aria-label="Sociétés accessibles">
+        @for (company of companies(); track company.id) {
+          <li>
+            <button
+              type="button"
+              class="company"
+              [disabled]="pending() !== null"
+              [attr.aria-busy]="pending() === company.id"
+              (click)="choose(company)"
+            >
+              <span class="company-icon" aria-hidden="true">
+                <alco-icon name="company" [size]="20" />
+              </span>
+              <span class="company-text">
+                <span class="company-name">{{ company.name }}</span>
+                @if (detail(company); as text) {
+                  <span class="alco-caption">{{ text }}</span>
+                }
+              </span>
+              @if (company.id === activeId()) {
+                <alco-badge tone="primary" icon="check">Active</alco-badge>
+              }
+              @if (!company.active) {
+                <alco-badge tone="neutral" icon="lock">Inactive</alco-badge>
+              }
+              @if (pending() === company.id) {
+                <span class="alco-caption">Ouverture…</span>
+              } @else {
+                <alco-icon class="company-go" name="chevron-right" [size]="18" />
+              }
+            </button>
+          </li>
+        }
+      </ul>
+
+      <label class="default-choice">
+        <input
+          type="checkbox"
+          [checked]="makeDefault()"
+          [disabled]="pending() !== null"
+          (change)="toggleDefault($event)"
+        />
+        <span>Ouvrir directement cette société à mes prochaines connexions</span>
+      </label>
+    } @else {
+      <alco-empty-state
+        icon="company"
+        title="Aucune société accessible."
+        message="Votre compte n’est rattaché à aucune société active. Demandez à un administrateur de vous y donner accès."
+      />
+    }
+
+    <p class="footer alco-caption">
+      @if (store.user(); as user) {
+        <span>Connecté en tant que {{ user.email }}.</span>
+      }
+      <button type="button" class="link" (click)="logout()">Se déconnecter</button>
+    </p>
+  </div>
+</main>

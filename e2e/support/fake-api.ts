@@ -1,0 +1,311 @@
+import { Page, Request, test as base } from '@playwright/test';
+
+/**
+ * A small stateful fake of the Django API contract (backend/docs/api/openapi.yaml), used by
+ * every end-to-end test: session opened by a good login and closed by the logout, CSRF
+ * cookie rotated at login, company context with `X-Company-ID`, default company,
+ * `company_access_denied` for a company the user can no longer enter. Every `/api/v1/…`
+ * request is answered here: nothing reaches the deployed API, no real account is used, and
+ * an unexpected call gets a 404 (and fails its test).
+ */
+
+export interface CompanyJson {
+  readonly public_id: string;
+  readonly legal_name: string;
+  readonly trade_name: string;
+  readonly country: string;
+  readonly reference_currency: string;
+  readonly status: 'active' | 'inactive';
+}
+
+export const COMPANY_A: CompanyJson = {
+  public_id: 'aaaaaaaa-0000-4000-8000-000000000001',
+  legal_name: 'Alco Guinée SARL (test)',
+  trade_name: 'ALCO GUINÉE (test)',
+  country: 'GN',
+  reference_currency: 'GNF',
+  status: 'active',
+};
+export const COMPANY_B: CompanyJson = {
+  public_id: 'bbbbbbbb-0000-4000-8000-000000000002',
+  legal_name: 'Filiale Sénégal SA (test)',
+  trade_name: 'FILIALE SÉNÉGAL (test)',
+  country: 'SN',
+  reference_currency: 'XOF',
+  status: 'active',
+};
+export const COMPANY_C: CompanyJson = {
+  public_id: 'cccccccc-0000-4000-8000-000000000003',
+  legal_name: 'Alco Mali SARL (test)',
+  trade_name: 'ALCO MALI (test)',
+  country: 'ML',
+  reference_currency: 'XOF',
+  status: 'active',
+};
+
+const READ = [
+  'accounting.read',
+  'treasury.read',
+  'partners.read',
+  'assets.read',
+  'loans.read',
+  'taxes.read',
+  'analytics.read',
+  'reporting.read',
+  'closing.read',
+  'audit.read',
+  'imports_exports.read',
+  'documents.read',
+  'dashboards.read',
+];
+const WRITE = [
+  'accounting.create',
+  'accounting.validate',
+  'partners.create',
+  'imports_exports.create',
+  'imports_exports.export',
+];
+
+/** Permissions of a membership, per profile (backend codes). */
+export const PROFILES = {
+  /** Comptabilité, Tiers, Reporting, Documents, Tableau de bord; every financial domain. */
+  accountant: [...READ, ...WRITE],
+  /** A services company: no fixed assets, no loans, no cost accounting. */
+  services: [
+    ...READ.filter((code) => !['assets.read', 'loans.read', 'analytics.read'].includes(code)),
+    ...WRITE,
+  ],
+  /** Comptabilité, Reporting, Tableau de bord; read only. */
+  viewer: ['accounting.read', 'treasury.read', 'taxes.read', 'reporting.read', 'dashboards.read'],
+} as const;
+
+export const USER = {
+  public_id: 'dddddddd-0000-4000-8000-000000000004',
+  email: 'mariam.test@example.org',
+  first_name: 'Mariam',
+  last_name: 'Test',
+  is_active: true,
+};
+export const PASSWORD = 'fictitious test password';
+/** An address the fake server throttles (429, Retry-After: 30). */
+export const THROTTLED = 'trop.de.tentatives@example.org';
+
+interface Membership {
+  readonly company: CompanyJson;
+  permissions: readonly string[];
+  accessible: boolean;
+}
+
+const error = (code: string) => ({
+  error: { code, message: code, details: null, correlation_id: 'e2e' },
+});
+
+export class FakeApi {
+  /** Every API request, in order. */
+  readonly calls: Request[] = [];
+  private signedIn = true;
+  private down = false;
+  private csrf = '';
+  private globalPermissions: readonly string[] = [];
+  private memberships: Membership[] = [
+    { company: COMPANY_A, permissions: PROFILES.accountant, accessible: true },
+    { company: COMPANY_B, permissions: PROFILES.services, accessible: true },
+  ];
+  private defaultCompany: string | null = COMPANY_A.public_id;
+  private expiresOn: string | null = null;
+  private loginDelayMs = 0;
+  private contextDelayMs = 0;
+
+  constructor(private readonly page: Page) {}
+
+  /** No session open at start (the login screen). */
+  signedOut(): this {
+    this.signedIn = false;
+    return this;
+  }
+
+  /** The server does not answer at all. */
+  serverDown(): this {
+    this.down = true;
+    return this;
+  }
+
+  /** Permissions of `auth/me/` (a platform administrator gets them all from Django). */
+  withGlobalPermissions(...permissions: string[]): this {
+    this.globalPermissions = permissions;
+    return this;
+  }
+
+  /** The memberships of the user (accessible companies) and the default one. */
+  withCompanies(
+    companies: readonly { company: CompanyJson; permissions: readonly string[] }[],
+    defaultCompany: string | null,
+  ): this {
+    this.memberships = companies.map((item) => ({ ...item, accessible: true }));
+    this.defaultCompany = defaultCompany;
+    return this;
+  }
+
+  withPermissions(companyId: string, permissions: readonly string[]): this {
+    this.membership(companyId).permissions = permissions;
+    return this;
+  }
+
+  /** The membership ends (or the company is deactivated): the same refusal for both. */
+  revoke(companyId: string): this {
+    this.membership(companyId).accessible = false;
+    if (this.defaultCompany === companyId) {
+      this.defaultCompany = null;
+    }
+    return this;
+  }
+
+  /** The session ends when this company's context is asked (403 `not_authenticated`). */
+  expireOn(companyId: string): this {
+    this.expiresOn = companyId;
+    return this;
+  }
+
+  slowLogin(ms: number): this {
+    this.loginDelayMs = ms;
+    return this;
+  }
+
+  slowContext(ms: number): this {
+    this.contextDelayMs = ms;
+    return this;
+  }
+
+  callsTo(path: string): Request[] {
+    return this.calls.filter((call) => new URL(call.url()).pathname === `/api/v1/${path}`);
+  }
+
+  async install(): Promise<void> {
+    const page = this.page;
+    // Registered first = tried last: anything unexpected is refused.
+    await page.route('**/api/v1/**', (route) => {
+      this.calls.push(route.request());
+      return route.fulfill({ status: 404, json: error('not_found') });
+    });
+    await page.route('**/api/v1/auth/me/', (route) => {
+      this.calls.push(route.request());
+      if (this.down) {
+        return route.abort('connectionrefused');
+      }
+      return this.signedIn
+        ? route.fulfill({ status: 200, json: this.user() })
+        : route.fulfill({ status: 403, json: error('not_authenticated') });
+    });
+    await page.route('**/api/v1/company-context/', async (route) => {
+      this.calls.push(route.request());
+      const requested = await route.request().headerValue('x-company-id');
+      if (this.contextDelayMs) {
+        await new Promise((resolve) => setTimeout(resolve, this.contextDelayMs));
+      }
+      if (!this.signedIn || (requested && requested === this.expiresOn)) {
+        return route.fulfill({ status: 403, json: error('not_authenticated') });
+      }
+      const accessible = this.memberships.filter((item) => item.accessible);
+      const current = accessible.find(
+        (item) => item.company.public_id === (requested ?? this.defaultCompany),
+      );
+      if (requested && !current) {
+        return route.fulfill({ status: 403, json: error('company_access_denied') });
+      }
+      return route.fulfill({
+        status: 200,
+        json: {
+          current: current ? { company: current.company, permissions: current.permissions } : null,
+          default_company: this.defaultCompany,
+          companies: accessible.map((item) => item.company),
+        },
+      });
+    });
+    await page.route('**/api/v1/company-context/default/', async (route) => {
+      this.calls.push(route.request());
+      if (!(await this.csrfOk(route.request()))) {
+        return route.fulfill({ status: 403, json: error('csrf_failed') });
+      }
+      const { company } = route.request().postDataJSON() as { company: string };
+      if (!this.memberships.some((item) => item.accessible && item.company.public_id === company)) {
+        return route.fulfill({ status: 403, json: error('company_access_denied') });
+      }
+      this.defaultCompany = company;
+      return route.fulfill({ status: 200, json: { default_company: company } });
+    });
+    await page.route('**/api/v1/auth/csrf/', async (route) => {
+      this.calls.push(route.request());
+      await this.setCsrf('tok-e2e');
+      return route.fulfill({ status: 204 });
+    });
+    await page.route('**/api/v1/auth/login/', async (route) => {
+      this.calls.push(route.request());
+      if (!(await this.csrfOk(route.request()))) {
+        return route.fulfill({ status: 403, json: error('csrf_failed') });
+      }
+      if (this.loginDelayMs) {
+        await new Promise((resolve) => setTimeout(resolve, this.loginDelayMs));
+      }
+      const body = route.request().postDataJSON() as { email: string; password: string };
+      if (body.email === THROTTLED) {
+        return route.fulfill({
+          status: 429,
+          headers: { 'Retry-After': '30' },
+          json: error('throttled'),
+        });
+      }
+      if (body.email !== USER.email || body.password !== PASSWORD) {
+        return route.fulfill({ status: 400, json: error('invalid_credentials') });
+      }
+      this.signedIn = true;
+      await this.setCsrf('tok-after-login'); // Django rotates the token at login
+      return route.fulfill({ status: 200, json: this.user() });
+    });
+    await page.route('**/api/v1/auth/logout/', async (route) => {
+      this.calls.push(route.request());
+      if (!(await this.csrfOk(route.request()))) {
+        return route.fulfill({ status: 403, json: error('csrf_failed') });
+      }
+      this.signedIn = false;
+      return route.fulfill({ status: 204 });
+    });
+  }
+
+  private user() {
+    return { ...USER, permissions: this.globalPermissions };
+  }
+
+  private membership(companyId: string): Membership {
+    const found = this.memberships.find((item) => item.company.public_id === companyId);
+    if (!found) {
+      throw new Error(`No membership for ${companyId}`);
+    }
+    return found;
+  }
+
+  private async csrfOk(request: Request): Promise<boolean> {
+    return !!this.csrf && (await request.headerValue('x-xsrf-token')) === this.csrf;
+  }
+
+  /** What Django's Set-Cookie does: a readable XSRF-TOKEN cookie on the page's origin. */
+  private async setCsrf(value: string): Promise<void> {
+    this.csrf = value;
+    await this.page
+      .context()
+      .addCookies([{ name: 'XSRF-TOKEN', value, url: new URL(this.page.url()).origin }]);
+  }
+}
+
+/** Every test gets the fake API, installed before its first navigation. */
+export const test = base.extend<{ api: FakeApi }>({
+  api: [
+    async ({ page }, provide) => {
+      const api = new FakeApi(page);
+      await api.install();
+      await provide(api);
+    },
+    { auto: true },
+  ],
+});
+
+export { expect } from '@playwright/test';

@@ -3,7 +3,6 @@ import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { Router } from '@angular/router';
 import { Observable, Subject, firstValueFrom } from 'rxjs';
 
-import { APP_CONFIG } from '../config/app-config';
 import { CompanyContextService } from '../company/company-context.service';
 import { ApiError, toApiError } from '../http/api-error';
 import { AuthFailures } from '../http/auth-failures';
@@ -35,12 +34,11 @@ function displayName(user: CurrentUserDto): string {
  * - End of session during work (403 `not_authenticated`): state `expired`, one navigation to
  *   the login screen with the page to come back to; never a loop, never repeated calls.
  * - A 403 permission refusal is not an end of session.
- * With `sessionSource: 'prototype'` the simulated session is used and nothing is called.
  * The browser keeps the session cookie (HttpOnly): no token is ever read or stored here.
+ * The company part (which company, which permissions) is `CompanyContextService`'s.
  */
 @Injectable({ providedIn: 'root' })
 export class SessionService {
-  private readonly config = inject(APP_CONFIG);
   private readonly authApi = inject(AuthApi);
   private readonly companies = inject(CompanyContextService);
   private readonly store = inject(SessionStore);
@@ -59,9 +57,6 @@ export class SessionService {
   readonly ended$: Observable<void> = this.ended.asObservable();
 
   constructor() {
-    if (this.config.sessionSource === 'prototype') {
-      this.store.setStatus('authenticated');
-    }
     inject(AuthFailures)
       .unauthenticated$.pipe(takeUntilDestroyed())
       .subscribe(() => this.expire());
@@ -102,7 +97,7 @@ export class SessionService {
 
   /** The server no longer recognises the session: once, back to the login screen. */
   expire(): void {
-    if (this.config.sessionSource === 'prototype' || this.store.status() !== 'authenticated') {
+    if (this.store.status() !== 'authenticated') {
       return;
     }
     this.end('expired');
@@ -119,16 +114,14 @@ export class SessionService {
    * (the user may retry); a session already ended counts as logged out.
    */
   async logout(): Promise<void> {
-    if (this.config.sessionSource === 'api') {
-      this.store.setActivity('signing-out');
-      try {
-        await firstValueFrom(this.authApi.logout());
-      } catch (failure) {
-        const error = toApiError(failure);
-        if (error.kind !== 'unauthenticated') {
-          this.store.setActivity(null);
-          throw error;
-        }
+    this.store.setActivity('signing-out');
+    try {
+      await firstValueFrom(this.authApi.logout());
+    } catch (failure) {
+      const error = toApiError(failure);
+      if (error.kind !== 'unauthenticated') {
+        this.store.setActivity(null);
+        throw error;
       }
     }
     this.end('anonymous');
@@ -136,9 +129,6 @@ export class SessionService {
   }
 
   private async signIn(email: string, password: string): Promise<void> {
-    if (this.config.sessionSource === 'prototype') {
-      return;
-    }
     this.store.setActivity('signing-in');
     this.store.setError(null);
     const user = await firstValueFrom(this.authApi.login(email, password));
@@ -169,8 +159,6 @@ export class SessionService {
     this.store.load({
       user: { displayName: displayName(user), email: user.email },
       globalPermissions: user.permissions,
-      companies: [],
-      activeCompanyId: '',
     });
     try {
       await this.companies.load();

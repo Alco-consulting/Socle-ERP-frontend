@@ -61,12 +61,16 @@ export const GENERIC_ERRORS: ErrorCatalog = {
     message: 'Demandez l’accès à un administrateur de la société si vous en avez besoin.',
   },
   company_access_denied: {
-    title: 'Vous n’avez pas accès à cette société.',
-    message: 'Choisissez une autre société dans la barre du haut.',
+    title: 'La société sélectionnée n’est plus accessible.',
+    message: 'La liste de vos sociétés a été mise à jour.',
   },
   company_required: {
     title: 'Aucune société n’est sélectionnée.',
-    message: 'Choisissez une société dans la barre du haut.',
+    message: 'Choisissez une société pour continuer.',
+  },
+  membership_required: {
+    title: 'Cette société ne peut pas devenir votre société par défaut.',
+    message: 'Seule une société dont vous êtes membre peut l’être.',
   },
   not_found: {
     title: 'Cet élément n’existe pas ou plus.',

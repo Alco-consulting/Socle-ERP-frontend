@@ -3,6 +3,7 @@ import { TestBed } from '@angular/core/testing';
 import { provideRouter } from '@angular/router';
 
 import { SessionStore } from '../../../core/session/session.store';
+import { openTestSession } from '../../../core/session/testing';
 import { AlcoTransferActions } from './transfer-actions';
 import { TRANSFER_KINDS, TransferKindId } from './transfer-kinds';
 
@@ -24,13 +25,7 @@ describe('AlcoTransferActions (contextual import / export)', () => {
   /** Opens « Actions ▾ » and reads its entries (empty when the menu is not rendered). */
   async function items(kind: TransferKindId, permissions: string[]): Promise<MenuItem[]> {
     TestBed.configureTestingModule({ providers: [provideRouter([])] });
-    TestBed.inject(SessionStore).load({
-      user: { displayName: 'Test', email: 'test@example.org' },
-      companies: [
-        { id: 'c', name: 'C', fiscalYearLabel: '2026', currency: 'GNF', permissions, features: [] },
-      ],
-      activeCompanyId: 'c',
-    });
+    openTestSession(TestBed.inject(SessionStore), { permissions, features: [] });
     const fixture = TestBed.createComponent(Host);
     fixture.componentInstance.kind.set(kind);
     await fixture.whenStable();

@@ -41,7 +41,7 @@ describe('SessionService (Django session)', () => {
   let store: SessionStore;
 
   beforeEach(() => {
-    localStorage.clear();
+    sessionStorage.clear();
     TestBed.configureTestingModule({ providers: provideHttpTesting() });
     session = TestBed.inject(SessionService);
     store = TestBed.inject(SessionStore);
@@ -80,7 +80,7 @@ describe('SessionService (Django session)', () => {
       expect(store.user()?.displayName).toBe('Mariam Démo');
       expect(store.activeCompany()?.name).toBe('ALCO GUINÉE');
       expect(store.can('accounting.read')).toBe(true);
-      expect(store.can('users.read')).toBe(true); // global permission
+      expect(store.can('users.read')).toBe(true); // global permission (users.* are global)
       expect(await session.ensureLoaded()).toBe(true); // no new request
     });
 
@@ -146,6 +146,42 @@ describe('SessionService (Django session)', () => {
       expect(httpMock().expectOne('/api/v1/things/').request.headers.get('X-XSRF-TOKEN')).toBe(
         'after-login',
       );
+    });
+
+    it('only the global permissions of auth/me/ count outside the company context', async () => {
+      setCookie('XSRF-TOKEN', 'tok');
+      const done = session.login('admin@example.org', 'secret');
+      // A platform administrator: Django lists every permission for it.
+      httpMock()
+        .expectOne('/api/v1/auth/login/')
+        .flush({ ...USER, permissions: ['accounting.read', 'companies.create', 'users.read'] });
+      await settle();
+      httpMock()
+        .expectOne('/api/v1/company-context/')
+        .flush({ ...CONTEXT, current: { company: COMPANY_A, permissions: ['companies.read'] } });
+      await done;
+      expect(store.can('accounting.read')).toBe(false); // not granted in this company
+      expect(store.can('companies.read')).toBe(true);
+      expect(store.can('users.read')).toBe(true);
+      expect(store.can('companies.create')).toBe(true);
+    });
+
+    it('several companies and no default one: open session, no company chosen yet', async () => {
+      setCookie('XSRF-TOKEN', 'tok');
+      const done = session.login('a@example.org', 'secret');
+      httpMock().expectOne('/api/v1/auth/login/').flush(USER);
+      await settle();
+      httpMock()
+        .expectOne('/api/v1/company-context/')
+        .flush({
+          current: null,
+          default_company: null,
+          companies: [COMPANY_A, { ...COMPANY_A, public_id: 'b' }],
+        });
+      await done;
+      expect(session.status()).toBe('authenticated');
+      expect(store.activeCompany()).toBeNull();
+      expect(store.companies().length).toBe(2);
     });
 
     it('one attempt at a time: a second call joins the running one', async () => {
@@ -219,7 +255,7 @@ describe('SessionService (Django session)', () => {
   describe('logout', () => {
     it('POST auth/logout/ with the CSRF token, forgets everything, then the login screen', async () => {
       await signIn();
-      localStorage.setItem('alco.company', COMPANY_A.public_id);
+      expect(sessionStorage.getItem('alco.company')).toBe(COMPANY_A.public_id);
       TestBed.inject(NotificationCenter).load([{ id: 'n', title: 'T', detail: 'D', read: false }]);
       const ended: number[] = [];
       session.ended$.subscribe(() => ended.push(1));
@@ -239,7 +275,8 @@ describe('SessionService (Django session)', () => {
       expect(store.user()).toBeNull();
       expect(store.activeCompany()).toBeNull();
       expect(store.permissions().size).toBe(0);
-      expect(localStorage.getItem('alco.company')).toBeNull();
+      expect(sessionStorage.getItem('alco.company')).toBeNull();
+      expect(store.companies()).toEqual([]);
       expect(TestBed.inject(NotificationCenter).notifications()).toEqual([]);
       expect(ended.length).toBe(1);
       expect(navigate).toHaveBeenCalledWith(['/login'], { queryParams: { raison: 'deconnexion' } });
@@ -269,16 +306,5 @@ describe('SessionService (Django session)', () => {
       await done;
       expect(session.status()).toBe('anonymous');
     });
-  });
-});
-
-describe('SessionService (prototype session)', () => {
-  it('uses the simulated session: no network call', async () => {
-    TestBed.configureTestingModule({
-      providers: provideHttpTesting({ sessionSource: 'prototype' }),
-    });
-    const session = TestBed.inject(SessionService);
-    expect(await session.ensureLoaded()).toBe(true);
-    httpMock().verify();
   });
 });

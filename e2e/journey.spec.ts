@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test';
+import { expect, test } from './support/fake-api';
 
 const breadcrumb = (page: import('@playwright/test').Page) =>
   page.getByRole('navigation', { name: 'Fil d’Ariane' });
@@ -47,6 +47,14 @@ test.describe('Parcours App Launcher → Comptabilité → Écritures → Formul
     // Apps button → launcher
     await page.getByRole('link', { name: 'Toutes les applications' }).click();
     await expect(page).toHaveURL(/\/app$/);
+  });
+
+  test('a bookmark of an application or a section opens its first screen', async ({ page }) => {
+    // The home depends on the permissions: computed once the session is loaded.
+    await page.goto('/app/comptabilite');
+    await expect(page).toHaveURL(/\/app\/comptabilite\/tableau-de-bord$/);
+    await page.goto('/app/comptabilite/tresorerie');
+    await expect(page).toHaveURL(/\/app\/comptabilite\/tresorerie\/comptes$/);
   });
 
   test('a secondary screen of the menu opens and says it is not built yet', async ({ page }) => {

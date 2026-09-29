@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test';
+import { expect, test } from './support/fake-api';
 
 test.describe('Vue liste : recherche, filtres, regroupement, favoris, pagination', () => {
   test.beforeEach(async ({ page }) => {

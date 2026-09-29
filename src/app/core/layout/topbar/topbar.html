@@ -43,8 +43,8 @@
       >
         <span class="company">
           <span class="company-name">{{ company.name }}</span>
-          @if (company.fiscalYearLabel) {
-            <span class="company-context">{{ company.fiscalYearLabel }}</span>
+          @if (!company.active) {
+            <span class="company-context">Inactive</span>
           }
         </span>
       </alco-dropdown>

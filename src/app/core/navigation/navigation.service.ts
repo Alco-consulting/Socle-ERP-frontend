@@ -8,6 +8,7 @@ import {
   AlcoApplication,
   AppNavEntry,
   AppSection,
+  applicationAt,
   findSection,
   menuLinks,
   splitAppUrl,
@@ -47,10 +48,24 @@ function gatesOfApplication(app: AlcoApplication): Gate[] {
 
 const GATES = new Map(APPLICATIONS.map((app) => [app.id, gatesOfApplication(app)]));
 
+/** Every menu screen of an application, sections included, relative to the application. */
+function screensOf(app: AlcoApplication): string[] {
+  return [
+    ...menuLinks(app.nav).map((link) => link.path),
+    ...(app.sections ?? []).flatMap((section) =>
+      menuLinks(section.nav).map((link) => `${section.path}/${link.path}`),
+    ),
+  ];
+}
+
+const SCREENS = new Map(APPLICATIONS.map((app) => [app.id, screensOf(app)]));
+
 /**
  * What the current user may see in the active company: applications of the launcher,
  * module menus, sections and their menus. One rule for all of them: a screen is visible
- * when every permission and company feature on its path is granted.
+ * when every permission and company feature on its path is granted; an application, when
+ * its permission is and one of its screens is. Permissions are those the server gave for
+ * the active company (`SessionStore`): everything is recomputed when it changes.
  * UX only — the API refuses the data anyway.
  */
 @Injectable({ providedIn: 'root' })
@@ -59,8 +74,12 @@ export class NavigationService {
 
   readonly applications = computed(() => APPLICATIONS.filter((app) => this.canOpen(app)));
 
+  /** Its permission (if any) and at least one of its screens. */
   canOpen(app: AlcoApplication): boolean {
-    return this.session.can(app.permission);
+    return (
+      (!app.permission || this.session.can(app.permission)) &&
+      menuLinks(app.nav).some((link) => this.canOpenPath(app, link.path))
+    );
   }
 
   /** Whether a screen of `app` (path relative to the application) may be opened. */
@@ -77,11 +96,34 @@ export class NavigationService {
   /** Whether an absolute URL may be opened (used by the route guard). */
   canOpenUrl(url: string): boolean {
     const parts = splitAppUrl(url);
-    const app = parts ? APPLICATIONS.find((item) => item.path === parts.app) : undefined;
+    const app = parts ? applicationAt(parts.app) : undefined;
     if (!parts || !app) {
       return true;
     }
     return this.canOpen(app) && this.canOpenPath(app, parts.rest.join('/'));
+  }
+
+  /**
+   * Where to go once the active company changed, from `url` (permissions already those of
+   * the new company): the same menu screen when it is still open — never a record nor the
+   * filters of the previous company —, else the application's home, else the launcher.
+   */
+  landingUrl(url: string): string {
+    const parts = splitAppUrl(url);
+    const app = parts ? applicationAt(parts.app) : undefined;
+    if (!parts || !app) {
+      return APP_ROOT;
+    }
+    if (!this.canOpen(app)) {
+      return APP_ROOT;
+    }
+    const path = parts.rest.join('/');
+    const screen = (SCREENS.get(app.id) ?? [])
+      .filter((candidate) => path === candidate || path.startsWith(`${candidate}/`))
+      .sort((a, b) => b.length - a.length)[0];
+    return screen && this.canOpenPath(app, screen)
+      ? `${APP_ROOT}/${app.path}/${screen}`
+      : this.homeUrl(app);
   }
 
   /** First screen of the application the user may open (the launcher otherwise). */

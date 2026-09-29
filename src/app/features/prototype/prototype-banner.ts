@@ -1,37 +1,41 @@
 import { ChangeDetectionStrategy, Component, inject } from '@angular/core';
-import { Router } from '@angular/router';
+import { toSignal } from '@angular/core/rxjs-interop';
+import { ActivatedRouteSnapshot, NavigationEnd, Router } from '@angular/router';
+import { filter, map } from 'rxjs';
 
 import { AlcoIcon } from '../../shared/ui/icon/icon';
-import { AlcoToastService } from '../../shared/ui/toast/toast.service';
-import { PROTOTYPE_PROFILES, PrototypeProfile, PrototypeSession } from './prototype-session';
+
+/** Whether a screen of the route chain is a demonstration (`data: { demo: true }`). */
+function isDemo(route: ActivatedRouteSnapshot | null): boolean {
+  for (let current = route; current; current = current.firstChild) {
+    if (current.data['demo'] === true) {
+      return true;
+    }
+  }
+  return false;
+}
 
 /**
- * PROTOTYPE — permanent strip stating that everything is fictitious, with the simulated
- * profile switch used to review permission-based screens. Removed with the prototype.
+ * PROTOTYPE — the user, the company and the permissions are real (API); the screens of the
+ * prototype (accounting dashboard, entries, partners, contextual imports) still show
+ * fictitious data. This strip says so on each of them, and only there. Removed with them.
  */
 @Component({
   selector: 'alco-prototype-banner',
   imports: [AlcoIcon],
   template: `
-    <div class="banner" role="note" aria-label="Prototype">
-      <alco-icon name="info" [size]="16" />
-      <p>
-        <strong>Prototype UX</strong>
-        <span class="detail"
-          >&nbsp;— données fictives, aucune donnée comptable réelle, aucun appel à l’API.</span
-        >
-      </p>
-      <label class="profile">
-        <span>Profil simulé</span>
-        <select (change)="onProfileChange($event)">
-          @for (option of profiles; track option.id) {
-            <option [value]="option.id" [selected]="option.id === prototype.profile()">
-              {{ option.label }}
-            </option>
-          }
-        </select>
-      </label>
-    </div>
+    @if (visible()) {
+      <div class="banner" role="note" aria-label="Démonstration">
+        <alco-icon name="info" [size]="16" />
+        <p>
+          <strong>Écran de démonstration</strong>
+          <span class="detail"
+            >&nbsp;— données fictives, sans lien avec la société active ; cet écran n’est pas encore
+            relié à l’API.</span
+          >
+        </p>
+      </div>
+    }
   `,
   styles: `
     .banner {
@@ -48,21 +52,6 @@ import { PROTOTYPE_PROFILES, PrototypeProfile, PrototypeSession } from './protot
       flex: 1;
       min-width: 0;
     }
-    .profile {
-      display: inline-flex;
-      align-items: center;
-      gap: var(--space-2);
-      white-space: nowrap;
-    }
-    select {
-      height: 24px;
-      padding: 0 var(--space-2);
-      border: var(--border-width) solid var(--color-warning);
-      border-radius: var(--radius-sm);
-      background: var(--color-surface);
-      color: var(--color-text);
-      font-size: var(--font-size-caption);
-    }
     @media (max-width: 767.98px) {
       .detail {
         display: none;
@@ -72,19 +61,13 @@ import { PROTOTYPE_PROFILES, PrototypeProfile, PrototypeSession } from './protot
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class AlcoPrototypeBanner {
-  protected readonly prototype = inject(PrototypeSession);
   private readonly router = inject(Router);
-  private readonly toast = inject(AlcoToastService);
 
-  protected readonly profiles = (Object.keys(PROTOTYPE_PROFILES) as PrototypeProfile[]).map(
-    (id) => ({ id, label: PROTOTYPE_PROFILES[id].label }),
+  protected readonly visible = toSignal(
+    this.router.events.pipe(
+      filter((event) => event instanceof NavigationEnd),
+      map(() => isDemo(this.router.routerState.snapshot.root)),
+    ),
+    { initialValue: isDemo(this.router.routerState.snapshot.root) },
   );
-
-  protected onProfileChange(event: Event): void {
-    const profile = (event.target as HTMLSelectElement).value as PrototypeProfile;
-    this.prototype.applyProfile(profile);
-    this.toast.info(`Profil simulé : ${PROTOTYPE_PROFILES[profile].label}.`);
-    // Back to the launcher: the visible applications depend on the profile.
-    void this.router.navigateByUrl('/app');
-  }
 }

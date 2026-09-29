@@ -11,5 +11,4 @@ export const environment: AppConfig = {
   apiBaseUrl: 'https://api.alcoconsulting.tech/api/v1',
   requestTimeoutMs: 30_000,
   uploadTimeoutMs: 120_000,
-  sessionSource: 'api',
 };

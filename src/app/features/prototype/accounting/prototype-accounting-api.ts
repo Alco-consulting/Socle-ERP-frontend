@@ -1,7 +1,8 @@
-import { Injectable } from '@angular/core';
+import { Injectable, inject } from '@angular/core';
 import { Observable, delay, of, throwError } from 'rxjs';
 
 import { ApiErrorBody } from '../../../core/errors/user-error';
+import { SessionStore } from '../../../core/session/session.store';
 import { subtractDecimals, isZeroDecimal } from '../../../shared/utils/decimal';
 import {
   CURRENCY,
@@ -31,16 +32,42 @@ function apiError(code: string, message: string): ApiErrorBody {
   };
 }
 
+/** The fictitious books of one company. */
+interface Books {
+  entries: Entry[];
+  nextNumber: number;
+}
+
 /**
  * PROTOTYPE — in-memory stand-in for the accounting API. It plays the SERVER's role:
  * it owns the data, computes the dashboard, decides the allowed actions and refuses
- * invalid transitions with the real API error codes. No HTTP call is made.
+ * invalid transitions with the real API error codes. No HTTP call is made. Like the server
+ * with `X-Company-ID`, every call works on the books of the active company only.
  * Replaced by a typed HTTP service in Module F5/F6.
  */
 @Injectable({ providedIn: 'root' })
 export class PrototypeAccountingApi {
-  private entries = buildEntries();
-  private nextNumber = 146;
+  private readonly session = inject(SessionStore);
+  private readonly books = new Map<string, Books>();
+
+  /** Books of the active company (the same fictitious start for each company). */
+  private get current(): Books {
+    const company = this.session.activeCompany()?.id ?? '';
+    let books = this.books.get(company);
+    if (!books) {
+      books = { entries: buildEntries(), nextNumber: 146 };
+      this.books.set(company, books);
+    }
+    return books;
+  }
+
+  private get entries(): Entry[] {
+    return this.current.entries;
+  }
+
+  private set entries(entries: Entry[]) {
+    this.current.entries = entries;
+  }
 
   list(query: EntryQuery): Observable<Page<EntrySummary>> {
     const search = query.search.trim().toLowerCase();
@@ -86,8 +113,8 @@ export class PrototypeAccountingApi {
   create(draft: EntryDraft): Observable<Entry> {
     const entry: Entry = {
       ...draft,
-      id: `proto-new-${this.nextNumber}`,
-      number: `EC-2026-${String(this.nextNumber++).padStart(6, '0')}`,
+      id: `proto-new-${this.current.nextNumber}`,
+      number: `EC-2026-${String(this.current.nextNumber++).padStart(6, '0')}`,
       currency: CURRENCY,
       status: 'draft',
       total: totalDebit(draft.lines),
@@ -143,8 +170,8 @@ export class PrototypeAccountingApi {
     }
     const reversal: Entry = {
       ...entry,
-      id: `proto-new-${this.nextNumber}`,
-      number: `EC-2026-${String(this.nextNumber++).padStart(6, '0')}`,
+      id: `proto-new-${this.current.nextNumber}`,
+      number: `EC-2026-${String(this.current.nextNumber++).padStart(6, '0')}`,
       date: '2026-09-28',
       reference: `EXT-${entry.number}`,
       label: `Contrepassation de ${entry.number}`,

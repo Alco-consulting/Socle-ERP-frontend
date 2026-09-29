@@ -136,19 +136,20 @@ describe('API interceptors', () => {
     });
 
     it('is absent without an active company, when skipped, and outside the API', () => {
+      // Every request is answered: one left pending would time out after the test.
       void firstValueFrom(api.get('health/'));
-      expect(httpMock().expectOne('/api/v1/health/').request.headers.has('X-Company-ID')).toBe(
-        false,
-      );
+      const health = httpMock().expectOne('/api/v1/health/');
+      expect(health.request.headers.has('X-Company-ID')).toBe(false);
+      health.flush({});
       signInCompany();
       void firstValueFrom(api.get('auth/me/', { skipCompany: true }));
-      expect(httpMock().expectOne('/api/v1/auth/me/').request.headers.has('X-Company-ID')).toBe(
-        false,
-      );
+      const me = httpMock().expectOne('/api/v1/auth/me/');
+      expect(me.request.headers.has('X-Company-ID')).toBe(false);
+      me.flush({});
       void firstValueFrom(TestBed.inject(HttpClient).get('/assets/data.json'));
-      expect(httpMock().expectOne('/assets/data.json').request.headers.has('X-Company-ID')).toBe(
-        false,
-      );
+      const asset = httpMock().expectOne('/assets/data.json');
+      expect(asset.request.headers.has('X-Company-ID')).toBe(false);
+      asset.flush({});
     });
 
     it('a refusal of the active company is reported once, with that company', async () => {

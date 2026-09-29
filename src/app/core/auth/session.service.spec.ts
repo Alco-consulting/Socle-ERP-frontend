@@ -143,9 +143,10 @@ describe('SessionService (Django session)', () => {
 
       // The next unsafe request carries the rotated token.
       void firstValueFrom(TestBed.inject(ApiClient).post('things/', {}));
-      expect(httpMock().expectOne('/api/v1/things/').request.headers.get('X-XSRF-TOKEN')).toBe(
-        'after-login',
-      );
+      const next = httpMock().expectOne('/api/v1/things/');
+      expect(next.request.headers.get('X-XSRF-TOKEN')).toBe('after-login');
+      // Answered: a request left pending would time out after the test (unhandled rejection).
+      next.flush({});
     });
 
     it('only the global permissions of auth/me/ count outside the company context', async () => {

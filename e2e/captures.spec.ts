@@ -207,3 +207,27 @@ test('phone 390 × 844', async ({ page }) => {
   await page.goto('/app/comptabilite/ecritures/proto-050');
   await shoot(page, '34-phone-form', true);
 });
+
+test('tiers: list, record, form, import', async ({ page, api }) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto('/app/tiers/liste');
+  await shoot(page, '70-tiers-list');
+  await page.goto(`/app/tiers/liste/${api.partners.list('A')[3].public_id}`);
+  await shoot(page, '71-tiers-record', true);
+  await page.goto('/app/tiers/nouveau');
+  await page.getByRole('button', { name: 'Enregistrer' }).click();
+  await shoot(page, '72-tiers-form-invalid', true);
+  await page.goto('/app/tiers/liste/import');
+  await page.locator('input[type=file]').setInputFiles({
+    name: 'nouveaux-tiers.csv',
+    mimeType: 'text/csv',
+    buffer: Buffer.from(['Code,Nom,Pays', 'IMP-001,Import Un,GN', ',Sans nom,GN', ''].join('\n')),
+  });
+  await page.getByRole('button', { name: 'Envoyer et lire le fichier' }).click();
+  await shoot(page, '73-tiers-import-mapping', true);
+  await page.getByRole('button', { name: 'Contrôler les lignes' }).click();
+  await shoot(page, '74-tiers-import-refused-rows', true);
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto('/app/tiers/liste');
+  await shoot(page, '75-phone-tiers-list');
+});

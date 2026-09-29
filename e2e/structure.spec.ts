@@ -116,9 +116,9 @@ test.describe('Import / export contextuels', () => {
     await page.getByRole('button', { name: 'Actions' }).click();
     await page.getByRole('menuitem', { name: 'Exporter les tiers' }).click();
     const dialog = page.getByRole('alertdialog', { name: 'Exporter les tiers ?' });
-    await expect(dialog).toContainText('6 lignes');
-    await dialog.getByRole('button', { name: 'Exporter les tiers' }).click();
-    await expect(page.getByText('Export en préparation.', { exact: false })).toBeVisible();
+    await expect(dialog).toContainText('tous les tiers');
+    await dialog.getByRole('button', { name: 'Annuler' }).click();
+    await expect(dialog).toHaveCount(0);
   });
 
   test('there is no Import / Export application or route', async ({ page }) => {

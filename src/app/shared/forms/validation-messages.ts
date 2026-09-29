@@ -15,6 +15,12 @@ export function validationMessage(errors: ValidationErrors | null): string | nul
   if (errors['required']) {
     return 'Ce champ est obligatoire.';
   }
+  if (typeof errors['format'] === 'string') {
+    return errors['format'];
+  }
+  if (errors['email']) {
+    return 'Saisissez une adresse e-mail valide.';
+  }
   if (errors['maxlength']) {
     const { requiredLength } = errors['maxlength'] as { requiredLength: number };
     return `${requiredLength} caractères au maximum.`;

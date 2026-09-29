@@ -1,0 +1,53 @@
+import { ErrorCatalog } from '../../core/errors/user-error';
+import { ImportMessageDto } from './transfers-api';
+
+/** Errors of the import and export commands, by their stable code. */
+export const TRANSFER_ERRORS: ErrorCatalog = {
+  imports_file_rejected: {
+    title: 'Ce fichier n’est pas accepté.',
+    message: 'Envoyez un fichier CSV (texte, 5 Mo au plus).',
+  },
+  imports_file_already_imported: {
+    title: 'Ce fichier a déjà été importé.',
+    message: 'Un même fichier n’est jamais importé deux fois.',
+  },
+  imports_parse_failed: {
+    title: 'Le fichier n’a pas pu être lu.',
+    message: 'Vérifiez l’encodage et le séparateur choisis, puis réessayez.',
+  },
+  imports_mapping_invalid: {
+    title: 'La correspondance des colonnes ne convient pas.',
+    message: 'Associez une colonne du fichier à chaque champ obligatoire.',
+  },
+  imports_rows_invalid: {
+    title: 'Des lignes sont refusées.',
+    message: 'Rien n’est importé tant qu’une ligne est refusée : corrigez le fichier.',
+  },
+  imports_invalid_transition: {
+    title: 'Cette étape n’est plus possible.',
+    message: 'L’import a changé d’état entre-temps : recommencez avec le fichier.',
+  },
+  exports_parameters_invalid: {
+    title: 'Les critères de l’export ne sont pas valides.',
+    message: 'Modifiez les filtres de la liste puis réessayez.',
+  },
+  exports_file_unavailable: {
+    title: 'Le fichier n’est pas disponible.',
+    message: 'Il n’est pas prêt, a échoué ou a expiré : lancez un nouvel export.',
+  },
+};
+
+/** Messages of a checked row, by their stable code (the server's text is not shown). */
+const ROW_MESSAGES: Readonly<Record<string, string>> = {
+  required: 'Valeur obligatoire manquante.',
+  invalid: 'Valeur invalide.',
+  invalid_format: 'Format non reconnu.',
+  duplicate_in_file: 'Ce code apparaît plus haut dans le fichier.',
+  unknown_currency: 'Devise inconnue.',
+  currency_inactive: 'Devise inactive.',
+  validation_error: 'Valeur refusée par le serveur.',
+};
+
+export function rowMessage(message: ImportMessageDto): string {
+  return ROW_MESSAGES[message.code] ?? 'Refusé par le serveur.';
+}

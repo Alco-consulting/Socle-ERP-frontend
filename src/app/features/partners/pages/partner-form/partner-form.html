@@ -1,0 +1,167 @@
+@if (loadError(); as failure) {
+  <alco-error-state
+    [title]="failure.title"
+    [message]="failure.message"
+    [code]="failure.code"
+    [correlationId]="failure.correlationId ?? ''"
+  />
+  <div class="center">
+    <a alcoButton icon="arrow-left" routerLink="/app/tiers/liste">Retour aux tiers</a>
+  </div>
+} @else if (!ready()) {
+  <alco-loading [rows]="8" label="Chargement du tiers…" />
+} @else {
+  <alco-page-header
+    [title]="isNew ? 'Nouveau tiers' : 'Modifier ' + (partner()?.name ?? '')"
+    [subtitle]="isNew ? 'Fiche client, fournisseur ou autre tiers' : (partner()?.code ?? '')"
+  >
+    <div alcoPageActions>
+      <button alcoButton type="button" variant="ghost" (click)="cancel()">Annuler</button>
+      <button
+        alcoButton
+        type="submit"
+        form="partner-form"
+        variant="primary"
+        [loading]="saving()"
+        loadingLabel="Enregistrement…"
+      >
+        Enregistrer
+      </button>
+    </div>
+  </alco-page-header>
+
+  @if (error(); as failure) {
+    <alco-error-state
+      [inline]="true"
+      [title]="failure.title"
+      [message]="failure.message"
+      [code]="failure.code"
+      [correlationId]="failure.correlationId ?? ''"
+    />
+  }
+  @if (invalidSubmit() && form.invalid) {
+    <alco-error-state
+      [inline]="true"
+      title="Certaines informations sont manquantes ou incorrectes."
+      message="Corrigez les champs signalés, puis enregistrez à nouveau."
+    />
+  }
+
+  <form id="partner-form" class="sheet" [formGroup]="form" (ngSubmit)="save()" novalidate>
+    <section class="section" aria-labelledby="general-title">
+      <h2 id="general-title" class="alco-section-title">Informations générales</h2>
+      <div class="alco-form-grid">
+        @if (isNew) {
+          <alco-form-field
+            label="Code"
+            [required]="true"
+            hint="Unique dans la société ; il ne pourra plus être modifié."
+          >
+            <input alcoInput formControlName="code" maxlength="32" autocomplete="off" />
+          </alco-form-field>
+        } @else {
+          <div class="fixed">
+            <span class="fixed-label">Code</span>
+            <span class="fixed-value">{{ partner()?.code }}</span>
+            <span class="alco-caption">Fixé à la création.</span>
+          </div>
+        }
+        <alco-form-field label="Nom" [required]="true">
+          <input alcoInput formControlName="name" maxlength="255" />
+        </alco-form-field>
+        <alco-form-field label="Raison sociale" hint="Si elle diffère du nom">
+          <input alcoInput formControlName="legal_name" maxlength="255" />
+        </alco-form-field>
+        <fieldset class="roles">
+          <legend>Rôle</legend>
+          <label><input type="checkbox" formControlName="is_customer" /> Client</label>
+          <label><input type="checkbox" formControlName="is_supplier" /> Fournisseur</label>
+        </fieldset>
+        <alco-form-field label="Pays" [required]="true" hint="Code à 2 lettres (ex. GN)">
+          <input
+            alcoInput
+            formControlName="country"
+            maxlength="2"
+            autocomplete="country"
+            autocapitalize="characters"
+          />
+        </alco-form-field>
+        <alco-form-field label="Identifiant fiscal">
+          <input alcoInput formControlName="tax_identifier" maxlength="64" />
+        </alco-form-field>
+        <alco-form-field label="Numéro d’immatriculation" hint="RCCM ou équivalent">
+          <input alcoInput formControlName="registration_number" maxlength="64" />
+        </alco-form-field>
+      </div>
+    </section>
+
+    <section class="section" aria-labelledby="contact-title">
+      <h2 id="contact-title" class="alco-section-title">Coordonnées</h2>
+      <div class="alco-form-grid">
+        <alco-form-field label="Téléphone">
+          <input alcoInput type="tel" formControlName="phone" maxlength="32" autocomplete="tel" />
+        </alco-form-field>
+        <alco-form-field label="E-mail">
+          <input
+            alcoInput
+            type="email"
+            formControlName="email"
+            autocomplete="email"
+            autocapitalize="none"
+            spellcheck="false"
+          />
+        </alco-form-field>
+        <alco-form-field label="Ville">
+          <input alcoInput formControlName="city" maxlength="128" autocomplete="address-level2" />
+        </alco-form-field>
+        <alco-form-field class="alco-form-grid__full" label="Adresse">
+          <textarea
+            alcoInput
+            formControlName="address"
+            rows="3"
+            autocomplete="street-address"
+          ></textarea>
+        </alco-form-field>
+      </div>
+    </section>
+
+    <details class="section more" [open]="!isNew">
+      <summary class="alco-section-title">Conditions et comptabilité</summary>
+      <div class="alco-form-grid">
+        <alco-form-field label="Devise par défaut" hint="Vide : la devise de la société">
+          <select alcoSelect formControlName="default_currency">
+            <option value="">Devise de la société</option>
+            @for (currency of currencyOptions(); track currency.code) {
+              <option [value]="currency.code">{{ currency.code }} — {{ currency.name }}</option>
+            }
+          </select>
+        </alco-form-field>
+        <alco-form-field label="Conditions de paiement client">
+          <select alcoSelect formControlName="customer_payment_term">
+            <option value="">Aucune</option>
+            @for (term of termOptions('customer_payment_term'); track term.public_id) {
+              <option [value]="term.public_id">{{ term.code }} — {{ term.name }}</option>
+            }
+          </select>
+        </alco-form-field>
+        <alco-form-field label="Conditions de paiement fournisseur">
+          <select alcoSelect formControlName="supplier_payment_term">
+            <option value="">Aucune</option>
+            @for (term of termOptions('supplier_payment_term'); track term.public_id) {
+              <option [value]="term.public_id">{{ term.code }} — {{ term.name }}</option>
+            }
+          </select>
+        </alco-form-field>
+        <alco-form-field label="Code de taxe par défaut">
+          <input alcoInput formControlName="default_tax_code" maxlength="32" />
+        </alco-form-field>
+        <alco-form-field label="Compte client" hint="Numéro du compte collectif (ex. 411)">
+          <input alcoInput formControlName="customer_account_code" maxlength="20" />
+        </alco-form-field>
+        <alco-form-field label="Compte fournisseur" hint="Numéro du compte collectif (ex. 401)">
+          <input alcoInput formControlName="supplier_account_code" maxlength="20" />
+        </alco-form-field>
+      </div>
+    </details>
+  </form>
+}

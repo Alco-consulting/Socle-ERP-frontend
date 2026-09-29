@@ -4,7 +4,7 @@ import { FormControl, ReactiveFormsModule, Validators } from '@angular/forms';
 
 import { AlcoFormField } from './form-field';
 import { AlcoInput } from './input';
-import { decimalFormat } from './validators';
+import { decimalFormat, inputFormat } from './validators';
 
 @Component({
   imports: [ReactiveFormsModule, AlcoFormField, AlcoInput],
@@ -63,5 +63,16 @@ describe('AlcoFormField', () => {
     await fixture.whenStable();
     expect(element.textContent).toContain('Saisissez un montant sans décimales');
     expect(amountInput.classList).toContain('alco-num');
+  });
+
+  it('a format check carries its own message; empty is left to « required »', () => {
+    const country = new FormControl('', {
+      validators: inputFormat(/^[A-Z]{2}$/, 'Code pays à 2 lettres.'),
+    });
+    expect(country.errors).toBeNull();
+    country.setValue('Guinée');
+    expect(country.errors).toEqual({ format: 'Code pays à 2 lettres.' });
+    country.setValue('GN');
+    expect(country.errors).toBeNull();
   });
 });

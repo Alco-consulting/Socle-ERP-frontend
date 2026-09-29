@@ -1,4 +1,4 @@
-import { Injectable, inject } from '@angular/core';
+import { Injectable, computed, inject, signal } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
 import {
   ActivatedRouteSnapshot,
@@ -43,18 +43,49 @@ export function buildTrail(root: ActivatedRouteSnapshot): BreadcrumbItem[] {
   return items;
 }
 
-/** Current breadcrumb, rebuilt after each navigation. */
+/**
+ * Current breadcrumb, rebuilt after each navigation. A record screen names its own crumb
+ * once the record is loaded (`nameCurrent`): no resolver, so the screen keeps its loading
+ * state instead of blocking the navigation.
+ */
 @Injectable({ providedIn: 'root' })
 export class BreadcrumbService {
   private readonly router = inject(Router);
+  private readonly title = inject(Title);
+  private readonly named = signal<{ readonly url: string; readonly label: string } | null>(null);
 
-  readonly items = toSignal(
+  private readonly trail = toSignal(
     this.router.events.pipe(
       filter((event) => event instanceof NavigationEnd),
       map(() => buildTrail(this.router.routerState.snapshot.root)),
     ),
     { initialValue: buildTrail(this.router.routerState.snapshot.root) },
   );
+
+  readonly items = computed<BreadcrumbItem[]>(() => {
+    const named = this.named();
+    return this.trail().map((item) =>
+      named && item.url === named.url ? { ...item, label: named.label } : item,
+    );
+  });
+
+  /**
+   * Names a crumb of the current screen once its record is loaded: the last one by default
+   * (« CLI-001 — Société X »), or a parent one (`level` 1: the record above « Modifier »).
+   * The tab title follows.
+   */
+  nameCurrent(label: string, level = 0): void {
+    const items = this.trail();
+    const target = items.at(-1 - level);
+    if (!target?.url) {
+      return;
+    }
+    this.named.set({ url: target.url, label });
+    const labels = this.items()
+      .map((item) => item.label)
+      .reverse();
+    this.title.setTitle([...labels, 'Alco'].join(' · '));
+  }
 }
 
 /** Browser tab title from the same trail: « Écritures · Comptabilité · Alco ». */

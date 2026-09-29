@@ -1,0 +1,320 @@
+<alco-page-header [title]="transfer.importTitle" [subtitle]="transfer.importEffect" />
+
+<alco-workflow-steps [steps]="steps" [current]="phase()" label="Étapes de l’import" />
+
+@if (error(); as failure) {
+  <alco-error-state
+    [inline]="true"
+    [title]="failure.title"
+    [message]="failure.message"
+    [code]="failure.code"
+    [correlationId]="failure.correlationId ?? ''"
+  />
+}
+
+<div class="layout">
+  <div class="main">
+    @switch (phase()) {
+      @case ('file') {
+        <alco-card title="Choisir le fichier" icon="upload">
+          <div class="file">
+            <label class="drop" for="import-file">
+              <alco-icon name="upload" [size]="28" />
+              <span class="drop-title">Sélectionner un fichier CSV</span>
+              <span class="alco-caption">5 Mo au plus ; la première ligne nomme les colonnes.</span>
+            </label>
+            <input
+              id="import-file"
+              class="alco-sr-only"
+              type="file"
+              accept=".csv,.txt,text/csv"
+              (change)="onFile($event)"
+            />
+            @if (file(); as chosen) {
+              <p class="chosen" role="status">
+                <alco-icon name="attachment" [size]="16" /> {{ chosen.name }}
+              </p>
+            }
+            <div class="options">
+              <alco-form-field label="Encodage" hint="Rien n’est deviné : choisissez-le.">
+                <select alcoSelect (change)="onEncoding($event)">
+                  @for (option of encodings; track option.id) {
+                    <option [value]="option.id" [selected]="option.id === encoding()">
+                      {{ option.label }}
+                    </option>
+                  }
+                </select>
+              </alco-form-field>
+              <alco-form-field label="Séparateur de colonnes">
+                <select alcoSelect (change)="onDelimiter($event)">
+                  @for (option of delimiters; track option.id) {
+                    <option [value]="option.id" [selected]="option.id === delimiter()">
+                      {{ option.label }}
+                    </option>
+                  }
+                </select>
+              </alco-form-field>
+            </div>
+          </div>
+          <div alcoCardFooter class="footer">
+            <button alcoButton type="button" variant="ghost" (click)="back()">Annuler</button>
+            <button
+              alcoButton
+              type="button"
+              variant="primary"
+              trailingIcon="chevron-right"
+              [disabled]="!file() || fields() === null"
+              [loading]="busy() === 'upload'"
+              loadingLabel="Envoi et lecture…"
+              (click)="send()"
+            >
+              Envoyer et lire le fichier
+            </button>
+          </div>
+        </alco-card>
+      }
+
+      @case ('mapping') {
+        <alco-card
+          title="Correspondance des colonnes"
+          [subtitle]="(run()?.summary?.total ?? 0) + ' lignes lues dans ' + (run()?.filename ?? '')"
+        >
+          @if (mappingIncomplete()) {
+            <p class="warning" role="alert">
+              <alco-icon name="alert-triangle" [size]="16" />
+              Associez une colonne du fichier à chaque champ obligatoire.
+            </p>
+          }
+          <div class="mapping">
+            @for (field of fields() ?? []; track field.name) {
+              <alco-form-field
+                [label]="label(field.name)"
+                [required]="field.required"
+                [error]="
+                  mappingIncomplete() && field.required && !columns()[field.name]
+                    ? 'Choisissez la colonne du fichier.'
+                    : null
+                "
+              >
+                <select alcoSelect (change)="onColumn(field.name, $event)">
+                  <option value="" [selected]="!columns()[field.name]">
+                    {{ field.required ? 'Choisir une colonne' : 'Non importé' }}
+                  </option>
+                  @for (header of run()?.headers ?? []; track header) {
+                    <option [value]="header" [selected]="columns()[field.name] === header">
+                      {{ header }}
+                    </option>
+                  }
+                </select>
+              </alco-form-field>
+            }
+          </div>
+          <div alcoCardFooter class="footer">
+            <button alcoButton type="button" variant="ghost" (click)="restart()">
+              Autre fichier
+            </button>
+            <button
+              alcoButton
+              type="button"
+              variant="primary"
+              trailingIcon="chevron-right"
+              [loading]="busy() === 'map'"
+              loadingLabel="Contrôle des lignes…"
+              (click)="confirmMapping()"
+            >
+              Contrôler les lignes
+            </button>
+          </div>
+        </alco-card>
+      }
+
+      @case ('checks') {
+        <alco-card title="Contrôles du serveur">
+          @if (!canValidate()) {
+            <p class="note">
+              <alco-icon name="lock" [size]="16" />
+              Votre profil ne permet pas de contrôler cet import. Un utilisateur autorisé pourra le
+              terminer.
+            </p>
+          } @else {
+            <dl class="counts">
+              <div>
+                <dt>Lignes correctes</dt>
+                <dd>{{ summary().valid ?? 0 }}</dd>
+              </div>
+              <div>
+                <dt>Avec avertissement</dt>
+                <dd>{{ summary().warnings ?? 0 }}</dd>
+              </div>
+              <div>
+                <dt>Déjà existantes (ignorées)</dt>
+                <dd>{{ summary().duplicates ?? 0 }}</dd>
+              </div>
+              <div [class.bad]="(summary().errors ?? 0) > 0">
+                <dt>Refusées</dt>
+                <dd>{{ summary().errors ?? 0 }}</dd>
+              </div>
+            </dl>
+            @if ((summary().errors ?? 0) > 0) {
+              <p class="warning" role="alert">
+                <alco-icon name="alert-triangle" [size]="16" />
+                {{ rowsLabel(summary().errors ?? 0) }} refusée{{
+                  (summary().errors ?? 0) > 1 ? 's' : ''
+                }}
+                : rien ne sera importé. Corrigez le fichier, puis recommencez.
+              </p>
+              <div class="refused" role="region" aria-label="Lignes refusées" tabindex="0">
+                <table>
+                  <caption class="alco-sr-only">
+                    Lignes refusées par le serveur
+                  </caption>
+                  <thead>
+                    <tr>
+                      <th scope="col">Ligne</th>
+                      <th scope="col">Motif</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    @for (row of refusedRows(); track row.line_number) {
+                      <tr>
+                        <td>{{ row.line_number }}</td>
+                        <td>{{ rowText(row) }}</td>
+                      </tr>
+                    }
+                  </tbody>
+                </table>
+              </div>
+            }
+          }
+          <div alcoCardFooter class="footer">
+            <button alcoButton type="button" variant="ghost" (click)="restart()">
+              Autre fichier
+            </button>
+            @if (canValidate() && (summary().errors ?? 0) === 0) {
+              <button
+                alcoButton
+                type="button"
+                variant="primary"
+                trailingIcon="chevron-right"
+                [loading]="busy() === 'preview'"
+                loadingLabel="Préparation de l’aperçu…"
+                (click)="showPreview()"
+              >
+                Voir l’aperçu
+              </button>
+            }
+          </div>
+        </alco-card>
+      }
+
+      @case ('preview') {
+        <alco-card title="Aperçu : rien n’est encore enregistré">
+          <p class="impact">
+            <strong>{{ transfer.countLabel(creations()) }}</strong>
+            {{ creations() > 1 ? 'seront créés' : 'sera créé' }}.
+            @if ((summary().preview?.skipped_duplicates ?? 0) > 0) {
+              {{ rowsLabel(summary().preview?.skipped_duplicates ?? 0) }} déjà existante{{
+                (summary().preview?.skipped_duplicates ?? 0) > 1 ? 's' : ''
+              }}
+              ignorée{{ (summary().preview?.skipped_duplicates ?? 0) > 1 ? 's' : '' }}.
+            }
+          </p>
+          @if (!canExecute()) {
+            <p class="note">
+              <alco-icon name="lock" [size]="16" />
+              Votre profil ne permet pas de lancer l’import. Un utilisateur autorisé pourra le
+              terminer.
+            </p>
+          }
+          <div alcoCardFooter class="footer">
+            <button alcoButton type="button" variant="ghost" (click)="restart()">
+              Autre fichier
+            </button>
+            @if (canExecute()) {
+              <button
+                alcoButton
+                type="button"
+                variant="primary"
+                icon="upload"
+                [disabled]="creations() === 0"
+                [loading]="busy() === 'execute'"
+                loadingLabel="Import en cours…"
+                (click)="execute()"
+              >
+                Lancer l’import
+              </button>
+            }
+          </div>
+        </alco-card>
+      }
+
+      @case ('done') {
+        <alco-card [title]="run()?.status === 'completed' ? 'Import terminé' : 'Import échoué'">
+          @if (run()?.status === 'completed') {
+            <p class="impact" role="status">
+              <alco-icon name="check-circle" [size]="18" />
+              <strong>{{ transfer.countLabel(imported()) }}</strong>
+              {{ imported() > 1 ? 'importés' : 'importé' }}.
+            </p>
+          } @else {
+            <p class="warning" role="alert">
+              <alco-icon name="alert-triangle" [size]="16" />
+              Le serveur a refusé l’import : rien n’a été enregistré. Corrigez le fichier, puis
+              recommencez.
+            </p>
+          }
+          <div alcoCardFooter class="footer">
+            <button alcoButton type="button" variant="ghost" (click)="restart()">
+              Importer un autre fichier
+            </button>
+            <a alcoButton variant="primary" icon="arrow-left" routerLink="..">
+              {{ transfer.backLabel }}
+            </a>
+          </div>
+        </alco-card>
+      }
+    }
+  </div>
+
+  <div class="side">
+    <alco-card title="Colonnes attendues" subtitle="Champs de l’import, donnés par le serveur">
+      @if (fields(); as list) {
+        <table class="columns">
+          <caption class="alco-sr-only">
+            Colonnes attendues par l’import
+          </caption>
+          <thead>
+            <tr>
+              <th scope="col">Champ</th>
+              <th scope="col">Obligatoire</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (field of list; track field.name) {
+              <tr>
+                <td>{{ label(field.name) }}</td>
+                <td>{{ field.required ? 'Oui' : 'Non' }}</td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      } @else {
+        <alco-loading [rows]="4" label="Chargement des colonnes attendues…" />
+      }
+    </alco-card>
+
+    <alco-card title="Bon à savoir" icon="info">
+      <ul class="rules">
+        <li>
+          <strong>Tout ou rien.</strong> Si une ligne est refusée, rien n’est importé et la liste
+          des lignes à corriger s’affiche.
+        </li>
+        <li><strong>Pas de doublon.</strong> Un même fichier n’est jamais importé deux fois.</li>
+        <li>
+          <strong>Rien n’est enregistré avant la dernière étape</strong> : l’aperçu montre l’impact
+          exact.
+        </li>
+      </ul>
+    </alco-card>
+  </div>
+</div>

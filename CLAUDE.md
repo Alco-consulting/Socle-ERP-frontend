@@ -5,13 +5,14 @@ backend Django est terminé et en production (`https://api.alcoconsulting.tech`,
 `../backend/CLAUDE.md`).
 
 **État actuel : phase UX/UI 0 (design system, App Launcher de 6 applications, coquille des
-modules), Module 0 (socle technique), Module 1 (authentification) et Module 2 (société active
-et App Launcher réels) livrés.**
+modules), Module 0 (socle technique), Module 1 (authentification), Module 2 (société active
+et App Launcher réels) et Module 3 (Tiers, premier domaine métier sur l'API) livrés.**
 Le socle parle à l'API Django : environnements, `ApiClient`, intercepteurs (session, CSRF,
 `X-Company-ID`, erreurs, chargement), gardes. Connexion et déconnexion réelles ; utilisateur,
 sociétés accessibles, société active, permissions et lanceur viennent de l'API (plus de
-session simulée). Aucun écran métier n'appelle encore l'API : les écrans comptables du
-prototype restent sur données fictives, avec un bandeau « Écran de démonstration ».
+session simulée). L'application Tiers est réelle (liste, recherche, filtres, fiche,
+création, modification, désactivation, import et export contextuels). Les écrans comptables
+du prototype restent sur données fictives, avec un bandeau « Écran de démonstration ».
 Architecture technique : `../docs/frontend/technical-architecture.md`. Prochaine étape : les
 modules métier un par un (chacun remplace ses écrans de démonstration).
 
@@ -59,7 +60,8 @@ src/app/
                 notifications
   shared/       ui · forms · filters · tables · pipes · utils — composants de présentation
   features/     launcher · auth (écran de connexion) · company-choice (`/societe`) ·
-                design-system · prototype
+                partners (Tiers : data-access, pages, présentation, routes) · transfers
+                (import/export contextuels, sans route propre) · design-system · prototype
   app.routes.ts `/` → `/app` (lanceur, zone authentifiée dans AlcoCompanyScope),
                 `/app/<application>/…`, `/login`, `/societe`, `/design-system` ; une coquille
                 AlcoModuleShell par application
@@ -170,6 +172,16 @@ supprime ce qui ne sert plus.
   écrans, contexte rechargé, atterrissage `NavigationService.landingUrl()` (même écran du menu
   si permis, jamais une fiche), écrans recréés. `company_access_denied` (même réponse pour
   inconnue, inaccessible, désactivée) : liste rafraîchie, message, société valide.
+- **Tiers (Module 3)** : `features/partners` sur `partners/` ; liste = colonnes de
+  `PartnersPartnerSummary` (pas de téléphone/e-mail : pas de requête par ligne) ; recherche,
+  filtres (État, Rôle, Pays) et pages du serveur ; pas de tri ni de regroupement (non offerts
+  par l'API) ; création = champs du contrat ; modification = champs changés seulement, jamais
+  le code ; pas de suppression (désactivation). Fiche nommée dans le fil d'Ariane par
+  `BreadcrumbService.nameCurrent` (pas de resolver).
+- **Import/export réels** : `features/transfers` (API `imports-exports/`, écran d'import par
+  étapes, « Actions ▾ » `AlcoDomainTransfers`). Un domaine décrit les siens
+  (`ContextualTransfer`) ; aucun écran générique. L'import des écritures reste celui du
+  prototype jusqu'au module Comptabilité.
 - **Paramètres** n'a pas de permission propre : visible dès qu'un de ses écrans l'est
   (`companies.read`, `users.read`, `companies.manage_members`, `currencies.read`).
 - **CSRF** : l'intercepteur intégré d'Angular est remplacé (`withNoXsrfProtection`) par
@@ -199,6 +211,9 @@ supprime ce qui ne sert plus.
   remplaceront les données fictives).
 - Décider l'origine du frontend en production (technical-architecture.md § 12).
 - Exercice en cours dans la barre supérieure et le lanceur (module Comptabilité, lu dans l'API).
+- Tiers : écran « Conditions de paiement » (API complète : liste, création, modification,
+  désactivation) ; rapport d'import paginé au-delà de 50 lignes refusées ; export asynchrone
+  pour les gros volumes.
 - Domaines utilisés par société (`features`) : à exposer par le backend (puis écran
   Paramètres) avant de masquer quoi que ce soit pour cette raison.
 - Actions GitHub `checkout`/`setup-node` v4 → v5 (Node 20 déprécié) ; `ubuntu-latest` passe

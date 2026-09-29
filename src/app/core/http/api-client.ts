@@ -1,6 +1,6 @@
 import { HttpClient, HttpParams } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
-import { Observable } from 'rxjs';
+import { Observable, map } from 'rxjs';
 
 import { APP_CONFIG } from '../config/app-config';
 import { ApiConfig } from './api-config';
@@ -21,6 +21,30 @@ export interface Paginated<T> {
   readonly next: string | null;
   readonly previous: string | null;
   readonly results: readonly T[];
+}
+
+/** A file sent by the API as an attachment (`Content-Disposition`). */
+export interface ApiFile {
+  readonly blob: Blob;
+  /** Name given by the server; `null` when it gave none. */
+  readonly filename: string | null;
+}
+
+/** `attachment; filename="tiers.csv"` (or `filename*=UTF-8''…`) → the file name. */
+export function attachmentName(disposition: string | null): string | null {
+  if (!disposition) {
+    return null;
+  }
+  const encoded = /filename\*=(?:UTF-8'')?([^;]+)/i.exec(disposition);
+  if (encoded) {
+    try {
+      return decodeURIComponent(encoded[1].trim().replace(/^"|"$/g, ''));
+    } catch {
+      return null;
+    }
+  }
+  const plain = /filename="?([^";]+)"?/i.exec(disposition);
+  return plain ? plain[1].trim() : null;
 }
 
 function toHttpParams(params: QueryParams = {}): HttpParams {
@@ -66,6 +90,22 @@ export class ApiClient {
 
   delete<T = void>(path: string, options: ApiRequestOptions = {}): Observable<T> {
     return this.http.delete<T>(this.api.url(path), this.options(options));
+  }
+
+  /** A file to download (export…), with the name the server gives it. */
+  getFile(path: string, options: ApiRequestOptions = {}): Observable<ApiFile> {
+    return this.http
+      .get(this.api.url(path), {
+        ...this.options(options),
+        observe: 'response',
+        responseType: 'blob',
+      })
+      .pipe(
+        map((response) => ({
+          blob: response.body ?? new Blob([]),
+          filename: attachmentName(response.headers.get('Content-Disposition')),
+        })),
+      );
   }
 
   /**

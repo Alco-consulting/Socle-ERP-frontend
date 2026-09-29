@@ -1,0 +1,76 @@
+import { Injectable, inject } from '@angular/core';
+import { Observable } from 'rxjs';
+
+import { ApiClient, Paginated } from '../../../core/http/api-client';
+import {
+  CurrencyOption,
+  Partner,
+  PartnerQuery,
+  PartnerSummary,
+  PartnerUpdate,
+  PartnerWrite,
+  PaymentTerm,
+} from './partner-models';
+
+/** Page size of the partner list (the server caps it at API_MAX_PAGE_SIZE). */
+export const PARTNER_PAGE_SIZE = 20;
+
+/** Options of a form select: one page is plenty (payment terms, currencies). */
+const OPTIONS_PAGE_SIZE = 200;
+
+/**
+ * Tiers of the API, company scoped: `X-Company-ID` is added by the interceptor, never here.
+ * Search, filters and pages are the server's: nothing is filtered in the browser.
+ */
+@Injectable({ providedIn: 'root' })
+export class PartnersApi {
+  private readonly api = inject(ApiClient);
+
+  list(query: PartnerQuery = {}): Observable<Paginated<PartnerSummary>> {
+    return this.api.get<Paginated<PartnerSummary>>('partners/', {
+      params: {
+        search: query.search || null,
+        role: query.role ?? null,
+        status: query.status ?? null,
+        country: query.country || null,
+        page: query.page && query.page > 1 ? query.page : null,
+        page_size: query.pageSize ?? PARTNER_PAGE_SIZE,
+      },
+    });
+  }
+
+  get(id: string): Observable<Partner> {
+    return this.api.get<Partner>(`partners/${encodeURIComponent(id)}/`);
+  }
+
+  create(partner: PartnerWrite): Observable<Partner> {
+    return this.api.post<Partner>('partners/', partner);
+  }
+
+  /** Only the fields given are changed (the code never is). */
+  update(id: string, changes: PartnerUpdate): Observable<Partner> {
+    return this.api.patch<Partner>(`partners/${encodeURIComponent(id)}/`, changes);
+  }
+
+  deactivate(id: string): Observable<Partner> {
+    return this.api.post<Partner>(`partners/${encodeURIComponent(id)}/deactivate/`);
+  }
+
+  reactivate(id: string): Observable<Partner> {
+    return this.api.post<Partner>(`partners/${encodeURIComponent(id)}/reactivate/`);
+  }
+
+  paymentTerms(): Observable<Paginated<PaymentTerm>> {
+    return this.api.get<Paginated<PaymentTerm>>('partners/payment-terms/', {
+      params: { page_size: OPTIONS_PAGE_SIZE },
+    });
+  }
+
+  /** The shared ISO catalogue (any signed-in user). */
+  currencies(): Observable<Paginated<CurrencyOption>> {
+    return this.api.get<Paginated<CurrencyOption>>('currencies/', {
+      params: { page_size: OPTIONS_PAGE_SIZE },
+      skipCompany: true,
+    });
+  }
+}

@@ -1,0 +1,87 @@
+@use 'breakpoints' as bp;
+
+:host {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  min-width: 0;
+  max-width: var(--form-max-width);
+}
+
+.center {
+  display: flex;
+  justify-content: center;
+}
+
+.sheet {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+  padding: var(--space-5);
+  border: var(--border-width) solid var(--color-border);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface);
+  box-shadow: var(--shadow-sm);
+
+  @include bp.below-tablet {
+    padding: var(--space-4);
+  }
+}
+
+.section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.more > summary {
+  cursor: pointer;
+}
+
+.more[open] > summary {
+  margin-bottom: var(--space-4);
+}
+
+.fixed {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.fixed-label {
+  font-weight: var(--font-weight-medium);
+}
+
+.fixed-value {
+  font-weight: var(--font-weight-semibold);
+}
+
+.roles {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2) var(--space-5);
+  margin: 0;
+  padding: 0;
+  border: 0;
+
+  legend {
+    width: 100%;
+    margin-bottom: var(--space-1);
+    padding: 0;
+    font-weight: var(--font-weight-medium);
+  }
+
+  label {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-2);
+    cursor: pointer;
+  }
+
+  input {
+    width: 16px;
+    height: 16px;
+    accent-color: var(--color-primary);
+  }
+}

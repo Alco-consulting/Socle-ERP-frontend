@@ -1,29 +1,8 @@
 import { Routes } from '@angular/router';
 
-import { permissionGuard } from '../../core/navigation/app-access.guard';
 import { APPLICATIONS } from '../../core/navigation/applications';
+import { PARTNER_ROUTES } from '../partners/partners.routes';
 import { applicationRoute } from './placeholder-routes';
-
-const partnerList = () => import('./partners/partner-list').then((m) => m.PartnerListPage);
-const contextualImport = () =>
-  import('./transfers/contextual-import').then((m) => m.ContextualImportPage);
-
-/** A partner list and its contextual import (« Tiers › Clients › Import de tiers »). */
-function partnerScreen(path: string, label: string, role: 'all' | 'customer' | 'supplier') {
-  return {
-    path,
-    data: { breadcrumb: label, demo: true },
-    children: [
-      { path: '', data: { role }, loadComponent: partnerList },
-      {
-        path: 'import',
-        data: { breadcrumb: 'Import de tiers', transferKind: 'partners' },
-        canActivate: [permissionGuard('imports_exports.create', 'partners.create')],
-        loadComponent: contextualImport,
-      },
-    ],
-  };
-}
 
 /**
  * Screens built by the prototype, per application; every other screen is a placeholder.
@@ -45,18 +24,8 @@ const SCREENS: Readonly<Record<string, Routes>> = {
       loadChildren: () => import('./accounting/entries.routes').then((m) => m.ENTRY_ROUTES),
     },
   ],
-  partners: [
-    partnerScreen('liste', 'Tous les tiers', 'all'),
-    partnerScreen('clients', 'Clients', 'customer'),
-    partnerScreen('fournisseurs', 'Fournisseurs', 'supplier'),
-    {
-      path: 'nouveau',
-      data: { breadcrumb: 'Nouveau tiers' },
-      canActivate: [permissionGuard('partners.create')],
-      loadComponent: () =>
-        import('./not-in-prototype/not-in-prototype').then((m) => m.NotInPrototypePage),
-    },
-  ],
+  // Real screens (Module 3), on the API.
+  partners: PARTNER_ROUTES,
 };
 
 /**

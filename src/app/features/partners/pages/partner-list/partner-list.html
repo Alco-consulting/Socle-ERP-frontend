@@ -1,0 +1,151 @@
+<alco-page-header [title]="title()">
+  <div alcoPageActions>
+    <alco-domain-transfers
+      [transfer]="transfer"
+      [exportParameters]="exportParameters()"
+      [exportScope]="exportScope()"
+    />
+    @if (canCreate()) {
+      <a alcoButton variant="primary" icon="plus" routerLink="/app/tiers/nouveau">Nouveau tiers</a>
+    }
+  </div>
+</alco-page-header>
+
+<div class="control-panel">
+  <alco-search-bar
+    class="search"
+    label="Rechercher un tiers"
+    placeholder="Rechercher par code, nom, raison sociale ou identifiant fiscal…"
+    [query]="searchText()"
+    [facets]="facets()"
+    (queryChange)="onSearch($event)"
+    (facetRemoved)="removeFacet($event)"
+  />
+  <div class="controls">
+    <alco-filter-bar
+      [activeFilterCount]="activeFilterCount()"
+      [favorites]="favorites"
+      (applied)="applyFilters()"
+      (cleared)="resetFilters()"
+      (favoriteSelected)="applyFavorite($event)"
+    >
+      <div alcoFilterFields class="filter-fields" [formGroup]="filterForm">
+        <alco-form-field label="État">
+          <select alcoSelect formControlName="status">
+            <option value="">Tous les états</option>
+            @for (status of statuses; track status.id) {
+              <option [value]="status.id">{{ status.label }}</option>
+            }
+          </select>
+        </alco-form-field>
+        @if (!fixedRole) {
+          <alco-form-field label="Rôle">
+            <select alcoSelect formControlName="role">
+              <option value="">Tous les rôles</option>
+              @for (role of roles; track role.id) {
+                <option [value]="role.id">{{ role.label }}</option>
+              }
+            </select>
+          </alco-form-field>
+        }
+        <alco-form-field label="Pays" hint="Code à 2 lettres (ex. GN)">
+          <input alcoInput formControlName="country" maxlength="2" autocomplete="off" />
+        </alco-form-field>
+      </div>
+    </alco-filter-bar>
+    @if (list.value(); as page) {
+      <alco-pagination
+        class="pager"
+        [page]="page.count > 0 ? this.page() : 1"
+        [pageSize]="pageSize"
+        [total]="page.count"
+        (pageChange)="setPage($event)"
+      />
+    }
+  </div>
+</div>
+
+@switch (list.status()) {
+  @case ('forbidden') {
+    <alco-error-state
+      title="Vous n’avez pas accès aux tiers de cette société."
+      message="Demandez l’accès à un administrateur de la société si vous en avez besoin."
+      [code]="list.error()?.code ?? ''"
+    />
+  }
+  @case ('error') {
+    @if (failure(); as error) {
+      <alco-error-state
+        [title]="error.title"
+        [message]="error.message"
+        [code]="error.code"
+        [correlationId]="error.correlationId ?? ''"
+        retryLabel="Réessayer"
+        (retry)="retry()"
+      />
+    }
+  }
+  @default {
+    @if (list.value() === null) {
+      <alco-loading variant="table" [rows]="8" [columns]="5" label="Chargement des tiers…" />
+    } @else if (rows().length === 0) {
+      <div class="empty-frame">
+        @if (hasCriteria()) {
+          <alco-empty-state
+            icon="search"
+            title="Aucun tiers ne correspond à ces critères."
+            message="Modifiez la recherche ou retirez un filtre."
+          >
+            <button alcoButton type="button" icon="refresh" (click)="resetFilters()">
+              Réinitialiser les filtres
+            </button>
+          </alco-empty-state>
+        } @else {
+          <alco-empty-state
+            icon="partners"
+            title="Aucun tiers trouvé."
+            [message]="
+              canCreate()
+                ? 'Créez la première fiche client ou fournisseur de la société.'
+                : 'Aucun tiers n’a encore été créé dans cette société.'
+            "
+          >
+            @if (canCreate()) {
+              <a alcoButton variant="primary" icon="plus" routerLink="/app/tiers/nouveau">
+                Créer un tiers
+              </a>
+            }
+          </alco-empty-state>
+        }
+      </div>
+    } @else {
+      <alco-table
+        [class.reloading]="list.loading()"
+        [attr.aria-busy]="list.loading()"
+        caption="Tiers de la société"
+        [columns]="columns"
+        [rows]="rows()"
+        [rowId]="rowId"
+        [rowLabel]="rowLabel"
+        [clickableRows]="true"
+        (rowActivated)="open($event)"
+      >
+        <ng-template alcoCell="code" let-partner>
+          <a class="code" [routerLink]="partner.public_id">{{ partner.code }}</a>
+        </ng-template>
+        <ng-template alcoCell="name" let-partner>
+          <span class="name">{{ partner.name }}</span>
+          @if (partner.legal_name && partner.legal_name !== partner.name) {
+            <span class="alco-sr-only">, </span>
+            <span class="legal alco-caption">{{ partner.legal_name }}</span>
+          }
+        </ng-template>
+        <ng-template alcoCell="role" let-partner>{{ roleLabel(partner) }}</ng-template>
+        <ng-template alcoCell="status" let-partner>
+          @let badge = badgeOf(partner);
+          <alco-badge [tone]="badge.tone" [icon]="badge.icon">{{ badge.label }}</alco-badge>
+        </ng-template>
+      </alco-table>
+    }
+  }
+}

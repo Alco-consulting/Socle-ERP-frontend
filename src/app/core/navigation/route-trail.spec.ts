@@ -64,4 +64,20 @@ describe('route trail (breadcrumb + tab title)', () => {
       'EC-2026-000145 · Écritures · Comptabilité · Alco',
     );
   });
+
+  it('a record screen names its crumb (or its parent) once loaded; the title follows', async () => {
+    await TestBed.inject(Router).navigateByUrl('/app/comptabilite/ecritures/proto-001');
+    const trail = TestBed.inject(BreadcrumbService);
+    trail.nameCurrent('EC-2026-000145 — Achat de fournitures');
+    expect(trail.items().at(-1)?.label).toBe('EC-2026-000145 — Achat de fournitures');
+    expect(TestBed.inject(Title).getTitle()).toBe(
+      'EC-2026-000145 — Achat de fournitures · Écritures · Comptabilité · Alco',
+    );
+    trail.nameCurrent('Toutes les écritures', 1);
+    expect(trail.items().map((item) => item.label)).toEqual([
+      'Comptabilité',
+      'Toutes les écritures',
+      'EC-2026-000145',
+    ]);
+  });
 });

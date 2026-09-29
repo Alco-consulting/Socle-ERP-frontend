@@ -1,5 +1,7 @@
 import { Page, Request, test as base } from '@playwright/test';
 
+import { FakePartners } from './fake-partners';
+
 /**
  * A small stateful fake of the Django API contract (backend/docs/api/openapi.yaml), used by
  * every end-to-end test: session opened by a good login and closed by the logout, CSRF
@@ -43,6 +45,13 @@ export const COMPANY_C: CompanyJson = {
   status: 'active',
 };
 
+/** Short names of the companies, for the partners of each. */
+const COMPANY_KEYS: Readonly<Record<string, string>> = {
+  [COMPANY_A.public_id]: 'A',
+  [COMPANY_B.public_id]: 'B',
+  [COMPANY_C.public_id]: 'C',
+};
+
 const READ = [
   'accounting.read',
   'treasury.read',
@@ -62,7 +71,12 @@ const WRITE = [
   'accounting.create',
   'accounting.validate',
   'partners.create',
+  'partners.update',
+  'partners.disable',
   'imports_exports.create',
+  'imports_exports.validate',
+  'imports_exports.execute',
+  'imports_exports.cancel',
   'imports_exports.export',
 ];
 
@@ -116,7 +130,27 @@ export class FakeApi {
   private loginDelayMs = 0;
   private contextDelayMs = 0;
 
-  constructor(private readonly page: Page) {}
+  /** Partners, their import and export (company scoped). */
+  readonly partners: FakePartners;
+
+  constructor(private readonly page: Page) {
+    this.partners = new FakePartners({
+      page,
+      calls: this.calls,
+      companyOf: async (request) => {
+        const id = await this.companyId(request);
+        return COMPANY_KEYS[id] ?? id;
+      },
+      permissionsOf: async (request) => {
+        const id = await this.companyId(request);
+        return (
+          this.memberships.find((item) => item.accessible && item.company.public_id === id)
+            ?.permissions ?? []
+        );
+      },
+      csrfOk: (request) => this.csrfOk(request),
+    });
+  }
 
   /** No session open at start (the login screen). */
   signedOut(): this {
@@ -187,6 +221,7 @@ export class FakeApi {
       this.calls.push(route.request());
       return route.fulfill({ status: 404, json: error('not_found') });
     });
+    await this.partners.install();
     await page.route('**/api/v1/auth/me/', (route) => {
       this.calls.push(route.request());
       if (this.down) {
@@ -269,6 +304,11 @@ export class FakeApi {
       this.signedIn = false;
       return route.fulfill({ status: 204 });
     });
+  }
+
+  /** The company a request is sent for (`X-Company-ID`, else the default one). */
+  private async companyId(request: Request): Promise<string> {
+    return (await request.headerValue('x-company-id')) ?? this.defaultCompany ?? '';
   }
 
   private user() {

@@ -6,22 +6,13 @@ import { SessionStore } from '../../../core/session/session.store';
 import { subtractDecimals, isZeroDecimal } from '../../../shared/utils/decimal';
 import {
   CURRENCY,
-  JOURNALS,
   actionsFor,
   buildEntries,
   journalName,
   partnerName,
   totalDebit,
 } from './prototype-data';
-import {
-  AccountingDashboard,
-  Entry,
-  EntryDraft,
-  EntryQuery,
-  EntryStatus,
-  EntrySummary,
-  Page,
-} from './prototype-models';
+import { Entry, EntryDraft, EntryQuery, EntryStatus, EntrySummary, Page } from './prototype-models';
 
 /** Simulated network latency, so that loading states are visible. */
 const LATENCY_MS = 350;
@@ -40,7 +31,7 @@ interface Books {
 
 /**
  * PROTOTYPE — in-memory stand-in for the accounting API. It plays the SERVER's role:
- * it owns the data, computes the dashboard, decides the allowed actions and refuses
+ * it owns the data, decides the allowed actions and refuses
  * invalid transitions with the real API error codes. No HTTP call is made. Like the server
  * with `X-Company-ID`, every call works on the books of the active company only.
  * Replaced by a typed HTTP service in Module F5/F6.
@@ -188,39 +179,6 @@ export class PrototypeAccountingApi {
       reversal,
     ];
     return of(reversal).pipe(delay(LATENCY_MS));
-  }
-
-  dashboard(): Observable<AccountingDashboard> {
-    const count = (status: EntryStatus) => this.entries.filter((e) => e.status === status).length;
-    const september = this.entries.filter((entry) => entry.date.startsWith('2026-09'));
-    return of({
-      fiscalYear: 'Exercice 2026',
-      period: 'Septembre 2026',
-      periodOpen: true,
-      closingChecksPending: 3,
-      entries: {
-        draft: count('draft'),
-        submitted: count('submitted'),
-        validatedThisMonth: september.filter((entry) => entry.status === 'validated').length,
-      },
-      journals: JOURNALS.map((journal) => {
-        const own = this.entries.filter((entry) => entry.journal === journal.code);
-        return {
-          journal,
-          toValidate: own.filter(
-            (entry) => entry.status === 'draft' || entry.status === 'submitted',
-          ).length,
-          lastEntryDate:
-            own
-              .map((entry) => entry.date)
-              .sort()
-              .at(-1) ?? null,
-        };
-      }),
-      treasury: { bank: '184250000', cash: '3420000', inflows: '46800000', outflows: '31275000' },
-      vat: { collected: '8964000', deductible: '5238000', due: '3726000' },
-      currency: CURRENCY,
-    }).pipe(delay(LATENCY_MS));
   }
 
   journalLabel(code: string): string {

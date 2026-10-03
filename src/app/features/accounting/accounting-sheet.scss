@@ -1,0 +1,128 @@
+/* Shared by the accounting records (journal, account) and their forms. */
+@use 'breakpoints' as bp;
+
+:host {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  min-width: 0;
+  max-width: var(--form-max-width);
+}
+
+.center {
+  display: flex;
+  justify-content: center;
+}
+
+.note {
+  margin: 0;
+  padding: var(--space-3) var(--space-4);
+  border-radius: var(--radius-md);
+  background: var(--color-neutral-soft);
+  color: var(--color-neutral-text);
+}
+
+.sheet {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+  padding: var(--space-5);
+  border: var(--border-width) solid var(--color-border);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface);
+  box-shadow: var(--shadow-sm);
+
+  @include bp.below-tablet {
+    padding: var(--space-4);
+  }
+}
+
+.section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.facts {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--space-3) var(--space-5);
+  margin: 0;
+
+  @include bp.below-laptop {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  @include bp.below-tablet {
+    grid-template-columns: 1fr;
+  }
+
+  dt {
+    color: var(--color-text-muted);
+    font-size: var(--font-size-caption);
+  }
+
+  dd {
+    margin: 0;
+    overflow-wrap: anywhere;
+  }
+
+  .wide {
+    grid-column: 1 / -1;
+  }
+}
+
+.address {
+  white-space: pre-line;
+}
+
+.dates {
+  margin: 0;
+  color: var(--color-text-muted);
+}
+
+.mono {
+  font-family: var(--font-family-mono);
+}
+
+.more > summary {
+  cursor: pointer;
+}
+
+.more[open] > summary {
+  margin-bottom: var(--space-4);
+}
+
+.fixed {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.fixed-label {
+  font-weight: var(--font-weight-medium);
+}
+
+.fixed-value {
+  font-weight: var(--font-weight-semibold);
+}
+
+.check {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  cursor: pointer;
+
+  input {
+    width: 16px;
+    height: 16px;
+    accent-color: var(--color-primary);
+  }
+}
+
+.field-check {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: var(--space-1);
+}

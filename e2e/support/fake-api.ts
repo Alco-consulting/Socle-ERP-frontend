@@ -1,6 +1,7 @@
 import { Page, Request, test as base } from '@playwright/test';
 
-import { FakePartners } from './fake-partners';
+import { FakeAccounting } from './fake-accounting';
+import { FakePartners, PartnersContext } from './fake-partners';
 
 /**
  * A small stateful fake of the Django API contract (backend/docs/api/openapi.yaml), used by
@@ -70,6 +71,8 @@ const READ = [
 const WRITE = [
   'accounting.create',
   'accounting.validate',
+  'accounting.manage_journals',
+  'accounting.manage_accounts',
   'partners.create',
   'partners.update',
   'partners.disable',
@@ -132,9 +135,11 @@ export class FakeApi {
 
   /** Partners, their import and export (company scoped). */
   readonly partners: FakePartners;
+  /** Accounting referential: fiscal years, periods, journals, accounts (company scoped). */
+  readonly accounting: FakeAccounting;
 
   constructor(private readonly page: Page) {
-    this.partners = new FakePartners({
+    const context: PartnersContext = {
       page,
       calls: this.calls,
       companyOf: async (request) => {
@@ -149,7 +154,9 @@ export class FakeApi {
         );
       },
       csrfOk: (request) => this.csrfOk(request),
-    });
+    };
+    this.partners = new FakePartners(context);
+    this.accounting = new FakeAccounting(context);
   }
 
   /** No session open at start (the login screen). */
@@ -222,6 +229,7 @@ export class FakeApi {
       return route.fulfill({ status: 404, json: error('not_found') });
     });
     await this.partners.install();
+    await this.accounting.install();
     await page.route('**/api/v1/auth/me/', (route) => {
       this.calls.push(route.request());
       if (this.down) {

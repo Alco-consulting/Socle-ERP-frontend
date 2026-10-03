@@ -231,3 +231,26 @@ test('tiers: list, record, form, import', async ({ page, api }) => {
   await page.goto('/app/tiers/liste');
   await shoot(page, '75-phone-tiers-list');
 });
+
+test('comptabilité: dashboard, journals, chart of accounts, fiscal years', async ({
+  page,
+  api,
+}) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto('/app/comptabilite/tableau-de-bord');
+  await shoot(page, '80-accounting-dashboard', true);
+  await page.goto('/app/comptabilite/journaux');
+  await shoot(page, '81-accounting-journals');
+  await page.goto(`/app/comptabilite/journaux/${api.accounting.books('A').journals[0].public_id}`);
+  await shoot(page, '82-accounting-journal');
+  await page.goto('/app/comptabilite/plan-comptable?groupe=classe');
+  await shoot(page, '83-accounting-chart-grouped', true);
+  const forty = api.accounting.books('A').accounts.find((item) => item.code === '40');
+  await page.goto(`/app/comptabilite/plan-comptable/${forty?.public_id ?? ''}`);
+  await shoot(page, '84-accounting-account-hierarchy', true);
+  await page.goto('/app/comptabilite/configuration/exercices');
+  await shoot(page, '85-accounting-fiscal-years', true);
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto('/app/comptabilite/tableau-de-bord');
+  await shoot(page, '86-phone-accounting-dashboard', true);
+});

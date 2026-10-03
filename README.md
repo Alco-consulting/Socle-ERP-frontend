@@ -4,9 +4,9 @@ Angular 21 (standalone, signaux, zoneless, TypeScript strict). État actuel : **
 (design system, App Launcher, coquille des modules), **Module 0** (socle technique : API,
 session Django, CSRF, `X-Company-ID`), **Module 1** (connexion et déconnexion) et
 **Module 2** (société active et App Launcher réels : utilisateur, sociétés, permissions de
-l'API) et **Module 3** (Tiers sur l'API : liste, recherche, filtres, fiche, création,
-modification, désactivation, import et export). Les écrans comptables restent des
-démonstrations sur données fictives, signalées comme telles.
+l'API) **Module 3** (Tiers sur l'API) et **Module 4** (socle de la Comptabilité sur l'API :
+tableau de bord, journaux, plan comptable, exercices et périodes). Les Écritures restent
+une démonstration sur données fictives, signalée comme telle.
 
 Documentation : [`../docs/frontend/design-system.md`](../docs/frontend/design-system.md),
 [`../docs/frontend/ux-guidelines.md`](../docs/frontend/ux-guidelines.md),

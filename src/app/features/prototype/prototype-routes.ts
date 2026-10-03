@@ -1,6 +1,7 @@
 import { Routes } from '@angular/router';
 
 import { APPLICATIONS } from '../../core/navigation/applications';
+import { ACCOUNTING_ROUTES } from '../accounting/accounting.routes';
 import { PARTNER_ROUTES } from '../partners/partners.routes';
 import { applicationRoute } from './placeholder-routes';
 
@@ -10,14 +11,8 @@ import { applicationRoute } from './placeholder-routes';
  */
 const SCREENS: Readonly<Record<string, Routes>> = {
   accounting: [
-    {
-      path: 'tableau-de-bord',
-      data: { breadcrumb: 'Tableau de bord', demo: true },
-      loadComponent: () =>
-        import('./accounting/dashboard/accounting-dashboard').then(
-          (m) => m.AccountingDashboardPage,
-        ),
-    },
+    // Real screens (Module 4), on the API.
+    ...ACCOUNTING_ROUTES,
     {
       path: 'ecritures',
       data: { breadcrumb: 'Écritures', demo: true },

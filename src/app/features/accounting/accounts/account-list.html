@@ -1,0 +1,151 @@
+<alco-page-header title="Plan comptable">
+  @if (canManage()) {
+    <div alcoPageActions>
+      <a alcoButton variant="primary" icon="plus" routerLink="nouveau">Nouveau compte</a>
+    </div>
+  }
+</alco-page-header>
+
+<div class="control-panel">
+  <alco-search-bar
+    class="search"
+    label="Rechercher un compte"
+    placeholder="Rechercher par code ou intitulé…"
+    [query]="searchText()"
+    [facets]="facets()"
+    (queryChange)="onSearch($event)"
+    (facetRemoved)="removeFacet($event)"
+  />
+  <div class="controls">
+    <alco-filter-bar
+      [activeFilterCount]="activeFilterCount()"
+      [groupOptions]="groupOptions"
+      [groupBy]="groupBy()"
+      (applied)="applyFilters()"
+      (cleared)="resetFilters()"
+      (groupByChange)="setGroupBy($event)"
+    >
+      <div alcoFilterFields class="filter-fields" [formGroup]="filterForm">
+        <alco-form-field label="État">
+          <select alcoSelect formControlName="status">
+            <option value="">Tous les états</option>
+            @for (status of statuses; track status.id) {
+              <option [value]="status.id">{{ status.label }}</option>
+            }
+          </select>
+        </alco-form-field>
+        <alco-form-field label="Type">
+          <select alcoSelect formControlName="type">
+            <option value="">Tous les types</option>
+            @for (type of types; track type.id) {
+              <option [value]="type.id">{{ type.label }}</option>
+            }
+          </select>
+        </alco-form-field>
+        <alco-form-field label="Imputable" hint="Utilisable dans une écriture, selon le serveur">
+          <select alcoSelect formControlName="postable">
+            <option value="">Tous les comptes</option>
+            <option value="oui">Imputables</option>
+            <option value="non">Non imputables</option>
+          </select>
+        </alco-form-field>
+      </div>
+    </alco-filter-bar>
+    @if (list.value(); as page) {
+      <alco-pagination
+        class="pager"
+        [page]="page.count > 0 ? this.page() : 1"
+        [pageSize]="pageSize"
+        [total]="page.count"
+        (pageChange)="setPage($event)"
+      />
+    }
+  </div>
+</div>
+
+@switch (list.status()) {
+  @case ('forbidden') {
+    <alco-error-state
+      title="Vous n’avez pas accès à la comptabilité de cette société."
+      message="Demandez l’accès à un administrateur de la société si vous en avez besoin."
+    />
+  }
+  @case ('error') {
+    @if (failure(); as error) {
+      <alco-error-state
+        [title]="error.title"
+        [message]="error.message"
+        [code]="error.code"
+        [correlationId]="error.correlationId ?? ''"
+        retryLabel="Réessayer"
+        (retry)="list.reload()"
+      />
+    }
+  }
+  @default {
+    @if (list.value() === null) {
+      <alco-loading
+        variant="table"
+        [rows]="10"
+        [columns]="5"
+        label="Chargement du plan comptable…"
+      />
+    } @else if (rows().length === 0) {
+      <div class="empty-frame">
+        @if (hasCriteria()) {
+          <alco-empty-state
+            icon="search"
+            title="Aucun compte ne correspond à ces critères."
+            message="Modifiez la recherche ou retirez un filtre."
+          >
+            <button alcoButton type="button" icon="refresh" (click)="resetFilters()">
+              Réinitialiser les filtres
+            </button>
+          </alco-empty-state>
+        } @else {
+          <alco-empty-state icon="book" title="Le plan comptable de cette société est vide.">
+            @if (canManage()) {
+              <a alcoButton variant="primary" icon="plus" routerLink="nouveau">Créer un compte</a>
+            }
+          </alco-empty-state>
+        }
+      </div>
+    } @else {
+      <alco-table
+        [class.reloading]="list.loading()"
+        [attr.aria-busy]="list.loading()"
+        caption="Plan comptable de la société, par code"
+        [columns]="columns"
+        [rows]="rows()"
+        [groups]="groups()"
+        [rowId]="rowId"
+        [rowLabel]="rowLabel"
+        [clickableRows]="true"
+        (rowActivated)="open($event)"
+      >
+        <ng-template alcoCell="code" let-account>
+          <a class="code" [routerLink]="account.public_id">{{ account.code }}</a>
+        </ng-template>
+        <ng-template alcoCell="name" let-account>
+          {{ account.name }}
+          @if (account.has_children) {
+            <span class="children alco-caption">
+              <alco-icon name="group" [size]="14" /> sous-comptes
+            </span>
+          }
+        </ng-template>
+        <ng-template alcoCell="account_class" let-account>{{
+          account.account_class || '—'
+        }}</ng-template>
+        <ng-template alcoCell="type" let-account>{{ typeLabel(account.account_type) }}</ng-template>
+        <ng-template alcoCell="entries" let-account>
+          {{ account.allow_entries ? 'Autorisée' : 'Non autorisée' }}
+        </ng-template>
+        <ng-template alcoCell="status" let-account>
+          @let look = statusLook(account);
+          <alco-badge [tone]="look.tone" [icon]="look.icon">{{ look.label }}</alco-badge>
+        </ng-template>
+      </alco-table>
+    }
+  }
+}

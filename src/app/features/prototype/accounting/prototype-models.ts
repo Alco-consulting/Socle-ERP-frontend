@@ -82,31 +82,3 @@ export interface EntryDraft {
   readonly note: string;
   readonly lines: readonly EntryLine[];
 }
-
-export interface JournalActivity {
-  readonly journal: Journal;
-  readonly toValidate: number;
-  readonly lastEntryDate: string | null;
-}
-
-/** Dashboard block values, as a server would return them (already computed). */
-export interface AccountingDashboard {
-  readonly fiscalYear: string;
-  readonly period: string;
-  readonly periodOpen: boolean;
-  readonly closingChecksPending: number;
-  readonly entries: {
-    readonly draft: number;
-    readonly submitted: number;
-    readonly validatedThisMonth: number;
-  };
-  readonly journals: readonly JournalActivity[];
-  readonly treasury: {
-    readonly bank: string;
-    readonly cash: string;
-    readonly inflows: string;
-    readonly outflows: string;
-  };
-  readonly vat: { readonly collected: string; readonly deductible: string; readonly due: string };
-  readonly currency: string;
-}

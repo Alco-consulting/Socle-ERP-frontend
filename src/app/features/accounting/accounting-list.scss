@@ -1,0 +1,68 @@
+/* Shared by the accounting lists (journals, chart of accounts): the list layout of the design system. */
+:host {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  min-width: 0;
+}
+
+.control-panel {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: var(--space-3);
+}
+
+.search {
+  flex: 1 1 420px;
+}
+
+.controls {
+  display: flex;
+  flex: 1 1 auto;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2) var(--space-4);
+}
+
+.pager {
+  margin-left: auto;
+}
+
+.filter-fields {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.empty-frame {
+  border: var(--border-width) solid var(--color-border);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface);
+}
+
+.code {
+  font-weight: var(--font-weight-semibold);
+  text-decoration: none;
+
+  &:hover {
+    text-decoration: underline;
+  }
+}
+
+.mono {
+  font-family: var(--font-family-mono);
+}
+
+.children {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  color: var(--color-text-muted);
+}
+
+.reloading {
+  opacity: 0.6;
+  transition: opacity var(--duration-base) var(--easing-standard);
+}

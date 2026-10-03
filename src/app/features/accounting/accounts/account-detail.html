@@ -1,0 +1,143 @@
+@if (loadError(); as failure) {
+  <alco-error-state
+    [title]="failure.title"
+    [message]="failure.message"
+    [code]="failure.code"
+    [correlationId]="failure.correlationId ?? ''"
+  />
+  <div class="center">
+    <a alcoButton icon="arrow-left" routerLink="..">Retour au plan comptable</a>
+  </div>
+} @else if (account(); as account) {
+  <alco-page-header
+    [title]="account.code + ' — ' + account.name"
+    [subtitle]="typeLabel(account.account_type)"
+  >
+    <div alcoPageStatus>
+      @if (status(); as badge) {
+        <alco-badge [tone]="badge.tone" [icon]="badge.icon">{{ badge.label }}</alco-badge>
+      }
+    </div>
+    <div alcoPageActions>
+      @if (actions().length > 0) {
+        <alco-dropdown align="end" [items]="actions()" (selected)="onAction($event)">
+          Actions
+        </alco-dropdown>
+      }
+      @if (canManage()) {
+        <a alcoButton variant="primary" icon="edit" routerLink="modifier">Modifier</a>
+      }
+    </div>
+  </alco-page-header>
+
+  @if (actionError(); as failure) {
+    <alco-error-state
+      [inline]="true"
+      [title]="failure.title"
+      [message]="failure.message"
+      [code]="failure.code"
+      [correlationId]="failure.correlationId ?? ''"
+    />
+  }
+
+  <div class="sheet">
+    <section class="section" aria-labelledby="general-title">
+      <h2 id="general-title" class="alco-section-title">Informations générales</h2>
+      <dl class="facts">
+        <div>
+          <dt>Code</dt>
+          <dd>{{ account.code }}</dd>
+        </div>
+        <div>
+          <dt>Intitulé</dt>
+          <dd>{{ account.name }}</dd>
+        </div>
+        <div>
+          <dt>Classe</dt>
+          <dd>{{ account.account_class || '—' }}</dd>
+        </div>
+        <div>
+          <dt>Type</dt>
+          <dd>{{ typeLabel(account.account_type) }}</dd>
+        </div>
+        <div>
+          <dt>Saisie d’écritures</dt>
+          <dd>{{ account.allow_entries ? 'Autorisée' : 'Non autorisée' }}</dd>
+        </div>
+        <div class="wide">
+          <dt>Description</dt>
+          <dd class="address">{{ account.description || '—' }}</dd>
+        </div>
+      </dl>
+    </section>
+
+    <section class="section" aria-labelledby="hierarchy-title">
+      <h2 id="hierarchy-title" class="alco-section-title">Hiérarchie</h2>
+      <dl class="facts">
+        <div class="wide">
+          <dt>Compte parent</dt>
+          <dd>
+            @switch (parent()) {
+              @case (undefined) {
+                <span class="alco-caption">Chargement…</span>
+              }
+              @case (null) {
+                {{ account.parent ? 'Compte parent non disponible' : 'Aucun (premier niveau)' }}
+              }
+              @default {
+                @if (parent(); as up) {
+                  <a [routerLink]="['..', up.public_id]">{{ up.code }} — {{ up.name }}</a>
+                }
+              }
+            }
+          </dd>
+        </div>
+      </dl>
+      @if (account.has_children) {
+        @if (children.value(); as page) {
+          <alco-table
+            [caption]="'Sous-comptes de ' + account.code"
+            [columns]="childColumns"
+            [rows]="page.results"
+            [rowId]="childId"
+            [class.reloading]="children.loading()"
+          >
+            <ng-template alcoCell="code" let-child>
+              <a class="code" [routerLink]="['..', child.public_id]">{{ child.code }}</a>
+            </ng-template>
+            <ng-template alcoCell="status" let-child>
+              @let look = statusLook(child);
+              <alco-badge [tone]="look.tone" [icon]="look.icon">{{ look.label }}</alco-badge>
+            </ng-template>
+          </alco-table>
+          @if (page.count > pageSize) {
+            <alco-pagination
+              [page]="childPage()"
+              [pageSize]="pageSize"
+              [total]="page.count"
+              (pageChange)="setChildPage($event)"
+            />
+          }
+        } @else if (children.error()) {
+          <p class="alco-caption">Les sous-comptes n’ont pas pu être chargés.</p>
+        } @else {
+          <alco-loading
+            variant="table"
+            [rows]="3"
+            [columns]="3"
+            label="Chargement des sous-comptes…"
+          />
+        }
+      } @else {
+        <p class="alco-caption">Aucun sous-compte.</p>
+      }
+    </section>
+
+    <p class="dates alco-caption">
+      Créé le {{ account.created_at | date: 'dd/MM/yyyy à HH:mm' }} · modifié le
+      {{ account.updated_at | date: 'dd/MM/yyyy à HH:mm' }}
+    </p>
+  </div>
+} @else {
+  <alco-loading [rows]="8" label="Chargement du compte…" />
+}

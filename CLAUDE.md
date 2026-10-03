@@ -6,13 +6,15 @@ backend Django est terminé et en production (`https://api.alcoconsulting.tech`,
 
 **État actuel : phase UX/UI 0 (design system, App Launcher de 6 applications, coquille des
 modules), Module 0 (socle technique), Module 1 (authentification), Module 2 (société active
-et App Launcher réels) et Module 3 (Tiers, premier domaine métier sur l'API) livrés.**
+et App Launcher réels), Module 3 (Tiers) et Module 4 (socle de la Comptabilité : tableau
+de bord, journaux, plan comptable, exercices et périodes) livrés.**
 Le socle parle à l'API Django : environnements, `ApiClient`, intercepteurs (session, CSRF,
 `X-Company-ID`, erreurs, chargement), gardes. Connexion et déconnexion réelles ; utilisateur,
 sociétés accessibles, société active, permissions et lanceur viennent de l'API (plus de
 session simulée). L'application Tiers est réelle (liste, recherche, filtres, fiche,
-création, modification, désactivation, import et export contextuels). Les écrans comptables
-du prototype restent sur données fictives, avec un bandeau « Écran de démonstration ».
+création, modification, désactivation, import et export contextuels). Comptabilité : tableau
+de bord, journaux, plan comptable, exercices et périodes sont réels ; les Écritures restent
+l'écran de démonstration du prototype (bandeau « Écran de démonstration »).
 Architecture technique : `../docs/frontend/technical-architecture.md`. Prochaine étape : les
 modules métier un par un (chacun remplace ses écrans de démonstration).
 
@@ -60,7 +62,8 @@ src/app/
                 notifications
   shared/       ui · forms · filters · tables · pipes · utils — composants de présentation
   features/     launcher · auth (écran de connexion) · company-choice (`/societe`) ·
-                partners (Tiers : data-access, pages, présentation, routes) · transfers
+                partners (Tiers : data-access, pages, présentation, routes) · accounting
+                (socle comptable : data-access, dashboard, journals, accounts, periods) · transfers
                 (import/export contextuels, sans route propre) · design-system · prototype
   app.routes.ts `/` → `/app` (lanceur, zone authentifiée dans AlcoCompanyScope),
                 `/app/<application>/…`, `/login`, `/societe`, `/design-system` ; une coquille
@@ -178,6 +181,13 @@ supprime ce qui ne sert plus.
   par l'API) ; création = champs du contrat ; modification = champs changés seulement, jamais
   le code ; pas de suppression (désactivation). Fiche nommée dans le fil d'Ariane par
   `BreadcrumbService.nameCurrent` (pas de resolver).
+- **Comptabilité, socle (Module 4)** : `features/accounting` sur `accounting/` ; pas
+  d'endpoint de tableau de bord comptable → blocs indépendants assemblés depuis l'API (7
+  requêtes fixes, aucun N+1, aucun calcul : `count` du serveur, `postable` du serveur) ;
+  exercice affiché = exercices `status=open` du serveur ; exercices et périodes en lecture
+  seule ; journaux sans recherche texte (l'API n'en a pas) ; hiérarchie des comptes par
+  `parent` / `children/` (pas d'arbre reconstruit : aucun filtre « racines ») ; parent saisi
+  par code et résolu par `?code=` ; classe saisie, jamais déduite.
 - **Import/export réels** : `features/transfers` (API `imports-exports/`, écran d'import par
   étapes, « Actions ▾ » `AlcoDomainTransfers`). Un domaine décrit les siens
   (`ContextualTransfer`) ; aucun écran générique. L'import des écritures reste celui du
@@ -210,7 +220,11 @@ supprime ce qui ne sert plus.
   e-mail quand le backend l'exposera ; fin du mode prototype (quand les modules métier
   remplaceront les données fictives).
 - Décider l'origine du frontend en production (technical-architecture.md § 12).
-- Exercice en cours dans la barre supérieure et le lanceur (module Comptabilité, lu dans l'API).
+- Exercice dans la barre supérieure et le lanceur (aujourd'hui sur le tableau de bord
+  comptable seulement).
+- Comptabilité : créer, clôturer, rouvrir exercices et périodes (`manage_periods`, avec la
+  clôture) ; « Paramètres comptables » (`accounting/settings/`) ; Écritures réelles (module
+  suivant).
 - Tiers : écran « Conditions de paiement » (API complète : liste, création, modification,
   désactivation) ; rapport d'import paginé au-delà de 50 lignes refusées ; export asynchrone
   pour les gros volumes.

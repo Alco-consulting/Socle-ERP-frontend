@@ -1,0 +1,106 @@
+@if (loadError(); as failure) {
+  <alco-error-state
+    [title]="failure.title"
+    [message]="failure.message"
+    [code]="failure.code"
+    [correlationId]="failure.correlationId ?? ''"
+  />
+  <div class="center">
+    <a alcoButton icon="arrow-left" routerLink="/app/comptabilite/journaux">Retour aux journaux</a>
+  </div>
+} @else if (!ready()) {
+  <alco-loading [rows]="6" label="Chargement du journal…" />
+} @else {
+  <alco-page-header
+    [title]="isNew ? 'Nouveau journal' : 'Modifier ' + (journal()?.name ?? '')"
+    [subtitle]="isNew ? 'Journal comptable de la société' : (journal()?.code ?? '')"
+  >
+    <div alcoPageActions>
+      <button alcoButton type="button" variant="ghost" (click)="cancel()">Annuler</button>
+      <button
+        alcoButton
+        type="submit"
+        form="journal-form"
+        variant="primary"
+        [loading]="saving()"
+        loadingLabel="Enregistrement…"
+      >
+        Enregistrer
+      </button>
+    </div>
+  </alco-page-header>
+
+  @if (error(); as failure) {
+    <alco-error-state
+      [inline]="true"
+      [title]="failure.title"
+      [message]="failure.message"
+      [code]="failure.code"
+      [correlationId]="failure.correlationId ?? ''"
+    />
+  }
+  @if (invalidSubmit() && form.invalid) {
+    <alco-error-state
+      [inline]="true"
+      title="Certaines informations sont manquantes ou incorrectes."
+      message="Corrigez les champs signalés, puis enregistrez à nouveau."
+    />
+  }
+
+  <form id="journal-form" class="sheet" [formGroup]="form" (ngSubmit)="save()" novalidate>
+    <section class="section" aria-labelledby="general-title">
+      <h2 id="general-title" class="alco-section-title">Informations générales</h2>
+      <div class="alco-form-grid">
+        @if (isNew) {
+          <alco-form-field
+            label="Code"
+            [required]="true"
+            hint="Unique dans la société ; il ne pourra plus être modifié."
+          >
+            <input alcoInput formControlName="code" maxlength="32" autocomplete="off" />
+          </alco-form-field>
+        } @else {
+          <div class="fixed">
+            <span class="fixed-label">Code</span>
+            <span class="fixed-value">{{ journal()?.code }}</span>
+            <span class="alco-caption">Fixé à la création.</span>
+          </div>
+        }
+        <alco-form-field label="Nom" [required]="true">
+          <input alcoInput formControlName="name" maxlength="100" />
+        </alco-form-field>
+        <alco-form-field label="Type" [required]="true">
+          <select alcoSelect formControlName="journal_type">
+            <option value="" disabled>Choisir un type</option>
+            @for (type of types; track type.id) {
+              <option [value]="type.id">{{ type.label }}</option>
+            }
+          </select>
+        </alco-form-field>
+        <alco-form-field label="Devise par défaut" hint="Vide : la devise de la société">
+          <select alcoSelect formControlName="default_currency">
+            <option value="">Devise de la société</option>
+            @for (currency of currencyOptions(); track currency.code) {
+              <option [value]="currency.code">{{ currency.code }} — {{ currency.name }}</option>
+            }
+          </select>
+        </alco-form-field>
+      </div>
+    </section>
+
+    <section class="section" aria-labelledby="numbering-title">
+      <h2 id="numbering-title" class="alco-section-title">Numérotation des écritures</h2>
+      <div class="alco-form-grid">
+        <alco-form-field label="Préfixe" hint="Ex. ACH-">
+          <input alcoInput formControlName="sequence_prefix" maxlength="32" autocomplete="off" />
+        </alco-form-field>
+        <alco-form-field
+          label="Nombre de chiffres"
+          [hint]="isNew ? 'De 1 à 12 ; vide : la valeur du serveur' : 'De 1 à 12'"
+        >
+          <input alcoInput type="number" formControlName="sequence_padding" min="1" max="12" />
+        </alco-form-field>
+      </div>
+    </section>
+  </form>
+}

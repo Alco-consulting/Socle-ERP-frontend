@@ -1,0 +1,59 @@
+:host {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  min-width: 0;
+}
+
+.years {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: var(--space-3);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.year {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-1);
+  width: 100%;
+  padding: var(--space-3) var(--space-4);
+  border: var(--border-width) solid var(--color-border);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface);
+  color: var(--color-text);
+  text-align: left;
+  cursor: pointer;
+
+  &:hover {
+    border-color: var(--color-primary);
+  }
+}
+
+.year--selected {
+  border-color: var(--color-primary);
+  background: var(--color-primary-soft);
+}
+
+.year-label {
+  font-weight: var(--font-weight-semibold);
+}
+
+.none {
+  margin: 0;
+  padding: var(--space-4);
+  color: var(--color-text-muted);
+}
+
+.empty-frame {
+  border: var(--border-width) solid var(--color-border);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface);
+}
+
+.reloading {
+  opacity: 0.6;
+}

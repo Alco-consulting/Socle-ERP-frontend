@@ -344,8 +344,10 @@ test.describe('Écritures — droits, société, modifications', () => {
     ).toBeVisible();
 
     // Back to Alpha: the server kept it.
+    // No reload before the switch is done: the tab would reopen in Beta.
     await switchTo(page, /ALCO GUINÉE/);
-    await page.goto(LIST);
+    await expect(companyButton(page)).toContainText('ALCO GUINÉE (test)');
+    await expect(page).toHaveURL(/\/app\/comptabilite\/ecritures$/); // the list, never a record
     await expect(page.getByRole('cell', { name: /Écriture propre à Alpha/ })).toBeVisible();
   });
 

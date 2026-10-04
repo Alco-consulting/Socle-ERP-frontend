@@ -14,6 +14,8 @@ export interface AgedQuery {
   readonly role: AgingRole;
   /** The reference date, chosen by the user (the server requires it). */
   readonly asOf: string;
+  /** A bucket's code as the server gave it (one partner's drill-down, lot A5.1). */
+  readonly bucket?: string | null;
   readonly page?: number;
 }
 
@@ -38,12 +40,17 @@ export class AgingApi {
     });
   }
 
-  /** One partner's open documents on the reference date. */
+  /**
+   * One partner's open documents on the reference date; with `bucket`, that bucket's
+   * installments, chosen and paged by the server (the complete list, never a page filtered
+   * here).
+   */
   agedPartner(partnerId: string, query: AgedQuery): Observable<AgedPartner> {
     return this.api.get<AgedPartner>(`reporting/aged-balance/partners/${id(partnerId)}/`, {
       params: {
         role: query.role,
         as_of: query.asOf,
+        bucket: query.bucket ?? null,
         page: query.page && query.page > 1 ? query.page : null,
         page_size: AGED_DOCUMENT_PAGE_SIZE,
       },

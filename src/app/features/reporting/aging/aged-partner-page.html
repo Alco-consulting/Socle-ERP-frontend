@@ -66,14 +66,32 @@
           [decimals]="places"
         />
 
+        <nav class="bucket-nav" aria-label="Tranches du tiers">
+          <a
+            routerLink="."
+            [queryParams]="bucketQuery(null)"
+            queryParamsHandling="merge"
+            [attr.aria-current]="result.bucket === null ? 'page' : null"
+          >
+            Tous les documents
+          </a>
+          @for (bucket of result.buckets; track bucket.code) {
+            <a
+              routerLink="."
+              [queryParams]="bucketQuery(bucket.code)"
+              queryParamsHandling="merge"
+              [attr.aria-current]="result.bucket?.code === bucket.code ? 'page' : null"
+            >
+              {{ label(bucket) }}
+            </a>
+          }
+        </nav>
+
         <div class="toolbar">
-          <p class="alco-caption count">
+          <p class="alco-caption count" role="status">
             @if (bucketName(); as name) {
-              Tranche {{ name }} : {{ documents().length }} sur {{ result.results.length }}
-              documents de la page ·
-              <a routerLink="." [queryParams]="allBuckets()" queryParamsHandling="merge">
-                Toutes les tranches
-              </a>
+              Tranche {{ name }} : {{ result.count }}
+              {{ result.count > 1 ? 'échéances' : 'échéance' }}
             } @else {
               {{ result.count }} {{ result.count > 1 ? 'documents ouverts' : 'document ouvert' }}
             }
@@ -88,7 +106,14 @@
 
         @if (documents().length === 0) {
           <div class="empty-frame">
-            <alco-empty-state icon="check" title="Aucun document ouvert à cette date." />
+            <alco-empty-state
+              icon="check"
+              [title]="
+                bucketName()
+                  ? 'Aucune échéance dans cette tranche.'
+                  : 'Aucun document ouvert à cette date.'
+              "
+            />
           </div>
         } @else {
           <div class="wide" [class.reloading]="report.loading()">

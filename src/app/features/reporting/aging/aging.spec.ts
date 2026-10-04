@@ -86,6 +86,7 @@ function partnerReport(): AgedPartner {
   return {
     ...report,
     partner: PARTNER,
+    bucket: null,
     count: 3,
     results: [
       {
@@ -282,13 +283,88 @@ describe('Analyse › Balance âgée (V2.1 A5)', () => {
     );
   });
 
-  it('one bucket of a partner: the documents the server put in it', async () => {
+  /** The server's page of one bucket: `count` documents, `size` of them on this page. */
+  function bucketPage(count: number, size: number, page = 1): AgedPartner {
+    const base = partnerReport();
+    const installment = base.results[1];
+    return {
+      ...base,
+      bucket: DEFAULT[2],
+      count,
+      next: page * size < count ? 'next' : null,
+      results: Array.from({ length: size }, (_, index) => ({
+        ...installment,
+        due_item: `d-${page}-${index}`,
+        line: `l-${page}-${index}`,
+      })),
+    };
+  }
+
+  it('one bucket of a partner: the server’s complete list, paged by the server', async () => {
+    const { element, stable, harness } = await open(`${CUSTOMERS}/p-1?au=2026-04-15&tranche=31-60`);
+    currencies();
+    const first = httpMock().expectOne(is('reporting/aged-balance/partners/p-1/'));
+    expect(first.request.params.get('bucket')).toBe('31-60');
+    expect(first.request.params.get('page')).toBeNull();
+    first.flush(bucketPage(500, 200));
+    await stable();
+    // Every row of the page is shown: nothing filtered here.
+    expect(element().querySelectorAll('.wide tbody tr')).toHaveLength(200);
+    expect(text(element())).toContain('Tranche 31–60 j : 500 échéances');
+    expect(element().querySelector('.bucket-nav [aria-current="page"]')?.textContent?.trim()).toBe(
+      '31–60 j',
+    );
+
+    // The next pages come from the server, with the same bucket.
+    await harness.navigateByUrl(`${CUSTOMERS}/p-1?au=2026-04-15&tranche=31-60&page=3`);
+    const third = httpMock().expectOne(is('reporting/aged-balance/partners/p-1/'));
+    expect(third.request.params.get('bucket')).toBe('31-60');
+    expect(third.request.params.get('page')).toBe('3');
+    third.flush(bucketPage(500, 100, 3));
+    await stable();
+    expect(element().querySelectorAll('.wide tbody tr')).toHaveLength(100);
+  }, 30_000); // 200 rows rendered twice (table and cards) by jsdom
+
+  it('another bucket, another partner, another date: each a new request of the server', async () => {
+    const { element, stable, harness } = await open(
+      `${CUSTOMERS}/p-1?au=2026-04-15&tranche=31-60&page=2`,
+    );
+    currencies();
+    httpMock()
+      .expectOne(is('reporting/aged-balance/partners/p-1/'))
+      .flush(bucketPage(500, 20, 2));
+    await stable();
+    const link = Array.from(element().querySelectorAll<HTMLAnchorElement>('.bucket-nav a')).find(
+      (item) => item.textContent?.trim() === '1–30 j',
+    )!;
+    expect(link.getAttribute('href')).toBe(`${CUSTOMERS}/p-1?au=2026-04-15&tranche=1-30`);
+    link.click();
+    await stable();
+    const other = httpMock().expectOne(is('reporting/aged-balance/partners/p-1/'));
+    expect(other.request.params.get('bucket')).toBe('1-30');
+    expect(other.request.params.get('page')).toBeNull();
+    other.flush({ ...bucketPage(0, 0), bucket: DEFAULT[1] });
+    await stable();
+    expect(text(element())).toContain('Aucune échéance dans cette tranche.');
+
+    await harness.navigateByUrl(`${CUSTOMERS}/p-2?au=2026-05-31&tranche=31-60`);
+    const next = httpMock().expectOne(is('reporting/aged-balance/partners/p-2/'));
+    expect(next.request.params.get('as_of')).toBe('2026-05-31');
+    expect(next.request.params.get('bucket')).toBe('31-60');
+    next.flush(bucketPage(3, 3));
+    await stable();
+    const all = element().querySelector<HTMLAnchorElement>('.bucket-nav a')!;
+    expect(all.getAttribute('href')).toBe(`${CUSTOMERS}/p-2?au=2026-05-31`);
+  });
+
+  it('a bucket the policy no longer has: the server’s refusal, said by its code', async () => {
     const { element, stable } = await open(`${CUSTOMERS}/p-1?au=2026-04-15&tranche=31-60`);
     currencies();
-    httpMock().expectOne(is('reporting/aged-balance/partners/p-1/')).flush(partnerReport());
+    httpMock()
+      .expectOne(is('reporting/aged-balance/partners/p-1/'))
+      .flush(envelope('reporting_aging_bucket_unknown'), { status: 400, statusText: 'x' });
     await stable();
-    expect(element().querySelectorAll('.wide tbody tr')).toHaveLength(1);
-    expect(text(element())).toContain('Tranche 31–60 j : 1 sur 3 documents de la page');
+    expect(text(element())).toContain('Cette tranche n’existe plus.');
   });
 
   it('without the auxiliary permission the server’s refusal is said', async () => {

@@ -36,9 +36,9 @@ const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
  * One partner of the aged balance (`GET reporting/aged-balance/partners/<id>/`) on the
  * reference date of the URL: its summary and its open documents, as the server returns them
  * (installment with its bucket and days past due, invoice without due dates, unapplied
- * payment or credit note). `?tranche=` narrows the documents shown to one bucket the server
- * gave them (a display filter of the page, said as such). Each document leads to its
- * installment and its entry.
+ * payment or credit note). `?tranche=<code>` asks the server for one bucket (lot A5.1): it
+ * chooses and pages that bucket's installments — nothing is filtered here. Each document
+ * leads to its installment and its entry.
  */
 @Component({
   selector: 'alco-aged-partner-page',
@@ -93,6 +93,7 @@ export class AgedPartnerPage {
   private readonly query = computed(() => ({
     id: this.id(),
     asOf: this.asOf(),
+    bucket: this.bucket(),
     page: this.page(),
   }));
 
@@ -100,7 +101,12 @@ export class AgedPartnerPage {
     () => {
       const query = untracked(this.query);
       return query.asOf
-        ? this.api.agedPartner(query.id, { role: this.role, asOf: query.asOf, page: query.page })
+        ? this.api.agedPartner(query.id, {
+            role: this.role,
+            asOf: query.asOf,
+            bucket: query.bucket,
+            page: query.page,
+          })
         : EMPTY;
     },
     { immediate: false },
@@ -109,17 +115,16 @@ export class AgedPartnerPage {
     const error = this.report.error();
     return error ? toUserError(error, AGING_ERRORS) : null;
   });
+  /** The bucket the server says it listed (its own label from its bounds). */
   protected readonly bucketName = computed(() => {
-    const code = this.bucket();
-    const found = this.report.value()?.buckets.find((item) => item.code === code);
-    return found ? bucketLabel(found) : null;
+    const bucket = this.report.value()?.bucket;
+    return bucket ? bucketLabel(bucket) : null;
   });
-  /** The server's documents, narrowed to the bucket asked (by the code the server gave). */
-  protected readonly documents = computed<readonly AgedDocument[]>(() => {
-    const documents = this.report.value()?.results ?? [];
-    const code = this.bucket();
-    return code ? documents.filter((document) => document.bucket === code) : documents;
-  });
+  /** The documents exactly as the server returned them (the bucket's, when one is asked). */
+  protected readonly documents = computed<readonly AgedDocument[]>(
+    () => this.report.value()?.results ?? [],
+  );
+  protected readonly label = bucketLabel;
   protected readonly columns: readonly TableColumn[] = [
     { key: 'kind', label: 'Nature' },
     { key: 'entry', label: 'Écriture' },
@@ -167,8 +172,9 @@ export class AgedPartnerPage {
     return found ? bucketLabel(found) : null;
   }
 
-  protected allBuckets(): Params {
-    return { tranche: null };
+  /** Another bucket (or all of them): its own list, from its first page. */
+  protected bucketQuery(code: string | null): Params {
+    return { tranche: code, page: null };
   }
 
   protected setPage(page: number): void {

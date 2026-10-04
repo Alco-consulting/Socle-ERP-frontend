@@ -80,6 +80,8 @@ export interface AgedPartner {
   readonly buckets: readonly AgingBucket[];
   readonly totals: AgedAmounts;
   readonly partner: AgedPartnerRef;
+  /** The bucket asked (`?bucket=`), `null` for every open document (lot A5.1). */
+  readonly bucket: AgingBucket | null;
   readonly count: number;
   readonly next: string | null;
   readonly previous: string | null;

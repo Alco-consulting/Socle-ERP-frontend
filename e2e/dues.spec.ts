@@ -254,3 +254,98 @@ test.describe('19. accessibilité', () => {
     expect(await scan(page)).toEqual([]);
   });
 });
+
+test.describe('A5.1 — une tranche : la liste complète et paginée du serveur', () => {
+  test('1-2. plus de 200 échéances dans une tranche : toutes, page après page', async ({
+    page,
+    api,
+  }) => {
+    await page.goto(`${CUSTOMERS}?au=2026-04-15`);
+    await rows(page)
+      .filter({ hasText: 'CLI-002' })
+      .getByRole('link', { name: /^CLI-002, non échue/ })
+      .click();
+    await expect(page).toHaveURL(/tranche=not_due/);
+    await expect(page.getByRole('status')).toHaveText('Tranche Non échue : 260 échéances');
+    await expect(rows(page)).toHaveCount(200);
+    const call = api
+      .callsTo(
+        `reporting/aged-balance/partners/${api.partners.list('A').find((item) => item.code === 'CLI-002')!.public_id}/`,
+      )
+      .at(-1)!;
+    expect(new URL(call.url()).searchParams.get('bucket')).toBe('not_due');
+    await page.getByRole('button', { name: /Page suivante/ }).click();
+    await expect(page).toHaveURL(/page=2/);
+    await expect(rows(page)).toHaveCount(60);
+    await expect(page.locator('.bucket-nav [aria-current="page"]')).toHaveText('Non échue');
+  });
+
+  test('3-4. changer de tranche puis de tiers : chaque fois la liste du serveur', async ({
+    page,
+    api,
+  }) => {
+    const other = api.partners.list('A').find((item) => item.code === 'CLI-002')!;
+    await page.goto(`${CUSTOMERS}/${other.public_id}?au=2026-04-15&tranche=not_due&page=2`);
+    await expect(rows(page)).toHaveCount(60);
+    await page.locator('.bucket-nav').getByRole('link', { name: 'Tous les documents' }).click();
+    await expect(page).not.toHaveURL(/tranche=/);
+    await expect(page).not.toHaveURL(/page=/);
+    await expect(page.getByRole('status')).toHaveText('1 document ouvert');
+
+    const first = api.partners.list('A').find((item) => item.code === 'CLI-001')!;
+    await page.goto(`${CUSTOMERS}/${first.public_id}?au=2026-04-15&tranche=1-30`);
+    await expect(page.getByRole('status')).toHaveText('Tranche 1–30 j : 1 échéance');
+    await expect(rows(page)).toHaveCount(1);
+  });
+
+  test('5-6. une autre date garde le tiers et la tranche ; une autre société, rien de A', async ({
+    page,
+    api,
+  }) => {
+    await page.goto(`${CUSTOMERS}?au=2026-04-15`);
+    await chooseDate(page, '2026-05-31');
+    await expect(page).toHaveURL(/au=2026-05-31/);
+    const link = rows(page)
+      .filter({ hasText: 'CLI-002' })
+      .getByRole('link', {
+        name: /^CLI-002, non échue/,
+      });
+    await expect(link).toHaveAttribute('href', /au=2026-05-31&tranche=not_due/);
+    await link.click();
+    await expect(page.getByRole('status')).toHaveText('Tranche Non échue : 260 échéances');
+    const call = api
+      .callsTo(
+        `reporting/aged-balance/partners/${api.partners.list('A').find((item) => item.code === 'CLI-002')!.public_id}/`,
+      )
+      .at(-1)!;
+    expect(new URL(call.url()).searchParams.get('as_of')).toBe('2026-05-31');
+
+    await page.getByRole('button', { name: /^Société active/ }).click();
+    await page.getByRole('menuitemradio', { name: /FILIALE SÉNÉGAL/ }).click();
+    await expect(page.getByRole('button', { name: /^Société active/ })).toContainText(
+      'FILIALE SÉNÉGAL (test)',
+    );
+    await expect(page).toHaveURL(/\/analyse\/balance-clients$/);
+    await expect(page.getByText('Choisissez la date de référence.')).toBeVisible();
+  });
+
+  test('7. sans état auxiliaire, aucune tranche n’est lue', async ({ page, api }) => {
+    const other = api.partners.list('A').find((item) => item.code === 'CLI-002')!;
+    api.withPermissions(COMPANY_A.public_id, ['accounting.read', 'reporting.read']);
+    await page.goto(`${CUSTOMERS}/${other.public_id}?au=2026-04-15&tranche=not_due`);
+    await expect(page.getByRole('heading', { name: /CLI-002/ })).toHaveCount(0);
+    expect(api.callsTo(`reporting/aged-balance/partners/${other.public_id}/`)).toHaveLength(0);
+  });
+
+  test('9. accessibilité de la tranche : navigation nommée, page courante, axe', async ({
+    page,
+    api,
+  }) => {
+    const other = api.partners.list('A').find((item) => item.code === 'CLI-002')!;
+    await page.goto(`${CUSTOMERS}/${other.public_id}?au=2026-04-15&tranche=not_due`);
+    await expect(rows(page)).toHaveCount(200);
+    await expect(page.getByRole('navigation', { name: 'Tranches du tiers' })).toBeVisible();
+    await page.waitForLoadState('networkidle');
+    expect(await scan(page)).toEqual([]);
+  });
+});

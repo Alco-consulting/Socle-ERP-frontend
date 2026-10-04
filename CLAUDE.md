@@ -312,8 +312,9 @@ supprime ce qui ne sert plus.
   (`accounting.manage_due_dates`), résultat du serveur affiché, données relues.
   `features/reporting/aging` : `analyse/balance-clients` et `analyse/balance-fournisseurs`
   (`data.aging` = rôle ; date de référence choisie puis confirmée, `?au=`, aucune requête
-  avant ; synthèse, tranches et montants de l'API ; drill-down tiers → documents (`?tranche=`,
-  filtre d'affichage par le code du serveur) → échéance → écriture),
+  avant ; synthèse, tranches et montants de l'API ; drill-down tiers → documents → échéance →
+  écriture ; une tranche (`?tranche=<code>`, A5.1) = paramètre `bucket` : la liste complète et
+  paginée du serveur, jamais un filtre local),
   `configuration/balance-agee` (tranches, `reporting.manage_aging`, confirmées). Fiche Tiers :
   smart button Échéances (`count` de `due-items/?partner`). Ancienne URL
   `/app/comptabilite/tiers/echeances` → `/echeances`. Faux serveur `e2e/support/fake-dues.ts` :
@@ -365,8 +366,7 @@ supprime ce qui ne sert plus.
   écrans prévus. Lettrage, échéances, balance âgée, journal centralisateur, chatter,
   notifications, favoris persistants : lots dédiés (backend d'abord).
 - Emprunts et immobilisations d'un tiers quand leurs écrans existeront.
-- Échéances : filtre par tranche côté serveur (aujourd'hui un filtre d'affichage de la page),
-  génération par écriture (`entry`, offert par l'API) depuis la fiche d'une écriture ; la
+- Échéances : génération par écriture (`entry`, offert par l'API) depuis la fiche d'une écriture ; la
   balance auxiliaire classique (`reporting/partners/`) reste un écran à construire.
 - Lettrage : passage d'un écart en perte ou profit quand le backend aura une règle (aujourd'hui
   refusé) ; référence du lettrage d'une ligne et motif d'une proposition si le contrat les

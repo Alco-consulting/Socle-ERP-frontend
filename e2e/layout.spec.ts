@@ -136,6 +136,7 @@ test.describe('Règles de mise en page', () => {
 
   test('due dates and aged balance: tables from the tablet up, cards on a phone', async ({
     page,
+    api,
   }, testInfo) => {
     const phone = testInfo.project.name === 'phone';
     for (const url of [
@@ -159,6 +160,21 @@ test.describe('Règles de mise en page', () => {
       );
       expect(overflow, url).toBeLessThanOrEqual(0);
     }
+    // One bucket of a partner: the server's page, as cards on a phone (lot A5.1).
+    const other = api.partners.list('A').find((item) => item.code === 'CLI-002')!;
+    await page.goto(
+      `/app/comptabilite/analyse/balance-clients/${other.public_id}?au=2026-04-15&tranche=not_due`,
+    );
+    await expect(page.getByRole('status')).toHaveText('Tranche Non échue : 260 échéances');
+    await expect(
+      (phone ? page.locator('.cards > li') : page.locator('.wide tbody tr')).first(),
+    ).toBeVisible();
+    expect(
+      await page.evaluate(
+        () => document.documentElement.scrollWidth - document.documentElement.clientWidth,
+      ),
+    ).toBeLessThanOrEqual(0);
+    await page.goto('/app/comptabilite/analyse/balance-clients?au=2026-04-15');
     // A partner card leads to its documents, also on a phone.
     await (phone ? page.locator('.cards') : page.locator('.wide'))
       .getByRole('link', { name: /CLI-001/ })

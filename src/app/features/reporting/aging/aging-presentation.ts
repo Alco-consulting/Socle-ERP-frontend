@@ -45,6 +45,10 @@ export const AGING_ERRORS: ErrorCatalog = {
     message:
       'Donnez des nombres de jours entiers, croissants, à partir de 1 (12 tranches au plus).',
   },
+  reporting_aging_bucket_unknown: {
+    title: 'Cette tranche n’existe plus.',
+    message: 'Les tranches de la société ont changé : choisissez une des tranches proposées.',
+  },
   not_found: {
     title: 'Ce tiers n’existe pas dans cette société.',
     message: 'Revenez à la balance âgée.',

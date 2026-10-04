@@ -196,6 +196,31 @@ const AGED: Readonly<Record<string, Record<Role, AgedFixture>>> = Object.fromEnt
   }),
 );
 
+/**
+ * A large bucket (lot A5.1): 260 explicit installments of CLI-002, not yet due, more than a
+ * page of 200 — so that a bucket is always the server's complete, paged list.
+ */
+const BUCKET_DOCS: Readonly<Record<string, (desk: Desk) => Record<string, unknown>[]>> = {
+  'CLI-002:not_due': (desk) => {
+    const item = desk.items.find((found) => found.partner.code === 'CLI-002')!;
+    return Array.from({ length: 259 }, (_, index) => ({
+      kind: 'installment',
+      due_item: `90000000-0000-4000-9000-${String(index + 1).padStart(12, '0')}`,
+      schedule: item.schedule,
+      line: `91000000-0000-4000-9000-${String(index + 1).padStart(12, '0')}`,
+      entry: item.entry,
+      account: item.account.code,
+      document_reference: `FAC-${String(index + 1).padStart(3, '0')}`,
+      label: `Échéance ${index + 2} de la facture`,
+      due_date: '2026-05-15',
+      days_past_due: -30,
+      bucket: 'not_due',
+      amount: '1000.000000',
+      open_amount: '1000.000000',
+    }));
+  },
+};
+
 const NOTHING: AgedFixture = {
   totals: { buckets: {}, total: '0', unscheduled: '0', unapplied: '0', balance: '0' },
   rows: [],
@@ -595,15 +620,41 @@ export class FakeDues {
       return this.answer(route, 404, error('not_found'));
     }
     const own = fixture.rows.find((row) => row.partner === partner.code);
-    const documents = this.documents(desk, partner.code, role!, key);
+    const code = url.searchParams.get('bucket');
+    const bucket = code === null ? null : (buckets.find((item) => item.code === code) ?? null);
+    if (code !== null && bucket === null) {
+      return this.answer(
+        route,
+        400,
+        error('reporting_aging_bucket_unknown', {
+          bucket: code,
+          buckets: buckets.map((item) => item.code),
+        }),
+      );
+    }
+    // One bucket: the fixture documents the « server » put in it (lot A5.1), paged.
+    const documents =
+      code === null
+        ? this.documents(desk, partner.code, role!, key)
+        : [
+            ...this.documents(desk, partner.code, role!, key),
+            ...(BUCKET_DOCS[`${partner.code}:${code}`]?.(desk) ?? []),
+          ].filter((document) => document.bucket === code);
+    const size = Number(url.searchParams.get('page_size')) || 50;
+    const number = Number(url.searchParams.get('page')) || 1;
+    const results = documents.slice((number - 1) * size, number * size);
+    if (number > 1 && results.length === 0) {
+      return this.answer(route, 404, error('not_found'));
+    }
     return this.answer(route, 200, {
       ...header,
       totals: shape(own ? own.figures : NOTHING.totals),
       partner: { public_id: partner.public_id, code: partner.code, name: partner.name },
+      bucket,
       count: documents.length,
-      next: null,
-      previous: null,
-      results: documents,
+      next: number * size < documents.length ? 'next' : null,
+      previous: number > 1 ? 'previous' : null,
+      results,
     });
   }
 

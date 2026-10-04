@@ -29,6 +29,48 @@
     </div>
   </alco-page-header>
 
+  @if (canReadAccounting() || canSeeHistory()) {
+    <nav class="smart-buttons" aria-label="Objets liés au tiers">
+      @if (canOpenEntries()) {
+        <alco-smart-button
+          label="Écritures"
+          icon="accounting"
+          [count]="entries.value() ?? null"
+          [link]="accounting + '/ecritures'"
+          [queryParams]="{ tiers: partner.code }"
+        />
+      }
+      @if (canOpenLedger()) {
+        <alco-smart-button
+          label="Grand livre auxiliaire"
+          icon="book"
+          [link]="accounting + '/analyse/grand-livre-auxiliaire'"
+          [queryParams]="{ tiers: partner.code }"
+        />
+      }
+      @if (canReadAccounting()) {
+        <alco-smart-button
+          label="Comptes collectifs"
+          icon="partners"
+          [count]="collective.value()?.length ?? null"
+          link="."
+          fragment="comptes-collectifs"
+        />
+        <alco-smart-button label="Échéances" icon="calendar" [unavailable]="unavailable.dueDates" />
+        <alco-smart-button label="Lettrage" icon="check" [unavailable]="unavailable.lettering" />
+      }
+      @if (canSeeHistory()) {
+        <alco-smart-button
+          label="Historique"
+          icon="clock"
+          [count]="historyCount()"
+          link="."
+          fragment="historique"
+        />
+      }
+    </nav>
+  }
+
   @if (actionError(); as failure) {
     <alco-error-state
       [inline]="true"
@@ -132,6 +174,54 @@
         </div>
       </dl>
     </section>
+
+    @if (canReadAccounting()) {
+      <section id="comptes-collectifs" class="section" aria-labelledby="collective-title">
+        <h2 id="collective-title" class="alco-section-title">Comptes collectifs</h2>
+        @if (collective.value(); as accounts) {
+          @if (accounts.length === 0) {
+            <p class="alco-caption">Aucun compte collectif n’est indiqué sur la fiche.</p>
+          } @else {
+            <dl class="facts">
+              @for (item of accounts; track item.role) {
+                <div>
+                  <dt>{{ roleWords[item.role] ?? item.role }}</dt>
+                  <dd>
+                    @if (item.account && canOpenAccounts()) {
+                      <a [routerLink]="[accounting, 'plan-comptable', item.account.public_id]">{{
+                        item.code
+                      }}</a>
+                    } @else {
+                      {{ item.code }}
+                    }
+                    <span class="alco-caption">
+                      ·
+                      {{
+                        !item.account
+                          ? 'absent du plan comptable'
+                          : item.postable
+                            ? 'imputable'
+                            : 'non imputable'
+                      }}
+                    </span>
+                  </dd>
+                </div>
+              }
+            </dl>
+          }
+        } @else if (collective.error()) {
+          <p class="alco-caption">Les comptes collectifs n’ont pas pu être chargés.</p>
+        } @else {
+          <alco-loading [rows]="1" label="Chargement des comptes collectifs…" />
+        }
+      </section>
+    }
+
+    @if (canSeeHistory()) {
+      <section id="historique" class="section" aria-labelledby="history-title">
+        <alco-object-history [objectType]="auditType" [objectId]="partner.public_id" />
+      </section>
+    }
 
     <p class="dates alco-caption">
       Créé le {{ partner.created_at | date: 'dd/MM/yyyy à HH:mm' }} · modifié le

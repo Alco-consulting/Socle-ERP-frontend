@@ -13,7 +13,7 @@ import { catchError, forkJoin, map, of, switchMap } from 'rxjs';
 import { toUserError } from '../../../core/errors/user-error';
 import { ApiError } from '../../../core/http/api-error';
 import { requestState } from '../../../core/http/request-state';
-import { APP_ROOT, findApplication } from '../../../core/navigation/applications';
+import { APP_ROOT } from '../../../core/navigation/applications';
 import { NavigationService } from '../../../core/navigation/navigation.service';
 import { SessionStore } from '../../../core/session/session.store';
 import { AlcoAmountPipe } from '../../../shared/pipes/amount.pipe';
@@ -310,7 +310,7 @@ export class AccountingDashboardPage {
 
   /** URL of a screen of Comptabilité, or `null` when the user may not open it. */
   private screen(path: string): string | null {
-    const app = findApplication('accounting');
-    return app && this.navigation.canOpenPath(app, path) ? `${ACCOUNTING}/${path}` : null;
+    const url = `${ACCOUNTING}/${path}`;
+    return this.navigation.canOpenUrl(url) ? url : null;
   }
 }

@@ -1,5 +1,5 @@
 import { Injectable, inject } from '@angular/core';
-import { Observable } from 'rxjs';
+import { Observable, map } from 'rxjs';
 
 import { ApiClient, Paginated } from '../../../core/http/api-client';
 import {
@@ -37,6 +37,13 @@ export class PartnersApi {
         page_size: query.pageSize ?? PARTNER_PAGE_SIZE,
       },
     });
+  }
+
+  /** The partner of an exact code (the server normalizes it), or `null`. */
+  byCode(code: string): Observable<PartnerSummary | null> {
+    return this.api
+      .get<Paginated<PartnerSummary>>('partners/', { params: { code, page_size: 1 } })
+      .pipe(map((page) => page.results[0] ?? null));
   }
 
   get(id: string): Observable<Partner> {

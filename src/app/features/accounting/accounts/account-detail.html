@@ -30,6 +30,45 @@
     </div>
   </alco-page-header>
 
+  <nav class="smart-buttons" aria-label="Objets liés au compte">
+    <alco-smart-button
+      label="Écritures"
+      icon="accounting"
+      [count]="entries.value() ?? null"
+      [link]="entriesUrl"
+      [queryParams]="{ compte: account.code }"
+    />
+    @if (canOpenLedger()) {
+      <alco-smart-button
+        label="Grand livre"
+        icon="book"
+        [link]="ledgerUrl"
+        [queryParams]="{ compte: account.code }"
+      />
+    }
+    @if (account.has_children) {
+      <alco-smart-button
+        label="Sous-comptes"
+        icon="group"
+        [count]="children.value()?.count ?? null"
+        link="."
+        fragment="sous-comptes"
+      />
+    }
+    @if (canSeeHistory()) {
+      <alco-smart-button
+        label="Historique"
+        icon="clock"
+        [count]="historyCount()"
+        link="."
+        fragment="historique"
+      />
+    }
+  </nav>
+  @if (entries.error()) {
+    <p class="alco-caption">Le nombre d’écritures n’a pas pu être chargé.</p>
+  }
+
   @if (actionError(); as failure) {
     <alco-error-state
       [inline]="true"
@@ -71,7 +110,7 @@
       </dl>
     </section>
 
-    <section class="section" aria-labelledby="hierarchy-title">
+    <section id="sous-comptes" class="section" aria-labelledby="hierarchy-title">
       <h2 id="hierarchy-title" class="alco-section-title">Hiérarchie</h2>
       <dl class="facts">
         <div class="wide">
@@ -132,6 +171,12 @@
         <p class="alco-caption">Aucun sous-compte.</p>
       }
     </section>
+
+    @if (canSeeHistory()) {
+      <section id="historique" class="section" aria-labelledby="history-title">
+        <alco-object-history [objectType]="auditType" [objectId]="account.public_id" />
+      </section>
+    }
 
     <p class="dates alco-caption">
       Créé le {{ account.created_at | date: 'dd/MM/yyyy à HH:mm' }} · modifié le

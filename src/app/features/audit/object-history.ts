@@ -21,6 +21,8 @@ import { AuditApi, AuditEvent } from './data-access/audit-api';
 export const AUDIT_TYPES = {
   entry: 'accounting.journalentry',
   journal: 'accounting.journal',
+  account: 'accounting.account',
+  partner: 'partners.partner',
 } as const;
 
 /** Actions of the backend's Audit (`AuditAction`), in words. */

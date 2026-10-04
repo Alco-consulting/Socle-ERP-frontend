@@ -209,6 +209,28 @@ export class FakeAccountingEntries {
       documents: [],
       events: [],
     };
+    // The creation of the referential, as Audit records it (the history of a record).
+    const created = (objectType: string, objectId: string, label: string): EventJson => ({
+      public_id: uuid(),
+      occurred_at: STAMP,
+      action: 'create',
+      object_type: objectType,
+      object_id: objectId,
+      object_label: label,
+      user: { public_id: USER_ID, email: EMAIL },
+      origin: 'http',
+      source: '',
+      correlation_id: 'e2e',
+      metadata: {},
+      changed_fields: [],
+    });
+    ledger.events.push(
+      ...books.journals.map((item) => created('accounting.journal', item.public_id, item.code)),
+      ...books.accounts.map((item) => created('accounting.account', item.public_id, item.code)),
+      ...this.partners
+        .list(company)
+        .map((item) => created('partners.partner', item.public_id, item.code)),
+    );
     const counts = books.entries;
     const open = books.periods.filter((item) => item.status === 'open');
     const postable = books.accounts.filter(

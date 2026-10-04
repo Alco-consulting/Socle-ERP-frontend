@@ -215,12 +215,36 @@ export class FakeDashboards {
     };
   }
 
-  /** No treasury operation accounts the fake entries: an empty page, with permission. */
+  /**
+   * The treasury operation an entry accounts: fixture — a posted entry of the bank journal
+   * (BQ1) accounts one operation of the bank account; no other entry has one.
+   */
   private async operations(route: Route): Promise<void> {
-    const permissions = await this.context.permissionsOf(route.request());
+    const request = route.request();
+    const permissions = await this.context.permissionsOf(request);
     if (!permissions.includes('treasury.read')) {
       return this.answer(route, 403, error('company_permission_denied'));
     }
-    return this.answer(route, 200, { count: 0, next: null, previous: null, results: [] });
+    const company = await this.context.companyOf(request);
+    const entryId = new URL(request.url()).searchParams.get('accounting_entry');
+    const entry = this.entries.entries(company).find((item) => item.public_id === entryId);
+    const results =
+      entry && entry.journal.code === 'BQ1' && ['validated', 'locked'].includes(entry.status)
+        ? [
+            {
+              public_id: `op-${entry.public_id}`,
+              treasury_account: { public_id: `t-${company}-BANK-GNF`, code: 'BANK-GNF' },
+              operation_type: 'deposit',
+              direction: 'inflow',
+              status: 'accounted',
+              operation_date: entry.entry_date,
+              amount: entry.lines[0]?.debit ?? '0.000000',
+              currency: entry.currency,
+              reference: `VIR-${entry.document_reference}`,
+              accounting_entry: entry.public_id,
+            },
+          ]
+        : [];
+    return this.answer(route, 200, { count: results.length, next: null, previous: null, results });
   }
 }

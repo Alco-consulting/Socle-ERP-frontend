@@ -99,4 +99,29 @@ test.describe('Règles de mise en page', () => {
     await drafts.click();
     await expect(page).toHaveURL(/etat=draft$/);
   });
+
+  test('the records’ smart buttons and the ledger fit every width', async ({ page, api }) => {
+    const books = api.accounting.books('A');
+    const account = books.accounts.find((item) => item.code === '401')!.public_id;
+    const partner = api.partners.list('A').find((item) => item.code === 'FOU-001')!.public_id;
+    for (const url of [
+      `/app/comptabilite/plan-comptable/${account}`,
+      `/app/comptabilite/fournisseurs/${partner}`,
+      '/app/comptabilite/analyse/grand-livre?compte=401',
+    ]) {
+      await page.goto(url);
+      await expect(page.getByRole('heading', { level: 1 })).toBeVisible();
+      await page.waitForLoadState('networkidle');
+      const overflow = await page.evaluate(
+        () => document.documentElement.scrollWidth - document.documentElement.clientWidth,
+      );
+      expect(overflow, url).toBeLessThanOrEqual(0);
+      const buttons = page.locator('.smart');
+      for (const button of await buttons.all()) {
+        const box = await button.boundingBox();
+        const width = page.viewportSize()?.width ?? 0;
+        expect(box && box.x >= 0 && box.x + box.width <= width + 1, url).toBe(true);
+      }
+    }
+  });
 });

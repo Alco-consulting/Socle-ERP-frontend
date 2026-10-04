@@ -7,6 +7,7 @@ import {
   inject,
   signal,
   untracked,
+  viewChild,
 } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, RouterLink } from '@angular/router';
@@ -34,12 +35,19 @@ import {
 } from '../accounting-presentation';
 import { Account } from '../data-access/accounting-models';
 import { ACCOUNT_PAGE_SIZE, AccountingApi } from '../data-access/accounting-api';
+import { APP_ROOT } from '../../../core/navigation/applications';
+import { NavigationService } from '../../../core/navigation/navigation.service';
+import { AlcoSmartButton } from '../../../shared/ui/smart-button/smart-button';
+import { AUDIT_TYPES, AlcoObjectHistory } from '../../audit/object-history';
+import { RelationsApi } from '../../relations/data-access/relations-api';
 
 /**
  * An account (`GET accounting/accounts/{id}/`) and its place in the hierarchy the server
  * keeps: its parent (one request) and its direct sub-accounts (`children/`, paged).
  * Actions of the API allowed by `accounting.manage_accounts`: Modifier, Désactiver /
- * Réactiver.
+ * Réactiver. Smart buttons: its entries (the entry list's `count`), its ledger (Analyse ›
+ * Grand livre, `reporting.read`), its sub-accounts (the page already read) and its
+ * history (Audit, `audit.read`) — one request per relation, never one per item.
  */
 @Component({
   selector: 'alco-account-detail',
@@ -53,7 +61,9 @@ import { ACCOUNT_PAGE_SIZE, AccountingApi } from '../data-access/accounting-api'
     AlcoErrorState,
     AlcoLoading,
     AlcoPageHeader,
+    AlcoObjectHistory,
     AlcoPagination,
+    AlcoSmartButton,
     AlcoTable,
   ],
   templateUrl: './account-detail.html',
@@ -84,6 +94,21 @@ export class AccountDetailPage {
   );
   protected readonly busy = signal(false);
   protected readonly actionError = signal<UserError | null>(null);
+
+  // ---- Related objects ---------------------------------------------------------------
+  private readonly relations = inject(RelationsApi);
+  private readonly navigation = inject(NavigationService);
+  protected readonly entries = requestState(
+    () => this.relations.entryCount(null, { account: untracked(this.id) }),
+    { immediate: false },
+  );
+  protected readonly entriesUrl = `${APP_ROOT}/comptabilite/ecritures`;
+  protected readonly ledgerUrl = `${APP_ROOT}/comptabilite/analyse/grand-livre`;
+  protected readonly canOpenLedger = computed(() => this.canOpen('analyse/grand-livre'));
+  protected readonly auditType = AUDIT_TYPES.account;
+  protected readonly canSeeHistory = computed(() => this.session.can('audit.read'));
+  private readonly history = viewChild(AlcoObjectHistory);
+  protected readonly historyCount = computed(() => this.history()?.total() ?? null);
 
   protected readonly typeLabel = accountTypeLabel;
   protected readonly pageSize = ACCOUNT_PAGE_SIZE;
@@ -121,6 +146,7 @@ export class AccountDetailPage {
         this.parent.set(undefined);
         this.childPage.set(1);
         this.record.reload();
+        this.entries.reload();
       });
     });
     effect(() => {
@@ -129,6 +155,11 @@ export class AccountDetailPage {
         untracked(() => this.show(loaded, true));
       }
     });
+  }
+
+  /** The application and the screen are both open to the user (never one alone). */
+  private canOpen(path: string): boolean {
+    return this.navigation.canOpenUrl(`${APP_ROOT}/comptabilite/${path}`);
   }
 
   protected statusLook(account: Account) {

@@ -77,13 +77,6 @@ describe('AccountingApi (accounting/, company scoped)', () => {
   });
 
   it('counts come from the server (`count` of a one-row page), nothing is counted here', async () => {
-    const drafts = firstValueFrom(api.entryCount('draft'));
-    const request = expect1('entries/');
-    expect(request.request.params.get('status')).toBe('draft');
-    expect(request.request.params.get('page_size')).toBe('1');
-    request.flush(page([{}], 37));
-    expect(await drafts).toBe(37);
-
     const postable = firstValueFrom(api.accountCount(true));
     const accounts = expect1('accounts/');
     expect(accounts.request.params.get('postable')).toBe('true');

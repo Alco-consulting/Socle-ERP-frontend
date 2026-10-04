@@ -24,7 +24,6 @@ const TRANSFERS: Readonly<Record<string, TransferKindId>> = {
   'comptabilite/tresorerie/operations': 'treasury',
   'comptabilite/immobilisations/actifs': 'assets',
   'comptabilite/analyse/balance': 'balance',
-  'comptabilite/analyse/grand-livre': 'ledger',
 };
 
 function placeholder(label: string, path: string, fullPath: string): Route {

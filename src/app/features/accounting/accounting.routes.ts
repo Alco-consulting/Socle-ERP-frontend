@@ -6,6 +6,7 @@ import { unsavedChangesGuard } from '../../core/navigation/unsaved-changes';
 const dashboard = () =>
   import('./dashboard/accounting-dashboard').then((m) => m.AccountingDashboardPage);
 const fiscalYears = () => import('./periods/fiscal-years').then((m) => m.FiscalYearsPage);
+const ledger = () => import('../reporting/ledger/ledger-page').then((m) => m.LedgerPage);
 
 /** A referential list with its creation, record and modification (manage permission). */
 function referential(
@@ -81,6 +82,17 @@ export const ACCOUNTING_ROUTES: Routes = [
       form: () => import('./accounts/account-form').then((m) => m.AccountFormPage),
     },
   ),
+  // Analyse: one ledger experience on Reporting (account, or partner: route data `ledger`).
+  {
+    path: 'analyse/grand-livre',
+    data: { breadcrumb: 'Grand livre', ledger: 'account' },
+    loadComponent: ledger,
+  },
+  {
+    path: 'analyse/grand-livre-auxiliaire',
+    data: { breadcrumb: 'Grand livre auxiliaire', ledger: 'partner' },
+    loadComponent: ledger,
+  },
   {
     path: 'configuration/exercices',
     data: { breadcrumb: 'Exercices et périodes' },

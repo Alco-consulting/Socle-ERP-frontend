@@ -16,7 +16,7 @@ import { Observable, catchError, firstValueFrom, map, of, switchMap } from 'rxjs
 import { UserError, toUserError } from '../../../core/errors/user-error';
 import { ApiError, toApiError } from '../../../core/http/api-error';
 import { requestState } from '../../../core/http/request-state';
-import { APP_ROOT, findApplication } from '../../../core/navigation/applications';
+import { APP_ROOT } from '../../../core/navigation/applications';
 import { NavigationService } from '../../../core/navigation/navigation.service';
 import { BreadcrumbService } from '../../../core/navigation/route-trail';
 import { SessionStore } from '../../../core/session/session.store';
@@ -408,9 +408,9 @@ export class EntryDetailPage {
       }));
   });
 
+  /** The application and the screen are both open to the user (never one alone). */
   private canOpen(path: string): boolean {
-    const app = findApplication('accounting');
-    return !!app && this.navigation.canOpenPath(app, path);
+    return this.navigation.canOpenUrl(`${ACCOUNTING}/${path}`);
   }
 
   constructor() {

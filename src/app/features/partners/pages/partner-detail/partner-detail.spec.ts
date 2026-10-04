@@ -133,6 +133,80 @@ describe('PartnerDetailPage (the record)', () => {
     expect(element.textContent).toContain('Ce tiers est désactivé');
   });
 
+  it('smart buttons, each with its own permission: entries, ledger, accounts, history', async () => {
+    const { element, stable } = await open([
+      'partners.read',
+      'accounting.read',
+      'reporting.read_auxiliary',
+      'audit.read',
+    ]);
+    httpMock().expectOne('/api/v1/partners/p-1/').flush(PARTNER);
+    const entries = httpMock().expectOne((req) => req.url === '/api/v1/accounting/entries/');
+    expect(entries.request.params.get('partner')).toBe('p-1');
+    entries.flush({ count: 12, next: null, previous: null, results: [{}] });
+    httpMock()
+      .expectOne('/api/v1/accounting/partners/p-1/accounts/')
+      .flush([
+        {
+          role: 'supplier',
+          code: '401',
+          account: { public_id: 'a-401', code: '401' },
+          postable: true,
+        },
+      ]);
+    await stable();
+    httpMock()
+      .expectOne((req) => req.url === '/api/v1/audit/objects/partners.partner/p-1/')
+      .flush({ count: 2, next: null, previous: null, results: [] });
+    await stable();
+    httpMock().verify(); // one request per relation, never one per related object
+
+    const links = Array.from(element.querySelectorAll<HTMLAnchorElement>('a.smart'));
+    expect(links.map((link) => link.getAttribute('aria-label'))).toEqual([
+      'Écritures : 12',
+      'Grand livre auxiliaire',
+      'Comptes collectifs : 1',
+      'Historique : 2',
+    ]);
+    expect(links.map((link) => link.getAttribute('href'))).toEqual([
+      '/app/comptabilite/ecritures?tiers=FOU-007',
+      '/app/comptabilite/analyse/grand-livre-auxiliaire?tiers=FOU-007',
+      '/liste/p-1#comptes-collectifs',
+      '/liste/p-1#historique',
+    ]);
+    // Échéances and Lettrage: the target of V2.1, no API yet: disabled, with the reason.
+    const disabled = Array.from(element.querySelectorAll<HTMLButtonElement>('button.smart'));
+    expect(disabled.map((button) => button.querySelector('.label')?.textContent?.trim())).toEqual([
+      'Échéances',
+      'Lettrage',
+    ]);
+    const reasons = disabled.map((button) =>
+      document.getElementById(button.getAttribute('aria-describedby') ?? '')?.textContent?.trim(),
+    );
+    expect(reasons).toEqual([
+      'Pas encore disponible : l’API ne propose pas encore les échéances.',
+      'Pas encore disponible : l’API ne propose pas encore le lettrage.',
+    ]);
+    for (const button of disabled) {
+      expect(button.getAttribute('aria-disabled')).toBe('true');
+      expect(button.closest('a')).toBeNull();
+    }
+    const accounts = element.querySelector('#comptes-collectifs')!;
+    expect(accounts.textContent).toMatch(/Compte fournisseur\s*401\s*·\s*imputable/);
+    expect(accounts.querySelector('a')?.getAttribute('href')).toBe(
+      '/app/comptabilite/plan-comptable/a-401',
+    );
+  });
+
+  it('partners.read only: no accounting relation is asked nor shown', async () => {
+    const { element, stable } = await open(['partners.read']);
+    httpMock().expectOne('/api/v1/partners/p-1/').flush(PARTNER);
+    await stable();
+    httpMock().expectNone((req) => req.url.includes('/accounting/') || req.url.includes('/audit/'));
+    expect(element.querySelector('.smart-buttons')).toBeNull();
+    expect(element.querySelector('#comptes-collectifs')).toBeNull();
+  });
+
   it('a partner of another company, or unknown: « n’existe pas ou plus »', async () => {
     const { element, stable } = await open(['partners.read']);
     httpMock()

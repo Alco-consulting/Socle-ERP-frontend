@@ -124,6 +124,9 @@ describe('Plan comptable (accounting/accounts/)', () => {
     await stable();
     httpMock().expectOne('/api/v1/accounting/accounts/a-4/').flush(account('4', 'Tiers'));
     httpMock()
+      .expectOne((req) => req.url === '/api/v1/accounting/entries/')
+      .flush(page([], 0));
+    httpMock()
       .expectOne((req) => req.url === '/api/v1/accounting/accounts/a-40/children/')
       .flush(
         page([
@@ -137,6 +140,63 @@ describe('Plan comptable (accounting/accounts/)', () => {
     expect(text).toContain('401');
     expect(text).toContain('404');
     expect(element.querySelector('a[href="/plan-comptable/a-4"]')).not.toBeNull();
+  });
+
+  it('record: smart buttons — entries, ledger, sub-accounts, history, each with its link', async () => {
+    const { element, stable } = await open('/plan-comptable/a-40', [
+      'accounting.read',
+      'reporting.read',
+      'audit.read',
+    ]);
+    httpMock()
+      .expectOne('/api/v1/accounting/accounts/a-40/')
+      .flush(account('40', 'Fournisseurs', { has_children: true }));
+    const entries = httpMock().expectOne((req) => req.url === '/api/v1/accounting/entries/');
+    expect(entries.request.params.get('account')).toBe('a-40');
+    expect(entries.request.params.get('page_size')).toBe('1');
+    entries.flush(page([{}], 48));
+    await stable();
+    httpMock()
+      .expectOne((req) => req.url === '/api/v1/accounting/accounts/a-40/children/')
+      .flush(page([account('401', 'Fournisseurs, dettes')], 2));
+    httpMock()
+      .expectOne((req) => req.url === '/api/v1/audit/objects/accounting.account/a-40/')
+      .flush(page([{}, {}, {}], 3));
+    await stable();
+    // Bounded: the record, one count, the children page already shown, the history.
+    httpMock().verify();
+
+    const buttons = Array.from(element.querySelectorAll<HTMLAnchorElement>('a.smart'));
+    expect(buttons.map((button) => button.getAttribute('aria-label'))).toEqual([
+      'Écritures : 48',
+      'Grand livre',
+      'Sous-comptes : 2',
+      'Historique : 3',
+    ]);
+    expect(buttons.map((button) => button.getAttribute('href'))).toEqual([
+      '/app/comptabilite/ecritures?compte=40',
+      '/app/comptabilite/analyse/grand-livre?compte=40',
+      '/plan-comptable/a-40#sous-comptes',
+      '/plan-comptable/a-40#historique',
+    ]);
+    expect(element.querySelector('#historique')?.textContent).toContain('Historique');
+  });
+
+  it('record: no ledger without reporting.read, no history without audit.read', async () => {
+    const { element, stable } = await open('/plan-comptable/a-401', ['accounting.read']);
+    httpMock()
+      .expectOne('/api/v1/accounting/accounts/a-401/')
+      .flush(account('401', 'Fournisseurs'));
+    httpMock()
+      .expectOne((req) => req.url === '/api/v1/accounting/entries/')
+      .flush(page([], 0));
+    await stable();
+    httpMock().expectNone((req) => req.url.includes('/audit/'));
+    const labels = Array.from(element.querySelectorAll('a.smart')).map((button) =>
+      button.getAttribute('aria-label'),
+    );
+    expect(labels).toEqual(['Écritures : 0']);
+    expect(element.querySelector('#historique')).toBeNull();
   });
 
   it('form: the parent code is found by the server; an unknown one is said under the field', async () => {

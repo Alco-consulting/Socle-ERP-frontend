@@ -112,7 +112,7 @@ test.describe('Comptabilité : trois liens et trois menus groupés', () => {
     for (const [title, items] of [
       ['Rapports financiers', ['États financiers', 'Résultat']],
       ['Rapports comptables', ['Balance générale', 'Grand livre']],
-      ['Rapports de tiers', ['Balance clients', 'Balance fournisseurs']],
+      ['Rapports de tiers', ['Balance clients', 'Balance fournisseurs', 'Grand livre auxiliaire']],
       ['Analyses', ['Analytique', 'Immobilisations', 'Emprunts', 'Journal d’audit']],
     ] as const) {
       await expect(menu.getByRole('group', { name: title }).getByRole('menuitemradio')).toHaveText([

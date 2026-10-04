@@ -200,6 +200,11 @@ describe('NavigationService', () => {
         group: 'Rapports de tiers',
         url: '/app/comptabilite/analyse/balance-fournisseurs',
       },
+      {
+        label: 'Grand livre auxiliaire',
+        group: 'Rapports de tiers',
+        url: '/app/comptabilite/analyse/grand-livre-auxiliaire',
+      },
     ]);
     const lettering = menu
       .find((entry) => entry.label === 'Comptabilité')

@@ -67,7 +67,10 @@ src/app/
                 errors (code API → message humain) · notifications
   shared/       ui · forms (dont AlcoAutocomplete : recherche serveur) · filters · tables ·
                 pipes · utils — composants de présentation
-  features/     launcher · auth (écran de connexion) · company-choice (`/societe`) ·
+  features/     relations (data-access : compteurs d'écritures d'un objet, comptes collectifs
+                d'un tiers — smart buttons) · reporting (data-access et `ledger/` : le grand
+                livre, compte ou tiers) ·
+                launcher · auth (écran de connexion) · company-choice (`/societe`) ·
                 partners (Tiers : data-access, pages, présentation, routes) · accounting
                 (socle comptable : data-access, dashboard, journals, accounts, periods ;
                 entries : écritures, Module 5) · dashboards (data-access : journaux et
@@ -247,6 +250,23 @@ supprime ce qui ne sert plus.
   (`count` de `accounting/entries/?journal=&status=&page_size=1`, 3 requêtes fixes) et
   Historique (`audit.read` : `count` de `audit/objects/accounting.journal/<id>/`, lien vers
   `#historique`). Jamais de compteur sans endpoint.
+- **Relations et smart buttons (V2.1 A3)** : fiches Journal, Compte, Tiers (voir
+  ux-guidelines § 5 sexies). Comptes : `RelationsApi.entryCount(status, {journal|account|
+  partner})` (`count` d'une page d'une ligne) et `collectiveAccounts(partner)` ; historique =
+  `AlcoObjectHistory` (`AUDIT_TYPES` : `accounting.journalentry`, `accounting.journal`,
+  `accounting.account`, `partners.partner`), compteur = son `total`. Visibilité d'une relation
+  = `NavigationService.canOpenUrl('/app/comptabilite/<écran>')` (l'application ET l'écran :
+  jamais `canOpenPath` seul, qui ignore la permission de l'application). Échéances et
+  Lettrage : `unavailable` (désactivés, raison), lots A4/A5. Emprunts et immobilisations d'un
+  tiers : pas proposés (leurs écrans n'existent pas encore ; `loans?partner=`,
+  `assets?partner=` existent dans l'API).
+- **Grand livre (une seule expérience)** : `features/reporting/ledger/LedgerPage`, routes
+  `analyse/grand-livre` (`data.ledger = 'account'`, `reporting.read`) et
+  `analyse/grand-livre-auxiliaire` (`'partner'`, `reporting.read_auxiliary`) ; jamais
+  `accounting/accounts/<id>/ledger/` (consultation du module comptable). Objet par son code
+  (`accounts?code=`, `partners?code=` — `PartnersApi.byCode`, `partners.read`), exercice choisi
+  (URL, sinon l'ouvert qui contient le jour, sinon le premier ouvert, sinon le plus récent),
+  4 requêtes fixes. Export `reporting.ledger` (`account`, `fiscal_year`) sans sous-comptes.
 - **Liens d'une écriture** : journal, comptes, tiers (`partners.read`) par leurs `public_id` ;
   opérations de trésorerie liées (`treasury/operations/?accounting_entry=`, `treasury.read`) ;
   source nommée (`source_type`), sans lien tant que l'écran du domaine n'existe pas.
@@ -307,8 +327,8 @@ supprime ce qui ne sert plus.
   balances clients et fournisseurs, états financiers, résultat, analytique) ; aujourd'hui des
   écrans prévus. Lettrage, échéances, balance âgée, journal centralisateur, chatter,
   notifications, favoris persistants : lots dédiés (backend d'abord).
-- Fiches Compte et Tiers : smart buttons (écritures, grand livre, comptes collectifs) et
-  historique (Audit les enregistre déjà).
+- Lots A4/A5 : échéances et lettrage (backend puis frontend ; les smart buttons sont prêts,
+  désactivés). Emprunts et immobilisations d'un tiers quand leurs écrans existeront.
 - Domaines utilisés par société (`features`) : à exposer par le backend (puis écran
   Paramètres) avant de masquer quoi que ce soit pour cette raison.
 - Actions GitHub `checkout`/`setup-node` v4 → v5 (Node 20 déprécié) ; `ubuntu-latest` passe

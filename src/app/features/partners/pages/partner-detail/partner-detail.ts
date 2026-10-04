@@ -7,14 +7,17 @@ import {
   inject,
   signal,
   untracked,
+  viewChild,
 } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, RouterLink } from '@angular/router';
-import { firstValueFrom, map } from 'rxjs';
+import { Observable, firstValueFrom, map, of } from 'rxjs';
 
 import { UserError, toUserError } from '../../../../core/errors/user-error';
 import { toApiError } from '../../../../core/http/api-error';
 import { requestState } from '../../../../core/http/request-state';
+import { APP_ROOT } from '../../../../core/navigation/applications';
+import { NavigationService } from '../../../../core/navigation/navigation.service';
 import { BreadcrumbService } from '../../../../core/navigation/route-trail';
 import { SessionStore } from '../../../../core/session/session.store';
 import { AlcoBadge } from '../../../../shared/ui/badge/badge';
@@ -24,7 +27,10 @@ import { AlcoDropdown, DropdownItem } from '../../../../shared/ui/dropdown/dropd
 import { AlcoErrorState } from '../../../../shared/ui/error-state/error-state';
 import { AlcoLoading } from '../../../../shared/ui/loading/loading';
 import { AlcoPageHeader } from '../../../../shared/ui/page-header/page-header';
+import { AlcoSmartButton } from '../../../../shared/ui/smart-button/smart-button';
 import { AlcoToastService } from '../../../../shared/ui/toast/toast.service';
+import { AUDIT_TYPES, AlcoObjectHistory } from '../../../audit/object-history';
+import { CollectiveAccount, RelationsApi } from '../../../relations/data-access/relations-api';
 import { Partner, PaymentTerm } from '../../data-access/partner-models';
 import { PartnersApi } from '../../data-access/partners-api';
 import { PARTNER_ERRORS, PARTNER_STATUS, roleLabel } from '../../partner-presentation';
@@ -33,7 +39,11 @@ import { PARTNER_ERRORS, PARTNER_STATUS, roleLabel } from '../../partner-present
  * The record of a partner (`GET partners/{id}/`). A partner of another company, or an
  * unknown one, is a 404 of the server: « n'existe pas ou plus ». Actions: those the API
  * offers and the user's permissions allow — Modifier (`partners.update`), Désactiver /
- * Réactiver (`partners.disable`; the partner stays, with its history).
+ * Réactiver (`partners.disable`; the partner stays, with its history). Smart buttons, each
+ * with its own permission: its entries (`accounting.read`, the entry list's `count`), its
+ * subsidiary ledger (`reporting.read_auxiliary`), its collective accounts
+ * (`accounting/partners/<id>/accounts/`) and its history (`audit.read`). Échéances and
+ * Lettrage are shown disabled: their API does not exist yet.
  */
 @Component({
   selector: 'alco-partner-detail',
@@ -45,7 +55,9 @@ import { PARTNER_ERRORS, PARTNER_STATUS, roleLabel } from '../../partner-present
     AlcoDropdown,
     AlcoErrorState,
     AlcoLoading,
+    AlcoObjectHistory,
     AlcoPageHeader,
+    AlcoSmartButton,
   ],
   templateUrl: './partner-detail.html',
   styleUrl: './partner-detail.scss',
@@ -85,6 +97,42 @@ export class PartnerDetailPage {
   });
   protected readonly canEdit = computed(() => this.session.can('partners.update'));
 
+  // ---- Related objects (one request per relation, each with its permission) -----------
+  private readonly relations = inject(RelationsApi);
+  private readonly navigation = inject(NavigationService);
+  protected readonly accounting = `${APP_ROOT}/comptabilite`;
+  protected readonly canReadAccounting = computed(() => this.session.can('accounting.read'));
+  protected readonly canOpenEntries = computed(() => this.canOpen('ecritures'));
+  protected readonly canOpenLedger = computed(() => this.canOpen('analyse/grand-livre-auxiliaire'));
+  protected readonly canOpenAccounts = computed(() => this.canOpen('plan-comptable'));
+  protected readonly entries = requestState(
+    (): Observable<number | null> =>
+      untracked(this.canOpenEntries)
+        ? this.relations.entryCount(null, { partner: untracked(this.id) })
+        : of(null),
+    { immediate: false },
+  );
+  protected readonly collective = requestState(
+    (): Observable<readonly CollectiveAccount[] | null> =>
+      untracked(this.canReadAccounting)
+        ? this.relations.collectiveAccounts(untracked(this.id))
+        : of(null),
+    { immediate: false },
+  );
+  protected readonly auditType = AUDIT_TYPES.partner;
+  protected readonly canSeeHistory = computed(() => this.session.can('audit.read'));
+  private readonly history = viewChild(AlcoObjectHistory);
+  protected readonly historyCount = computed(() => this.history()?.total() ?? null);
+  /** Relations of the V2.1 target whose API is not delivered yet (lots A4/A5). */
+  protected readonly unavailable = {
+    dueDates: 'Pas encore disponible : l’API ne propose pas encore les échéances.',
+    lettering: 'Pas encore disponible : l’API ne propose pas encore le lettrage.',
+  };
+  protected readonly roleWords: Readonly<Partial<Record<string, string>>> = {
+    customer: 'Compte client',
+    supplier: 'Compte fournisseur',
+  };
+
   protected readonly actions = computed<readonly DropdownItem[]>(() => {
     const partner = this.partner();
     if (!partner || !this.session.can('partners.disable')) {
@@ -101,6 +149,8 @@ export class PartnerDetailPage {
       untracked(() => {
         this.partner.set(null);
         this.record.reload();
+        this.entries.reload();
+        this.collective.reload();
       });
     });
     effect(() => {
@@ -109,6 +159,11 @@ export class PartnerDetailPage {
         untracked(() => this.show(loaded));
       }
     });
+  }
+
+  /** Comptabilité and its screen are both open to the user (never one alone). */
+  private canOpen(path: string): boolean {
+    return this.navigation.canOpenUrl(`${APP_ROOT}/comptabilite/${path}`);
   }
 
   protected termLabel(term: PaymentTerm | null): string {

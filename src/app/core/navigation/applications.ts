@@ -162,6 +162,11 @@ export const APPLICATIONS: readonly AlcoApplication[] = [
               path: 'analyse/balance-fournisseurs',
               permission: 'reporting.read_auxiliary',
             },
+            {
+              label: 'Grand livre auxiliaire',
+              path: 'analyse/grand-livre-auxiliaire',
+              permission: 'reporting.read_auxiliary',
+            },
           ]),
           ...group('Analyses', [
             {

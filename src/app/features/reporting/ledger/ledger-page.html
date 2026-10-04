@@ -1,0 +1,161 @@
+<alco-page-header [title]="title" [subtitle]="subtitle()">
+  @if (canExport()) {
+    <div alcoPageActions>
+      <alco-domain-transfers
+        [transfer]="transfer"
+        [exportParameters]="exportParameters()"
+        [exportScope]="'le grand livre de ce compte sur l’exercice choisi'"
+      />
+    </div>
+  }
+</alco-page-header>
+
+<form class="choice" aria-label="Objet et exercice du grand livre">
+  <alco-form-field [label]="mode === 'account' ? 'Compte' : 'Tiers'">
+    <alco-autocomplete
+      [formControl]="subjectControl"
+      [search]="search"
+      [placeholder]="mode === 'account' ? 'Code ou nom du compte' : 'Code ou nom du tiers'"
+      [emptyText]="
+        mode === 'account' ? 'Aucun compte ne correspond.' : 'Aucun tiers ne correspond.'
+      "
+    />
+  </alco-form-field>
+  <alco-form-field label="Exercice">
+    <select alcoSelect [formControl]="yearControl">
+      @for (year of years.value() ?? []; track year.public_id) {
+        <option [value]="year.public_id">{{ year.label }}</option>
+      }
+    </select>
+  </alco-form-field>
+  @if (report()?.subject?.hasChildren) {
+    <label class="check">
+      <input type="checkbox" [formControl]="descendantsControl" />
+      Inclure les sous-comptes
+    </label>
+  }
+</form>
+
+@if (failure(); as error) {
+  <alco-error-state
+    [title]="error.title"
+    [message]="error.message"
+    [code]="error.code"
+    [correlationId]="error.correlationId ?? ''"
+    retryLabel="Réessayer"
+    (retry)="ledger.reload()"
+  />
+} @else if (nothingChosen()) {
+  <alco-empty-state
+    icon="book"
+    [title]="mode === 'account' ? 'Choisissez un compte.' : 'Choisissez un tiers.'"
+    [message]="
+      mode === 'account'
+        ? 'Le grand livre montre les lignes validées d’un compte sur l’exercice choisi.'
+        : 'Le grand livre auxiliaire montre les lignes validées d’un tiers sur l’exercice choisi.'
+    "
+  />
+} @else if (unknownCode(); as code) {
+  <alco-empty-state
+    icon="search"
+    [title]="
+      (mode === 'account'
+        ? 'Aucun compte de cette société n’a le code « '
+        : 'Aucun tiers de cette société n’a le code « ') +
+      code +
+      ' ».'
+    "
+    message="Choisissez-en un autre ci-dessus."
+  />
+} @else if (report(); as current) {
+  @let sheet = current.ledger;
+  <section class="summary" aria-label="Soldes et totaux du serveur">
+    <p class="alco-caption">
+      Du {{ day(sheet.scope.date_from) }} au {{ day(sheet.scope.date_to) }} ·
+      {{ sheet.scope.fiscal_year.code }}
+    </p>
+    <dl class="figures">
+      <div>
+        <dt>Solde d’ouverture</dt>
+        <dd>{{ sheet.opening_balance | alcoAmount: decimals() }}</dd>
+      </div>
+      <div>
+        <dt>Total débit</dt>
+        <dd>{{ sheet.total_debit | alcoAmount: decimals() }}</dd>
+      </div>
+      <div>
+        <dt>Total crédit</dt>
+        <dd>{{ sheet.total_credit | alcoAmount: decimals() }}</dd>
+      </div>
+      <div>
+        <dt>Solde de clôture</dt>
+        <dd>{{ sheet.closing_balance | alcoAmount: decimals() }}</dd>
+      </div>
+    </dl>
+    @for (warning of sheet.warnings; track warning.code) {
+      <p class="warning" role="note">Avertissement du serveur : {{ warning.code }}</p>
+    }
+  </section>
+
+  @if (sheet.count === 0) {
+    <alco-empty-state
+      icon="inbox"
+      title="Aucune ligne validée sur cet exercice."
+      message="Seules les écritures validées ou verrouillées figurent au grand livre."
+    />
+  } @else {
+    <alco-table
+      [caption]="title + ' — ' + current.subject.code"
+      [columns]="columns()"
+      [rows]="rows()"
+      [rowId]="rowId"
+      [class.reloading]="ledger.loading()"
+    >
+      <ng-template alcoCell="entry_date" let-row>{{ day(row.entry_date) }}</ng-template>
+      <ng-template alcoCell="entry_number" let-row>
+        <a class="mono" [routerLink]="[accountingUrl, 'ecritures', row.entry]">{{
+          row.entry_number || 'Sans numéro'
+        }}</a>
+      </ng-template>
+      <ng-template alcoCell="journal" let-row>
+        <span class="mono">{{ row.journal }}</span>
+      </ng-template>
+      <ng-template alcoCell="partner" let-row>
+        @if (row.partner; as partner) {
+          @if (partnerUrl(partner.public_id); as url) {
+            <a [routerLink]="url">{{ partner.code }}</a>
+          } @else {
+            {{ partner.code }}
+          }
+        } @else {
+          —
+        }
+      </ng-template>
+      <ng-template alcoCell="account_code" let-row>
+        <a class="mono" [routerLink]="[accountingUrl, 'plan-comptable', row.account]">{{
+          row.account_code
+        }}</a>
+      </ng-template>
+      <ng-template alcoCell="label" let-row>{{ row.label || '—' }}</ng-template>
+      <ng-template alcoCell="debit" let-row>{{ row.debit | alcoAmount: decimals() }}</ng-template>
+      <ng-template alcoCell="credit" let-row>{{ row.credit | alcoAmount: decimals() }}</ng-template>
+      <ng-template alcoCell="balance" let-row>{{
+        row.balance | alcoAmount: decimals()
+      }}</ng-template>
+    </alco-table>
+    @if (sheet.count > pageSize) {
+      <alco-pagination
+        [page]="page()"
+        [pageSize]="pageSize"
+        [total]="sheet.count"
+        (pageChange)="setPage($event)"
+      />
+    }
+    <p class="alco-caption">
+      Soldes progressifs, totaux et soldes d’ouverture et de clôture calculés par le serveur, en
+      {{ session.activeCompany()?.currency }}.
+    </p>
+  }
+} @else {
+  <alco-loading variant="table" [rows]="6" [columns]="6" label="Chargement du grand livre…" />
+}

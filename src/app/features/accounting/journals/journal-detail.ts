@@ -35,6 +35,7 @@ import { Journal } from '../data-access/accounting-models';
 import { AccountingApi } from '../data-access/accounting-api';
 import { AlcoSmartButton } from '../../../shared/ui/smart-button/smart-button';
 import { AUDIT_TYPES, AlcoObjectHistory } from '../../audit/object-history';
+import { RelationsApi } from '../../relations/data-access/relations-api';
 
 /**
  * A journal (`GET accounting/journals/{id}/`). Actions: those of the API, allowed by
@@ -62,6 +63,7 @@ import { AUDIT_TYPES, AlcoObjectHistory } from '../../audit/object-history';
 })
 export class JournalDetailPage {
   private readonly api = inject(AccountingApi);
+  private readonly relations = inject(RelationsApi);
   private readonly breadcrumbs = inject(BreadcrumbService);
   private readonly confirm = inject(AlcoConfirmService);
   private readonly toast = inject(AlcoToastService);
@@ -83,9 +85,9 @@ export class JournalDetailPage {
     () => {
       const journal = untracked(this.id);
       return forkJoin({
-        total: this.api.entryCount(null, { journal }),
-        draft: this.api.entryCount('draft', { journal }),
-        submitted: this.api.entryCount('submitted', { journal }),
+        total: this.relations.entryCount(null, { journal }),
+        draft: this.relations.entryCount('draft', { journal }),
+        submitted: this.relations.entryCount('submitted', { journal }),
       });
     },
     { immediate: false },

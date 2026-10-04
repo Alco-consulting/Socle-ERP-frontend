@@ -94,6 +94,16 @@
             >Le serveur décide si le compte est imputable, selon ses réglages.</span
           >
         </div>
+        <div class="field-check">
+          <label class="check">
+            <input type="checkbox" formControlName="letterable" />
+            Compte lettrable
+          </label>
+          <span class="alco-caption"
+            >Ses lignes validées pourront être lettrées. Le serveur refuse de retirer le lettrage
+            tant que des lettrages actifs existent.</span
+          >
+        </div>
         <alco-form-field class="alco-form-grid__full" label="Description">
           <textarea alcoInput formControlName="description" rows="3"></textarea>
         </alco-form-field>

@@ -1,0 +1,159 @@
+<alco-page-header
+  title="Lettrage"
+  subtitle="Rapprocher les lignes au débit et au crédit d’un compte lettrable"
+/>
+
+<div class="control-panel">
+  <div class="controls">
+    <alco-filter-bar
+      [activeFilterCount]="activeFilterCount()"
+      (applied)="applyFilters()"
+      (cleared)="resetFilters()"
+    >
+      <div alcoFilterFields class="filter-fields" [formGroup]="filterForm">
+        <div class="pair">
+          <alco-form-field label="Compte" hint="Code exact (ex. 411100)">
+            <input alcoInput formControlName="account" maxlength="32" autocomplete="off" />
+          </alco-form-field>
+          <alco-form-field label="Tiers" hint="Code exact du tiers">
+            <input alcoInput formControlName="partner" maxlength="32" autocomplete="off" />
+          </alco-form-field>
+        </div>
+        @if (view() !== 'propositions') {
+          <div class="pair">
+            <alco-form-field
+              label="Du"
+              [hint]="view() === 'lignes' ? 'Date d’écriture' : 'Date du lettrage'"
+            >
+              <input alcoDatePicker type="date" formControlName="dateFrom" />
+            </alco-form-field>
+            <alco-form-field label="Au">
+              <input alcoDatePicker type="date" formControlName="dateTo" />
+            </alco-form-field>
+          </div>
+        }
+        @if (view() === 'lignes') {
+          <alco-form-field label="État des lignes">
+            <select alcoSelect formControlName="lineView">
+              @for (item of lineViews; track item.id) {
+                <option [value]="item.id" [selected]="item.id === lineView()">
+                  {{ item.label }}
+                </option>
+              }
+            </select>
+          </alco-form-field>
+        }
+        @if (view() === 'lettrages') {
+          <div class="pair">
+            <alco-form-field label="État des lettrages">
+              <select alcoSelect formControlName="letteringStatus">
+                <option value="">Tous les lettrages</option>
+                @for (item of letteringStatuses; track item.id) {
+                  <option [value]="item.id" [selected]="item.id === letteringStatus()">
+                    {{ item.label }}
+                  </option>
+                }
+              </select>
+            </alco-form-field>
+            <alco-form-field label="Référence" hint="Ex. LET-000001">
+              <input alcoInput formControlName="reference" maxlength="32" autocomplete="off" />
+            </alco-form-field>
+          </div>
+        }
+      </div>
+    </alco-filter-bar>
+    @if (accountCode() || partnerCode()) {
+      <p class="context alco-caption">
+        @if (accountCode()) {
+          Compte <strong class="mono">{{ accountCode() }}</strong>
+        }
+        @if (accountCode() && partnerCode()) {
+          ·
+        }
+        @if (partnerCode()) {
+          Tiers <strong class="mono">{{ partnerCode() }}</strong>
+        }
+      </p>
+    }
+  </div>
+</div>
+
+@if (findFailure(); as failure) {
+  @if (found.status() === 'forbidden') {
+    <alco-error-state
+      title="Vous n’avez pas accès à ce filtre."
+      message="Le filtre par tiers demande l’accès aux tiers de la société. Retirez-le ou demandez l’accès."
+      [code]="failure.code"
+      [correlationId]="failure.correlationId ?? ''"
+    />
+  } @else {
+    <alco-error-state
+      [title]="failure.title"
+      [message]="failure.message"
+      [code]="failure.code"
+      [correlationId]="failure.correlationId ?? ''"
+      retryLabel="Réessayer"
+      (retry)="found.reload()"
+    />
+  }
+} @else if (unknownCode(); as unknown) {
+  <div class="empty-frame">
+    <alco-empty-state
+      icon="search"
+      [title]="unknown"
+      message="Vérifiez le code saisi dans les filtres."
+    >
+      <button alcoButton type="button" icon="refresh" (click)="resetFilters()">
+        Réinitialiser les filtres
+      </button>
+    </alco-empty-state>
+  </div>
+} @else {
+  <alco-tabs
+    label="Vues du lettrage"
+    [tabs]="tabs"
+    [selected]="view()"
+    (selectedChange)="setView($event)"
+  >
+    <ng-template alcoTabPanel="lignes">
+      @if (scope(); as current) {
+        <alco-letterable-lines
+          [scope]="current"
+          [decimals]="decimals()"
+          [filtered]="activeFilterCount() > 0"
+          (pageChange)="setPage($event)"
+          (pastEnd)="firstPage()"
+          (resetFilters)="resetFilters()"
+        />
+      } @else {
+        <alco-loading variant="table" [rows]="6" [columns]="6" label="Chargement des lignes…" />
+      }
+    </ng-template>
+    <ng-template alcoTabPanel="propositions">
+      @if (scope(); as current) {
+        <alco-lettering-proposals
+          [scope]="current"
+          [decimals]="decimals()"
+          (pageChange)="setPage($event)"
+          (pastEnd)="firstPage()"
+        />
+      } @else {
+        <alco-loading variant="cards" [rows]="3" label="Chargement des propositions…" />
+      }
+    </ng-template>
+    <ng-template alcoTabPanel="lettrages">
+      @if (scope(); as current) {
+        <alco-lettering-history
+          [scope]="current"
+          [decimals]="decimals()"
+          [filtered]="activeFilterCount() > 0"
+          (pageChange)="setPage($event)"
+          (pastEnd)="firstPage()"
+          (resetFilters)="resetFilters()"
+        />
+      } @else {
+        <alco-loading variant="table" [rows]="6" [columns]="6" label="Chargement des lettrages…" />
+      }
+    </ng-template>
+  </alco-tabs>
+}

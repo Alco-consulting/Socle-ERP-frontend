@@ -5,6 +5,7 @@ const SCREENS = [
   { name: 'Tableau de bord', url: '/app/comptabilite/tableau-de-bord' },
   { name: 'Liste', url: '/app/comptabilite/ecritures' },
   { name: 'Journaux', url: '/app/comptabilite/journaux' },
+  { name: 'Lettrage', url: '/app/comptabilite/lettrage' },
   { name: 'Analyse', url: '/app/comptabilite/analyse/balance' },
   { name: 'Nouvelle écriture', url: '/app/comptabilite/ecritures/nouvelle' },
   { name: 'Trésorerie (domaine de Comptabilité)', url: '/app/comptabilite/tresorerie/operations' },
@@ -98,6 +99,37 @@ test.describe('Règles de mise en page', () => {
     await drafts.scrollIntoViewIfNeeded();
     await drafts.click();
     await expect(page).toHaveURL(/etat=draft$/);
+  });
+
+  test('lettering: a table from the tablet up, cards on a phone; the selection at hand', async ({
+    page,
+  }, testInfo) => {
+    await page.goto('/app/comptabilite/lettrage');
+    await expect(page.getByRole('heading', { level: 1 })).toHaveText('Lettrage');
+    const phone = testInfo.project.name === 'phone';
+    const scope = phone ? page.locator('.cards') : page.locator('.wide');
+    await expect(scope).toBeVisible();
+    await expect(phone ? page.locator('.wide') : page.locator('.cards')).toBeHidden();
+    if (testInfo.project.name === 'tablet') {
+      // Essential columns only: the label is a secondary one.
+      await expect(page.getByRole('columnheader', { name: 'Libellé' })).toBeHidden();
+      await expect(page.getByRole('columnheader', { name: 'Ouvert' })).toBeVisible();
+    }
+    await scope.getByRole('checkbox', { name: /^Sélectionner VTE-000101 / }).check();
+    await scope.getByRole('checkbox', { name: /^Sélectionner BQ1-000201 / }).check();
+    // The summary and the main button stay on screen (sticky bar).
+    const previewButton = page.getByRole('button', { name: 'Aperçu du lettrage' });
+    await expect(previewButton).toBeInViewport();
+    await expect(page.locator('.selection-bar')).toContainText('2 lignes');
+    await previewButton.click();
+    const panel = page.getByRole('region', { name: 'Aperçu du lettrage' });
+    await expect(panel).toContainText('Lettrage complet');
+    await panel.getByRole('button', { name: 'Confirmer le lettrage' }).click();
+    await expect(page.getByText('Lettrage LET-000002 créé.')).toBeVisible();
+    const overflow = await page.evaluate(
+      () => document.documentElement.scrollWidth - document.documentElement.clientWidth,
+    );
+    expect(overflow).toBeLessThanOrEqual(0);
   });
 
   test('the records’ smart buttons and the ledger fit every width', async ({ page, api }) => {

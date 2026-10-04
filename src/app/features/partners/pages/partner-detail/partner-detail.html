@@ -57,7 +57,15 @@
           fragment="comptes-collectifs"
         />
         <alco-smart-button label="Échéances" icon="calendar" [unavailable]="unavailable.dueDates" />
-        <alco-smart-button label="Lettrage" icon="check" [unavailable]="unavailable.lettering" />
+      }
+      @if (canOpenLettering()) {
+        <alco-smart-button
+          label="Lettrage"
+          icon="check"
+          [count]="openLines.value() ?? null"
+          [link]="accounting + '/lettrage'"
+          [queryParams]="{ tiers: partner.code }"
+        />
       }
       @if (canSeeHistory()) {
         <alco-smart-button

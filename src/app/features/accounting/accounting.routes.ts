@@ -54,8 +54,8 @@ function referential(
 
 /**
  * Comptabilité on the API: dashboard (journals and alerts of `dashboards/`, V2.1), entries
- * (Module 5), journals, chart of accounts, fiscal years and periods (Module 4). Treasury,
- * Analyse and the other domains are still planned screens.
+ * (Module 5), lettering (V2.1 A4), journals, chart of accounts, fiscal years and periods
+ * (Module 4). Treasury, Analyse and the other domains are still planned screens.
  */
 export const ACCOUNTING_ROUTES: Routes = [
   // dashboards.read is the menu link's (catalogue): the screen guard checks it.
@@ -82,6 +82,24 @@ export const ACCOUNTING_ROUTES: Routes = [
       form: () => import('./accounts/account-form').then((m) => m.AccountFormPage),
     },
   ),
+  // Lettering (V2.1 A4): lines, proposals, letterings; a lettering's record.
+  {
+    path: 'lettrage',
+    data: { breadcrumb: 'Lettrage' },
+    children: [
+      {
+        path: '',
+        loadComponent: () => import('./lettering/lettering-page').then((m) => m.LetteringPage),
+      },
+      {
+        path: ':id',
+        // Named after the lettering once loaded (BreadcrumbService.nameCurrent).
+        data: { breadcrumb: 'Lettrage' },
+        loadComponent: () =>
+          import('./lettering/lettering-detail').then((m) => m.LetteringDetailPage),
+      },
+    ],
+  },
   // Analyse: one ledger experience on Reporting (account, or partner: route data `ledger`).
   {
     path: 'analyse/grand-livre',

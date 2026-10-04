@@ -13,7 +13,7 @@ export interface AppNavLink {
   /** Title of the link's group in its menu (« Rapports financiers »), see `group()`. */
   readonly group?: string;
   /**
-   * A function the API does not offer yet (« Lettrage »): shown disabled with this reason,
+   * A function the API does not offer yet: shown disabled with this reason,
    * no route, no screen. Never presented as operational.
    */
   readonly unavailable?: string;
@@ -123,11 +123,7 @@ export const APPLICATIONS: readonly AlcoApplication[] = [
           { label: 'Plan comptable', path: 'plan-comptable' },
           { label: 'Tiers', path: 'tiers', permission: 'partners.read' },
           { label: 'Trésorerie', path: 'tresorerie/operations' },
-          {
-            label: 'Lettrage',
-            path: 'lettrage',
-            unavailable: 'Pas encore disponible : l’API ne propose pas le lettrage.',
-          },
+          { label: 'Lettrage', path: 'lettrage' },
           { label: 'Rapprochement', path: 'tresorerie/rapprochements' },
           { label: 'Clôture', path: 'cloture', permission: 'closing.read' },
         ],

@@ -3,6 +3,7 @@ import { Page, Request, test as base } from '@playwright/test';
 import { FakeAccounting } from './fake-accounting';
 import { FakeAccountingEntries } from './fake-accounting-entries';
 import { FakeDashboards } from './fake-dashboards';
+import { FakeLettering } from './fake-lettering';
 import { FakeReporting } from './fake-reporting';
 import { FakePartners, PartnersContext } from './fake-partners';
 
@@ -85,6 +86,9 @@ const WRITE = [
   'accounting.reverse',
   'accounting.manage_journals',
   'accounting.manage_accounts',
+  // Lettering (V2.1 A4): granted explicitly, never implied.
+  'accounting.letter',
+  'accounting.unletter',
   'partners.create',
   'partners.update',
   'partners.disable',
@@ -160,6 +164,8 @@ export class FakeApi {
   readonly dashboards: FakeDashboards;
   /** Reporting's ledgers and a partner's collective accounts. */
   readonly reporting: FakeReporting;
+  /** Lettering: letterable lines, letterings, proposals (fixtures, no matching). */
+  readonly lettering: FakeLettering;
 
   constructor(private readonly page: Page) {
     const context: PartnersContext = {
@@ -183,6 +189,7 @@ export class FakeApi {
     this.entries = new FakeAccountingEntries(context, this.accounting, this.partners);
     this.dashboards = new FakeDashboards(context, this.accounting, this.entries);
     this.reporting = new FakeReporting(context, this.accounting, this.entries, this.partners);
+    this.lettering = new FakeLettering(context, this.accounting, this.partners, this.entries);
   }
 
   /** No session open at start (the login screen). */
@@ -259,6 +266,7 @@ export class FakeApi {
     await this.entries.install();
     await this.dashboards.install();
     await this.reporting.install();
+    await this.lettering.install();
     await page.route('**/api/v1/auth/me/', (route) => {
       this.calls.push(route.request());
       if (this.down) {

@@ -72,6 +72,10 @@ export function dateRange(start: string, end: string): string {
 
 /** Errors of the accounting referential, by their stable code (backend contract.md). */
 export const ACCOUNTING_REFERENTIAL_ERRORS: ErrorCatalog = {
+  accounting_account_letterings_exist: {
+    title: 'Ce compte a des lettrages actifs.',
+    message: 'Délettrez-les (Comptabilité › Lettrage) avant de retirer le lettrage du compte.',
+  },
   accounting_journal_code_exists: {
     title: 'Ce code est déjà utilisé par un autre journal.',
     message: 'Choisissez un autre code.',

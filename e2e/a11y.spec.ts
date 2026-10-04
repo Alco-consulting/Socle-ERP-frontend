@@ -5,6 +5,7 @@ const SCREENS = [
   { name: 'App Launcher', url: '/' },
   { name: 'Tableau de bord', url: '/app/comptabilite/tableau-de-bord' },
   { name: 'Liste', url: '/app/comptabilite/ecritures' },
+  { name: 'Lettrage', url: '/app/comptabilite/lettrage' },
   { name: 'Clients (liste de Comptabilité)', url: '/app/comptabilite/clients' },
   { name: 'Analyse › Balance générale', url: '/app/comptabilite/analyse/balance' },
   { name: 'Liste regroupée', url: '/app/comptabilite/plan-comptable?groupe=classe' },

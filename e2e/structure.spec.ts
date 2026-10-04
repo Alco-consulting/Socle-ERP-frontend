@@ -83,9 +83,7 @@ test.describe('Comptabilité : trois liens et trois menus groupés', () => {
     await expect(page.getByRole('heading', { level: 1 })).toHaveText('Fournisseurs');
   });
 
-  test('Comptabilité ▾: the eight functions, lettrage not presented as operational', async ({
-    page,
-  }) => {
+  test('Comptabilité ▾: the eight functions, lettrage operational (V2.1 A4)', async ({ page }) => {
     await page.goto('/app/comptabilite/tableau-de-bord');
     const menu = await openMenu(page, 'Comptabilité');
     await expect(menu.getByRole('menuitemradio')).toHaveText([
@@ -94,16 +92,15 @@ test.describe('Comptabilité : trois liens et trois menus groupés', () => {
       'Plan comptable',
       'Tiers',
       'Trésorerie',
-      /Lettrage/,
+      'Lettrage',
       'Rapprochement',
       'Clôture',
     ]);
-    const lettering = menu.getByRole('menuitemradio', { name: /Lettrage/ });
-    await expect(lettering).toHaveAttribute('aria-disabled', 'true');
-    await expect(lettering).toContainText('l’API ne propose pas le lettrage');
-    await page.keyboard.press('Escape');
-    await page.goto('/app/comptabilite/lettrage');
-    await expect(page.getByText('Cette page n’existe pas.')).toBeVisible();
+    const lettering = menu.getByRole('menuitemradio', { name: 'Lettrage' });
+    await expect(lettering).not.toHaveAttribute('aria-disabled', 'true');
+    await lettering.click();
+    await expect(page).toHaveURL(/\/app\/comptabilite\/lettrage$/);
+    await expect(page.getByRole('heading', { level: 1 })).toHaveText('Lettrage');
   });
 
   test('Analyse ▾: reports under announced titles', async ({ page }) => {

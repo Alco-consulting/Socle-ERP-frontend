@@ -1,0 +1,366 @@
+@if (staleError(); as stale) {
+  <alco-error-state
+    [inline]="true"
+    [title]="stale.title"
+    [message]="stale.message"
+    [code]="stale.code"
+    [correlationId]="stale.correlationId ?? ''"
+  />
+}
+
+@if (preview() || previewError()) {
+  <section class="preview" aria-labelledby="lettering-preview-title">
+    <h2 id="lettering-preview-title" class="alco-section-title" tabindex="-1" #previewTitle>
+      Aperçu du lettrage
+    </h2>
+    @if (!preview() && previewError(); as failure) {
+      <alco-error-state
+        [inline]="true"
+        [title]="failure.title"
+        [message]="failure.message"
+        [help]="failure.help ?? ''"
+        [code]="failure.code"
+        [correlationId]="failure.correlationId ?? ''"
+      />
+      @if (unbalanced(); as figures) {
+        <dl class="figures">
+          <div>
+            <dt>Débit sélectionné</dt>
+            <dd>{{ figures.debit | alcoAmount: decimalsOf(currency()) }} {{ currency() }}</dd>
+          </div>
+          <div>
+            <dt>Crédit sélectionné</dt>
+            <dd>{{ figures.credit | alcoAmount: decimalsOf(currency()) }} {{ currency() }}</dd>
+          </div>
+          <div>
+            <dt>Écart</dt>
+            <dd>{{ figures.difference | alcoAmount: decimalsOf(currency()) }} {{ currency() }}</dd>
+          </div>
+        </dl>
+      }
+      <div class="preview-actions">
+        <button alcoButton type="button" (click)="closePreview()">Modifier la sélection</button>
+        @if (unbalanced() && !allowPartial()) {
+          <button
+            alcoButton
+            type="button"
+            variant="primary"
+            [loading]="previewing()"
+            loadingLabel="Aperçu en cours…"
+            (click)="previewPartial()"
+          >
+            Prévisualiser un lettrage partiel
+          </button>
+        }
+      </div>
+    }
+    @if (preview(); as result) {
+      @let currencyCode = currency();
+      @let places = decimalsOf(currencyCode);
+      <p class="outcome" [class.outcome--partial]="result.partial">
+        @if (result.partial) {
+          Lettrage partiel : un résiduel restera ouvert sur les lignes indiquées. Rien n’est passé
+          en perte ou profit.
+        } @else {
+          Lettrage complet : les lignes sélectionnées seront soldées.
+        }
+      </p>
+      <dl class="figures">
+        <div>
+          <dt>Compte</dt>
+          <dd class="mono">{{ result.account.code }}</dd>
+        </div>
+        <div>
+          <dt>Tiers</dt>
+          <dd class="mono">{{ result.partner?.code ?? 'Aucun' }}</dd>
+        </div>
+        <div>
+          <dt>Ouvert au débit</dt>
+          <dd>{{ result.debit_total | alcoAmount: places }} {{ currencyCode }}</dd>
+        </div>
+        <div>
+          <dt>Ouvert au crédit</dt>
+          <dd>{{ result.credit_total | alcoAmount: places }} {{ currencyCode }}</dd>
+        </div>
+        <div class="figure--key">
+          <dt>Montant lettré</dt>
+          <dd>{{ result.amount | alcoAmount: places }} {{ currencyCode }}</dd>
+        </div>
+      </dl>
+      <div class="rows" role="region" tabindex="0" aria-label="Lignes du lettrage prévu">
+        <table>
+          <caption class="alco-sr-only">
+            Effet prévu du lettrage sur chaque ligne
+          </caption>
+          <thead>
+            <tr>
+              <th scope="col">Écriture</th>
+              <th scope="col">Sens</th>
+              <th scope="col" class="num">Ouvert</th>
+              <th scope="col" class="num">Lettré</th>
+              <th scope="col" class="num">Résiduel</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (row of result.rows; track row.line) {
+              <tr>
+                <td>{{ row.entry.entry_number }}</td>
+                <td>{{ sides[row.side] }}</td>
+                <td class="num">{{ row.open_amount | alcoAmount: places }}</td>
+                <td class="num">{{ row.amount | alcoAmount: places }}</td>
+                <td class="num" [class.residual]="hasResidual(row)">
+                  {{ row.residual | alcoAmount: places }}
+                </td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+      @if (previewError(); as failure) {
+        <alco-error-state
+          [inline]="true"
+          [title]="failure.title"
+          [message]="failure.message"
+          [code]="failure.code"
+          [correlationId]="failure.correlationId ?? ''"
+        />
+      }
+      <div class="preview-actions">
+        <button alcoButton type="button" [disabled]="lettering()" (click)="closePreview()">
+          Modifier la sélection
+        </button>
+        <button
+          alcoButton
+          type="button"
+          variant="primary"
+          icon="check"
+          [loading]="lettering()"
+          loadingLabel="Lettrage en cours…"
+          (click)="confirm()"
+        >
+          Confirmer le lettrage
+        </button>
+      </div>
+    }
+  </section>
+}
+
+@if (list.value(); as result) {
+  <div class="toolbar">
+    <p class="alco-caption count">
+      {{ result.count }} {{ result.count > 1 ? 'lignes' : 'ligne' }}
+      @if (!canLetter()) {
+        · consultation seule
+      }
+    </p>
+    <alco-pagination
+      [page]="result.count > 0 ? scope().page : 1"
+      [pageSize]="pageSize"
+      [total]="result.count"
+      (pageChange)="setPage($event)"
+    />
+  </div>
+}
+
+@switch (list.status()) {
+  @case ('forbidden') {
+    <alco-error-state
+      title="Vous n’avez pas accès au lettrage de cette société."
+      message="Demandez l’accès à un administrateur de la société si vous en avez besoin."
+    />
+  }
+  @case ('error') {
+    @if (failure(); as error) {
+      <alco-error-state
+        [title]="error.title"
+        [message]="error.message"
+        [code]="error.code"
+        [correlationId]="error.correlationId ?? ''"
+        retryLabel="Réessayer"
+        (retry)="list.reload()"
+      />
+    }
+  }
+  @default {
+    @if (list.value() === null) {
+      <alco-loading variant="table" [rows]="6" [columns]="6" label="Chargement des lignes…" />
+    } @else if (rows().length === 0) {
+      <div class="empty-frame">
+        @if (filtered()) {
+          <alco-empty-state
+            icon="search"
+            title="Aucune ligne ne correspond à ces critères."
+            message="Seules les lignes validées ou verrouillées d’un compte lettrable sont proposées."
+          >
+            <button alcoButton type="button" icon="refresh" (click)="resetFilters.emit()">
+              Réinitialiser les filtres
+            </button>
+          </alco-empty-state>
+        } @else {
+          <alco-empty-state
+            icon="check"
+            title="Aucune ligne à lettrer."
+            message="Seules les lignes validées ou verrouillées d’un compte lettrable sont proposées."
+          />
+        }
+      </div>
+    } @else {
+      <div class="wide" [class.reloading]="list.loading()" [attr.aria-busy]="list.loading()">
+        <alco-table
+          caption="Lignes comptables lettrables, les plus anciennes d’abord"
+          [columns]="columns"
+          [rows]="rows()"
+          [rowId]="rowId"
+          [rowLabel]="rowLabel"
+          [selectable]="selectable()"
+          [selection]="selection()"
+          (selectionChange)="onTableSelection($event)"
+        >
+          <ng-template alcoCell="date" let-line>{{ day(line.entry_date) }}</ng-template>
+          <ng-template alcoCell="entry" let-line>
+            <a class="code" [routerLink]="[entriesUrl, line.entry.public_id]">
+              {{ line.entry.entry_number }}
+            </a>
+            <span class="sub mono">{{ line.journal }}</span>
+          </ng-template>
+          <ng-template alcoCell="account" let-line>
+            <span class="mono">{{ line.account.code }}</span>
+            <span class="sub mono">{{ line.partner?.code ?? 'Sans tiers' }}</span>
+          </ng-template>
+          <ng-template alcoCell="label" let-line>
+            <span class="description">{{ line.label || '—' }}</span>
+            @if (line.document_reference) {
+              <span class="sub">{{ line.document_reference }}</span>
+            }
+          </ng-template>
+          <ng-template alcoCell="debit" let-line>
+            @if (line.side === 'debit') {
+              {{ line.amount | alcoAmount: decimalsOf(line.currency) }}
+            }
+          </ng-template>
+          <ng-template alcoCell="credit" let-line>
+            @if (line.side === 'credit') {
+              {{ line.amount | alcoAmount: decimalsOf(line.currency) }}
+            }
+          </ng-template>
+          <ng-template alcoCell="open" let-line>
+            {{ line.open_amount | alcoAmount: decimalsOf(line.currency) }}
+            <span class="currency">{{ line.currency }}</span>
+          </ng-template>
+          <ng-template alcoCell="status" let-line>
+            @let look = statusLook(line);
+            <alco-badge [tone]="look.tone" [icon]="look.icon">{{ look.label }}</alco-badge>
+          </ng-template>
+        </alco-table>
+      </div>
+
+      <ul
+        class="cards"
+        [class.reloading]="list.loading()"
+        aria-label="Lignes comptables lettrables, les plus anciennes d’abord"
+      >
+        @for (line of rows(); track line.public_id) {
+          @let look = statusLook(line);
+          @let places = decimalsOf(line.currency);
+          <li class="card" [class.card--selected]="isSelected(line)">
+            <div class="card-head">
+              @if (selectable()) {
+                <input
+                  type="checkbox"
+                  [id]="'pick-' + line.public_id"
+                  [checked]="isSelected(line)"
+                  (change)="toggle(line)"
+                  [attr.aria-label]="'Sélectionner ' + lineName(line)"
+                />
+              }
+              <a class="code" [routerLink]="[entriesUrl, line.entry.public_id]">
+                {{ line.entry.entry_number }}
+              </a>
+              <alco-badge [tone]="look.tone" [icon]="look.icon">{{ look.label }}</alco-badge>
+            </div>
+            <p class="card-label">{{ line.label || line.document_reference || '—' }}</p>
+            <dl class="card-facts">
+              <div>
+                <dt>Date</dt>
+                <dd>
+                  {{ day(line.entry_date) }} · <span class="mono">{{ line.journal }}</span>
+                </dd>
+              </div>
+              <div>
+                <dt>Compte · tiers</dt>
+                <dd class="mono">
+                  {{ line.account.code }} · {{ line.partner?.code ?? 'Sans tiers' }}
+                </dd>
+              </div>
+              <div>
+                <dt>{{ sides[line.side] }}</dt>
+                <dd>{{ line.amount | alcoAmount: places }} {{ line.currency }}</dd>
+              </div>
+              <div>
+                <dt>Ouvert</dt>
+                <dd class="strong">
+                  {{ line.open_amount | alcoAmount: places }} {{ line.currency }}
+                </dd>
+              </div>
+            </dl>
+          </li>
+        }
+      </ul>
+    }
+  }
+}
+
+@if (selectable() && (selectedCount() > 0 || rows().length > 0)) {
+  <div class="selection-bar" [class.selection-bar--empty]="selectedCount() === 0">
+    <p class="alco-sr-only" role="status" aria-live="polite">{{ summary() }}</p>
+    @if (selectedCount() > 0) {
+      @let places = decimalsOf(currency());
+      <dl class="totals" aria-hidden="true">
+        <div>
+          <dt>Sélection</dt>
+          <dd>{{ selectedCount() }} {{ selectedCount() > 1 ? 'lignes' : 'ligne' }}</dd>
+        </div>
+        <div>
+          <dt>Ouvert au débit</dt>
+          <dd>{{ debitTotal() | alcoAmount: places }}</dd>
+        </div>
+        <div>
+          <dt>Ouvert au crédit</dt>
+          <dd>{{ creditTotal() | alcoAmount: places }}</dd>
+        </div>
+        <div>
+          <dt>Écart</dt>
+          <dd>{{ difference() | alcoAmount: places }} {{ currency() }}</dd>
+        </div>
+      </dl>
+      <label class="partial">
+        <input type="checkbox" [checked]="allowPartial()" (change)="onPartialChange($event)" />
+        Lettrage partiel : le résiduel reste ouvert
+      </label>
+      <div class="bar-actions">
+        <button alcoButton type="button" [disabled]="lettering()" (click)="clearSelection()">
+          Vider la sélection
+        </button>
+        <button
+          alcoButton
+          type="button"
+          variant="primary"
+          icon="eye"
+          [loading]="previewing()"
+          loadingLabel="Aperçu en cours…"
+          [disabled]="lettering()"
+          (click)="showPreview()"
+        >
+          Aperçu du lettrage
+        </button>
+      </div>
+      <p class="hint alco-caption">
+        Totaux indicatifs : le serveur vérifie la sélection et calcule le lettrage.
+      </p>
+    } @else {
+      <p class="alco-caption">
+        Sélectionnez des lignes au débit et au crédit d’un même compte et d’un même tiers.
+      </p>
+    }
+  </div>
+}

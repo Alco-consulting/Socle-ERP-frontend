@@ -40,13 +40,15 @@ import { NavigationService } from '../../../core/navigation/navigation.service';
 import { AlcoSmartButton } from '../../../shared/ui/smart-button/smart-button';
 import { AUDIT_TYPES, AlcoObjectHistory } from '../../audit/object-history';
 import { RelationsApi } from '../../relations/data-access/relations-api';
+import { LetteringApi } from '../data-access/lettering-api';
 
 /**
  * An account (`GET accounting/accounts/{id}/`) and its place in the hierarchy the server
  * keeps: its parent (one request) and its direct sub-accounts (`children/`, paged).
  * Actions of the API allowed by `accounting.manage_accounts`: Modifier, Désactiver /
  * Réactiver. Smart buttons: its entries (the entry list's `count`), its ledger (Analyse ›
- * Grand livre, `reporting.read`), its sub-accounts (the page already read) and its
+ * Grand livre, `reporting.read`), its sub-accounts (the page already read), its lettering
+ * (a letterable account only: its open lines, the `count` of `letterable-lines/`) and its
  * history (Audit, `audit.read`) — one request per relation, never one per item.
  */
 @Component({
@@ -104,6 +106,16 @@ export class AccountDetailPage {
   );
   protected readonly entriesUrl = `${APP_ROOT}/comptabilite/ecritures`;
   protected readonly ledgerUrl = `${APP_ROOT}/comptabilite/analyse/grand-livre`;
+  protected readonly letteringUrl = `${APP_ROOT}/comptabilite/lettrage`;
+  private readonly lettering = inject(LetteringApi);
+  /** Lettering of the account: offered when the server says it is letterable. */
+  protected readonly canOpenLettering = computed(
+    () => !!this.account()?.letterable && this.canOpen('lettrage'),
+  );
+  protected readonly openLines = requestState(
+    () => this.lettering.openLineCount({ account: untracked(this.id) }),
+    { immediate: false },
+  );
   protected readonly canOpenLedger = computed(() => this.canOpen('analyse/grand-livre'));
   protected readonly auditType = AUDIT_TYPES.account;
   protected readonly canSeeHistory = computed(() => this.session.can('audit.read'));
@@ -210,6 +222,9 @@ export class AccountDetailPage {
     this.breadcrumbs.nameCurrent(`${account.code} — ${account.name}`);
     if (!withHierarchy) {
       return;
+    }
+    if (account.letterable && this.canOpen('lettrage')) {
+      this.openLines.reload();
     }
     if (account.parent) {
       this.api

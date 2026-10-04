@@ -102,18 +102,18 @@ test.describe('Tiers → objets liés', () => {
     await expect(rows(page)).toHaveCount(Math.min(total, 25));
   });
 
-  test('7. Tiers → Grand livre auxiliaire ; comptes collectifs ; échéances et lettrage indisponibles', async ({
+  test('7. Tiers → Grand livre auxiliaire ; comptes collectifs ; lettrage ; échéances indisponibles', async ({
     page,
     api,
   }) => {
     await page.goto(`${ACC}/fournisseurs/${partnerId(api, 'FOU-001')}`);
     await expect(smart(page, 'Comptes collectifs')).toHaveAccessibleName('Comptes collectifs : 1');
     await expect(page.locator('#comptes-collectifs')).toContainText(/Compte fournisseur\s*401/);
-    for (const label of ['Échéances', 'Lettrage']) {
-      const button = page.getByRole('button', { name: label, exact: true });
-      await expect(button).toHaveAttribute('aria-disabled', 'true');
-      await expect(button).toHaveAccessibleDescription(/Pas encore disponible/);
-    }
+    const dueDates = page.getByRole('button', { name: 'Échéances', exact: true });
+    await expect(dueDates).toHaveAttribute('aria-disabled', 'true');
+    await expect(dueDates).toHaveAccessibleDescription(/Pas encore disponible/);
+    // Lettrage (V2.1 A4): a link, with the server's count of open lines (all lettered here).
+    await expect(smart(page, 'Lettrage')).toHaveAccessibleName('Lettrage : 0');
     await smart(page, 'Grand livre auxiliaire').click();
     await expect(page).toHaveURL(/\/analyse\/grand-livre-auxiliaire\?tiers=FOU-001$/);
     await expect(page.getByRole('heading', { level: 1 })).toHaveText('Grand livre auxiliaire');
@@ -222,10 +222,10 @@ test.describe('Société, permissions', () => {
     }
     // Keyboard: a disabled smart button takes the focus and shows its reason.
     await page.goto(`${ACC}/fournisseurs/${partnerId(api, 'FOU-001')}`);
-    const lettering = page.getByRole('button', { name: 'Lettrage', exact: true });
-    await lettering.focus();
-    await expect(lettering).toBeFocused();
-    await expect(page.getByRole('tooltip', { name: /lettrage/ })).toBeVisible();
+    const dueDates = page.getByRole('button', { name: 'Échéances', exact: true });
+    await dueDates.focus();
+    await expect(dueDates).toBeFocused();
+    await expect(page.getByRole('tooltip', { name: /échéances/ })).toBeVisible();
     const entries = smart(page, 'Écritures');
     await entries.focus();
     await page.keyboard.press('Enter');

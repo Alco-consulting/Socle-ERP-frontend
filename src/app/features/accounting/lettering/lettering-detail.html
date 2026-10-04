@@ -1,0 +1,174 @@
+@if (loadError(); as failure) {
+  <alco-error-state
+    [title]="failure.title"
+    [message]="failure.message"
+    [code]="failure.code"
+    [correlationId]="failure.correlationId ?? ''"
+  />
+  <div class="center">
+    <a alcoButton icon="arrow-left" routerLink=".." [queryParams]="{ vue: 'lettrages' }">
+      Retour aux lettrages
+    </a>
+  </div>
+} @else if (lettering(); as lettering) {
+  @let places = decimalsOf(lettering.currency);
+  <alco-page-header [title]="'Lettrage ' + lettering.reference" [subtitle]="kinds[lettering.kind]">
+    <div alcoPageStatus>
+      @if (status(); as badge) {
+        <alco-badge [tone]="badge.tone" [icon]="badge.icon">{{ badge.label }}</alco-badge>
+      }
+    </div>
+    <div alcoPageActions>
+      @if (lettering.status === 'active' && canUnletter()) {
+        <button
+          alcoButton
+          type="button"
+          icon="reverse"
+          [loading]="busy()"
+          loadingLabel="Délettrage en cours…"
+          (click)="unletter()"
+        >
+          Délettrer
+        </button>
+      }
+    </div>
+  </alco-page-header>
+
+  <nav class="smart-buttons" aria-label="Objets liés au lettrage">
+    <alco-smart-button
+      label="Lignes lettrées"
+      icon="accounting"
+      [count]="lettering.items.length"
+      link="."
+      fragment="lignes"
+    />
+    @if (canSeeHistory()) {
+      <alco-smart-button
+        label="Historique"
+        icon="clock"
+        [count]="historyCount()"
+        link="."
+        fragment="historique"
+      />
+    }
+  </nav>
+
+  @if (actionError(); as failure) {
+    <alco-error-state
+      [inline]="true"
+      [title]="failure.title"
+      [message]="failure.message"
+      [code]="failure.code"
+      [correlationId]="failure.correlationId ?? ''"
+    />
+  }
+
+  @if (lettering.status === 'cancelled') {
+    <p class="note" role="note">
+      Ce lettrage est annulé : ses montants sont de nouveau ouverts sur ses lignes. Il reste
+      consultable avec son historique.
+    </p>
+  }
+
+  <div class="sheet">
+    <section class="section" aria-labelledby="general-title">
+      <h2 id="general-title" class="alco-section-title">Informations générales</h2>
+      <dl class="facts">
+        <div>
+          <dt>Référence</dt>
+          <dd class="mono">{{ lettering.reference }}</dd>
+        </div>
+        <div>
+          <dt>Nature</dt>
+          <dd>{{ kinds[lettering.kind] }}</dd>
+        </div>
+        <div>
+          <dt>Compte</dt>
+          <dd>
+            <a
+              class="mono"
+              [routerLink]="[accounting, 'plan-comptable', lettering.account.public_id]"
+            >
+              {{ lettering.account.code }}
+            </a>
+          </dd>
+        </div>
+        <div>
+          <dt>Tiers</dt>
+          <dd>
+            @if (lettering.partner; as partner) {
+              @if (canOpenPartner()) {
+                <a class="mono" [routerLink]="[accounting, 'tiers', partner.public_id]">
+                  {{ partner.code }}
+                </a>
+              } @else {
+                <span class="mono">{{ partner.code }}</span>
+              }
+            } @else {
+              Aucun
+            }
+          </dd>
+        </div>
+        <div>
+          <dt>Montant lettré</dt>
+          <dd class="amount">
+            {{ lettering.amount | alcoAmount: places }} {{ lettering.currency }}
+          </dd>
+        </div>
+        <div>
+          <dt>Résiduel</dt>
+          <dd>
+            {{
+              lettering.partial
+                ? 'Lettrage partiel : un résiduel est resté ouvert'
+                : 'Aucun : lignes soldées par ce lettrage'
+            }}
+          </dd>
+        </div>
+        <div>
+          <dt>Créé le</dt>
+          <dd>{{ lettering.created_at | date: 'dd/MM/yyyy à HH:mm' }}</dd>
+        </div>
+        @if (lettering.status === 'cancelled') {
+          <div>
+            <dt>Annulé le</dt>
+            <dd>{{ lettering.cancelled_at | date: 'dd/MM/yyyy à HH:mm' }}</dd>
+          </div>
+          <div class="wide">
+            <dt>Motif de l’annulation</dt>
+            <dd class="address">{{ lettering.cancellation_reason || '—' }}</dd>
+          </div>
+        }
+      </dl>
+    </section>
+
+    <section id="lignes" class="section" aria-labelledby="items-title">
+      <h2 id="items-title" class="alco-section-title">Lignes lettrées</h2>
+      <alco-table
+        [caption]="'Montant lettré sur chaque ligne du lettrage ' + lettering.reference"
+        [columns]="itemColumns"
+        [rows]="lettering.items"
+        [rowId]="itemId"
+      >
+        <ng-template alcoCell="entry" let-item>
+          <a class="mono" [routerLink]="[entriesUrl, item.entry.public_id]">
+            {{ item.entry.entry_number }}
+          </a>
+        </ng-template>
+        <ng-template alcoCell="date" let-item>{{ day(item.entry_date) }}</ng-template>
+        <ng-template alcoCell="side" let-item>{{ sideLabel(item) }}</ng-template>
+        <ng-template alcoCell="amount" let-item>
+          {{ item.amount | alcoAmount: places }}
+        </ng-template>
+      </alco-table>
+    </section>
+
+    @if (canSeeHistory()) {
+      <section id="historique" class="section" aria-labelledby="history-title">
+        <alco-object-history [objectType]="auditType" [objectId]="lettering.public_id" />
+      </section>
+    }
+  </div>
+} @else {
+  <alco-loading [rows]="8" label="Chargement du lettrage…" />
+}

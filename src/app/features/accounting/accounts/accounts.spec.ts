@@ -25,6 +25,7 @@ const account = (code: string, name: string, extra: Partial<Account> = {}): Acco
   account_type: 'liability',
   account_class: code.charAt(0),
   allow_entries: true,
+  letterable: false,
   status: 'active',
   has_children: false,
   created_at: '2026-09-01T10:00:00Z',
@@ -240,6 +241,7 @@ describe('Plan comptable (accounting/accounts/)', () => {
       account_type: 'liability',
       account_class: '4',
       allow_entries: true,
+      letterable: false,
     });
     create.flush(account('4011', 'Fournisseurs locaux'));
     await stable();

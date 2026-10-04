@@ -392,6 +392,30 @@ export class FakeAccountingEntries {
     return this.answer(route, 200, { count: items.length, next: null, previous: null, results });
   }
 
+  /** An event of another object, as Audit records it (its history). */
+  recordEvent(
+    company: string,
+    action: string,
+    objectType: string,
+    objectId: string,
+    label: string,
+  ): void {
+    this.ledger(company).events.push({
+      public_id: uuid(),
+      occurred_at: new Date().toISOString(),
+      action,
+      object_type: objectType,
+      object_id: objectId,
+      object_label: label,
+      user: { public_id: USER_ID, email: EMAIL },
+      origin: 'http',
+      source: '',
+      correlation_id: 'e2e',
+      metadata: {},
+      changed_fields: [],
+    });
+  }
+
   private record(ledger: Ledger, action: string, entry: EntryJson): void {
     ledger.events.push({
       public_id: uuid(),

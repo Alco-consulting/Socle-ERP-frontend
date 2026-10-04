@@ -26,8 +26,9 @@ const SCREENS: Readonly<Record<string, Routes>> = {
  * Former URLs (bookmarks, shared links) of screens that moved (V2.1): Reporting is
  * Comptabilité › Analyse, Comptabilité › Tiers › Clients is Comptabilité › Clients, payment
  * terms are Comptabilité › Configuration. Plain redirects to a screen whose own guards then
- * apply (no permission is decided here). A function without API (lettrage, échéances,
- * journal centralisateur) leads to the application's home.
+ * apply (no permission is decided here). A function without API (échéances, journal
+ * centralisateur) leads to the application's home; the former lettering URL leads to
+ * Comptabilité › Lettrage.
  */
 const ACCOUNTING = '/app/comptabilite';
 export const LEGACY_REDIRECTS: Routes = [
@@ -59,7 +60,7 @@ export const LEGACY_REDIRECTS: Routes = [
     redirectTo: `${ACCOUNTING}/fournisseurs`,
   },
   { path: 'comptabilite/tiers/echeances', pathMatch: 'full', redirectTo: ACCOUNTING },
-  { path: 'comptabilite/tiers/lettrage', pathMatch: 'full', redirectTo: ACCOUNTING },
+  { path: 'comptabilite/tiers/lettrage', pathMatch: 'full', redirectTo: `${ACCOUNTING}/lettrage` },
   {
     path: 'tiers/configuration/conditions',
     pathMatch: 'full',

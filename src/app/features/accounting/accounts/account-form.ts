@@ -101,6 +101,7 @@ export class AccountFormPage {
       validators: [Validators.maxLength(16)],
     }),
     allow_entries: new FormControl(true, { nonNullable: true }),
+    letterable: new FormControl(false, { nonNullable: true }),
   });
 
   protected readonly account = signal<Account | null>(null);
@@ -199,6 +200,7 @@ export class AccountFormPage {
       account_type: value.account_type as AccountType,
       account_class: value.account_class.trim(),
       allow_entries: value.allow_entries,
+      letterable: value.letterable,
     };
   }
 
@@ -224,6 +226,7 @@ export class AccountFormPage {
       account_type: account.account_type,
       account_class: account.account_class,
       allow_entries: account.allow_entries,
+      letterable: account.letterable,
     });
     if (account.parent) {
       this.api

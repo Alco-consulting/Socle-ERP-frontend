@@ -1,0 +1,124 @@
+<p class="intro alco-caption">
+  Propositions calculées par le serveur. Une proposition n’est pas un lettrage : confirmez-la pour
+  l’enregistrer.
+</p>
+
+@if (actionError(); as failure) {
+  <alco-error-state
+    [inline]="true"
+    [title]="failure.title"
+    [message]="failure.message"
+    [code]="failure.code"
+    [correlationId]="failure.correlationId ?? ''"
+  />
+}
+
+@if (list.value(); as result) {
+  <div class="toolbar">
+    <p class="alco-caption count">
+      {{ result.count }} {{ result.count > 1 ? 'propositions' : 'proposition' }}
+    </p>
+    <alco-pagination
+      [page]="result.count > 0 ? scope().page : 1"
+      [pageSize]="pageSize"
+      [total]="result.count"
+      (pageChange)="setPage($event)"
+    />
+  </div>
+}
+
+@switch (list.status()) {
+  @case ('forbidden') {
+    <alco-error-state
+      title="Vous n’avez pas accès au lettrage de cette société."
+      message="Demandez l’accès à un administrateur de la société si vous en avez besoin."
+    />
+  }
+  @case ('error') {
+    @if (failure(); as error) {
+      <alco-error-state
+        [title]="error.title"
+        [message]="error.message"
+        [code]="error.code"
+        [correlationId]="error.correlationId ?? ''"
+        retryLabel="Réessayer"
+        (retry)="list.reload()"
+      />
+    }
+  }
+  @default {
+    @if (list.value() === null) {
+      <alco-loading variant="cards" [rows]="3" label="Chargement des propositions…" />
+    } @else if (proposals().length === 0) {
+      <div class="empty-frame">
+        <alco-empty-state
+          icon="check"
+          title="Aucune proposition de lettrage."
+          message="Le serveur ne propose rien pour ces lignes ouvertes."
+        />
+      </div>
+    } @else {
+      <ul
+        class="proposals"
+        [class.reloading]="list.loading()"
+        aria-label="Propositions de lettrage"
+      >
+        @for (proposal of proposals(); track keyOf(proposal)) {
+          @let places = decimalsOf(proposal.currency);
+          <li class="proposal">
+            <div class="proposal-head">
+              <p class="subject">
+                <span class="mono">{{ proposal.account.code }}</span>
+                · <span class="mono">{{ proposal.partner?.code ?? 'Sans tiers' }}</span>
+              </p>
+              <p class="amount">
+                {{ proposal.amount | alcoAmount: places }}
+                <span class="currency">{{ proposal.currency }}</span>
+              </p>
+            </div>
+            <dl class="pair-lines">
+              <div>
+                <dt>Débit</dt>
+                <dd>
+                  <a class="code" [routerLink]="[entriesUrl, proposal.debit.entry.public_id]">
+                    {{ proposal.debit.entry.entry_number }}
+                  </a>
+                  · {{ day(proposal.debit.entry_date) }}
+                  <span class="label">{{ proposal.debit.label || '—' }}</span>
+                </dd>
+              </div>
+              <div>
+                <dt>Crédit</dt>
+                <dd>
+                  <a class="code" [routerLink]="[entriesUrl, proposal.credit.entry.public_id]">
+                    {{ proposal.credit.entry.entry_number }}
+                  </a>
+                  · {{ day(proposal.credit.entry_date) }}
+                  <span class="label">{{ proposal.credit.label || '—' }}</span>
+                </dd>
+              </div>
+            </dl>
+            <div class="proposal-actions">
+              <span class="state alco-caption">Proposée, non lettrée</span>
+              @if (canLetter()) {
+                <button
+                  alcoButton
+                  type="button"
+                  variant="primary"
+                  icon="check"
+                  [attr.aria-label]="confirmLabel(proposal)"
+                  [loading]="confirming() === keyOf(proposal)"
+                  loadingLabel="Confirmation en cours…"
+                  [disabled]="confirming() !== null && confirming() !== keyOf(proposal)"
+                  (click)="confirm(proposal)"
+                >
+                  Confirmer
+                </button>
+              }
+            </div>
+          </li>
+        }
+      </ul>
+    }
+  }
+}

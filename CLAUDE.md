@@ -7,10 +7,11 @@ backend Django est terminé et en production (`https://api.alcoconsulting.tech`,
 **État actuel : phase UX/UI 0 (design system, App Launcher, coquille des modules), Module 0
 (socle technique), Module 1 (authentification), Module 2 (société active et App Launcher
 réels), Module 3 (Tiers), Module 4 (socle de la Comptabilité : tableau de bord, journaux, plan
-comptable, exercices et périodes), Module 5 (Écritures comptables) et le lot V2.1 A1/A2
+comptable, exercices et périodes), Module 5 (Écritures comptables) et les lots V2.1 A1/A2
 (navigation alignée : lanceur de 5 applications sans Reporting, Comptabilité en 3 liens + 3
-menus groupés, tableau de bord comptable sur `dashboards/journals/` et `dashboards/alerts/`)
-livrés.**
+menus groupés, tableau de bord comptable sur `dashboards/journals/` et `dashboards/alerts/`),
+A3 (relations et smart buttons) et A4 (lettrage : lignes, sélection, aperçu, lettrage manuel et
+partiel, propositions, délettrage, historique) livrés.**
 Le socle parle à l'API Django : environnements, `ApiClient`, intercepteurs (session, CSRF,
 `X-Company-ID`, erreurs, chargement), gardes. Connexion et déconnexion réelles ; utilisateur,
 sociétés accessibles, société active, permissions et lanceur viennent de l'API (plus de
@@ -18,8 +19,8 @@ session simulée). L'application Tiers est réelle (liste, recherche, filtres, f
 création, modification, désactivation, import et export contextuels). Comptabilité : tableau
 de bord, journaux, plan comptable, exercices et périodes sont réels, ainsi que les
 écritures (liste, fiche, saisie des lignes, workflow par les commandes du serveur,
-contrepassation, pièces, historique, import). Les autres domaines de Comptabilité restent des
-écrans prévus.
+contrepassation, pièces, historique, import), ainsi que le lettrage (V2.1 A4). Les autres
+domaines de Comptabilité restent des écrans prévus.
 Architecture technique : `../docs/frontend/technical-architecture.md`. Prochaine étape : les
 modules métier un par un (chacun remplace ses écrans de démonstration).
 
@@ -73,7 +74,7 @@ src/app/
                 launcher · auth (écran de connexion) · company-choice (`/societe`) ·
                 partners (Tiers : data-access, pages, présentation, routes) · accounting
                 (socle comptable : data-access, dashboard, journals, accounts, periods ;
-                entries : écritures, Module 5) · dashboards (data-access : journaux et
+                entries : écritures, Module 5 ; lettering : lettrage, V2.1 A4) · dashboards (data-access : journaux et
                 alertes de `dashboards/`) · treasury (data-access : opérations d'une
                 écriture) · documents (data-access) · audit (data-access, AlcoObjectHistory :
                 historique d'un objet) · transfers (import/export contextuels, sans route
@@ -170,7 +171,7 @@ supprime ce qui ne sert plus.
   **Reporting n'est plus une application** : ses rapports sont Comptabilité › Analyse (le
   domaine `reporting` du backend reste leur source ; aucun endpoint retiré). Comptabilité :
   Tableau de bord, Clients, Fournisseurs, puis Comptabilité ▾ (Écritures, Journaux, Plan
-  comptable, Tiers, Trésorerie, Lettrage indisponible, Rapprochement, Clôture), Analyse ▾
+  comptable, Tiers, Trésorerie, Lettrage, Rapprochement, Clôture), Analyse ▾
   (Rapports financiers, comptables, de tiers, Analyses) et Configuration ▾ (Général,
   Comptabilité, Banques, Paiements, Taxes, Immobilisations, Analytique, Emprunts). Les
   sections (Trésorerie, Immobilisations, Emprunts, Taxes, Analytique, Audit) gardent leur
@@ -181,7 +182,8 @@ supprime ce qui ne sert plus.
   titré « Menu · Groupe » ; téléphone : un seul menu, mêmes groupes. Menu long : défilement
   interne (`max-height`).
 - **Fonction sans API** : `unavailable: '<raison>'` dans le catalogue → entrée désactivée avec
-  sa raison, sans route ni écran (Lettrage). Écran dont l'API existe mais non construit :
+  sa raison, sans route ni écran (aucune aujourd'hui : Lettrage l'était jusqu'au lot A4). Écran
+  dont l'API existe mais non construit :
   écran prévu (`NotInPrototypePage`), qui le dit. Échéances, balance âgée, journal
   centralisateur : retirés des menus (pas d'API) ; leurs anciennes URL redirigent.
 - **Clients / Fournisseurs / Comptabilité › Tiers** = `partnerListScreen()` de
@@ -254,10 +256,11 @@ supprime ce qui ne sert plus.
   ux-guidelines § 5 sexies). Comptes : `RelationsApi.entryCount(status, {journal|account|
   partner})` (`count` d'une page d'une ligne) et `collectiveAccounts(partner)` ; historique =
   `AlcoObjectHistory` (`AUDIT_TYPES` : `accounting.journalentry`, `accounting.journal`,
-  `accounting.account`, `partners.partner`), compteur = son `total`. Visibilité d'une relation
-  = `NavigationService.canOpenUrl('/app/comptabilite/<écran>')` (l'application ET l'écran :
-  jamais `canOpenPath` seul, qui ignore la permission de l'application). Échéances et
-  Lettrage : `unavailable` (désactivés, raison), lots A4/A5. Emprunts et immobilisations d'un
+  `accounting.account`, `partners.partner`, `accounting.lettering`), compteur = son `total`.
+  Visibilité d'une relation = `NavigationService.canOpenUrl('/app/comptabilite/<écran>')`
+  (l'application ET l'écran : jamais `canOpenPath` seul, qui ignore la permission de
+  l'application). Échéances : `unavailable` (désactivé, raison), lot A5. Lettrage : réel
+  (A4, voir plus bas). Emprunts et immobilisations d'un
   tiers : pas proposés (leurs écrans n'existent pas encore ; `loans?partner=`,
   `assets?partner=` existent dans l'API).
 - **Grand livre (une seule expérience)** : `features/reporting/ledger/LedgerPage`, routes
@@ -281,6 +284,25 @@ supprime ce qui ne sert plus.
   non modifiables ici. Totaux et écart = aide d'affichage (`shared/utils/decimal`), montants
   à la précision de la devise (`decimal_places`, zéros finaux retirés, jamais d'arrondi).
   Pièces = Documents (`accounting.entry`), historique = Audit (`accounting.journalentry`).
+- **Lettrage (V2.1 A4)** : `features/accounting/lettering` sur `accounting/letterable-lines/`
+  et `accounting/letterings/` (ux-guidelines § 5 septies, technical-architecture § 7 quinquies).
+  `/app/comptabilite/lettrage` : onglets Lignes à lettrer, Propositions, Lettrages (`?vue=`),
+  compte et tiers par code (`?compte=`, `?tiers=`, trouvés par le serveur), dates, état,
+  référence, page dans l'URL ; `/lettrage/:id` : fiche, Délettrer (`accounting.unletter`,
+  motif, `POST …/unletter/`), historique Audit (`accounting.lettering`). Sélection
+  (`accounting.letter`) gardée entre les pages de la même liste ; totaux débit / crédit /
+  écart = aide de lecture (BigInt) ; aperçu `letterings/preview/` (panneau, rien n'est écrit)
+  puis `POST letterings/` ; partiel seulement si demandé (`allow_partial`) ; `write_off` jamais
+  envoyé ; une clé d'idempotence par aperçu ou par proposition, renvoyée en cas de nouvel
+  essai ; après chaque commande ou refus « périmé » (`STALE_CODES`), données relues et
+  sélection vidée, jamais d'état simulé. Propositions affichées telles que le serveur les
+  donne, confirmées par `letterings/proposals/confirm/`. Téléphone : lignes en cartes, barre de
+  sélection collée en bas. Smart buttons Lettrage : fiche Compte (compte `letterable`) et
+  fiche Tiers, nombre = `count` de `letterable-lines/?status=open&page_size=1`. Compte :
+  « Compte lettrable » dans son formulaire (`accounting.manage_accounts`). Ancienne URL
+  `/app/comptabilite/tiers/lettrage` → `/app/comptabilite/lettrage`. Le contrat ne donne ni
+  la référence du lettrage d'une ligne, ni un motif de proposition, ni d'avertissement
+  d'aperçu : rien n'est inventé.
 - **Modifications non enregistrées** : `UnsavedChangesService.track(() => form.dirty)` dans
   chaque formulaire, `unsavedChangesGuard` sur ses routes ; `switchTo` demande aussi ; une
   sauvegarde réussie appelle `markAsPristine()` avant de naviguer.
@@ -327,8 +349,11 @@ supprime ce qui ne sert plus.
   balances clients et fournisseurs, états financiers, résultat, analytique) ; aujourd'hui des
   écrans prévus. Lettrage, échéances, balance âgée, journal centralisateur, chatter,
   notifications, favoris persistants : lots dédiés (backend d'abord).
-- Lots A4/A5 : échéances et lettrage (backend puis frontend ; les smart buttons sont prêts,
-  désactivés). Emprunts et immobilisations d'un tiers quand leurs écrans existeront.
+- Lot A5 : échéances (backend puis frontend ; le smart button est prêt, désactivé). Emprunts et
+  immobilisations d'un tiers quand leurs écrans existeront.
+- Lettrage : passage d'un écart en perte ou profit quand le backend aura une règle (aujourd'hui
+  refusé) ; référence du lettrage d'une ligne et motif d'une proposition si le contrat les
+  expose ; recherche de compte et de tiers par autocomplétion dans les filtres.
 - Domaines utilisés par société (`features`) : à exposer par le backend (puis écran
   Paramètres) avant de masquer quoi que ce soit pour cette raison.
 - Actions GitHub `checkout`/`setup-node` v4 → v5 (Node 20 déprécié) ; `ubuntu-latest` passe

@@ -53,6 +53,7 @@ export interface AccountJson {
   account_type: string;
   account_class: string;
   allow_entries: boolean;
+  letterable: boolean;
   status: 'active' | 'inactive';
   has_children: boolean;
   created_at: string;
@@ -134,6 +135,7 @@ function chart(
     account_type: type,
     account_class: code.charAt(0),
     allow_entries: true,
+    letterable: false,
     status: 'active',
     has_children: false,
     created_at: STAMP,
@@ -169,10 +171,10 @@ export function seedAccounting(): Record<string, Books> {
       accounts: chart([
         ['4', 'Comptes de tiers', 'liability', null, { allow_entries: false }],
         ['40', 'Fournisseurs et comptes rattachés', 'liability', '4', { allow_entries: false }],
-        ['401', 'Fournisseurs', 'liability', '40'],
+        ['401', 'Fournisseurs', 'liability', '40', { letterable: true }],
         ['404', 'Fournisseurs d’immobilisations', 'liability', '40'],
         ['41', 'Clients et comptes rattachés', 'asset', '4', { allow_entries: false }],
-        ['411', 'Clients', 'asset', '41'],
+        ['411', 'Clients', 'asset', '41', { letterable: true }],
         ['6', 'Comptes de charges', 'expense', null, { allow_entries: false }],
         ['60', 'Achats', 'expense', '6', { allow_entries: false }],
         ['601', 'Achats de marchandises', 'expense', '60'],
@@ -210,6 +212,7 @@ const ACCOUNT_FIELDS = [
   'account_type',
   'account_class',
   'allow_entries',
+  'letterable',
   'parent',
 ];
 
@@ -382,6 +385,7 @@ export class FakeAccounting {
           description: String(body['description'] ?? ''),
           account_class: String(body['account_class'] ?? ''),
           allow_entries: body['allow_entries'] !== false,
+          letterable: body['letterable'] === true,
           parent: parent?.public_id ?? null,
         };
         if (parent) {

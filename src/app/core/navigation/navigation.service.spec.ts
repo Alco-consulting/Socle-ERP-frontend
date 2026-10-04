@@ -91,12 +91,12 @@ describe('Application catalogue', () => {
     ]);
   });
 
-  it('never gives a screen to a function the API does not offer (lettrage)', () => {
+  it('gives Lettrage its screen now that the API offers it (V2.1 A4)', () => {
     const lettering = accounting()
       .nav.flatMap((entry) => entry.children ?? [])
       .find((link) => link.label === 'Lettrage');
-    expect(lettering?.unavailable).toContain('l’API ne propose pas le lettrage');
-    expect(menuLinks(accounting().nav).map((link) => link.label)).not.toContain('Lettrage');
+    expect(lettering).toEqual({ label: 'Lettrage', path: 'lettrage' });
+    expect(menuLinks(accounting().nav).map((link) => link.label)).toContain('Lettrage');
   });
 
   it('never offers import / export as a menu entry: it is a contextual action', () => {
@@ -184,7 +184,7 @@ describe('NavigationService', () => {
     }
   });
 
-  it('keeps the groups and shows an unavailable function disabled, without URL', () => {
+  it('keeps the groups; Lettrage is a link of the accounting menu', () => {
     const navigation = signIn(['accounting.read', 'reporting.read_auxiliary']);
     const menu = navigation.menu(accounting());
     const analysis = menu.find((entry) => entry.label === 'Analyse');
@@ -209,11 +209,11 @@ describe('NavigationService', () => {
     const lettering = menu
       .find((entry) => entry.label === 'Comptabilité')
       ?.children?.find((link) => link.label === 'Lettrage');
-    expect(lettering?.url).toBeUndefined();
-    expect(lettering?.unavailable).toBeTruthy();
+    expect(lettering?.url).toBe('/app/comptabilite/lettrage');
+    expect(lettering?.unavailable).toBeUndefined();
   });
 
-  it('hides a menu whose screens are all closed, even with an unavailable function in it', () => {
+  it('hides a menu whose screens are all closed', () => {
     const navigation = signIn(['accounting.read']);
     expect(labels(navigation.menu(accounting()))).toEqual(['Comptabilité', 'Configuration']);
   });

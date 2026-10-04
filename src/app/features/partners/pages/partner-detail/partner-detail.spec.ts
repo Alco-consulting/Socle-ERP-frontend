@@ -133,7 +133,7 @@ describe('PartnerDetailPage (the record)', () => {
     expect(element.textContent).toContain('Ce tiers est désactivé');
   });
 
-  it('smart buttons, each with its own permission: entries, ledger, accounts, history', async () => {
+  it('smart buttons, each with its own permission: entries, ledger, accounts, lettering, history', async () => {
     const { element, stable } = await open([
       'partners.read',
       'accounting.read',
@@ -154,6 +154,14 @@ describe('PartnerDetailPage (the record)', () => {
           postable: true,
         },
       ]);
+    // Lettering (V2.1 A4): the server's count of the partner's open lines.
+    const lettering = httpMock().expectOne(
+      (req) => req.url === '/api/v1/accounting/letterable-lines/',
+    );
+    expect(lettering.request.params.get('partner')).toBe('p-1');
+    expect(lettering.request.params.get('status')).toBe('open');
+    expect(lettering.request.params.get('page_size')).toBe('1');
+    lettering.flush({ count: 3, next: null, previous: null, results: [{}] });
     await stable();
     httpMock()
       .expectOne((req) => req.url === '/api/v1/audit/objects/partners.partner/p-1/')
@@ -166,27 +174,25 @@ describe('PartnerDetailPage (the record)', () => {
       'Écritures : 12',
       'Grand livre auxiliaire',
       'Comptes collectifs : 1',
+      'Lettrage : 3',
       'Historique : 2',
     ]);
     expect(links.map((link) => link.getAttribute('href'))).toEqual([
       '/app/comptabilite/ecritures?tiers=FOU-007',
       '/app/comptabilite/analyse/grand-livre-auxiliaire?tiers=FOU-007',
       '/liste/p-1#comptes-collectifs',
+      '/app/comptabilite/lettrage?tiers=FOU-007',
       '/liste/p-1#historique',
     ]);
-    // Échéances and Lettrage: the target of V2.1, no API yet: disabled, with the reason.
+    // Échéances: the target of V2.1, no API yet: disabled, with the reason.
     const disabled = Array.from(element.querySelectorAll<HTMLButtonElement>('button.smart'));
     expect(disabled.map((button) => button.querySelector('.label')?.textContent?.trim())).toEqual([
       'Échéances',
-      'Lettrage',
     ]);
     const reasons = disabled.map((button) =>
       document.getElementById(button.getAttribute('aria-describedby') ?? '')?.textContent?.trim(),
     );
-    expect(reasons).toEqual([
-      'Pas encore disponible : l’API ne propose pas encore les échéances.',
-      'Pas encore disponible : l’API ne propose pas encore le lettrage.',
-    ]);
+    expect(reasons).toEqual(['Pas encore disponible : l’API ne propose pas encore les échéances.']);
     for (const button of disabled) {
       expect(button.getAttribute('aria-disabled')).toBe('true');
       expect(button.closest('a')).toBeNull();

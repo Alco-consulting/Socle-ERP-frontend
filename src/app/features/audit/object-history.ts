@@ -23,6 +23,7 @@ export const AUDIT_TYPES = {
   journal: 'accounting.journal',
   account: 'accounting.account',
   partner: 'partners.partner',
+  lettering: 'accounting.lettering',
 } as const;
 
 /** Actions of the backend's Audit (`AuditAction`), in words. */
@@ -38,6 +39,8 @@ export const AUDIT_ACTIONS: Readonly<Record<string, string>> = {
   activate: 'Activation',
   deactivate: 'Désactivation',
   download: 'Lien de téléchargement d’une pièce',
+  letter: 'Lettrage',
+  unletter: 'Délettrage',
 };
 
 /**

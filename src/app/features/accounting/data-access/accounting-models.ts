@@ -70,6 +70,8 @@ export interface Account {
   readonly account_type: AccountType;
   readonly account_class: string;
   readonly allow_entries: boolean;
+  /** Its posted lines may be lettered (V2.1 A4). */
+  readonly letterable: boolean;
   readonly status: ActiveInactive;
   readonly has_children: boolean;
   readonly created_at: string;
@@ -85,6 +87,7 @@ export interface AccountWrite {
   readonly account_type: AccountType;
   readonly account_class: string;
   readonly allow_entries: boolean;
+  readonly letterable: boolean;
 }
 
 /** Server-side filters of `GET accounting/accounts/`. */

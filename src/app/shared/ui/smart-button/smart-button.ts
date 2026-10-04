@@ -11,7 +11,7 @@ let ids = 0;
  * every record. The count is the API's, never computed:
  * - `count`: a number; `null` while it loads (« … »); left out when the relation has none
  *   to show (Grand livre);
- * - `unavailable`: a relation the API does not offer yet (Lettrage) — shown disabled with
+ * - `unavailable`: a relation the API does not offer yet (Échéances) — shown disabled with
  *   this reason (announced, and as a tooltip on hover and keyboard focus), never a link.
  * Keyboard: a link (or, disabled, a focusable button that does nothing); visible focus.
  */

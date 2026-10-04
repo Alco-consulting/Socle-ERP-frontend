@@ -46,6 +46,15 @@
         [queryParams]="{ compte: account.code }"
       />
     }
+    @if (canOpenLettering()) {
+      <alco-smart-button
+        label="Lettrage"
+        icon="check"
+        [count]="openLines.value() ?? null"
+        [link]="letteringUrl"
+        [queryParams]="{ compte: account.code }"
+      />
+    }
     @if (account.has_children) {
       <alco-smart-button
         label="Sous-comptes"
@@ -67,6 +76,9 @@
   </nav>
   @if (entries.error()) {
     <p class="alco-caption">Le nombre d’écritures n’a pas pu être chargé.</p>
+  }
+  @if (openLines.error()) {
+    <p class="alco-caption">Le nombre de lignes à lettrer n’a pas pu être chargé.</p>
   }
 
   @if (actionError(); as failure) {
@@ -102,6 +114,10 @@
         <div>
           <dt>Saisie d’écritures</dt>
           <dd>{{ account.allow_entries ? 'Autorisée' : 'Non autorisée' }}</dd>
+        </div>
+        <div>
+          <dt>Lettrage</dt>
+          <dd>{{ account.letterable ? 'Compte lettrable' : 'Non lettrable' }}</dd>
         </div>
         <div class="wide">
           <dt>Description</dt>

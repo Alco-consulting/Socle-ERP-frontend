@@ -30,6 +30,7 @@ import { AlcoPageHeader } from '../../../../shared/ui/page-header/page-header';
 import { AlcoSmartButton } from '../../../../shared/ui/smart-button/smart-button';
 import { AlcoToastService } from '../../../../shared/ui/toast/toast.service';
 import { AUDIT_TYPES, AlcoObjectHistory } from '../../../audit/object-history';
+import { LetteringApi } from '../../../accounting/data-access/lettering-api';
 import { CollectiveAccount, RelationsApi } from '../../../relations/data-access/relations-api';
 import { Partner, PaymentTerm } from '../../data-access/partner-models';
 import { PartnersApi } from '../../data-access/partners-api';
@@ -42,8 +43,9 @@ import { PARTNER_ERRORS, PARTNER_STATUS, roleLabel } from '../../partner-present
  * Réactiver (`partners.disable`; the partner stays, with its history). Smart buttons, each
  * with its own permission: its entries (`accounting.read`, the entry list's `count`), its
  * subsidiary ledger (`reporting.read_auxiliary`), its collective accounts
- * (`accounting/partners/<id>/accounts/`) and its history (`audit.read`). Échéances and
- * Lettrage are shown disabled: their API does not exist yet.
+ * (`accounting/partners/<id>/accounts/`), its lettering (its open lines, the `count` of
+ * `accounting/letterable-lines/`) and its history (`audit.read`). Échéances is shown
+ * disabled: its API does not exist yet.
  */
 @Component({
   selector: 'alco-partner-detail',
@@ -105,6 +107,15 @@ export class PartnerDetailPage {
   protected readonly canOpenEntries = computed(() => this.canOpen('ecritures'));
   protected readonly canOpenLedger = computed(() => this.canOpen('analyse/grand-livre-auxiliaire'));
   protected readonly canOpenAccounts = computed(() => this.canOpen('plan-comptable'));
+  protected readonly canOpenLettering = computed(() => this.canOpen('lettrage'));
+  private readonly lettering = inject(LetteringApi);
+  protected readonly openLines = requestState(
+    (): Observable<number | null> =>
+      untracked(this.canOpenLettering)
+        ? this.lettering.openLineCount({ partner: untracked(this.id) })
+        : of(null),
+    { immediate: false },
+  );
   protected readonly entries = requestState(
     (): Observable<number | null> =>
       untracked(this.canOpenEntries)
@@ -123,10 +134,9 @@ export class PartnerDetailPage {
   protected readonly canSeeHistory = computed(() => this.session.can('audit.read'));
   private readonly history = viewChild(AlcoObjectHistory);
   protected readonly historyCount = computed(() => this.history()?.total() ?? null);
-  /** Relations of the V2.1 target whose API is not delivered yet (lots A4/A5). */
+  /** Relations of the V2.1 target whose API is not delivered yet (lot A5). */
   protected readonly unavailable = {
     dueDates: 'Pas encore disponible : l’API ne propose pas encore les échéances.',
-    lettering: 'Pas encore disponible : l’API ne propose pas encore le lettrage.',
   };
   protected readonly roleWords: Readonly<Partial<Record<string, string>>> = {
     customer: 'Compte client',
@@ -151,6 +161,7 @@ export class PartnerDetailPage {
         this.record.reload();
         this.entries.reload();
         this.collective.reload();
+        this.openLines.reload();
       });
     });
     effect(() => {

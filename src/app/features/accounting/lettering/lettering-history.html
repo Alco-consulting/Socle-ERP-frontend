@@ -1,0 +1,91 @@
+@if (list.value(); as result) {
+  <div class="toolbar">
+    <p class="alco-caption count">
+      {{ result.count }} {{ result.count > 1 ? 'lettrages' : 'lettrage' }}
+    </p>
+    <alco-pagination
+      [page]="result.count > 0 ? scope().page : 1"
+      [pageSize]="pageSize"
+      [total]="result.count"
+      (pageChange)="setPage($event)"
+    />
+  </div>
+}
+
+@switch (list.status()) {
+  @case ('forbidden') {
+    <alco-error-state
+      title="Vous n’avez pas accès au lettrage de cette société."
+      message="Demandez l’accès à un administrateur de la société si vous en avez besoin."
+    />
+  }
+  @case ('error') {
+    @if (failure(); as error) {
+      <alco-error-state
+        [title]="error.title"
+        [message]="error.message"
+        [code]="error.code"
+        [correlationId]="error.correlationId ?? ''"
+        retryLabel="Réessayer"
+        (retry)="list.reload()"
+      />
+    }
+  }
+  @default {
+    @if (list.value() === null) {
+      <alco-loading variant="table" [rows]="6" [columns]="6" label="Chargement des lettrages…" />
+    } @else if (rows().length === 0) {
+      <div class="empty-frame">
+        @if (filtered()) {
+          <alco-empty-state
+            icon="search"
+            title="Aucun lettrage ne correspond à ces critères."
+            message="Retirez un filtre ou élargissez les dates."
+          >
+            <button alcoButton type="button" icon="refresh" (click)="resetFilters.emit()">
+              Réinitialiser les filtres
+            </button>
+          </alco-empty-state>
+        } @else {
+          <alco-empty-state icon="book" title="Aucun lettrage dans cette société." />
+        }
+      </div>
+    } @else {
+      <alco-table
+        [class.reloading]="list.loading()"
+        [attr.aria-busy]="list.loading()"
+        caption="Lettrages de la société, actifs et annulés, les plus récents d’abord"
+        [columns]="columns"
+        [rows]="rows()"
+        [rowId]="rowId"
+        [clickableRows]="true"
+        (rowActivated)="open($event)"
+      >
+        <ng-template alcoCell="reference" let-lettering>
+          <a class="code mono" [routerLink]="lettering.public_id">{{ lettering.reference }}</a>
+        </ng-template>
+        <ng-template alcoCell="date" let-lettering>
+          {{ lettering.created_at | date: 'dd/MM/yyyy' }}
+        </ng-template>
+        <ng-template alcoCell="subject" let-lettering>
+          <span class="mono">{{ lettering.account.code }}</span>
+          <span class="sub mono">{{ lettering.partner?.code ?? 'Sans tiers' }}</span>
+        </ng-template>
+        <ng-template alcoCell="kind" let-lettering>
+          {{ kindLabel(lettering) }}
+          @if (lettering.partial) {
+            <span class="sub">Partiel : résiduel ouvert</span>
+          }
+        </ng-template>
+        <ng-template alcoCell="amount" let-lettering>
+          {{ lettering.amount | alcoAmount: decimalsOf(lettering.currency) }}
+          <span class="currency">{{ lettering.currency }}</span>
+        </ng-template>
+        <ng-template alcoCell="status" let-lettering>
+          @let look = statusLook(lettering);
+          <alco-badge [tone]="look.tone" [icon]="look.icon">{{ look.label }}</alco-badge>
+        </ng-template>
+      </alco-table>
+    }
+  }
+}

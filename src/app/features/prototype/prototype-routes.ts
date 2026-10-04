@@ -10,15 +10,8 @@ import { applicationRoute } from './placeholder-routes';
  * `demo: true`: fictitious data, said by the demonstration strip (prototype-banner.ts).
  */
 const SCREENS: Readonly<Record<string, Routes>> = {
-  accounting: [
-    // Real screens (Module 4), on the API.
-    ...ACCOUNTING_ROUTES,
-    {
-      path: 'ecritures',
-      data: { breadcrumb: 'Écritures', demo: true },
-      loadChildren: () => import('./accounting/entries.routes').then((m) => m.ENTRY_ROUTES),
-    },
-  ],
+  // Real screens (Modules 4 and 5), on the API.
+  accounting: ACCOUNTING_ROUTES,
   // Real screens (Module 3), on the API.
   partners: PARTNER_ROUTES,
 };

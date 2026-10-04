@@ -164,12 +164,13 @@ export class FakePartners {
     const { page } = this.context;
     await page.route('**/api/v1/currencies/**', (route) =>
       this.answer(route, 200, {
-        count: 2,
+        count: 3,
         next: null,
         previous: null,
         results: [
-          { code: 'GNF', name: 'Franc guinéen', status: 'active' },
-          { code: 'XOF', name: 'Franc CFA (BCEAO)', status: 'active' },
+          { code: 'GNF', name: 'Franc guinéen', decimal_places: 0, status: 'active' },
+          { code: 'XOF', name: 'Franc CFA (BCEAO)', decimal_places: 0, status: 'active' },
+          { code: 'EUR', name: 'Euro', decimal_places: 2, status: 'active' },
         ],
       }),
     );
@@ -208,9 +209,11 @@ export class FakePartners {
       const role = url.searchParams.get('role');
       const status = url.searchParams.get('status');
       const country = url.searchParams.get('country')?.toUpperCase();
+      const code = url.searchParams.get('code')?.toUpperCase();
       const found = list
         .filter(
           (item) =>
+            (!code || item.code === code) &&
             (!search ||
               [item.code, item.name, item.legal_name, item.tax_identifier].some((text) =>
                 text.toLowerCase().includes(search),

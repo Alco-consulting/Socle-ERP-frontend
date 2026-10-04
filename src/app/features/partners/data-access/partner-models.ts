@@ -89,5 +89,7 @@ export interface PartnerQuery {
 export interface CurrencyOption {
   readonly code: string;
   readonly name: string;
+  /** Precision of the currency (display of amounts only; the server rounds). */
+  readonly decimal_places: number;
   readonly status: PartnerStatus;
 }

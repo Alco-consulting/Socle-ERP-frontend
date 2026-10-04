@@ -28,8 +28,8 @@ test.describe('Parcours App Launcher → Comptabilité → Écritures → Formul
     await expect(page).toHaveTitle('Écritures · Comptabilité · Alco');
     await expect(page.getByRole('table')).toBeVisible();
 
-    // List → record
-    const first = page.getByRole('link', { name: /^EC-2026-\d{6}$/ }).first();
+    // List → record (a validated entry: numbered by the server)
+    const first = page.getByRole('link', { name: /^[A-Z0-9]+-\d{6}$/ }).first();
     const number = (await first.textContent())!.trim();
     await first.click();
     await expect(page.getByRole('heading', { level: 1 })).toHaveText(number);

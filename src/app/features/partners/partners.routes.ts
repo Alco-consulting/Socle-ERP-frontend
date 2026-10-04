@@ -1,6 +1,7 @@
 import { Route, Routes } from '@angular/router';
 
 import { permissionGuard } from '../../core/navigation/app-access.guard';
+import { unsavedChangesGuard } from '../../core/navigation/unsaved-changes';
 import { PartnerRole } from './data-access/partner-models';
 import { PARTNER_TRANSFER } from './partner-presentation';
 
@@ -37,6 +38,7 @@ function listScreen(path: string, label: string, role: PartnerRole | null): Rout
             path: 'modifier',
             data: { breadcrumb: 'Modifier' },
             canActivate: [permissionGuard('partners.update')],
+            canDeactivate: [unsavedChangesGuard],
             loadComponent: form,
           },
         ],
@@ -57,6 +59,7 @@ export const PARTNER_ROUTES: Routes = [
     path: 'nouveau',
     data: { breadcrumb: 'Nouveau tiers' },
     canActivate: [permissionGuard('partners.create')],
+    canDeactivate: [unsavedChangesGuard],
     loadComponent: form,
   },
 ];

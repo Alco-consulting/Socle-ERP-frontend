@@ -12,11 +12,12 @@ export function validationMessage(errors: ValidationErrors | null): string | nul
   if (typeof errors['server'] === 'string') {
     return errors['server'];
   }
-  if (errors['required']) {
-    return 'Ce champ est obligatoire.';
-  }
+  // Before `required`: a text typed but not chosen (autocomplete) is also an empty value.
   if (typeof errors['format'] === 'string') {
     return errors['format'];
+  }
+  if (errors['required']) {
+    return 'Ce champ est obligatoire.';
   }
   if (errors['email']) {
     return 'Saisissez une adresse e-mail valide.';

@@ -97,14 +97,13 @@ test.describe('Import / export contextuels', () => {
   test('import is started from Écritures and imports entries only', async ({ page }) => {
     await page.goto('/app/comptabilite/ecritures');
     await page.getByRole('button', { name: 'Actions' }).click();
-    await expect(page.getByRole('menuitem', { name: /Exporter les écritures/ })).toBeDisabled();
+    // The API V1 has no export of entries: not offered.
+    await expect(page.getByRole('menuitem')).toHaveText(['Importer des écritures']);
     await page.getByRole('menuitem', { name: 'Importer des écritures' }).click();
     await expect(page).toHaveURL(/\/app\/comptabilite\/ecritures\/import$/);
     await expect(page.getByRole('heading', { level: 1 })).toHaveText('Import d’écritures');
     await expect(breadcrumb(page)).toHaveText(/Comptabilité\s*Écritures\s*Import d’écritures/);
-    await expect(
-      page.getByRole('cell', { name: 'Clé de pièce (regroupe les lignes d’une écriture)' }),
-    ).toBeVisible();
+    await expect(page.getByText('Crée des écritures en brouillon')).toBeVisible();
     // No generic choice of the object to import.
     await expect(page.getByText(/Quel objet|Choisir un type/)).toHaveCount(0);
   });

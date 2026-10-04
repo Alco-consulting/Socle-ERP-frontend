@@ -1,0 +1,273 @@
+@if (loadError(); as failure) {
+  <alco-error-state
+    [title]="failure.title"
+    [message]="failure.message"
+    [code]="failure.code"
+    [correlationId]="failure.correlationId ?? ''"
+  />
+  <div class="center">
+    <a alcoButton icon="arrow-left" routerLink="/app/comptabilite/ecritures">
+      Retour aux écritures
+    </a>
+  </div>
+} @else if (!ready()) {
+  <alco-loading [rows]="8" label="Chargement de l’écriture…" />
+} @else if (notEditable()) {
+  <alco-error-state
+    title="Cette écriture ne peut pas être modifiée."
+    message="Seul un brouillon saisi manuellement se modifie ; une contrepassation ne se modifie pas."
+  />
+  <div class="center">
+    <a alcoButton icon="arrow-left" routerLink="..">Retour à l’écriture</a>
+  </div>
+} @else {
+  <alco-page-header
+    [title]="isNew ? 'Nouvelle écriture' : 'Modifier le brouillon'"
+    [subtitle]="
+      isNew ? 'Enregistrée en brouillon, elle restera à valider.' : (entry()?.description ?? '')
+    "
+  >
+    <div alcoPageActions>
+      <button alcoButton type="button" variant="ghost" (click)="cancel()">Annuler</button>
+      <button
+        alcoButton
+        type="submit"
+        form="entry-form"
+        variant="primary"
+        [loading]="saving()"
+        loadingLabel="Enregistrement…"
+      >
+        Enregistrer
+      </button>
+    </div>
+  </alco-page-header>
+
+  @if (error(); as failure) {
+    <alco-error-state
+      [inline]="true"
+      [title]="failure.title"
+      [message]="failure.message"
+      [help]="failure.help ?? ''"
+      [code]="failure.code"
+      [correlationId]="failure.correlationId ?? ''"
+    />
+  }
+  @if (invalidSubmit() && form.invalid) {
+    <alco-error-state
+      [inline]="true"
+      title="Certaines informations sont manquantes ou incorrectes."
+      message="Corrigez les champs signalés, puis enregistrez à nouveau."
+    />
+  }
+
+  <form id="entry-form" class="sheet" [formGroup]="form" (ngSubmit)="save()" novalidate>
+    <section class="section" aria-labelledby="general-title">
+      <h2 id="general-title" class="alco-section-title">Informations générales</h2>
+      <div class="alco-form-grid">
+        <alco-form-field label="Journal" [required]="true">
+          <select alcoSelect formControlName="journal">
+            <option value="" disabled>Choisir un journal</option>
+            @for (journal of journals(); track journal.public_id) {
+              <option
+                [value]="journal.public_id"
+                [selected]="journal.public_id === form.controls.journal.value"
+              >
+                {{ journal.code }}{{ journal.name ? ' — ' + journal.name : '' }}
+              </option>
+            }
+          </select>
+        </alco-form-field>
+        <alco-form-field
+          label="Date"
+          [required]="true"
+          hint="La période est déterminée par le serveur."
+        >
+          <input alcoDatePicker type="date" formControlName="entry_date" />
+        </alco-form-field>
+        <alco-form-field class="alco-form-grid__full" label="Libellé" [required]="true">
+          <input
+            alcoInput
+            formControlName="description"
+            maxlength="255"
+            placeholder="Ex. Facture d’achat de marchandises"
+          />
+        </alco-form-field>
+        <alco-form-field label="Référence de la pièce" hint="Numéro de facture, de relevé…">
+          <input alcoInput formControlName="document_reference" maxlength="64" />
+        </alco-form-field>
+        <alco-form-field label="Date de la pièce" [optional]="true">
+          <input alcoDatePicker type="date" formControlName="document_date" />
+        </alco-form-field>
+        <alco-form-field
+          label="Devise"
+          [hint]="
+            isNew
+              ? 'Vide : la devise du journal, sinon celle de la société.'
+              : 'Taux de change fixé par le serveur.'
+          "
+        >
+          <select alcoSelect formControlName="currency">
+            @if (isNew) {
+              <option value="">Devise par défaut</option>
+            }
+            @for (currency of currencies(); track currency.code) {
+              <option
+                [value]="currency.code"
+                [selected]="currency.code === form.controls.currency.value"
+              >
+                {{ currencyLabel(currency) }}
+              </option>
+            }
+          </select>
+        </alco-form-field>
+      </div>
+    </section>
+
+    <section class="section" aria-labelledby="lines-title">
+      <h2 id="lines-title" class="alco-section-title">Lignes comptables</h2>
+      @if (linesLocked()) {
+        <p class="note">
+          <alco-icon name="lock" [size]="16" />
+          Ces lignes portent une répartition analytique : elles ne se modifient pas depuis cet
+          écran, ni le journal, la date, la devise ou l’arrondi.
+        </p>
+      }
+      <div class="lines" formArrayName="lines">
+        @for (line of lines.controls; track line; let i = $index) {
+          <fieldset class="line" [formGroupName]="i" [attr.data-line]="i">
+            <legend class="line-title">Ligne {{ i + 1 }}</legend>
+            <div class="line-grid">
+              <alco-form-field class="account" label="Compte" [required]="true">
+                <alco-autocomplete
+                  formControlName="account"
+                  [search]="searchAccounts"
+                  placeholder="Code ou nom du compte"
+                  emptyText="Aucun compte imputable ne correspond."
+                />
+              </alco-form-field>
+              <alco-form-field class="label" label="Libellé de la ligne" [optional]="true">
+                <input alcoInput formControlName="label" maxlength="255" />
+              </alco-form-field>
+              <alco-form-field class="amount" label="Débit">
+                <input alcoInput [numeric]="true" inputmode="decimal" formControlName="debit" />
+              </alco-form-field>
+              <alco-form-field class="amount" label="Crédit">
+                <input alcoInput [numeric]="true" inputmode="decimal" formControlName="credit" />
+              </alco-form-field>
+              <alco-form-field class="partner" label="Tiers" [optional]="true">
+                <alco-autocomplete
+                  formControlName="partner"
+                  [search]="searchPartners"
+                  placeholder="Code ou nom du tiers"
+                  emptyText="Aucun tiers actif ne correspond."
+                />
+              </alco-form-field>
+              @if (canSeeTaxes) {
+                <alco-form-field class="tax" label="Taxe" [optional]="true">
+                  <select alcoSelect formControlName="tax">
+                    <option value="">Aucune taxe</option>
+                    @for (tax of taxes(); track tax.public_id) {
+                      <option
+                        [value]="tax.public_id"
+                        [selected]="tax.public_id === line.controls.tax.value"
+                      >
+                        {{ taxLabel(tax) }}
+                      </option>
+                    }
+                  </select>
+                </alco-form-field>
+                @if (line.controls.tax.value) {
+                  <alco-form-field
+                    class="base"
+                    label="Base taxable"
+                    hint="Montant hors taxe ; vide : déterminée par le serveur."
+                  >
+                    <input
+                      alcoInput
+                      [numeric]="true"
+                      inputmode="decimal"
+                      formControlName="tax_base_amount"
+                    />
+                  </alco-form-field>
+                }
+              }
+            </div>
+            @if (!linesLocked()) {
+              <button
+                alcoButton
+                class="remove"
+                type="button"
+                variant="ghost"
+                size="sm"
+                icon="trash"
+                [disabled]="lines.length <= 1"
+                (click)="removeLine(i)"
+              >
+                Retirer la ligne {{ i + 1 }}
+              </button>
+            }
+          </fieldset>
+        }
+      </div>
+
+      <div class="lines-footer">
+        @if (!linesLocked()) {
+          <button alcoButton type="button" size="sm" icon="plus" (click)="addLine()">
+            Ajouter une ligne
+          </button>
+        }
+        <dl class="totals" aria-live="polite">
+          <div>
+            <dt>Total débit</dt>
+            <dd>{{ totals().debit | alcoAmount: decimals() }} {{ currencyShown() }}</dd>
+          </div>
+          <div>
+            <dt>Total crédit</dt>
+            <dd>{{ totals().credit | alcoAmount: decimals() }} {{ currencyShown() }}</dd>
+          </div>
+          <div class="gap" [class.gap--ok]="totals().balanced && !totals().empty">
+            <dt>Écart</dt>
+            <dd>
+              @if (totals().empty) {
+                —
+              } @else if (totals().balanced) {
+                <alco-icon name="check-circle" [size]="16" /> Équilibrée
+              } @else {
+                <alco-icon name="alert-triangle" [size]="16" />
+                {{ totals().gap | alcoAmount: decimals() }} {{ currencyShown() }}
+              }
+            </dd>
+          </div>
+        </dl>
+      </div>
+      <p class="alco-caption">
+        Totaux affichés comme aide à la saisie. Le contrôle qui fait foi est celui du serveur ; un
+        brouillon peut être enregistré déséquilibré.
+      </p>
+    </section>
+
+    <details class="more" [open]="advancedOpen()" (toggle)="onToggle($event)">
+      <summary class="alco-section-title">Informations avancées</summary>
+      <div class="alco-form-grid">
+        <alco-form-field
+          label="Arrondi"
+          hint="Demandé par le serveur pour certaines devises ; sinon, laissez vide."
+        >
+          <select alcoSelect formControlName="rounding">
+            <option value="">Aucun</option>
+            @for (mode of roundings; track mode.id) {
+              <option [value]="mode.id" [selected]="mode.id === form.controls.rounding.value">
+                {{ mode.label }}
+              </option>
+            }
+          </select>
+        </alco-form-field>
+      </div>
+    </details>
+
+    <p class="alco-caption">
+      Les pièces justificatives se joignent depuis la fiche de l’écriture, tant qu’elle est un
+      brouillon.
+    </p>
+  </form>
+}

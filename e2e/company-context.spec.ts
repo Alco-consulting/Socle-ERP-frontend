@@ -1,6 +1,7 @@
 import AxeBuilder from '@axe-core/playwright';
 import { Page } from '@playwright/test';
 
+import { createEntry } from './support/entries';
 import {
   COMPANY_A,
   COMPANY_B,
@@ -26,11 +27,6 @@ async function logIn(page: Page): Promise<void> {
   await page.getByLabel('Adresse e-mail').fill(USER.email);
   await page.getByRole('textbox', { name: 'Mot de passe', exact: true }).fill(PASSWORD);
   await page.getByRole('button', { name: 'Se connecter' }).click();
-}
-
-async function searchEntries(page: Page, text: string): Promise<void> {
-  await page.getByRole('searchbox', { name: 'Rechercher une écriture' }).fill(text);
-  await page.keyboard.press('Enter');
 }
 
 async function switchTo(page: Page, name: RegExp): Promise<void> {
@@ -141,24 +137,19 @@ test.describe('Scénario 3 — changement de société', () => {
     page,
     api,
   }) => {
-    // A draft in company A (the fictitious books follow X-Company-ID, like the server).
-    await page.goto('/app/comptabilite/ecritures/nouvelle?journal=ACH');
-    await page
-      .getByRole('textbox', { name: 'Libellé', exact: true })
-      .fill('Achat propre à la société A (démo)');
-    await page.getByLabel('Compte, ligne 1').selectOption('601100');
-    await page.getByLabel('Débit, ligne 1').fill('1000');
-    await page.getByLabel('Compte, ligne 2').selectOption('401100');
-    await page.getByLabel('Crédit, ligne 2').fill('1000');
-    await page.getByRole('button', { name: 'Enregistrer' }).click();
-    await expect(page.getByText(/Brouillon EC-2026-\d{6} enregistré\./)).toBeVisible();
-
-    // In-app navigation: a reload would restart the fictitious books.
+    // A draft in company A (the fake books follow X-Company-ID, like the server).
+    await createEntry(page, {
+      date: '2026-06-28',
+      description: 'Achat propre à la société A',
+      lines: [
+        ['601', 'Débit', '1000'],
+        ['401', 'Crédit', '1000'],
+      ],
+    });
     await page
       .getByRole('navigation', { name: 'Fil d’Ariane' })
       .getByRole('link', { name: 'Écritures' })
       .click();
-    await searchEntries(page, 'propre');
     await expect(page.getByRole('cell', { name: /Achat propre à la société A/ })).toBeVisible();
 
     // Switch to B (a services company) from the screen: slow answer, so that the
@@ -169,7 +160,7 @@ test.describe('Scénario 3 — changement de société', () => {
     await expect(page.getByRole('table')).toHaveCount(0); // A's list is gone at once
     await expect(companyButton(page)).toContainText('FILIALE SÉNÉGAL (test)');
 
-    // Same menu screen, without A's search; B's books.
+    // Same menu screen, without A's filters; B's books.
     await expect(page).toHaveURL(/\/app\/comptabilite\/ecritures$/);
     await expect(page.getByRole('table')).toBeVisible();
     await expect(page.getByText(/Achat propre à la société A/)).toHaveCount(0);
@@ -190,13 +181,16 @@ test.describe('Scénario 3 — changement de société', () => {
     api.slowContext(0);
     await switchTo(page, /ALCO GUINÉE/);
     await expect(page).toHaveURL(/\/app\/comptabilite\/ecritures$/);
-    await searchEntries(page, 'propre');
     await expect(page.getByRole('cell', { name: /Achat propre à la société A/ })).toBeVisible();
   });
 
-  test('a record of the previous company is never kept: back to its list', async ({ page }) => {
-    await page.goto('/app/comptabilite/ecritures/proto-050');
-    await expect(page.getByRole('heading', { level: 1 })).toHaveText(/EC-2026-/);
+  test('a record of the previous company is never kept: back to its list', async ({
+    page,
+    api,
+  }) => {
+    const validated = api.entries.entries('A').find((item) => item.status === 'validated');
+    await page.goto(`/app/comptabilite/ecritures/${validated?.public_id}`);
+    await expect(page.getByRole('heading', { level: 1 })).toHaveText(validated!.entry_number);
     await switchTo(page, /FILIALE SÉNÉGAL/);
     await expect(page).toHaveURL(/\/app\/comptabilite\/ecritures$/);
     await expect(page.getByRole('heading', { level: 1 })).toHaveText('Écritures');

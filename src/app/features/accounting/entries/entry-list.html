@@ -1,0 +1,190 @@
+<alco-page-header title="Écritures">
+  <div alcoPageActions>
+    <alco-domain-transfers [transfer]="transfer" />
+    @if (canCreate()) {
+      <a alcoButton variant="primary" icon="plus" routerLink="nouvelle">Nouvelle écriture</a>
+    }
+  </div>
+</alco-page-header>
+
+<div class="control-panel">
+  <div class="controls">
+    <alco-filter-bar
+      [activeFilterCount]="activeFilterCount()"
+      [favorites]="favorites"
+      (applied)="applyFilters()"
+      (cleared)="resetFilters()"
+      (favoriteSelected)="applyFavorite($event)"
+    >
+      <div alcoFilterFields class="filter-fields" [formGroup]="filterForm">
+        <div class="pair">
+          <alco-form-field label="État">
+            <select alcoSelect formControlName="status">
+              <option value="">Tous les états</option>
+              @for (item of statuses; track item.id) {
+                <option [value]="item.id" [selected]="item.id === status()">
+                  {{ item.label }}
+                </option>
+              }
+            </select>
+          </alco-form-field>
+          <alco-form-field label="Type">
+            <select alcoSelect formControlName="kind">
+              <option value="">Tous les types</option>
+              @for (item of kinds; track item.id) {
+                <option [value]="item.id" [selected]="item.id === kind()">{{ item.label }}</option>
+              }
+            </select>
+          </alco-form-field>
+        </div>
+        <alco-form-field label="Journal">
+          <select alcoSelect formControlName="journal">
+            <option value="">Tous les journaux</option>
+            @for (item of journals(); track item.public_id) {
+              <option [value]="item.public_id" [selected]="item.public_id === journal()">
+                {{ item.code }} — {{ item.name }}
+              </option>
+            }
+          </select>
+        </alco-form-field>
+        <alco-form-field label="Exercice">
+          <select alcoSelect formControlName="fiscalYear">
+            <option value="">Tous les exercices</option>
+            @for (item of fiscalYears(); track item.public_id) {
+              <option [value]="item.public_id" [selected]="item.public_id === fiscalYear()">
+                {{ item.label }}
+              </option>
+            }
+          </select>
+        </alco-form-field>
+        <div class="pair">
+          <alco-form-field label="Du">
+            <input alcoDatePicker type="date" formControlName="dateFrom" />
+          </alco-form-field>
+          <alco-form-field label="Au">
+            <input alcoDatePicker type="date" formControlName="dateTo" />
+          </alco-form-field>
+        </div>
+        <div class="pair">
+          <alco-form-field label="Compte" hint="Code exact (ex. 401100)">
+            <input alcoInput formControlName="account" maxlength="32" autocomplete="off" />
+          </alco-form-field>
+          <alco-form-field label="Tiers" hint="Code exact du tiers">
+            <input alcoInput formControlName="partner" maxlength="32" autocomplete="off" />
+          </alco-form-field>
+        </div>
+      </div>
+    </alco-filter-bar>
+    @if (list.value(); as result) {
+      <alco-pagination
+        class="pager"
+        [page]="result.count > 0 ? page() : 1"
+        [pageSize]="pageSize"
+        [total]="result.count"
+        (pageChange)="setPage($event)"
+      />
+    }
+  </div>
+</div>
+
+@switch (list.status()) {
+  @case ('forbidden') {
+    <alco-error-state
+      title="Vous n’avez pas accès aux écritures de cette société."
+      message="Demandez l’accès à un administrateur de la société si vous en avez besoin."
+    />
+  }
+  @case ('error') {
+    @if (failure(); as error) {
+      <alco-error-state
+        [title]="error.title"
+        [message]="error.message"
+        [code]="error.code"
+        [correlationId]="error.correlationId ?? ''"
+        retryLabel="Réessayer"
+        (retry)="list.reload()"
+      />
+    }
+  }
+  @default {
+    @if (list.value() === null) {
+      <alco-loading variant="table" [rows]="8" [columns]="6" label="Chargement des écritures…" />
+    } @else if (rows().length === 0) {
+      <div class="empty-frame">
+        @if (unknownCodes().length > 0) {
+          <alco-empty-state
+            icon="search"
+            [title]="unknownCodeTitle()"
+            message="Vérifiez le code saisi dans les filtres."
+          >
+            <button alcoButton type="button" icon="refresh" (click)="resetFilters()">
+              Réinitialiser les filtres
+            </button>
+          </alco-empty-state>
+        } @else if (activeFilterCount() > 0) {
+          <alco-empty-state
+            icon="search"
+            title="Aucune écriture ne correspond à ces critères."
+            message="Retirez un filtre ou élargissez les dates."
+          >
+            <button alcoButton type="button" icon="refresh" (click)="resetFilters()">
+              Réinitialiser les filtres
+            </button>
+          </alco-empty-state>
+        } @else {
+          <alco-empty-state icon="book" title="Aucune écriture dans cette société.">
+            @if (canCreate()) {
+              <a alcoButton variant="primary" icon="plus" routerLink="nouvelle">
+                Saisir une écriture
+              </a>
+            }
+          </alco-empty-state>
+        }
+      </div>
+    } @else {
+      <alco-table
+        [class.reloading]="list.loading()"
+        [attr.aria-busy]="list.loading()"
+        caption="Écritures comptables de la société, les plus récentes d’abord"
+        [columns]="columns"
+        [rows]="rows()"
+        [rowId]="rowId"
+        [rowLabel]="rowLabel"
+        [clickableRows]="true"
+        (rowActivated)="open($event)"
+      >
+        <ng-template alcoCell="number" let-entry>
+          <a class="code" [routerLink]="entry.public_id">
+            @if (entry.entry_number) {
+              {{ entry.entry_number }}
+            } @else {
+              <span class="unnumbered">Sans numéro</span>
+            }
+          </a>
+        </ng-template>
+        <ng-template alcoCell="date" let-entry>{{ day(entry.entry_date) }}</ng-template>
+        <ng-template alcoCell="journal" let-entry>
+          <span class="mono">{{ entry.journal.code }}</span>
+        </ng-template>
+        <ng-template alcoCell="reference" let-entry>
+          {{ entry.document_reference || '—' }}
+        </ng-template>
+        <ng-template alcoCell="description" let-entry>
+          <span class="description">{{ entry.description }}</span>
+          @if (kindLabel(entry); as kindText) {
+            <span class="alco-sr-only"> — </span>
+            <span class="kind">{{ kindText }}</span>
+          }
+        </ng-template>
+        <ng-template alcoCell="amount" let-entry>
+          {{ debitTotal(entry) | alcoAmount: decimalsOf(entry) }}
+          <span class="currency">{{ entry.currency }}</span>
+        </ng-template>
+        <ng-template alcoCell="status" let-entry>
+          @let look = statusLook(entry);
+          <alco-badge [tone]="look.tone" [icon]="look.icon">{{ look.label }}</alco-badge>
+        </ng-template>
+      </alco-table>
+    }
+  }
+}

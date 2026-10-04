@@ -9,6 +9,7 @@ import { ApiError, toApiError } from '../http/api-error';
 import { AuthFailures } from '../http/auth-failures';
 import { APP_ROOT } from '../navigation/applications';
 import { NavigationService } from '../navigation/navigation.service';
+import { UnsavedChangesService } from '../navigation/unsaved-changes';
 import { NotificationCenter } from '../notifications/notification-center';
 import { CompanyContext, CompanySummary, SessionStore } from '../session/session.store';
 import { CompanyApi, CompanyContextDto, CompanySummaryDto } from './company-api';
@@ -95,6 +96,7 @@ export class CompanyContextService {
   private readonly navigation = inject(NavigationService);
   private readonly toast = inject(AlcoToastService);
   private readonly notifications = inject(NotificationCenter);
+  private readonly unsaved = inject(UnsavedChangesService);
   private readonly changed = new Subject<CompanySummary | null>();
 
   readonly companyId = computed(() => this.store.activeCompany()?.id ?? null);
@@ -152,9 +154,13 @@ export class CompanyContextService {
    * The company selector of the top bar. The screens of the previous company are removed at
    * once (`AlcoCompanyScope`), the new context is loaded, then the screens are rebuilt with
    * the new company's data on `NavigationService.landingUrl()`. Failures are said here.
+   * A form with unsaved changes asks first (they would be lost with its screen).
    */
   async switchTo(companyId: string): Promise<void> {
     if (companyId === this.companyId() || this.store.activity()) {
+      return;
+    }
+    if (this.unsaved.hasChanges() && !(await this.unsaved.confirmDiscard())) {
       return;
     }
     const from = this.router.url;

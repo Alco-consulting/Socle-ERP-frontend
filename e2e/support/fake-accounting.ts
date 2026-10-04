@@ -8,7 +8,8 @@ import { PartnersContext } from './fake-partners';
  * `AccountingAccount`, paginated lists) and company scoped like the server (another
  * company's record is a 404). Rules played as the backend does: code fixed after creation,
  * unique codes, postable = active + entries allowed + no sub-account (default settings),
- * order by code (by start date for periods, most recent first for fiscal years).
+ * order by code (by start date for periods, most recent first for fiscal years). The
+ * entries are served by `FakeAccountingEntries`.
  */
 
 const STAMP = '2026-09-01T09:00:00Z';
@@ -63,7 +64,7 @@ interface Books {
   periods: PeriodJson[];
   journals: JournalJson[];
   accounts: AccountJson[];
-  /** Entries by status, for the counts of the dashboard. */
+  /** How many entries of each status the fake entries seed (fake-accounting-entries.ts). */
   entries: Record<string, number>;
 }
 
@@ -277,13 +278,6 @@ export class FakeAccounting {
               (!query('status') || item.status === query('status')),
           ),
         );
-      case 'entries':
-        return this.answer(route, 200, {
-          count: query('status') ? (books.entries[query('status') ?? ''] ?? 0) : 0,
-          next: null,
-          previous: null,
-          results: [],
-        });
       case 'journals':
         return this.journals(route, request, books, permissions, id, command);
       case 'accounts':

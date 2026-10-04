@@ -1,6 +1,7 @@
 import { Page, Request, test as base } from '@playwright/test';
 
 import { FakeAccounting } from './fake-accounting';
+import { FakeAccountingEntries } from './fake-accounting-entries';
 import { FakePartners, PartnersContext } from './fake-partners';
 
 /**
@@ -70,7 +71,11 @@ const READ = [
 ];
 const WRITE = [
   'accounting.create',
+  'accounting.update',
+  'accounting.submit',
   'accounting.validate',
+  'accounting.lock',
+  'accounting.reverse',
   'accounting.manage_journals',
   'accounting.manage_accounts',
   'partners.create',
@@ -81,6 +86,8 @@ const WRITE = [
   'imports_exports.execute',
   'imports_exports.cancel',
   'imports_exports.export',
+  'documents.upload',
+  'documents.download',
 ];
 
 /** Permissions of a membership, per profile (backend codes). */
@@ -137,6 +144,8 @@ export class FakeApi {
   readonly partners: FakePartners;
   /** Accounting referential: fiscal years, periods, journals, accounts (company scoped). */
   readonly accounting: FakeAccounting;
+  /** Entries, their workflow, taxes, documents and audit history (company scoped). */
+  readonly entries: FakeAccountingEntries;
 
   constructor(private readonly page: Page) {
     const context: PartnersContext = {
@@ -157,6 +166,7 @@ export class FakeApi {
     };
     this.partners = new FakePartners(context);
     this.accounting = new FakeAccounting(context);
+    this.entries = new FakeAccountingEntries(context, this.accounting, this.partners);
   }
 
   /** No session open at start (the login screen). */
@@ -230,6 +240,7 @@ export class FakeApi {
     });
     await this.partners.install();
     await this.accounting.install();
+    await this.entries.install();
     await page.route('**/api/v1/auth/me/', (route) => {
       this.calls.push(route.request());
       if (this.down) {

@@ -12,7 +12,7 @@ import { TRANSFER_KINDS, TransferKindId } from './transfer-kinds';
   template: `<alco-transfer-actions [kind]="kind()" />`,
 })
 class Host {
-  readonly kind = signal<TransferKindId>('entries');
+  readonly kind = signal<TransferKindId>('assets');
 }
 
 describe('AlcoTransferActions (contextual import / export)', () => {
@@ -45,35 +45,19 @@ describe('AlcoTransferActions (contextual import / export)', () => {
     return result;
   }
 
-  const ALL = [
-    'imports_exports.create',
-    'imports_exports.export',
-    'accounting.create',
-    'accounting.read',
-    'partners.create',
-    'partners.read',
-    'assets.read',
-  ];
+  const ALL = ['imports_exports.create', 'imports_exports.export', 'assets.read', 'reporting.read'];
 
-  it('names exactly the operation of the domain (entries)', async () => {
-    expect((await items('entries', ALL)).map((item) => item.label)).toEqual([
-      'Importer des écritures',
-      'Exporter les écritures',
+  it('names exactly the operation of the domain (fixed assets)', async () => {
+    expect((await items('assets', ALL)).map((item) => item.label)).toEqual([
+      'Importer des immobilisations',
+      'Exporter les immobilisations',
     ]);
   });
 
-  it('names exactly the operation of the domain (partners)', async () => {
-    expect((await items('partners', ALL)).map((item) => item.label)).toEqual([
-      'Importer des tiers',
-      'Exporter les tiers',
+  it('names exactly the operation of the domain (balance: an export only)', async () => {
+    expect((await items('balance', ALL)).map((item) => item.label)).toEqual([
+      'Exporter la balance',
     ]);
-  });
-
-  it('offers only what the API does, the rest disabled with the reason', async () => {
-    const [entriesImport, entriesExport] = await items('entries', ALL);
-    expect(entriesImport.disabled).toBe(false);
-    expect(entriesExport.disabled).toBe(true);
-    expect(entriesExport.description).toBe('Pas encore proposé par l’API (V1)');
   });
 
   it('shows the future operations of a domain disabled (fixed assets)', async () => {
@@ -81,24 +65,24 @@ describe('AlcoTransferActions (contextual import / export)', () => {
   });
 
   it('shows no menu when the user may perform none of them', async () => {
-    expect(await items('partners', ['partners.read'])).toEqual([]);
+    expect(await items('assets', ['assets.read'])).toEqual([]);
   });
 
   it('hides only the operations the user may not perform', async () => {
-    const labels = (await items('partners', ['imports_exports.export', 'partners.read'])).map(
+    const labels = (await items('assets', ['imports_exports.export', 'assets.read'])).map(
       (item) => item.label,
     );
-    expect(labels).toEqual(['Exporter les tiers']);
+    expect(labels).toEqual(['Exporter les immobilisations']);
   });
 
-  it('mirrors the API V1 types exactly', () => {
+  it('the planned domains: only the reporting exports exist in the API V1', () => {
     const imports = Object.values(TRANSFER_KINDS)
       .map((kind) => kind.importType)
       .filter(Boolean);
     const exports = Object.values(TRANSFER_KINDS)
       .map((kind) => kind.exportType)
       .filter(Boolean);
-    expect(imports.sort()).toEqual(['accounting.entries', 'partners']);
-    expect(exports.sort()).toEqual(['partners', 'reporting.balance', 'reporting.ledger']);
+    expect(imports).toEqual([]);
+    expect(exports.sort()).toEqual(['reporting.balance', 'reporting.ledger']);
   });
 });

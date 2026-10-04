@@ -6,15 +6,18 @@ backend Django est terminé et en production (`https://api.alcoconsulting.tech`,
 
 **État actuel : phase UX/UI 0 (design system, App Launcher de 6 applications, coquille des
 modules), Module 0 (socle technique), Module 1 (authentification), Module 2 (société active
-et App Launcher réels), Module 3 (Tiers) et Module 4 (socle de la Comptabilité : tableau
-de bord, journaux, plan comptable, exercices et périodes) livrés.**
+et App Launcher réels), Module 3 (Tiers), Module 4 (socle de la Comptabilité : tableau
+de bord, journaux, plan comptable, exercices et périodes) et Module 5 (Écritures comptables)
+livrés.**
 Le socle parle à l'API Django : environnements, `ApiClient`, intercepteurs (session, CSRF,
 `X-Company-ID`, erreurs, chargement), gardes. Connexion et déconnexion réelles ; utilisateur,
 sociétés accessibles, société active, permissions et lanceur viennent de l'API (plus de
 session simulée). L'application Tiers est réelle (liste, recherche, filtres, fiche,
 création, modification, désactivation, import et export contextuels). Comptabilité : tableau
-de bord, journaux, plan comptable, exercices et périodes sont réels ; les Écritures restent
-l'écran de démonstration du prototype (bandeau « Écran de démonstration »).
+de bord, journaux, plan comptable, exercices et périodes sont réels, ainsi que les
+écritures (liste, fiche, saisie des lignes, workflow par les commandes du serveur,
+contrepassation, pièces, historique, import). Les autres domaines de Comptabilité restent des
+écrans prévus.
 Architecture technique : `../docs/frontend/technical-architecture.md`. Prochaine étape : les
 modules métier un par un (chacun remplace ses écrans de démonstration).
 
@@ -57,14 +60,17 @@ src/app/
                 catalogue des applications, de leurs menus et de leurs sections ;
                 NavigationService = une seule règle de visibilité permissions + domaines
                 utilisés par la société ; gardes appAccess/screenAccess ; fil d'Ariane et
-                titre d'onglet) · session (SessionStore : utilisateur, sociétés, société
-                active, permissions, features) · errors (code API → message humain) ·
-                notifications
-  shared/       ui · forms · filters · tables · pipes · utils — composants de présentation
+                titre d'onglet ; UnsavedChangesService + unsavedChangesGuard) · session
+                (SessionStore : utilisateur, sociétés, société active, permissions, features) ·
+                errors (code API → message humain) · notifications
+  shared/       ui · forms (dont AlcoAutocomplete : recherche serveur) · filters · tables ·
+                pipes · utils — composants de présentation
   features/     launcher · auth (écran de connexion) · company-choice (`/societe`) ·
                 partners (Tiers : data-access, pages, présentation, routes) · accounting
-                (socle comptable : data-access, dashboard, journals, accounts, periods) · transfers
-                (import/export contextuels, sans route propre) · design-system · prototype
+                (socle comptable : data-access, dashboard, journals, accounts, periods ;
+                entries : écritures, Module 5) · documents et audit (data-access seulement) ·
+                transfers (import/export contextuels, sans route propre) · design-system ·
+                prototype
   app.routes.ts `/` → `/app` (lanceur, zone authentifiée dans AlcoCompanyScope),
                 `/app/<application>/…`, `/login`, `/societe`, `/design-system` ; une coquille
                 AlcoModuleShell par application
@@ -129,13 +135,13 @@ Sens des dépendances, vérifié par ESLint (`no-restricted-imports`) : `shared`
 
 ## Prototype (à retirer progressivement)
 
-`features/prototype/` : écrans métier de démonstration — faux serveur en mémoire
-(`PrototypeAccountingApi`, latence simulée, codes d'erreur réels du backend, **une série de
-données par société active**, comme `X-Company-ID`), données fictives marquées « (démo) »,
-écrans non construits (`NotInPrototypePage`), liste des tiers (`partners/`), import/export
-contextuels (`transfers/` : types calqués sur l'API V1). Les écrans à données fictives portent
-`data: { demo: true }` : le bandeau « Écran de démonstration » (`prototype-banner.ts`, affiché
-par `app.ts`) n'apparaît que sur eux. Branché dans `app.routes.ts` (`APPLICATION_ROUTES`).
+`features/prototype/` : ce qui reste du prototype — écrans non construits
+(`NotInPrototypePage`, routes générées depuis le catalogue) et leur « Actions ▾ »
+import/export (`transfers/` : domaines encore prévus, opération absente de l'API désactivée
+avec sa raison). Les écritures fictives, `PrototypeAccountingApi` et l'import simulé sont
+supprimés (Module 5). Un écran à données fictives porterait `data: { demo: true }` : le
+bandeau « Écran de démonstration » (`prototype-banner.ts`, affiché par `app.ts`)
+n'apparaîtrait que sur lui. Branché dans `app.routes.ts` (`APPLICATION_ROUTES`).
 Plus de session, de profil ni de société simulés (Module 2) : tout le contexte vient de l'API.
 Quand un module métier arrive : il remplace ses routes de prototype et ses données, puis on
 supprime ce qui ne sert plus.
@@ -157,9 +163,10 @@ supprime ce qui ne sert plus.
   Paramètres) ; Comptabilité porte Tiers (suivi comptable), Trésorerie en liens directs, puis
   Immobilisations, Emprunts, Taxes, Analytique, Audit, Clôture sous « Plus ▾ ». L'application
   Tiers gère les fiches ; Comptabilité › Tiers suit soldes, échéances, lettrage.
-- Opérations d'import/export absentes de l'API V1 (export des écritures, immobilisations,
-  opérations de trésorerie) : affichées désactivées avec leur raison — **à valider** (les
-  masquer ou les ajouter au backend).
+- Opérations d'import/export absentes de l'API V1 : masquées sur les domaines réels (pas
+  d'« Exporter les écritures »), affichées désactivées avec leur raison sur les écrans encore
+  prévus (immobilisations, opérations de trésorerie) — **à valider** (tout masquer ou les
+  ajouter au backend).
 - Navigation compacte tablette par CSS (trois gabarits rendus, un seul visible), sans mesure
   JavaScript de la largeur.
 - **Session Django uniquement** (cookie HttpOnly), `SessionService` : un seul appel
@@ -190,8 +197,22 @@ supprime ce qui ne sert plus.
   par code et résolu par `?code=` ; classe saisie, jamais déduite.
 - **Import/export réels** : `features/transfers` (API `imports-exports/`, écran d'import par
   étapes, « Actions ▾ » `AlcoDomainTransfers`). Un domaine décrit les siens
-  (`ContextualTransfer`) ; aucun écran générique. L'import des écritures reste celui du
-  prototype jusqu'au module Comptabilité.
+  (`ContextualTransfer`) ; aucun écran générique. Écritures : import `accounting.entries`
+  (`ENTRY_TRANSFER`), pas d'export (absent de l'API V1).
+- **Écritures (Module 5)** : `features/accounting/entries` sur `accounting/entries/`. Liste =
+  filtres de l'API seulement (aucune recherche texte dans l'API → pas de barre de recherche ;
+  compte et tiers filtrés par code dans l'URL, trouvés par le serveur), 25 par page, pas de
+  regroupement. Workflow = commandes `submit`/`reject`/`validate`/`lock`/`reverse` (jamais
+  `PATCH status`), actions selon l'état, les permissions et `accounting/settings/`
+  (`submission_required`), confirmées ; `accounting_invalid_transition` recharge la fiche.
+  Modification d'un brouillon manuel non contrepassé : champs changés, lignes complètes avec
+  un changement de ligne, journal, date, devise ou arrondi ; lignes à répartition analytique
+  non modifiables ici. Totaux et écart = aide d'affichage (`shared/utils/decimal`), montants
+  à la précision de la devise (`decimal_places`, zéros finaux retirés, jamais d'arrondi).
+  Pièces = Documents (`accounting.entry`), historique = Audit (`accounting.journalentry`).
+- **Modifications non enregistrées** : `UnsavedChangesService.track(() => form.dirty)` dans
+  chaque formulaire, `unsavedChangesGuard` sur ses routes ; `switchTo` demande aussi ; une
+  sauvegarde réussie appelle `markAsPristine()` avant de naviguer.
 - **Paramètres** n'a pas de permission propre : visible dès qu'un de ses écrans l'est
   (`companies.read`, `users.read`, `companies.manage_members`, `currencies.read`).
 - **CSRF** : l'intercepteur intégré d'Angular est remplacé (`withNoXsrfProtection`) par
@@ -223,8 +244,11 @@ supprime ce qui ne sert plus.
 - Exercice dans la barre supérieure et le lanceur (aujourd'hui sur le tableau de bord
   comptable seulement).
 - Comptabilité : créer, clôturer, rouvrir exercices et périodes (`manage_periods`, avec la
-  clôture) ; « Paramètres comptables » (`accounting/settings/`) ; Écritures réelles (module
-  suivant).
+  clôture) ; « Paramètres comptables » (`accounting/settings/`, lu par les écritures).
+- Écritures : noms des comptes et tiers dans les lignes de la fiche (l'API ne donne que le
+  code) ; saisie de la répartition analytique (module Analytique) ; remplacement et
+  suppression d'une pièce (`documents/{id}/replace|delete`) ; export des écritures (absent de
+  l'API V1).
 - Tiers : écran « Conditions de paiement » (API complète : liste, création, modification,
   désactivation) ; rapport d'import paginé au-delà de 50 lignes refusées ; export asynchrone
   pour les gros volumes.
@@ -233,8 +257,6 @@ supprime ce qui ne sert plus.
 - Actions GitHub `checkout`/`setup-node` v4 → v5 (Node 20 déprécié) ; `ubuntu-latest` passe
   à Ubuntu 26 le 19/10/2026.
 - `AlcoDrawer` (non construit, pas d'usage) ; mode sombre (tokens prêts à être redéfinis).
-- Garde « modifications non enregistrées » sur les formulaires (aussi avant un changement de
-  société : aujourd'hui, un formulaire en cours est abandonné sans question).
 - Regroupement côté serveur (le prototype regroupe la page courante) et sous-totaux fournis
   par l'API.
 - Graphiques du tableau de bord (charger la compétence dataviz avant d'en dessiner).

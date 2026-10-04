@@ -4,6 +4,7 @@ import {
   normalizeDecimalInput,
   subtractDecimals,
   sumDecimals,
+  trimDecimalZeros,
 } from './decimal';
 
 const NNBSP = ' ';
@@ -62,5 +63,14 @@ describe('decimal helpers', () => {
       expect(subtractDecimals('1150000', '1180000')).toBe('-30000');
       expect(isZeroDecimal(subtractDecimals('10.50', '10.5'))).toBe(true);
     });
+  });
+});
+
+describe('trimDecimalZeros (display of the API’s 6 decimals)', () => {
+  it('drops trailing zeros beyond the precision kept, never a significant digit', () => {
+    expect(trimDecimalZeros('1250000.500000', 2)).toBe('1250000.50');
+    expect(trimDecimalZeros('1250000.000000', 0)).toBe('1250000');
+    expect(trimDecimalZeros('0.000100', 2)).toBe('0.0001');
+    expect(trimDecimalZeros('15', 2)).toBe('15');
   });
 });

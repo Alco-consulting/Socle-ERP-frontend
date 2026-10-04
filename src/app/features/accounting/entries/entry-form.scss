@@ -1,0 +1,117 @@
+/* The entry form: the sheet of accounting-sheet.scss, with a line grid that adapts. */
+@use 'breakpoints' as bp;
+
+:host {
+  max-width: none;
+}
+
+.note {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.lines {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.line {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  min-width: 0;
+  margin: 0;
+  padding: var(--space-3) var(--space-4) var(--space-2);
+  border: var(--border-width) solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface-muted);
+}
+
+.line-title {
+  padding: 0 var(--space-1);
+  color: var(--color-text-muted);
+  font-size: var(--font-size-caption);
+  font-weight: var(--font-weight-semibold);
+}
+
+// Desktop: account and label wide, the amounts narrow; details on a second row.
+.line-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 2fr) minmax(0, 2fr) minmax(0, 1fr) minmax(0, 1fr);
+  gap: var(--space-2) var(--space-3);
+
+  .partner {
+    grid-column: span 2;
+  }
+
+  @include bp.below-laptop {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  // Phone: one column.
+  @include bp.below-tablet {
+    grid-template-columns: 1fr;
+
+    .partner {
+      grid-column: auto;
+    }
+  }
+}
+
+.remove {
+  align-self: flex-end;
+}
+
+.lines-footer {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+
+.totals {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2) var(--space-6);
+  margin: 0 0 0 auto;
+
+  div {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+  }
+
+  dt {
+    color: var(--color-text-muted);
+    font-size: var(--font-size-caption);
+  }
+
+  dd {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-1);
+    margin: 0;
+    font-weight: var(--font-weight-semibold);
+    font-variant-numeric: tabular-nums;
+  }
+
+  @include bp.below-tablet {
+    width: 100%;
+    margin: 0;
+
+    div {
+      align-items: flex-start;
+    }
+  }
+}
+
+.gap dd {
+  color: var(--color-warning-text);
+}
+
+.gap--ok dd {
+  color: var(--color-success-text);
+}

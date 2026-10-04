@@ -7,15 +7,9 @@ import {
   input,
   signal,
 } from '@angular/core';
-import { NgControl, ValidationErrors } from '@angular/forms';
+import { NgControl } from '@angular/forms';
 
-import { ALCO_FORM_FIELD } from './form-field-token';
-
-export interface ControlState {
-  readonly invalid: boolean;
-  readonly touched: boolean;
-  readonly errors: ValidationErrors | null;
-}
+import { ALCO_FORM_FIELD, ControlState, FieldControl } from './form-field-token';
 
 /**
  * Styles a native control and wires it to its `<alco-form-field>`: id, label,
@@ -35,7 +29,7 @@ export interface ControlState {
     '[attr.aria-required]': 'field?.required() ? "true" : null',
   },
 })
-export class AlcoInput implements AfterContentInit {
+export class AlcoInput implements AfterContentInit, FieldControl {
   protected readonly field = inject(ALCO_FORM_FIELD, { optional: true });
   private readonly ngControl = inject(NgControl, { optional: true, self: true });
   private readonly destroyRef = inject(DestroyRef);

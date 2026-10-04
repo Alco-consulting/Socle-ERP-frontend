@@ -1,8 +1,7 @@
 import { ChangeDetectionStrategy, Component, computed, input, signal } from '@angular/core';
 
 import { AlcoIcon } from '../ui/icon/icon';
-import { ALCO_FORM_FIELD, FormFieldHost } from './form-field-token';
-import { AlcoInput } from './input';
+import { ALCO_FORM_FIELD, FieldControl, FormFieldHost } from './form-field-token';
 import { validationMessage } from './validation-messages';
 
 /**
@@ -50,7 +49,7 @@ export class AlcoFormField implements FormFieldHost {
   readonly error = input<string | null>(null);
 
   readonly controlId = `alco-field-${AlcoFormField.nextId++}`;
-  private readonly control = signal<AlcoInput | null>(null);
+  private readonly control = signal<FieldControl | null>(null);
 
   protected readonly errorText = computed(() => {
     const explicit = this.error();
@@ -69,7 +68,7 @@ export class AlcoFormField implements FormFieldHost {
     return ids.length > 0 ? ids.join(' ') : null;
   });
 
-  registerControl(control: AlcoInput): void {
+  registerControl(control: FieldControl): void {
     this.control.set(control);
   }
 }

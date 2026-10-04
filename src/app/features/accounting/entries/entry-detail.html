@@ -1,0 +1,215 @@
+@if (loadError(); as failure) {
+  <alco-error-state
+    [title]="failure.title"
+    [message]="failure.message"
+    [code]="failure.code"
+    [correlationId]="failure.correlationId ?? ''"
+  />
+  <div class="center">
+    <a alcoButton icon="arrow-left" routerLink="..">Retour aux écritures</a>
+  </div>
+} @else if (entry(); as entry) {
+  <alco-page-header [title]="title()" [subtitle]="entry.description">
+    <div alcoPageStatus>
+      @if (status(); as badge) {
+        <alco-badge [tone]="badge.tone" [icon]="badge.icon">{{ badge.label }}</alco-badge>
+      }
+    </div>
+    <div alcoPageActions>
+      @if (menu().length > 0) {
+        <alco-dropdown align="end" [items]="menu()" (selected)="onMenu($event)">
+          Actions
+        </alco-dropdown>
+      }
+      @if (primary(); as action) {
+        <button
+          alcoButton
+          type="button"
+          variant="primary"
+          [icon]="action.icon"
+          [loading]="busy() === action.id"
+          loadingLabel="En cours…"
+          [disabled]="busy() !== null"
+          (click)="run(action.id)"
+        >
+          {{ action.label }}
+        </button>
+      }
+    </div>
+  </alco-page-header>
+
+  <div class="sheet-top">
+    <alco-workflow-steps [steps]="workflow" [current]="entry.status" label="État de l’écriture" />
+    @if (readOnlyReason(); as reason) {
+      <p class="note-line"><alco-icon name="lock" [size]="16" /> {{ reason }}</p>
+    }
+  </div>
+
+  @if (actionError(); as failure) {
+    <alco-error-state
+      [inline]="true"
+      [title]="failure.title"
+      [message]="failure.message"
+      [help]="failure.help ?? ''"
+      [code]="failure.code"
+      [correlationId]="failure.correlationId ?? ''"
+    />
+  }
+
+  <div class="sheet">
+    <section class="section" aria-labelledby="general-title">
+      <h2 id="general-title" class="alco-section-title">Informations générales</h2>
+      <dl class="facts">
+        <div>
+          <dt>Numéro</dt>
+          <dd>{{ entry.entry_number || 'Attribué à la validation' }}</dd>
+        </div>
+        <div>
+          <dt>Journal</dt>
+          <dd class="mono">{{ entry.journal.code }}</dd>
+        </div>
+        <div>
+          <dt>Date</dt>
+          <dd>{{ day(entry.entry_date) }}</dd>
+        </div>
+        <div>
+          <dt>Exercice · période</dt>
+          <dd>{{ entry.fiscal_year.code }} · {{ entry.period.code }}</dd>
+        </div>
+        <div>
+          <dt>Référence de la pièce</dt>
+          <dd>{{ entry.document_reference || '—' }}</dd>
+        </div>
+        <div>
+          <dt>Date de la pièce</dt>
+          <dd>{{ day(entry.document_date) }}</dd>
+        </div>
+        <div>
+          <dt>Devise</dt>
+          <dd>
+            {{ entry.currency }}
+            @if (foreignCurrency()) {
+              <span class="alco-caption">
+                · 1 {{ entry.currency }} = {{ entry.exchange_rate }}
+                {{ entry.reference_currency }} (taux du serveur)
+              </span>
+            }
+          </dd>
+        </div>
+        @if (roundingLabel(); as rounding) {
+          <div>
+            <dt>Arrondi</dt>
+            <dd>{{ rounding }}</dd>
+          </div>
+        }
+        <div>
+          <dt>Type</dt>
+          <dd>
+            {{ kindLabel() }}
+            @if (entry.origin === 'system') {
+              <span class="alco-caption">· générée par l’application</span>
+            }
+          </dd>
+        </div>
+        @if (entry.related_entry; as related) {
+          <div>
+            <dt>{{ entry.kind === 'reversal' ? 'Contrepasse' : 'Corrige' }}</dt>
+            <dd><a [routerLink]="['..', related]">L’écriture d’origine</a></dd>
+          </div>
+        }
+        @if (entry.reason) {
+          <div class="wide">
+            <dt>Motif</dt>
+            <dd>{{ entry.reason }}</dd>
+          </div>
+        }
+      </dl>
+    </section>
+
+    <section class="section" aria-labelledby="lines-title">
+      <h2 id="lines-title" class="alco-section-title">Lignes comptables</h2>
+      <alco-table
+        caption="Lignes de l’écriture"
+        [columns]="columns()"
+        [rows]="entry.lines"
+        [rowId]="lineId"
+        [rowLabel]="lineLabel"
+        [totals]="totals()"
+        totalsLabel="Totaux"
+      >
+        <ng-template alcoCell="account" let-line>
+          <span class="mono">{{ line.account.code }}</span>
+        </ng-template>
+        <ng-template alcoCell="label" let-line>
+          {{ line.label || '—' }}
+          @if (line.analytic_allocation) {
+            <span class="alco-sr-only"> — </span>
+            <span class="tag">Répartition analytique</span>
+          }
+        </ng-template>
+        <ng-template alcoCell="partner" let-line>{{ line.partner?.code ?? '—' }}</ng-template>
+        <ng-template alcoCell="tax" let-line>
+          @if (line.tax; as tax) {
+            {{ tax.code }}
+            @if (line.tax_base_amount) {
+              <span class="alco-caption">
+                · base {{ line.tax_base_amount | alcoAmount: decimals() }}
+              </span>
+            }
+          } @else {
+            —
+          }
+        </ng-template>
+        <ng-template alcoCell="debit" let-line>
+          {{ lineSide(line, 'debit') | alcoAmount: decimals() }}
+        </ng-template>
+        <ng-template alcoCell="credit" let-line>
+          {{ lineSide(line, 'credit') | alcoAmount: decimals() }}
+        </ng-template>
+        <ng-template alcoCell="reference_debit" let-line>
+          {{ lineSide(line, 'reference_debit') | alcoAmount: referenceDecimals() }}
+        </ng-template>
+        <ng-template alcoCell="reference_credit" let-line>
+          {{ lineSide(line, 'reference_credit') | alcoAmount: referenceDecimals() }}
+        </ng-template>
+      </alco-table>
+      @if (gap(); as difference) {
+        <p class="balance">
+          <alco-icon name="alert-triangle" [size]="16" />
+          Écart de {{ difference | alcoAmount: decimals() }} {{ entry.currency }} entre débit et
+          crédit : la validation sera refusée par le serveur tant qu’il demeure.
+        </p>
+      }
+      <p class="alco-caption">
+        Totaux affichés pour la lecture. Le contrôle qui fait foi est celui du serveur.
+      </p>
+    </section>
+
+    @if (canSeeDocuments()) {
+      <section class="section" aria-labelledby="documents-title">
+        <alco-entry-documents [entryId]="entry.public_id" [editable]="entry.status === 'draft'" />
+      </section>
+    }
+
+    @if (canSeeHistory()) {
+      <section class="section" aria-labelledby="history-title">
+        <alco-entry-history [entryId]="entry.public_id" />
+      </section>
+    }
+
+    <p class="dates alco-caption">
+      Créée le {{ entry.created_at | date: 'dd/MM/yyyy à HH:mm' }}
+      @if (entry.submitted_at) {
+        · soumise le {{ entry.submitted_at | date: 'dd/MM/yyyy à HH:mm' }}
+      }
+      @if (entry.validated_at) {
+        · validée le {{ entry.validated_at | date: 'dd/MM/yyyy à HH:mm' }}
+      }
+      @if (entry.locked_at) {
+        · verrouillée le {{ entry.locked_at | date: 'dd/MM/yyyy à HH:mm' }}
+      }
+    </p>
+  </div>
+} @else {
+  <alco-loading [rows]="8" label="Chargement de l’écriture…" />
+}

@@ -4,7 +4,6 @@ const SCREENS = [
   { name: 'App Launcher', url: '/' },
   { name: 'Tableau de bord', url: '/app/comptabilite/tableau-de-bord' },
   { name: 'Liste', url: '/app/comptabilite/ecritures' },
-  { name: 'Formulaire', url: '/app/comptabilite/ecritures/proto-050' },
   { name: 'Nouvelle écriture', url: '/app/comptabilite/ecritures/nouvelle' },
   { name: 'Trésorerie (domaine de Comptabilité)', url: '/app/comptabilite/tresorerie/operations' },
   { name: 'Import d’écritures', url: '/app/comptabilite/ecritures/import' },

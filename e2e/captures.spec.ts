@@ -1,5 +1,6 @@
 import { Page } from '@playwright/test';
 
+import { createEntry, fillEntry } from './support/entries';
 import { COMPANY_A, COMPANY_B, COMPANY_C, PROFILES, expect, test } from './support/fake-api';
 
 /**
@@ -20,7 +21,7 @@ async function shoot(page: Page, name: string, fullPage = false): Promise<void> 
   await page.screenshot({ path: `${OUT}/${name}.png`, fullPage });
 }
 
-test('desktop 1440 × 900', async ({ page }) => {
+test('desktop 1440 × 900', async ({ page, api }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.goto('/');
   await shoot(page, '01-app-launcher');
@@ -42,25 +43,37 @@ test('desktop 1440 × 900', async ({ page }) => {
     .selectOption({ label: 'Brouillon' });
   await shoot(page, '05-search-filters-panel');
   await page.getByRole('button', { name: 'Appliquer' }).click();
-  await page.getByRole('button', { name: 'Regrouper' }).click();
-  await page.getByRole('menuitemradio', { name: 'Journal' }).click();
+  await page.goto('/app/comptabilite/plan-comptable?groupe=classe');
   await shoot(page, '06-search-facets-grouped');
 
-  await page.goto('/app/comptabilite/ecritures?q=introuvable');
+  await page.goto('/app/comptabilite/ecritures?compte=999');
   await shoot(page, '07-state-empty');
 
-  await page.goto('/app/comptabilite/ecritures/proto-050');
+  const draft = api.entries.entries('A').find((item) => item.status === 'draft');
+  await page.goto(`/app/comptabilite/ecritures/${draft?.public_id}`);
   await shoot(page, '08-form-draft', true);
 
-  await page.getByRole('button', { name: 'Valider', exact: true }).click();
+  await page.locator('alco-page-header').getByRole('button', { name: 'Soumettre' }).click();
   await expect(page.getByRole('alertdialog')).toBeVisible();
   await shoot(page, '09-state-confirmation');
-  await page.getByRole('button', { name: 'Valider l’écriture' }).click();
-  await page.getByRole('button', { name: 'Comprendre l’erreur' }).click();
-  await shoot(page, '10-state-error');
+  await page.keyboard.press('Escape');
 
-  await page.goto('/app/comptabilite/ecritures/proto-020');
-  await shoot(page, '11-form-validated');
+  await page.goto('/app/comptabilite/ecritures/nouvelle');
+  await fillEntry(page, {
+    date: '2026-02-10',
+    description: 'Achat de février',
+    lines: [
+      ['601', 'Débit', '1000'],
+      ['401', 'Crédit', '1000'],
+    ],
+  });
+  await page.getByRole('button', { name: 'Enregistrer' }).click();
+  await expect(page.getByText('La période de cette date est clôturée.').first()).toBeVisible();
+  await shoot(page, '10-state-error', true);
+
+  const validated = api.entries.entries('A').find((item) => item.status === 'validated');
+  await page.goto(`/app/comptabilite/ecritures/${validated?.public_id}`);
+  await shoot(page, '11-form-validated', true);
 
   await page.goto('/app/comptabilite/ecritures/nouvelle');
   await page.getByRole('button', { name: 'Enregistrer' }).click();
@@ -69,7 +82,7 @@ test('desktop 1440 × 900', async ({ page }) => {
   await page.goto('/design-system');
   await shoot(page, '13-design-system-catalog', true);
 
-  await page.goto('/app/comptabilite/journaux');
+  await page.goto('/app/comptabilite/immobilisations/actifs');
   await shoot(page, '14-screen-not-in-prototype');
 });
 
@@ -186,7 +199,7 @@ test('tablet 820 × 1180', async ({ page }) => {
   await shoot(page, '21-tablet-dashboard');
   await page.goto('/app/comptabilite/ecritures');
   await shoot(page, '22-tablet-list');
-  await page.goto('/app/comptabilite/ecritures/proto-050');
+  await page.goto('/app/comptabilite/ecritures/nouvelle');
   await shoot(page, '23-tablet-form', true);
   await page.goto('/app/comptabilite/tresorerie/operations');
   await moduleNav(page).getByRole('button', { name: 'Plus' }).click();
@@ -204,7 +217,7 @@ test('phone 390 × 844', async ({ page }) => {
   await page.keyboard.press('Escape');
   await page.goto('/app/comptabilite/ecritures');
   await shoot(page, '33-phone-list');
-  await page.goto('/app/comptabilite/ecritures/proto-050');
+  await page.goto('/app/comptabilite/ecritures/nouvelle');
   await shoot(page, '34-phone-form', true);
 });
 
@@ -253,4 +266,54 @@ test('comptabilité: dashboard, journals, chart of accounts, fiscal years', asyn
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto('/app/comptabilite/tableau-de-bord');
   await shoot(page, '86-phone-accounting-dashboard', true);
+});
+
+test('écritures: list, form, record, workflow, reversal, unsaved changes', async ({
+  page,
+  api,
+}) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto('/app/comptabilite/ecritures');
+  await shoot(page, '90-entries-list');
+  await page.goto('/app/comptabilite/ecritures/nouvelle');
+  await fillEntry(page, {
+    date: '2026-06-28',
+    description: 'Achat de fournitures de bureau',
+    lines: [
+      ['601', 'Débit', '1 150 000'],
+      ['401', 'Crédit', '1 000 000'],
+    ],
+  });
+  await shoot(page, '91-entries-form-lines', true);
+  await page.locator('[data-line="1"]').getByRole('textbox', { name: 'Crédit' }).fill('1150000');
+  await page.getByRole('button', { name: 'Enregistrer' }).click();
+  await expect(page.getByText('Écriture créée.')).toBeVisible();
+  await shoot(page, '92-entries-record-draft', true);
+  await page.locator('alco-page-header').getByRole('button', { name: 'Actions' }).click();
+  await page.getByRole('menuitem', { name: 'Modifier' }).click();
+  await page.getByRole('textbox', { name: 'Libellé', exact: true }).fill('Libellé changé');
+  await page.getByRole('button', { name: 'Annuler' }).click();
+  await expect(page.getByRole('alertdialog')).toBeVisible();
+  await shoot(page, '93-entries-unsaved-changes');
+  await page.getByRole('button', { name: 'Quitter' }).click();
+
+  const validated = api.entries.entries('A').find((item) => item.status === 'validated');
+  await page.goto(`/app/comptabilite/ecritures/${validated?.public_id}`);
+  await page.locator('alco-page-header').getByRole('button', { name: 'Contrepasser' }).click();
+  await expect(page.getByRole('dialog')).toBeVisible();
+  await shoot(page, '94-entries-reverse-dialog');
+  await page.keyboard.press('Escape');
+
+  await page.setViewportSize({ width: 390, height: 844 });
+  await createEntry(page, {
+    date: '2026-06-27',
+    description: 'Achat (téléphone)',
+    lines: [
+      ['601', 'Débit', '5000'],
+      ['401', 'Crédit', '5000'],
+    ],
+  });
+  await shoot(page, '95-phone-entries-record', true);
+  await page.goto('/app/comptabilite/ecritures/nouvelle');
+  await shoot(page, '96-phone-entries-form', true);
 });

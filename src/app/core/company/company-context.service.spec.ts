@@ -1,9 +1,11 @@
 import { TestBed } from '@angular/core/testing';
 import { Router } from '@angular/router';
 
+import { AlcoConfirmService } from '../../shared/ui/confirm-dialog/confirm-dialog';
 import { AlcoToastService } from '../../shared/ui/toast/toast.service';
 import { AuthFailures } from '../http/auth-failures';
 import { envelope, httpMock, provideHttpTesting, setCookie, clearCookie } from '../http/testing';
+import { UNSAVED_CHANGES_QUESTION, UnsavedChangesService } from '../navigation/unsaved-changes';
 import { NotificationCenter } from '../notifications/notification-center';
 import { SessionStore } from '../session/session.store';
 import { CompanySummaryDto } from './company-api';
@@ -241,6 +243,26 @@ describe('CompanyContextService (X-Company-ID, company context)', () => {
       expect(messages()).toEqual([]);
       expect(store.activity()).toBeNull();
       expect(navigate).not.toHaveBeenCalled();
+    });
+
+    it('a form with unsaved changes: asked first; « Continuer l’édition » keeps everything', async () => {
+      await openInA();
+      const unsaved = TestBed.inject(UnsavedChangesService);
+      TestBed.runInInjectionContext(() => unsaved.track(() => true));
+      const ask = vi.spyOn(TestBed.inject(AlcoConfirmService), 'confirm');
+
+      ask.mockResolvedValueOnce(false);
+      await service.switchTo(B.public_id);
+      expect(ask).toHaveBeenCalledWith(UNSAVED_CHANGES_QUESTION);
+      httpMock().expectNone('/api/v1/company-context/');
+      expect(service.companyId()).toBe(A.public_id);
+
+      ask.mockResolvedValueOnce(true);
+      const done = service.switchTo(B.public_id);
+      await settle();
+      contextCall().flush(context(B, []));
+      await done;
+      expect(service.companyId()).toBe(B.public_id);
     });
 
     it('the active company again, or a switch already running: nothing', async () => {

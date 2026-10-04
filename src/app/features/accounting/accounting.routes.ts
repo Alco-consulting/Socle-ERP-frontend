@@ -1,6 +1,7 @@
 import { Route, Routes } from '@angular/router';
 
 import { permissionGuard } from '../../core/navigation/app-access.guard';
+import { unsavedChangesGuard } from '../../core/navigation/unsaved-changes';
 
 const dashboard = () =>
   import('./dashboard/accounting-dashboard').then((m) => m.AccountingDashboardPage);
@@ -28,6 +29,7 @@ function referential(
         path: 'nouveau',
         data: { breadcrumb: newLabel },
         canActivate: [permissionGuard(permission)],
+        canDeactivate: [unsavedChangesGuard],
         loadComponent: screens.form,
       },
       {
@@ -40,6 +42,7 @@ function referential(
             path: 'modifier',
             data: { breadcrumb: 'Modifier' },
             canActivate: [permissionGuard(permission)],
+            canDeactivate: [unsavedChangesGuard],
             loadComponent: screens.form,
           },
         ],
@@ -49,12 +52,17 @@ function referential(
 }
 
 /**
- * Comptabilité on the API (Module 4, the accounting base): dashboard, journals, chart of
- * accounts, fiscal years and periods. Entries, treasury and the other domains are still
- * screens of the prototype or planned screens.
+ * Comptabilité on the API: dashboard, entries (Module 5), journals, chart of accounts,
+ * fiscal years and periods (Module 4). Treasury and the other domains are still screens of
+ * the prototype or planned screens.
  */
 export const ACCOUNTING_ROUTES: Routes = [
   { path: 'tableau-de-bord', data: { breadcrumb: 'Tableau de bord' }, loadComponent: dashboard },
+  {
+    path: 'ecritures',
+    data: { breadcrumb: 'Écritures' },
+    loadChildren: () => import('./entries/entry.routes').then((m) => m.ENTRY_ROUTES),
+  },
   referential('journaux', 'Journaux', 'Nouveau journal', 'Journal', 'accounting.manage_journals', {
     list: () => import('./journals/journal-list').then((m) => m.JournalListPage),
     detail: () => import('./journals/journal-detail').then((m) => m.JournalDetailPage),

@@ -16,6 +16,7 @@ import { serverFieldErrors } from '../../../../core/errors/field-errors';
 import { UserError, toUserError } from '../../../../core/errors/user-error';
 import { ApiError, toApiError } from '../../../../core/http/api-error';
 import { BreadcrumbService } from '../../../../core/navigation/route-trail';
+import { UnsavedChangesService } from '../../../../core/navigation/unsaved-changes';
 import { AlcoFormField } from '../../../../shared/forms/form-field';
 import { AlcoInput } from '../../../../shared/forms/input';
 import { inputFormat } from '../../../../shared/forms/validators';
@@ -161,6 +162,7 @@ export class PartnerFormPage {
   }
 
   constructor() {
+    inject(UnsavedChangesService).track(() => this.form.dirty);
     this.api
       .currencies()
       .pipe(

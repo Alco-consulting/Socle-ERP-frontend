@@ -1,0 +1,31 @@
+@use 'breakpoints' as bp;
+
+.pair {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-3);
+
+  @include bp.below-tablet {
+    grid-template-columns: 1fr;
+  }
+}
+
+.unnumbered,
+.currency {
+  color: var(--color-text-muted);
+  font-weight: var(--font-weight-regular);
+}
+
+.currency {
+  font-size: var(--font-size-caption);
+}
+
+.description {
+  overflow-wrap: anywhere;
+}
+
+.kind {
+  display: block;
+  color: var(--color-text-muted);
+  font-size: var(--font-size-caption);
+}

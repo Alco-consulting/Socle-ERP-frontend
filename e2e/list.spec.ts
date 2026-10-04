@@ -1,80 +1,61 @@
 import { expect, test } from './support/fake-api';
 
-test.describe('Vue liste : recherche, filtres, regroupement, favoris, pagination', () => {
-  test.beforeEach(async ({ page }) => {
+/** The list view of the design system, on real screens of the API (fake server). */
+test.describe('Vue liste : filtres, regroupement, recherche, état dans l’URL', () => {
+  test('the filter panel: counted criteria, reset, Escape returns the focus', async ({ page }) => {
     await page.goto('/app/comptabilite/ecritures');
     await expect(page.getByRole('table')).toBeVisible();
-  });
-
-  test('filters from the panel, shown as a removable criterion and kept in the URL', async ({
-    page,
-  }) => {
-    await page.getByRole('button', { name: 'Filtres' }).click();
-    const panel = page.getByRole('dialog', { name: 'Filtres' });
-    await panel.getByLabel('État').selectOption({ label: 'Brouillon' });
-    await panel.getByRole('button', { name: 'Appliquer' }).click();
-
-    await expect(page).toHaveURL(/etat=draft/);
-    await expect(page.getByRole('button', { name: 'Filtres (1)' })).toBeFocused();
-    const rows = page.locator('tbody tr');
-    await expect(rows.first()).toContainText('Brouillon');
-    await expect(page.locator('tbody').getByText('Validée')).toHaveCount(0);
-
-    await page.getByRole('button', { name: 'Retirer le critère État : Brouillon' }).click();
-    await expect(page).not.toHaveURL(/etat=/);
-  });
-
-  test('Escape closes the filter panel and returns the focus', async ({ page }) => {
     const trigger = page.getByRole('button', { name: 'Filtres' });
     await trigger.click();
-    await expect(page.getByRole('dialog', { name: 'Filtres' })).toBeVisible();
+    const panel = page.getByRole('dialog', { name: 'Filtres' });
+    await panel.getByLabel('État').selectOption({ label: 'Brouillon' });
+    await panel.getByLabel('Du').fill('2026-03-01');
+    await panel.getByRole('button', { name: 'Appliquer' }).click();
+    await expect(page).toHaveURL(/etat=draft/);
+    await expect(page).toHaveURL(/du=2026-03-01/);
+    await expect(page.getByRole('button', { name: 'Filtres (2)' })).toBeFocused();
+    await expect(page.locator('tbody').getByText('Validée')).toHaveCount(0);
+
+    await page.getByRole('button', { name: 'Filtres (2)' }).click();
+    await expect(panel).toBeVisible();
     await page.keyboard.press('Escape');
-    await expect(page.getByRole('dialog', { name: 'Filtres' })).toBeHidden();
-    await expect(trigger).toBeFocused();
+    await expect(panel).toBeHidden();
+    await expect(page.getByRole('button', { name: 'Filtres (2)' })).toBeFocused();
+
+    await page.getByRole('button', { name: 'Filtres (2)' }).click();
+    await panel.getByRole('button', { name: 'Réinitialiser' }).click();
+    await expect(page).not.toHaveURL(/etat=|du=/);
   });
 
-  test('groups by journal with group headers and counts', async ({ page }) => {
+  test('groups by class with group headers and counts (chart of accounts)', async ({ page }) => {
+    await page.goto('/app/comptabilite/plan-comptable');
     await page.getByRole('button', { name: 'Regrouper' }).click();
-    await page.getByRole('menuitemradio', { name: 'Journal' }).click();
-    await expect(page).toHaveURL(/groupe=journal/);
-    await expect(page.getByRole('button', { name: /^ACH — Achats \(\d+\)$/ })).toBeVisible();
+    await page.getByRole('menuitemradio', { name: 'Classe' }).click();
+    await expect(page).toHaveURL(/groupe=classe/);
+    await expect(page.getByRole('button', { name: /^Classe 4 \(\d+\)$/ })).toBeVisible();
     await expect(
-      page.getByRole('button', { name: 'Retirer le critère Regroupé par : Journal' }),
+      page.getByRole('button', { name: 'Retirer le critère Regroupé par : Classe' }),
     ).toBeVisible();
   });
 
-  test('a favorite applies a saved search', async ({ page }) => {
-    await page.getByRole('button', { name: 'Favoris' }).click();
-    await page.getByRole('menuitem', { name: 'Journal de banque' }).click();
-    await expect(page).toHaveURL(/journal=BQ1/);
-    await expect(
-      page.getByRole('button', { name: 'Retirer le critère Journal : Banque principale' }),
-    ).toBeVisible();
-  });
-
-  test('search without result explains and offers to reset', async ({ page }) => {
-    await page.getByRole('searchbox', { name: 'Rechercher une écriture' }).fill('introuvable-xyz');
-    await expect(page.getByText('Aucune écriture ne correspond à ces critères.')).toBeVisible();
+  test('a search without result explains and offers to reset (Tiers)', async ({ page }) => {
+    await page.goto('/app/tiers/liste');
+    await page.getByRole('searchbox', { name: 'Rechercher un tiers' }).fill('introuvable-xyz');
+    await page.keyboard.press('Enter');
+    await expect(page.getByText('Aucun tiers ne correspond à ces critères.')).toBeVisible();
     await page.getByRole('button', { name: 'Réinitialiser les filtres' }).click();
     await expect(page.getByRole('table')).toBeVisible();
   });
 
-  test('sorts and pages on the server side', async ({ page }) => {
-    await expect(page.getByText('1–20 sur 50')).toBeVisible();
+  test('pages come from the server; back keeps the page', async ({ page }) => {
+    await page.goto('/app/comptabilite/ecritures');
+    await expect(page.getByText(/1–25\s*sur\s*48/)).toBeVisible();
     await page.getByRole('button', { name: 'Page suivante' }).click();
-    await expect(page.getByText('21–40 sur 50')).toBeVisible();
-    await page.getByRole('button', { name: /Montant/ }).click();
-    await expect(page).toHaveURL(/tri=total%3Aasc|tri=total:asc/);
-    await expect(page.getByText('1–20 sur 50')).toBeVisible();
-  });
-
-  test('selection reveals grouped actions, not fifteen buttons', async ({ page }) => {
-    await page
-      .getByRole('checkbox', { name: /^Sélectionner EC-/ })
-      .first()
-      .check();
-    await expect(page.getByText('1 sélectionnée')).toBeVisible();
-    await page.getByRole('button', { name: 'Actions sur la sélection' }).click();
-    await expect(page.getByRole('menuitem', { name: 'Valider la sélection' })).toBeVisible();
+    await expect(page.getByText(/26–48\s*sur\s*48/)).toBeVisible();
+    await page.locator('tbody a').first().click();
+    await expect(page).toHaveURL(/\/ecritures\/[\w-]+$/);
+    await page.goBack();
+    await expect(page).toHaveURL(/page=2/);
+    await expect(page.getByText(/26–48\s*sur\s*48/)).toBeVisible();
   });
 });

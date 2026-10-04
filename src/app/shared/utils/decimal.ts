@@ -30,6 +30,22 @@ export function formatDecimal(value: string, decimals: number): string {
   return fraction ? `${sign}${grouped},${fraction}` : `${sign}${grouped}`;
 }
 
+/**
+ * "1250000.500000" → "1250000.50" with `keep` = 2: removes trailing zeros of the fraction
+ * beyond `keep` digits. Exact (only zeros go), never a rounding.
+ */
+export function trimDecimalZeros(value: string, keep: number): string {
+  if (!isDecimalString(value) || !value.includes('.')) {
+    return value;
+  }
+  const [integerPart, fractionPart] = value.split('.');
+  let fraction = fractionPart;
+  while (fraction.length > keep && fraction.endsWith('0')) {
+    fraction = fraction.slice(0, -1);
+  }
+  return fraction ? `${integerPart}.${fraction}` : integerPart;
+}
+
 /** Accepts what a user types (« 1 250 000,5 », « 1250000.5 ») and returns "1250000.5", or null. */
 export function normalizeDecimalInput(input: string): string | null {
   const compact = input.replace(/[\s\u00a0\u202f]/g, '').replace(',', '.');

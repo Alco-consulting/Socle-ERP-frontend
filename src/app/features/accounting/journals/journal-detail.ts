@@ -7,10 +7,11 @@ import {
   inject,
   signal,
   untracked,
+  viewChild,
 } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, RouterLink } from '@angular/router';
-import { firstValueFrom, map } from 'rxjs';
+import { firstValueFrom, forkJoin, map } from 'rxjs';
 
 import { UserError, toUserError } from '../../../core/errors/user-error';
 import { toApiError } from '../../../core/http/api-error';
@@ -32,10 +33,14 @@ import {
 } from '../accounting-presentation';
 import { Journal } from '../data-access/accounting-models';
 import { AccountingApi } from '../data-access/accounting-api';
+import { AlcoSmartButton } from '../../../shared/ui/smart-button/smart-button';
+import { AUDIT_TYPES, AlcoObjectHistory } from '../../audit/object-history';
 
 /**
  * A journal (`GET accounting/journals/{id}/`). Actions: those of the API, allowed by
  * `accounting.manage_journals` — Modifier, Désactiver or Réactiver (the server's status).
+ * Smart buttons: its entries (all, drafts, submitted: `count` of the entry list, one
+ * request each, never computed) and its history (Audit, `audit.read`).
  */
 @Component({
   selector: 'alco-journal-detail',
@@ -48,6 +53,8 @@ import { AccountingApi } from '../data-access/accounting-api';
     AlcoErrorState,
     AlcoLoading,
     AlcoPageHeader,
+    AlcoObjectHistory,
+    AlcoSmartButton,
   ],
   templateUrl: './journal-detail.html',
   styleUrl: '../accounting-sheet.scss',
@@ -70,6 +77,24 @@ export class JournalDetailPage {
   protected readonly journal = signal<Journal | null>(null);
   protected readonly busy = signal(false);
   protected readonly actionError = signal<UserError | null>(null);
+
+  /** The entry list of this journal, by status: the server's counts. */
+  protected readonly counts = requestState(
+    () => {
+      const journal = untracked(this.id);
+      return forkJoin({
+        total: this.api.entryCount(null, { journal }),
+        draft: this.api.entryCount('draft', { journal }),
+        submitted: this.api.entryCount('submitted', { journal }),
+      });
+    },
+    { immediate: false },
+  );
+  protected readonly entriesUrl = '/app/comptabilite/ecritures';
+  protected readonly auditType = AUDIT_TYPES.journal;
+  protected readonly canSeeHistory = computed(() => this.session.can('audit.read'));
+  private readonly history = viewChild(AlcoObjectHistory);
+  protected readonly historyCount = computed(() => this.history()?.total() ?? null);
 
   protected readonly typeLabel = journalTypeLabel;
   protected readonly canManage = computed(() => this.session.can('accounting.manage_journals'));
@@ -97,6 +122,7 @@ export class JournalDetailPage {
       untracked(() => {
         this.journal.set(null);
         this.record.reload();
+        this.counts.reload();
       });
     });
     effect(() => {

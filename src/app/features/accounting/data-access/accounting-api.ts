@@ -130,10 +130,19 @@ export class AccountingApi {
 
   // ---- Counts for the dashboard (the server counts, `count` of a one-row page) ---------
 
-  entryCount(status: EntryStatus, fiscalYearId: string | null = null): Observable<number> {
+  /** Entries of a status (all without one), optionally of one journal or fiscal year. */
+  entryCount(
+    status: EntryStatus | null,
+    filter: { readonly journal?: string; readonly fiscalYear?: string } = {},
+  ): Observable<number> {
     return this.api
       .get<Paginated<unknown>>(`${base}entries/`, {
-        params: { status, fiscal_year: fiscalYearId, page_size: 1 },
+        params: {
+          status,
+          journal: filter.journal ?? null,
+          fiscal_year: filter.fiscalYear ?? null,
+          page_size: 1,
+        },
       })
       .pipe(map((page) => page.count));
   }

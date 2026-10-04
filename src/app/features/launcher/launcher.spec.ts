@@ -33,6 +33,7 @@ const REMOVED_TILES = [
   'Analytique',
   'Audit',
   'Imports / Exports',
+  'Reporting',
 ];
 
 describe('AlcoLauncher', () => {
@@ -90,7 +91,6 @@ describe('AlcoLauncher', () => {
     expect(tiles()).toEqual([
       'Comptabilité',
       'Tiers',
-      'Reporting',
       'Documents',
       'Tableau de bord',
       'Paramètres',
@@ -110,7 +110,8 @@ describe('AlcoLauncher', () => {
       'reporting.read',
       'dashboards.read',
     ]);
-    expect(tiles()).toEqual(['Comptabilité', 'Reporting', 'Tableau de bord']);
+    // Reporting is Comptabilité › Analyse: reporting.read opens no tile of its own.
+    expect(tiles()).toEqual(['Comptabilité', 'Tableau de bord']);
     const link = element.querySelector('a.tile') as HTMLAnchorElement;
     expect(link.getAttribute('href')).toBe('/app/comptabilite/tableau-de-bord');
   });
@@ -146,8 +147,8 @@ describe('AlcoLauncher', () => {
   describe('with many applications (future growth)', () => {
     const many: AlcoApplication[] = [
       ...APPLICATIONS,
-      ...['Stocks', 'Paie', 'Achats'].map((label) => ({
-        ...APPLICATIONS[3],
+      ...['Stocks', 'Paie', 'Achats', 'Ventes'].map((label) => ({
+        ...APPLICATIONS[2],
         id: label,
         label,
         path: label.toLowerCase(),

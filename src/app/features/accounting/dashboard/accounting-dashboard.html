@@ -1,35 +1,185 @@
 <alco-page-header title="Tableau de bord" [subtitle]="subtitle()" />
 
-<div class="grid grid--two">
-  <!-- Entries waiting: the server counts them -->
-  <alco-card title="Écritures" subtitle="À traiter" icon="accounting">
-    @if (entries.error(); as error) {
-      @let text = failure(error);
-      <alco-error-state
-        [inline]="true"
-        [title]="text?.title ?? ''"
-        [message]="text?.message ?? ''"
-        [code]="text?.code ?? ''"
-        retryLabel="Réessayer"
-        (retry)="entries.reload()"
-      />
-    } @else if (entries.value(); as counts) {
-      <dl class="figures">
-        <div>
-          <dt>Brouillons</dt>
-          <dd class="figure">{{ counts.draft }}</dd>
-        </div>
-        <div>
-          <dt>Soumises, à valider</dt>
-          <dd class="figure">{{ counts.submitted }}</dd>
-        </div>
-      </dl>
-      <p class="alco-caption note">Le traitement des écritures arrive avec le module Écritures.</p>
+<!-- Alerts and indicators of dashboards/alerts/, over the open fiscal year up to today -->
+<alco-card title="À surveiller" icon="alert-triangle">
+  @if (years.value() && !alertYear()) {
+    <p class="empty">
+      Aucun exercice ouvert ne couvre la date du jour : les alertes ne peuvent pas être calculées.
+    </p>
+  } @else if (alerts.error(); as error) {
+    @let text = failure(error);
+    <alco-error-state
+      [inline]="true"
+      [title]="text?.title ?? ''"
+      [message]="text?.message ?? ''"
+      [code]="text?.code ?? ''"
+      retryLabel="Réessayer"
+      (retry)="alerts.reload()"
+    />
+  } @else if (alerts.value(); as body) {
+    @if (watches().length === 0) {
+      <p class="empty">Rien à signaler.</p>
     } @else {
-      <alco-loading [rows]="2" label="Chargement des écritures à traiter…" />
+      <ul class="watches" role="list">
+        @for (watch of watches(); track watch.key) {
+          <li class="watch">
+            @if (watch.url) {
+              <a class="watch-label" [routerLink]="watch.url">{{ watch.label }}</a>
+            } @else {
+              <span class="watch-label">{{ watch.label }}</span>
+            }
+            @if (watch.detail) {
+              <span class="alco-caption">{{ watch.detail }}</span>
+            }
+            @if (watch.level; as level) {
+              <alco-badge [tone]="level.tone" [icon]="level.icon">{{ level.label }}</alco-badge>
+            }
+            @if (watch.count !== null) {
+              <span class="watch-count">{{ watch.count }}</span>
+            }
+          </li>
+        }
+      </ul>
     }
-  </alco-card>
+    <p class="alco-caption scope">
+      Du {{ body.scope.date_from | date: 'dd/MM/yyyy' }} au
+      {{ body.scope.date_to | date: 'dd/MM/yyyy' }} ({{ body.scope.fiscal_year.code }})
+    </p>
+  } @else {
+    <alco-loading [rows]="2" label="Chargement des alertes…" />
+  }
+</alco-card>
 
+<!-- One card per active journal: dashboards/journals/ -->
+<section class="journals" aria-labelledby="journals-title">
+  <h2 id="journals-title" class="alco-section-title">Journaux</h2>
+  @if (journals.error(); as error) {
+    @let text = failure(error);
+    <alco-error-state
+      [inline]="true"
+      [title]="text?.title ?? ''"
+      [message]="text?.message ?? ''"
+      [code]="text?.code ?? ''"
+      retryLabel="Réessayer"
+      (retry)="journals.reload()"
+    />
+  } @else if (journals.status() === 'empty') {
+    <p class="empty">Aucun journal actif dans cette société.</p>
+  } @else if (journals.value()) {
+    <ul class="grid grid--journals" role="list">
+      @for (card of cards(); track card.journal.public_id) {
+        @let journal = card.journal;
+        <li class="journal">
+          <div class="journal-head">
+            <span class="journal-code">{{ journal.code }}</span>
+            <h3 class="journal-name" [id]="'journal-' + journal.public_id">{{ journal.name }}</h3>
+            <alco-dropdown
+              class="journal-menu"
+              trigger="ghost"
+              size="sm"
+              icon="more"
+              align="end"
+              [iconOnly]="true"
+              [showChevron]="false"
+              [items]="card.actions"
+              [ariaLabel]="'Actions du journal ' + journal.code"
+            />
+          </div>
+          <p class="alco-caption">
+            {{ journalTypeLabel(journal.journal_type) }} ·
+            {{ journal.default_currency ?? 'Devise de la société' }}
+          </p>
+
+          <ul
+            class="counters"
+            role="list"
+            [attr.aria-label]="'Écritures du journal ' + journal.code"
+          >
+            @for (counter of card.counters; track counter.key) {
+              <li>
+                <a
+                  class="counter"
+                  [class.counter--total]="counter.key === 'total'"
+                  [routerLink]="accounting + '/ecritures'"
+                  [queryParams]="counter.query"
+                  [attr.aria-label]="counter.label + ' : ' + counter.count"
+                >
+                  <span class="counter-count">{{ counter.count }}</span>
+                  <span class="counter-label">{{ counter.label }}</span>
+                </a>
+              </li>
+            }
+          </ul>
+
+          @if (journal.treasury_accounts; as accounts) {
+            @if (accounts.length > 0) {
+              <ul
+                class="treasury"
+                role="list"
+                [attr.aria-label]="'Trésorerie du journal ' + journal.code"
+              >
+                @for (account of accounts; track account.public_id) {
+                  <li class="treasury-account">
+                    <span class="treasury-name">
+                      <alco-icon
+                        [name]="account.account_type === 'cash' ? 'inbox' : 'treasury'"
+                        [size]="16"
+                      />
+                      {{ account.name }}
+                      @if (account.status === 'inactive') {
+                        <span class="alco-caption">(désactivé)</span>
+                      }
+                    </span>
+                    <span class="treasury-balance">
+                      <span class="alco-sr-only">Solde du jour :</span>
+                      {{ account.balance | alcoAmount: decimals(account.currency) }}
+                      {{ account.currency }}
+                    </span>
+                    @if (account.unreconciled_statement_lines > 0) {
+                      @if (reconcileUrl(); as url) {
+                        <a class="treasury-lines" [routerLink]="url">
+                          {{ account.unreconciled_statement_lines }} à rapprocher
+                        </a>
+                      } @else {
+                        <span class="treasury-lines">
+                          {{ account.unreconciled_statement_lines }} à rapprocher
+                        </span>
+                      }
+                    }
+                  </li>
+                }
+              </ul>
+            } @else if (journal.journal_type === 'bank' || journal.journal_type === 'cash') {
+              <p class="alco-caption">Aucun compte de trésorerie n’utilise ce journal.</p>
+            }
+          }
+
+          @if (session.can('accounting.create')) {
+            <div class="journal-actions">
+              <a
+                alcoButton
+                size="sm"
+                icon="plus"
+                [routerLink]="accounting + '/ecritures/nouvelle'"
+                [queryParams]="{ journal: journal.public_id }"
+                [attr.aria-label]="'Nouvelle écriture dans le journal ' + journal.code"
+              >
+                Nouvelle écriture
+              </a>
+            </div>
+          }
+        </li>
+      }
+    </ul>
+    @if (showsTreasury()) {
+      <p class="alco-caption">Soldes de trésorerie au {{ today | date: 'dd/MM/yyyy' }}.</p>
+    }
+  } @else {
+    <alco-loading variant="cards" [rows]="3" label="Chargement des journaux…" />
+  }
+</section>
+
+<div class="grid grid--two">
   <!-- Open fiscal years and their periods, as the server says -->
   <alco-card title="Exercice et périodes" icon="calendar">
     @if (years.error(); as error) {
@@ -83,85 +233,38 @@
       <alco-loading [rows]="4" label="Chargement des exercices…" />
     }
     <div alcoCardFooter class="card-footer">
-      <a routerLink="/app/comptabilite/configuration/exercices">Exercices et périodes</a>
+      <a [routerLink]="accounting + '/configuration/exercices'">Exercices et périodes</a>
+    </div>
+  </alco-card>
+
+  <!-- Chart of accounts: counted by the server -->
+  <alco-card title="Plan comptable" icon="book">
+    @if (chart.error(); as error) {
+      @let text = failure(error);
+      <alco-error-state
+        [inline]="true"
+        [title]="text?.title ?? ''"
+        [message]="text?.message ?? ''"
+        [code]="text?.code ?? ''"
+        retryLabel="Réessayer"
+        (retry)="chart.reload()"
+      />
+    } @else if (chart.value(); as counts) {
+      <dl class="figures figures--inline">
+        <div>
+          <dt>Comptes</dt>
+          <dd class="figure">{{ counts.all }}</dd>
+        </div>
+        <div>
+          <dt>Comptes imputables</dt>
+          <dd class="figure">{{ counts.postable }}</dd>
+        </div>
+      </dl>
+    } @else {
+      <alco-loading [rows]="1" label="Chargement du plan comptable…" />
+    }
+    <div alcoCardFooter class="card-footer">
+      <a [routerLink]="accounting + '/plan-comptable'">Ouvrir le plan comptable</a>
     </div>
   </alco-card>
 </div>
-
-<!-- Active journals: one block each, with its entry point -->
-<section class="journals" aria-labelledby="journals-title">
-  <h2 id="journals-title" class="alco-section-title">Journaux actifs</h2>
-  @if (journals.error(); as error) {
-    @let text = failure(error);
-    <alco-error-state
-      [inline]="true"
-      [title]="text?.title ?? ''"
-      [message]="text?.message ?? ''"
-      [code]="text?.code ?? ''"
-      retryLabel="Réessayer"
-      (retry)="journals.reload()"
-    />
-  } @else if (journals.value(); as list) {
-    @if (list.length === 0) {
-      <p class="empty">Aucun journal actif.</p>
-    } @else {
-      <ul class="grid grid--journals" role="list">
-        @for (journal of list; track journal.public_id) {
-          <li class="journal">
-            <div class="journal-head">
-              <span class="journal-code">{{ journal.code }}</span>
-              <h3 class="journal-name">{{ journal.name }}</h3>
-            </div>
-            <p class="alco-caption">
-              {{ journalTypeLabel(journal.journal_type) }}
-              · {{ journal.default_currency ?? 'Devise de la société' }}
-            </p>
-            <div class="journal-actions">
-              <a
-                alcoButton
-                size="sm"
-                [routerLink]="['/app/comptabilite/journaux', journal.public_id]"
-                [attr.aria-label]="'Voir le journal ' + journal.code"
-              >
-                Voir
-              </a>
-            </div>
-          </li>
-        }
-      </ul>
-    }
-  } @else {
-    <alco-loading variant="cards" [rows]="3" label="Chargement des journaux…" />
-  }
-</section>
-
-<!-- Chart of accounts: counted by the server -->
-<alco-card title="Plan comptable" icon="book">
-  @if (chart.error(); as error) {
-    @let text = failure(error);
-    <alco-error-state
-      [inline]="true"
-      [title]="text?.title ?? ''"
-      [message]="text?.message ?? ''"
-      [code]="text?.code ?? ''"
-      retryLabel="Réessayer"
-      (retry)="chart.reload()"
-    />
-  } @else if (chart.value(); as counts) {
-    <dl class="figures figures--inline">
-      <div>
-        <dt>Comptes</dt>
-        <dd class="figure">{{ counts.all }}</dd>
-      </div>
-      <div>
-        <dt>Comptes imputables</dt>
-        <dd class="figure">{{ counts.postable }}</dd>
-      </div>
-    </dl>
-  } @else {
-    <alco-loading [rows]="1" label="Chargement du plan comptable…" />
-  }
-  <div alcoCardFooter class="card-footer">
-    <a routerLink="/app/comptabilite/plan-comptable">Ouvrir le plan comptable</a>
-  </div>
-</alco-card>

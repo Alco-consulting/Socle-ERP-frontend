@@ -1,6 +1,7 @@
 import { Page } from '@playwright/test';
 
 import { COMPANY_A, FakeApi, PROFILES, expect, test } from './support/fake-api';
+import { moduleNav, openMenuItem } from './support/navigation';
 
 /** The permissions the server gives in company A (`users.read` is global: `auth/me/`). */
 async function useProfile(
@@ -16,29 +17,23 @@ async function useProfile(
 }
 
 const tiles = (page: Page) => page.locator('.tile-label');
-const moduleNav = (page: Page) => page.getByRole('navigation', { name: 'Navigation Comptabilité' });
 
 test.describe('Affichage selon les permissions (confort d’interface ; l’API reste l’autorité)', () => {
   test('the launcher lists only the permitted applications', async ({ page, api }) => {
     await useProfile(page, api, 'administrator');
-    await expect(tiles(page)).toHaveCount(6);
+    await expect(tiles(page)).toHaveCount(5);
     await useProfile(page, api, 'accountant');
-    await expect(tiles(page)).toHaveText([
-      'Comptabilité',
-      'Tiers',
-      'Reporting',
-      'Documents',
-      'Tableau de bord',
-    ]);
+    await expect(tiles(page)).toHaveText(['Comptabilité', 'Tiers', 'Documents', 'Tableau de bord']);
     await useProfile(page, api, 'viewer');
-    await expect(tiles(page)).toHaveText(['Comptabilité', 'Reporting', 'Tableau de bord']);
+    // reporting.read opens Comptabilité › Analyse, no application of its own.
+    await expect(tiles(page)).toHaveText(['Comptabilité', 'Tableau de bord']);
   });
 
   test('a read-only profile sees no creation action', async ({ page, api }) => {
     await useProfile(page, api, 'viewer');
     await page.getByRole('link', { name: /Comptabilité/ }).click();
     await expect(page.getByRole('link', { name: 'Nouvelle écriture' })).toHaveCount(0);
-    await moduleNav(page).getByRole('link', { name: 'Écritures' }).click();
+    await openMenuItem(page, 'Comptabilité', 'Écritures');
     await expect(page.getByRole('heading', { level: 1 })).toHaveText('Écritures');
     await expect(page.getByRole('table')).toBeVisible();
     await expect(page.getByRole('link', { name: 'Nouvelle écriture' })).toHaveCount(0);
@@ -69,10 +64,31 @@ test.describe('Affichage selon les permissions (confort d’interface ; l’API 
   test('the module menu hides the domains of a missing permission', async ({ page, api }) => {
     await useProfile(page, api, 'viewer');
     await page.getByRole('link', { name: /Comptabilité/ }).click();
-    await expect(moduleNav(page).getByRole('link', { name: 'Trésorerie' })).toBeVisible();
-    await expect(moduleNav(page).getByRole('link', { name: 'Tiers' })).toHaveCount(0);
-    await expect(moduleNav(page).getByRole('button', { name: 'Rapports' })).toBeVisible();
-    await moduleNav(page).getByRole('button', { name: 'Plus' }).click();
-    await expect(page.getByRole('menuitemradio')).toHaveText(['Taxes']);
+    // No partners.read: neither Clients nor Fournisseurs nor Tiers.
+    await expect(moduleNav(page).getByRole('link', { name: 'Clients' })).toHaveCount(0);
+    await moduleNav(page).getByRole('button', { name: 'Comptabilité', exact: true }).click();
+    await expect(page.getByRole('menu').getByRole('menuitemradio')).toHaveText([
+      'Écritures',
+      'Journaux',
+      'Plan comptable',
+      'Trésorerie',
+      /Lettrage/,
+      'Rapprochement',
+    ]);
+    await page.keyboard.press('Escape');
+    // reporting.read only: the accounting reports, not the others.
+    await moduleNav(page).getByRole('button', { name: 'Analyse', exact: true }).click();
+    await expect(page.getByRole('menu').getByRole('menuitemradio')).toHaveText([
+      'Balance générale',
+      'Grand livre',
+    ]);
+    await page.keyboard.press('Escape');
+    await moduleNav(page).getByRole('button', { name: 'Configuration', exact: true }).click();
+    await expect(page.getByRole('menu').getByRole('group')).toHaveText([
+      /^\s*Général/,
+      /^\s*Comptabilité/,
+      /^\s*Banques/,
+      /^\s*Taxes/,
+    ]);
   });
 });

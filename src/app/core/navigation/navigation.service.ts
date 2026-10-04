@@ -29,10 +29,12 @@ function gatesOf(nav: readonly AppNavEntry[], prefix = ''): Gate[] {
         ? [{ path: join(entry.path), permission: entry.permission }]
         : [];
     }
-    return entry.children.flatMap((child) => [
-      { path: join(child.path), permission: entry.permission },
-      { path: join(child.path), permission: child.permission },
-    ]);
+    return entry.children
+      .filter((child) => !child.unavailable)
+      .flatMap((child) => [
+        { path: join(child.path), permission: entry.permission },
+        { path: join(child.path), permission: child.permission },
+      ]);
   });
 }
 
@@ -173,10 +175,16 @@ export class NavigationService {
             ? { label: entry.label, url: url(entry.path) }
             : null;
         }
+        // A menu shows the screens the user may open, plus the functions the API does not
+        // offer yet (disabled, with their reason), when the menu has at least one screen.
         const children = entry.children
-          .filter((child) => this.canOpenPath(app, relative(child.path)))
-          .map((child) => ({ label: child.label, url: url(child.path) }));
-        return children.length > 0 ? { label: entry.label, children } : null;
+          .filter((child) => child.unavailable || this.canOpenPath(app, relative(child.path)))
+          .map((child) =>
+            child.unavailable
+              ? { label: child.label, group: child.group, unavailable: child.unavailable }
+              : { label: child.label, group: child.group, url: url(child.path) },
+          );
+        return children.some((child) => child.url) ? { label: entry.label, children } : null;
       })
       .filter((entry): entry is NavEntry => entry !== null);
   }

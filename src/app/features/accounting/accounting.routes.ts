@@ -52,11 +52,12 @@ function referential(
 }
 
 /**
- * Comptabilité on the API: dashboard, entries (Module 5), journals, chart of accounts,
- * fiscal years and periods (Module 4). Treasury and the other domains are still screens of
- * the prototype or planned screens.
+ * Comptabilité on the API: dashboard (journals and alerts of `dashboards/`, V2.1), entries
+ * (Module 5), journals, chart of accounts, fiscal years and periods (Module 4). Treasury,
+ * Analyse and the other domains are still planned screens.
  */
 export const ACCOUNTING_ROUTES: Routes = [
+  // dashboards.read is the menu link's (catalogue): the screen guard checks it.
   { path: 'tableau-de-bord', data: { breadcrumb: 'Tableau de bord' }, loadComponent: dashboard },
   {
     path: 'ecritures',

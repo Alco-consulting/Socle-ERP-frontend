@@ -5,6 +5,7 @@ import { RouterTestingHarness } from '@angular/router/testing';
 import { envelope, httpMock, provideHttpTesting } from '../../../core/http/testing';
 import { SessionStore } from '../../../core/session/session.store';
 import { TEST_COMPANY, openTestSession } from '../../../core/session/testing';
+import { JournalSummary, JournalsDashboard } from '../../dashboards/data-access/dashboard-models';
 import { AccountingDashboardPage } from './accounting-dashboard';
 
 const page = (results: unknown[] = [], count = results.length) => ({
@@ -23,33 +24,88 @@ const YEAR = {
   created_at: '',
   updated_at: '',
 };
-const period = (code: string, label: string, status: string) => ({
-  public_id: `p-${code}`,
-  fiscal_year: 'fy-2026',
-  code,
-  label,
-  start_date: '2026-01-01',
-  end_date: '2026-01-31',
-  status,
-  created_at: '',
-  updated_at: '',
+const COMPANY = { public_id: 'c1', legal_name: 'ALCO GUINÉE SARL', reference_currency: 'GNF' };
+const counts = (draft: number, submitted: number, validated = 0, locked = 0) => ({
+  total: draft + submitted + validated + locked,
+  draft,
+  submitted,
+  validated,
+  locked,
 });
-const JOURNAL = {
+const BANK: JournalSummary = {
+  public_id: 'j-bq',
+  code: 'BQ1',
+  name: 'Banque principale',
+  journal_type: 'bank',
+  default_currency: 'GNF',
+  entries: counts(3, 2, 10, 1),
+  treasury_accounts: [
+    {
+      public_id: 't-bq',
+      code: 'BANK1',
+      name: 'Compte courant',
+      account_type: 'bank',
+      status: 'active',
+      currency: 'GNF',
+      balance: '1380000.000000',
+      unreconciled_statement_lines: 2,
+    },
+  ],
+};
+const PURCHASES: JournalSummary = {
   public_id: 'j-ach',
   code: 'ACH',
   name: 'Achats',
   journal_type: 'purchase',
   default_currency: null,
-  sequence_prefix: 'ACH-',
-  sequence_padding: 6,
-  status: 'active',
-  created_at: '',
-  updated_at: '',
+  entries: counts(0, 0),
+  treasury_accounts: [],
 };
+const journals = (list: JournalSummary[], restricted: 'cash'[] = []): JournalsDashboard => ({
+  company: COMPANY,
+  fiscal_year: null,
+  on: '2026-10-04',
+  restricted,
+  journals: list,
+});
+const ALERTS = {
+  company: COMPANY,
+  scope: {
+    fiscal_year: { public_id: 'fy-2026', code: 'FY2026' },
+    period: null,
+    date_from: '2026-01-01',
+    date_to: '2026-10-04',
+  },
+  alerts: [
+    {
+      source: 'closing',
+      code: 'pending_entries',
+      level: 'blocking',
+      message: 'Some entries are not validated.',
+      details: { run: 'run-1', target: '2026-09' },
+    },
+  ],
+  indicators: [
+    { source: 'treasury', code: 'statement_lines_unreconciled', count: 3, level: null },
+    { source: 'imports_exports', code: 'imports_failed', count: 1, level: null },
+    { source: 'loans', code: 'installments_overdue', count: 0, level: null },
+  ],
+  sources: ['closing', 'treasury', 'imports_exports', 'loans'],
+};
+const READER = ['accounting.read', 'dashboards.read'];
 const settle = () => new Promise((resolve) => setTimeout(resolve, 0));
 
-describe('AccountingDashboardPage (real data, block by block)', () => {
-  async function open() {
+describe('AccountingDashboardPage (dashboards/journals/ and dashboards/alerts/)', () => {
+  beforeEach(() => {
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(new Date(2026, 9, 4, 10, 30));
+  });
+  afterEach(() => {
+    httpMock().verify();
+    vi.useRealTimers();
+  });
+
+  async function open(permissions: string[] = READER) {
     TestBed.configureTestingModule({
       providers: [
         ...provideHttpTesting(),
@@ -57,7 +113,7 @@ describe('AccountingDashboardPage (real data, block by block)', () => {
       ],
     });
     openTestSession(TestBed.inject(SessionStore), {
-      permissions: ['accounting.read'],
+      permissions,
       companies: [{ ...TEST_COMPANY, name: 'ALCO GUINÉE' }],
     });
     const harness = await RouterTestingHarness.create();
@@ -67,79 +123,178 @@ describe('AccountingDashboardPage (real data, block by block)', () => {
       await settle();
       await harness.fixture.whenStable();
     };
-    const call = (path: string, status: string | null = null) =>
-      httpMock().expectOne(
-        (req) =>
-          req.url === `/api/v1/accounting/${path}` &&
-          (status === null || req.params.get('status') === status),
-      );
-    return { element, stable, call };
+    return { element, stable, harness };
   }
 
-  afterEach(() => httpMock().verify());
-
-  it('fills each block from the API, with a fixed number of requests (no N+1)', async () => {
-    const { element, stable, call } = await open();
-    expect(element.textContent).toContain('Chargement des exercices');
-
-    call('fiscal-years/', 'open').flush(page([YEAR]));
-    call('entries/', 'draft').flush(page([{}], 4));
-    call('entries/', 'submitted').flush(page([{}], 2));
-    call('journals/', 'active').flush(page([JOURNAL]));
-    httpMock()
+  /** Answers every request of the page; `journalsBody` for dashboards/journals/. */
+  async function answer(
+    stable: () => Promise<void>,
+    journalsBody: JournalsDashboard | 'error',
+    years: unknown[] = [YEAR],
+    alerts: unknown = ALERTS,
+  ) {
+    const mock = httpMock();
+    mock.expectOne('/api/v1/accounting/fiscal-years/?status=open&page_size=100').flush(page(years));
+    const request = mock.expectOne((req) => req.url === '/api/v1/dashboards/journals/');
+    if (journalsBody === 'error') {
+      request.flush(envelope('server_error'), { status: 500, statusText: 'x' });
+    } else {
+      request.flush(journalsBody);
+    }
+    mock
+      .expectOne((req) => req.url === '/api/v1/currencies/')
+      .flush(page([{ code: 'GNF', name: 'Franc guinéen', decimal_places: 0, status: 'active' }]));
+    mock
       .match((req) => req.url === '/api/v1/accounting/accounts/')
-      .forEach((request) =>
-        request.flush(page([{}], request.request.params.get('postable') ? 610 : 812)),
-      );
+      .forEach((req) => req.flush(page([{}], req.request.params.get('postable') ? 610 : 812)));
     await stable();
-    call('periods/').flush(
-      page([
-        period('2026-01', 'Janvier 2026', 'closed'),
-        period('2026-02', 'Février 2026', 'open'),
-      ]),
+    mock
+      .match((req) => req.url === '/api/v1/accounting/periods/')
+      .forEach((req) => req.flush(page()));
+    await stable();
+    const alertCalls = mock.match((req) => req.url === '/api/v1/dashboards/alerts/');
+    alertCalls.forEach((req) => req.flush(alerts as object));
+    await stable();
+    return { request, alertCalls };
+  }
+
+  it('reads every journal in one request, with the day of the balances, and no other figure', async () => {
+    const { element, stable } = await open();
+    const { request, alertCalls } = await answer(stable, journals([BANK, PURCHASES]));
+
+    expect(request.request.params.get('on')).toBe('2026-10-04');
+    expect(request.request.params.has('fiscal_year')).toBe(false);
+    // Never rebuilt from the entry list nor read per journal.
+    httpMock().expectNone((req) => req.url.includes('/accounting/entries/'));
+    httpMock().expectNone((req) => req.url.includes('/treasury/'));
+    expect(alertCalls.length).toBe(1);
+    const cards = Array.from(element.querySelectorAll('.journal'));
+    expect(cards.map((card) => card.querySelector('.journal-code')?.textContent)).toEqual([
+      'BQ1',
+      'ACH',
+    ]);
+    const text = cards[0].textContent ?? '';
+    expect(text).toContain('Banque principale');
+    expect(text).toMatch(/16\s*Écritures/);
+    expect(text).toMatch(/3\s*Brouillons/);
+    expect(text).toMatch(/2\s*Soumises/);
+    expect(text).toMatch(/10\s*Validées/);
+    expect(text).toMatch(/1\s*Verrouillées/);
+    expect(element.textContent).toContain('Soldes de trésorerie au 04/10/2026.');
+  });
+
+  it('each counter opens the entry list of the journal in that state', async () => {
+    const { element, stable } = await open();
+    await answer(stable, journals([BANK]));
+
+    const links = Array.from(element.querySelectorAll<HTMLAnchorElement>('.counter'));
+    expect(links.map((link) => link.getAttribute('href'))).toEqual([
+      '/app/comptabilite/ecritures?journal=j-bq',
+      '/app/comptabilite/ecritures?journal=j-bq&etat=draft',
+      '/app/comptabilite/ecritures?journal=j-bq&etat=submitted',
+      '/app/comptabilite/ecritures?journal=j-bq&etat=validated',
+      '/app/comptabilite/ecritures?journal=j-bq&etat=locked',
+    ]);
+    expect(links[1].getAttribute('aria-label')).toBe('Brouillons : 3');
+  });
+
+  it('shows the treasury the API gives: balance of the day and lines to reconcile', async () => {
+    const { element, stable } = await open();
+    await answer(stable, journals([BANK, PURCHASES]));
+
+    const treasury = element.querySelector('.treasury')?.textContent ?? '';
+    expect(treasury).toContain('Compte courant');
+    expect(treasury).toMatch(/1\s380\s000\s+GNF/); // the API's amount, GNF precision
+    expect(treasury).toContain('2 à rapprocher');
+    // Purchases: an empty list, and not a bank or cash journal: nothing said.
+    expect(element.querySelectorAll('.treasury').length).toBe(1);
+  });
+
+  it('treasury_accounts null (no cash permission): no treasury information at all', async () => {
+    const { element, stable } = await open();
+    const hidden = { ...BANK, treasury_accounts: null };
+    await answer(stable, journals([hidden], ['cash']));
+
+    const cards = element.querySelector('.journals')?.textContent ?? '';
+    expect(element.querySelector('.treasury')).toBeNull();
+    expect(cards).not.toContain('Compte courant');
+    expect(cards).not.toContain('Aucun compte de trésorerie');
+    expect(cards).not.toContain('à rapprocher');
+    expect(cards).not.toMatch(/1\s380/);
+    expect(cards).not.toContain('Soldes de trésorerie');
+  });
+
+  it('treasury_accounts empty for a bank journal: said, nothing invented', async () => {
+    const { element, stable } = await open();
+    await answer(stable, journals([{ ...BANK, treasury_accounts: [] }]));
+
+    expect(element.querySelector('.treasury')).toBeNull();
+    expect(element.textContent).toContain('Aucun compte de trésorerie n’utilise ce journal.');
+  });
+
+  it('a new entry from a card opens the form with the journal preselected', async () => {
+    const { element, stable } = await open([...READER, 'accounting.create']);
+    await answer(stable, journals([BANK]));
+
+    const create = element.querySelector<HTMLAnchorElement>(
+      'a[aria-label="Nouvelle écriture dans le journal BQ1"]',
     );
-    await stable();
-    httpMock().verify(); // 7 requests in all: 1 + 1 per open fiscal year + 2 + 1 + 2
-
-    const text = element.textContent ?? '';
-    expect(text).toContain('ALCO GUINÉE · Exercice : Exercice 2026');
-    expect(text).toContain('Brouillons4');
-    expect(text).toContain('Soumises, à valider2');
-    expect(text).toContain('01/01/2026 → 31/12/2026');
-    expect(text).toMatch(/Janvier 2026\s*Clôturée/);
-    expect(text).toMatch(/Février 2026\s*Ouverte/);
-    expect(text).toContain('ACH');
-    expect(text).toContain('Achats');
-    expect(text).toContain('Comptes812');
-    expect(text).toContain('Comptes imputables610');
+    expect(create?.getAttribute('href')).toBe('/app/comptabilite/ecritures/nouvelle?journal=j-bq');
   });
 
-  it('no open fiscal year: said, nothing invented', async () => {
-    const { element, stable, call } = await open();
-    call('fiscal-years/', 'open').flush(page([]));
-    call('entries/', 'draft').flush(page([], 0));
-    call('entries/', 'submitted').flush(page([], 0));
-    call('journals/', 'active').flush(page([]));
-    httpMock()
-      .match((req) => req.url === '/api/v1/accounting/accounts/')
-      .forEach((request) => request.flush(page([], 0)));
-    await stable();
-    httpMock().expectNone((req) => req.url === '/api/v1/accounting/periods/');
-    expect(element.textContent).toContain('Aucun exercice ouvert');
-    expect(element.textContent).toContain('Aucun journal actif.');
+  it('the card menu offers only what exists: no new entry without accounting.create', async () => {
+    const { element, stable, harness } = await open();
+    await answer(stable, journals([BANK]));
+    expect(element.querySelector('a[aria-label^="Nouvelle écriture"]')).toBeNull();
+
+    (element.querySelector('.journal-menu button') as HTMLButtonElement).click();
+    await harness.fixture.whenStable();
+    const items = Array.from(document.querySelectorAll('.menu [role="menuitem"]')).map((item) =>
+      item.textContent?.trim(),
+    );
+    expect(items).toEqual(['Voir les écritures', 'Configuration du journal']);
+    document.querySelectorAll('.cdk-overlay-container').forEach((container) => container.remove());
   });
 
-  it('a failing block says so and offers a retry; the others are shown', async () => {
-    const { element, stable, call } = await open();
-    call('fiscal-years/', 'open').flush(page([]));
-    call('entries/', 'submitted').flush(page([], 0));
-    call('entries/', 'draft').flush(envelope('server_error'), { status: 500, statusText: 'x' });
-    call('journals/', 'active').flush(page([JOURNAL]));
-    httpMock()
-      .match((req) => req.url === '/api/v1/accounting/accounts/')
-      .forEach((request) => request.flush(page([], 0)));
-    await stable();
+  it('alerts: the closing checks and the counted facts, by code, never the server text', async () => {
+    const { element, stable } = await open([...READER, 'treasury.read', 'closing.read']);
+    const { alertCalls } = await answer(stable, journals([BANK]));
+
+    expect(alertCalls[0].request.params.get('date_from')).toBe('2026-01-01');
+    expect(alertCalls[0].request.params.get('date_to')).toBe('2026-10-04');
+    const watches = Array.from(element.querySelectorAll('.watch'));
+    const parts = (item: Element) =>
+      Array.from(item.children).map((part) => part.textContent?.trim());
+    expect(watches.map(parts)).toEqual([
+      ['Écritures non validées', 'Clôture 2026-09', 'Bloquant'],
+      ['Lignes de relevé à rapprocher', '3'],
+      ['Imports en échec', '1'],
+    ]);
+    expect(element.textContent).not.toContain('Some entries are not validated.');
+    // A target only when the screen opens for the user; none for imports.
+    const links = Array.from(element.querySelectorAll<HTMLAnchorElement>('.watch a'));
+    expect(links.map((link) => link.getAttribute('href'))).toEqual([
+      '/app/comptabilite/cloture',
+      '/app/comptabilite/tresorerie/rapprochements',
+    ]);
+    expect(element.textContent).toContain('Du 01/01/2026 au 04/10/2026 (FY2026)');
+  });
+
+  it('no open fiscal year holding today: the alerts are not asked, and it is said', async () => {
+    const { element, stable } = await open();
+    const closedYear = { ...YEAR, start_date: '2025-01-01', end_date: '2025-12-31' };
+    const { alertCalls } = await answer(stable, journals([BANK]), [closedYear]);
+
+    expect(alertCalls.length).toBe(0);
+    expect(element.textContent).toContain('Aucun exercice ouvert ne couvre la date du jour');
+  });
+
+  it('a failing journals block says so and offers a retry; the others are shown', async () => {
+    const { element, stable } = await open();
+    await answer(stable, 'error', [YEAR], { ...ALERTS, alerts: [], indicators: [] });
+
     expect(element.textContent).toContain('Une erreur inattendue s’est produite.');
-    expect(element.textContent).toContain('Achats');
+    expect(element.textContent).toContain('Comptes812');
+    expect(element.textContent).toContain('Rien à signaler.');
   });
 });

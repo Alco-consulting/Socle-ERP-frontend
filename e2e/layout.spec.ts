@@ -4,6 +4,8 @@ const SCREENS = [
   { name: 'App Launcher', url: '/' },
   { name: 'Tableau de bord', url: '/app/comptabilite/tableau-de-bord' },
   { name: 'Liste', url: '/app/comptabilite/ecritures' },
+  { name: 'Journaux', url: '/app/comptabilite/journaux' },
+  { name: 'Analyse', url: '/app/comptabilite/analyse/balance' },
   { name: 'Nouvelle écriture', url: '/app/comptabilite/ecritures/nouvelle' },
   { name: 'Trésorerie (domaine de Comptabilité)', url: '/app/comptabilite/tresorerie/operations' },
   { name: 'Import d’écritures', url: '/app/comptabilite/ecritures/import' },
@@ -49,5 +51,52 @@ test.describe('Règles de mise en page', () => {
     ).toBeVisible();
     await expect(page.getByRole('link', { name: 'Toutes les applications' })).toBeVisible();
     await expect(page.getByRole('navigation', { name: 'Navigation Comptabilité' })).toBeVisible();
+  });
+
+  test('the grouped menus of Comptabilité stay usable at every width', async ({
+    page,
+  }, testInfo) => {
+    await page.goto('/app/comptabilite/tableau-de-bord');
+    await expect(page.locator('.journal').first()).toBeVisible();
+    const nav = page.getByRole('navigation', { name: 'Navigation Comptabilité' });
+    const groups = () => page.getByRole('menu').getByRole('group');
+    if (testInfo.project.name === 'desktop') {
+      await nav.getByRole('button', { name: 'Configuration', exact: true }).click();
+      await expect(groups()).toHaveCount(8);
+    } else if (testInfo.project.name === 'tablet') {
+      // keep = 4: Tableau de bord, Clients, Fournisseurs, Comptabilité ▾, then « Plus ▾ ».
+      await expect(nav.getByRole('button', { name: 'Comptabilité', exact: true })).toBeVisible();
+      await nav.getByRole('button', { name: 'Plus', exact: true }).click();
+      await expect(groups().first()).toHaveAccessibleName('Analyse · Rapports financiers');
+      await expect(page.getByRole('group', { name: 'Configuration · Banques' })).toBeVisible();
+    } else {
+      // One menu named after the current screen, still grouped under titles.
+      await page.getByRole('button', { name: 'Navigation Comptabilité : Tableau de bord' }).click();
+      await expect(page.getByRole('group', { name: 'Comptabilité', exact: true })).toBeVisible();
+      await expect(
+        page.getByRole('group', { name: 'Analyse · Rapports comptables' }),
+      ).toBeVisible();
+    }
+    // The open menu fits the screen (it scrolls inside itself when long).
+    const box = await page.getByRole('menu').boundingBox();
+    const viewport = page.viewportSize();
+    expect(box && viewport && box.x + box.width <= viewport.width + 1).toBe(true);
+    expect(box && viewport && box.y + box.height <= viewport.height + 1).toBe(true);
+    await page
+      .getByRole('menu')
+      .getByRole('menuitemradio', { name: /Exercices et périodes/ })
+      .click();
+    await expect(page).toHaveURL(/\/app\/comptabilite\/configuration\/exercices$/);
+  });
+
+  test('the dashboard cards: counters reachable at every width', async ({ page }) => {
+    await page.goto('/app/comptabilite/tableau-de-bord');
+    const drafts = page
+      .locator('.journal')
+      .first()
+      .getByRole('link', { name: /^Brouillons : / });
+    await drafts.scrollIntoViewIfNeeded();
+    await drafts.click();
+    await expect(page).toHaveURL(/etat=draft$/);
   });
 });

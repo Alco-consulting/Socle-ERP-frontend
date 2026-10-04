@@ -13,6 +13,7 @@ import { AlcoButton } from '../../shared/ui/button/button';
 import { AlcoCard } from '../../shared/ui/card/card';
 import { AlcoConfirmService } from '../../shared/ui/confirm-dialog/confirm-dialog';
 import { AlcoDropdown, DropdownItem } from '../../shared/ui/dropdown/dropdown';
+import { AlcoSmartButton } from '../../shared/ui/smart-button/smart-button';
 import { AlcoEmptyState } from '../../shared/ui/empty-state/empty-state';
 import { AlcoErrorState } from '../../shared/ui/error-state/error-state';
 import { AlcoLoading } from '../../shared/ui/loading/loading';
@@ -55,7 +56,7 @@ const SWATCHES: readonly { group: string; items: readonly Swatch[] }[] = [
     items: [
       { token: '--app-family-finance', role: 'Comptabilité (trésorerie, taxes… comprises)' },
       { token: '--app-family-relations', role: 'Tiers, Documents' },
-      { token: '--app-family-steering', role: 'Reporting, Tableau de bord' },
+      { token: '--app-family-steering', role: 'Tableau de bord' },
       { token: '--app-family-control', role: 'Paramètres' },
     ],
   },
@@ -88,6 +89,7 @@ interface SampleRow {
     AlcoInput,
     AlcoLoading,
     AlcoPageHeader,
+    AlcoSmartButton,
     AlcoTable,
     AlcoTabPanel,
     AlcoTabs,
@@ -121,6 +123,21 @@ export class DesignSystemCatalogPage {
     { id: 'duplicate', label: 'Dupliquer', icon: 'copy' },
     { id: 'export', label: 'Exporter', icon: 'download' },
     { id: 'delete', label: 'Supprimer', icon: 'trash', danger: true, dividerBefore: true },
+  ];
+
+  /** A menu whose links are grouped under titles (Comptabilité › Analyse ▾). */
+  protected readonly groupedItems: readonly DropdownItem[] = [
+    { id: 'statements', label: 'États financiers', group: 'Rapports financiers' },
+    { id: 'result', label: 'Résultat', group: 'Rapports financiers' },
+    { id: 'balance', label: 'Balance générale', group: 'Rapports comptables' },
+    { id: 'ledger', label: 'Grand livre', group: 'Rapports comptables' },
+    {
+      id: 'lettering',
+      label: 'Lettrage',
+      group: 'Fonctions à venir',
+      disabled: true,
+      description: 'Pas encore disponible : l’API ne le propose pas.',
+    },
   ];
 
   protected readonly columns: readonly TableColumn[] = [

@@ -7,11 +7,21 @@ import { AlcoDropdown, DropdownItem } from '../dropdown/dropdown';
 
 export interface NavLink {
   readonly label: string;
-  /** Absolute URL of the screen. */
-  readonly url: string;
+  /** Absolute URL of the screen (none for an unavailable function). */
+  readonly url?: string;
+  /** Title of the link's group inside its menu (« Rapports financiers »). */
+  readonly group?: string;
+  /**
+   * Why the function is not available (no API yet): shown disabled with this reason, never
+   * as an operational screen.
+   */
+  readonly unavailable?: string;
 }
 
-/** A top-level entry: a direct link, or a group opened as a menu (« Rapports ▾ », « Plus ▾ »). */
+/**
+ * A top-level entry: a direct link, or a menu (« Analyse ▾ ») whose links may be grouped
+ * under titles (`NavLink.group`).
+ */
 export interface NavEntry {
   readonly label: string;
   readonly url?: string;
@@ -61,16 +71,11 @@ export class AlcoModuleNav {
   }
 
   protected groupActive(entry: NavEntry): boolean {
-    return (entry.children ?? []).some((child) => this.isActive(child.url));
+    return (entry.children ?? []).some((child) => !!child.url && this.isActive(child.url));
   }
 
   protected groupItems(entry: NavEntry): readonly DropdownItem[] {
-    return (entry.children ?? []).map((child) => ({
-      id: child.url,
-      label: child.label,
-      route: child.url,
-      checked: this.isActive(child.url),
-    }));
+    return (entry.children ?? []).map((child) => this.item(child, child.group));
   }
 
   // ---- Tablet layout: first entries + one merged « Plus ▾ » -------------------------
@@ -94,26 +99,34 @@ export class AlcoModuleNav {
     () => this.compactItems().find((item) => item.checked)?.label ?? 'Menu',
   );
 
-  /** Direct links first-level; a group's links follow a divider named after the group. */
+  private item(link: NavLink, group: string | undefined): DropdownItem {
+    return {
+      id: link.url ?? `${group ?? ''}/${link.label}`,
+      label: link.label,
+      route: link.unavailable ? undefined : link.url,
+      checked: !!link.url && !link.unavailable && this.isActive(link.url),
+      disabled: !!link.unavailable,
+      description: link.unavailable,
+      group,
+    };
+  }
+
+  /**
+   * Direct links first, without a title; then each menu's links under a title: the menu's
+   * name, followed by the group's (« Analyse · Rapports financiers ») when it has groups.
+   */
   private flatten(entries: readonly NavEntry[]): DropdownItem[] {
-    return entries.flatMap((entry, position) =>
+    return entries.flatMap((entry) =>
       entry.children
-        ? entry.children.map((child, index) => ({
-            id: child.url,
-            label: child.label,
-            description: index === 0 && entry.label !== MORE ? entry.label : undefined,
-            route: child.url,
-            checked: this.isActive(child.url),
-            dividerBefore: index === 0 && position > 0,
-          }))
-        : [
-            {
-              id: entry.url ?? entry.label,
-              label: entry.label,
-              route: entry.url,
-              checked: entry.url ? this.isActive(entry.url) : false,
-            },
-          ],
+        ? entry.children.map((child) =>
+            this.item(
+              child,
+              entry.label === MORE
+                ? child.group
+                : [entry.label, child.group].filter(Boolean).join(' · '),
+            ),
+          )
+        : [this.item({ label: entry.label, url: entry.url }, undefined)],
     );
   }
 }

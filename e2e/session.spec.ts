@@ -8,7 +8,7 @@ import { COMPANY_B, PASSWORD, THROTTLED, USER, expect, test } from './support/fa
  * (e2e/support/fake-api.ts): no real account, nothing reaches the deployed API.
  */
 
-const ACCOUNTANT_TILES = ['Comptabilité', 'Tiers', 'Reporting', 'Documents', 'Tableau de bord'];
+const ACCOUNTANT_TILES = ['Comptabilité', 'Tiers', 'Documents', 'Tableau de bord'];
 
 const tiles = (page: Page) => page.locator('.tile-label');
 
@@ -97,7 +97,7 @@ test.describe('Connexion', () => {
     api.signedOut();
     await page.goto('/login');
     await logIn(page);
-    await expect(tiles(page)).toHaveCount(5);
+    await expect(tiles(page)).toHaveCount(ACCOUNTANT_TILES.length);
     const stored = await page.evaluate(() =>
       JSON.stringify({ ...localStorage, ...sessionStorage }),
     );
@@ -158,7 +158,7 @@ test.describe('Session Django et CSRF', () => {
     api,
   }) => {
     await page.goto('/app');
-    await expect(tiles(page)).toHaveCount(5);
+    await expect(tiles(page)).toHaveCount(ACCOUNTANT_TILES.length);
     await page.getByRole('button', { name: /Compte de Mariam Test/ }).click();
     await page.getByRole('menuitem', { name: 'Se déconnecter' }).click();
     await expect(page).toHaveURL(/\/login\?raison=deconnexion$/);
@@ -181,7 +181,7 @@ test.describe('Session Django et CSRF', () => {
   }) => {
     api.expireOn(COMPANY_B.public_id);
     await page.goto('/app');
-    await expect(tiles(page)).toHaveCount(5);
+    await expect(tiles(page)).toHaveCount(ACCOUNTANT_TILES.length);
     await page.getByRole('button', { name: /Société active/ }).click();
     await page.getByRole('menuitemradio', { name: /FILIALE SÉNÉGAL/ }).click();
     await expect(page).toHaveURL(/\/login\?raison=session-expiree&retour=%2Fapp$/);

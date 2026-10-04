@@ -9,24 +9,45 @@ import {
   untracked,
 } from '@angular/core';
 
-import { requestState } from '../../../core/http/request-state';
-import { AlcoErrorState } from '../../../shared/ui/error-state/error-state';
-import { AlcoLoading } from '../../../shared/ui/loading/loading';
-import { AuditApi, AuditEvent } from '../../audit/data-access/audit-api';
-import { AUDIT_ACTIONS } from './entry-presentation';
-
-/** The backend's audit name of an entry (model label of `JournalEntry`). */
-export const ENTRY_AUDIT_TYPE = 'accounting.journalentry';
+import { requestState } from '../../core/http/request-state';
+import { AlcoErrorState } from '../../shared/ui/error-state/error-state';
+import { AlcoLoading } from '../../shared/ui/loading/loading';
+import { AuditApi, AuditEvent } from './data-access/audit-api';
 
 /**
- * History of an entry from the backend's Audit (`audit.read`): who did what, when, oldest
- * first. Read only; no audit screen of its own.
+ * The backend's audit names (model labels) of the objects whose history is shown. Only
+ * objects the backend audits (`record()` in their services).
+ */
+export const AUDIT_TYPES = {
+  entry: 'accounting.journalentry',
+  journal: 'accounting.journal',
+} as const;
+
+/** Actions of the backend's Audit (`AuditAction`), in words. */
+export const AUDIT_ACTIONS: Readonly<Record<string, string>> = {
+  create: 'Création',
+  update: 'Modification',
+  delete: 'Suppression',
+  submit: 'Soumission',
+  validate: 'Validation',
+  reject: 'Renvoi en brouillon',
+  lock: 'Verrouillage',
+  reverse: 'Contrepassation',
+  activate: 'Activation',
+  deactivate: 'Désactivation',
+  download: 'Lien de téléchargement d’une pièce',
+};
+
+/**
+ * History of an object from the backend's Audit (`audit.read`): who did what, when, oldest
+ * first (`audit/objects/<type>/<id>/`). Read only; Audit is a journal of events, not a
+ * discussion thread. `total` is the server's count (smart buttons).
  */
 @Component({
-  selector: 'alco-entry-history',
+  selector: 'alco-object-history',
   imports: [DatePipe, AlcoErrorState, AlcoLoading],
   template: `
-    <h2 id="history-title" class="alco-section-title">Historique</h2>
+    <h2 [id]="titleId()" class="alco-section-title">Historique</h2>
     @switch (history.status()) {
       @case ('forbidden') {
         <p class="note">Votre profil ne permet pas de consulter l’historique.</p>
@@ -96,20 +117,27 @@ export const ENTRY_AUDIT_TYPE = 'accounting.journalentry';
   `,
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
-export class AlcoEntryHistory {
+export class AlcoObjectHistory {
   private readonly api = inject(AuditApi);
 
-  readonly entryId = input.required<string>();
+  /** The object's audit name (`AUDIT_TYPES`) and public id. */
+  readonly objectType = input.required<string>();
+  readonly objectId = input.required<string>();
+  /** Id of the heading (the section that holds the history is labelled by it). */
+  readonly titleId = input('history-title');
 
   protected readonly history = requestState(
-    () => this.api.history(ENTRY_AUDIT_TYPE, untracked(this.entryId)),
+    () => this.api.history(untracked(this.objectType), untracked(this.objectId)),
     { immediate: false },
   );
   protected readonly events = computed(() => this.history.value()?.results ?? []);
+  /** The server's count of events, once loaded. */
+  readonly total = computed(() => this.history.value()?.count ?? null);
 
   constructor() {
     effect(() => {
-      this.entryId();
+      this.objectType();
+      this.objectId();
       untracked(() => this.history.reload());
     });
   }

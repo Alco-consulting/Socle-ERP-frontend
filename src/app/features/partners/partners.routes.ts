@@ -12,11 +12,12 @@ const form = () => import('./pages/partner-form/partner-form').then((m) => m.Par
 const importPage = () => import('../transfers/import-page/import-page').then((m) => m.ImportPage);
 
 /**
- * A list of the Tiers application (Tous les tiers, Clients, Fournisseurs) with, under it,
- * the contextual import, the record and its modification:
- * `/app/tiers/clients`, `…/clients/import`, `…/clients/:id`, `…/clients/:id/modifier`.
+ * A list of partners (Tous les tiers, Clients, Fournisseurs) with, under it, the contextual
+ * import, the record and its modification: `/app/tiers/clients`, `…/clients/import`,
+ * `…/clients/:id`, `…/clients/:id/modifier`. Also served in Comptabilité (Clients,
+ * Fournisseurs, Comptabilité › Tiers): the same screens, never a second implementation.
  */
-function listScreen(path: string, label: string, role: PartnerRole | null): Route {
+export function partnerListScreen(path: string, label: string, role: PartnerRole | null): Route {
   return {
     path,
     data: { breadcrumb: label },
@@ -48,13 +49,13 @@ function listScreen(path: string, label: string, role: PartnerRole | null): Rout
 }
 
 /**
- * Screens of the Tiers application, on the real API (`partners`). « Configuration ›
- * Conditions de paiement » is still a planned screen (placeholder of the shell).
+ * Screens of the Tiers application, on the real API (`partners`). Payment terms are a
+ * planned screen of Comptabilité › Configuration › Paiements.
  */
 export const PARTNER_ROUTES: Routes = [
-  listScreen('liste', 'Tous les tiers', null),
-  listScreen('clients', 'Clients', 'customer'),
-  listScreen('fournisseurs', 'Fournisseurs', 'supplier'),
+  partnerListScreen('liste', 'Tous les tiers', null),
+  partnerListScreen('clients', 'Clients', 'customer'),
+  partnerListScreen('fournisseurs', 'Fournisseurs', 'supplier'),
   {
     path: 'nouveau',
     data: { breadcrumb: 'Nouveau tiers' },

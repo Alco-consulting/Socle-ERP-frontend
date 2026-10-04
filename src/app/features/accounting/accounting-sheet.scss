@@ -126,3 +126,9 @@
   justify-content: center;
   gap: var(--space-1);
 }
+
+.smart-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}

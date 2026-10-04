@@ -22,8 +22,9 @@ test.describe('Parcours App Launcher → Comptabilité → Écritures → Formul
       'page',
     );
 
-    // Dashboard → list through the module navigation
-    await moduleNav.getByRole('link', { name: 'Écritures' }).click();
+    // Dashboard → list through the module navigation (Comptabilité ▾ › Écritures)
+    await moduleNav.getByRole('button', { name: 'Comptabilité', exact: true }).click();
+    await page.getByRole('menuitemradio', { name: 'Écritures', exact: true }).click();
     await expect(page.getByRole('heading', { level: 1 })).toHaveText('Écritures');
     await expect(page).toHaveTitle('Écritures · Comptabilité · Alco');
     await expect(page.getByRole('table')).toBeVisible();
@@ -59,9 +60,9 @@ test.describe('Parcours App Launcher → Comptabilité → Écritures → Formul
 
   test('a secondary screen of the menu opens and says it is not built yet', async ({ page }) => {
     await page.goto('/app/comptabilite/tableau-de-bord');
-    await page.getByRole('button', { name: 'Rapports' }).click();
+    await page.getByRole('button', { name: 'Analyse', exact: true }).click();
     await page.getByRole('menuitemradio', { name: 'Balance générale' }).click();
-    await expect(page).toHaveURL(/\/app\/comptabilite\/rapports\/balance$/);
+    await expect(page).toHaveURL(/\/app\/comptabilite\/analyse\/balance$/);
     await expect(page.getByRole('heading', { level: 1 })).toHaveText('Balance générale');
     await expect(page.getByText('Écran prévu, pas encore construit.')).toBeVisible();
   });

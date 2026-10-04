@@ -1,17 +1,39 @@
-import { ChangeDetectionStrategy, Component, computed, inject } from '@angular/core';
-import { RouterLink } from '@angular/router';
-import { forkJoin, map, of, switchMap } from 'rxjs';
+import { DatePipe } from '@angular/common';
+import {
+  ChangeDetectionStrategy,
+  Component,
+  computed,
+  effect,
+  inject,
+  untracked,
+} from '@angular/core';
+import { Params, RouterLink } from '@angular/router';
+import { catchError, forkJoin, map, of, switchMap } from 'rxjs';
 
 import { toUserError } from '../../../core/errors/user-error';
 import { ApiError } from '../../../core/http/api-error';
 import { requestState } from '../../../core/http/request-state';
+import { APP_ROOT, findApplication } from '../../../core/navigation/applications';
+import { NavigationService } from '../../../core/navigation/navigation.service';
 import { SessionStore } from '../../../core/session/session.store';
+import { AlcoAmountPipe } from '../../../shared/pipes/amount.pipe';
 import { AlcoBadge } from '../../../shared/ui/badge/badge';
 import { AlcoButton } from '../../../shared/ui/button/button';
 import { AlcoCard } from '../../../shared/ui/card/card';
+import { AlcoDropdown, DropdownItem } from '../../../shared/ui/dropdown/dropdown';
 import { AlcoErrorState } from '../../../shared/ui/error-state/error-state';
+import { AlcoIcon } from '../../../shared/ui/icon/icon';
 import { AlcoLoading } from '../../../shared/ui/loading/loading';
 import { AlcoPageHeader } from '../../../shared/ui/page-header/page-header';
+import { localToday } from '../../../shared/utils/dates';
+import {
+  DashboardAlert,
+  DashboardIndicator,
+  JournalSummary,
+} from '../../dashboards/data-access/dashboard-models';
+import { DashboardsApi } from '../../dashboards/data-access/dashboards-api';
+import { PartnersApi } from '../../partners/data-access/partners-api';
+import { CurrencyOption } from '../../partners/data-access/partner-models';
 import {
   ACCOUNTING_REFERENTIAL_ERRORS,
   FISCAL_YEAR_STATUS,
@@ -19,28 +41,69 @@ import {
   dateRange,
   journalTypeLabel,
 } from '../accounting-presentation';
-import { FiscalYear, Period } from '../data-access/accounting-models';
 import { AccountingApi } from '../data-access/accounting-api';
+import { FiscalYear, Period } from '../data-access/accounting-models';
+import {
+  ALERT_LEVELS,
+  ALERT_PATHS,
+  INDICATORS,
+  JOURNAL_COUNTERS,
+  closingCheckLabel,
+  indicatorLabel,
+} from './dashboard-presentation';
 
 interface OpenYear {
   readonly year: FiscalYear;
   readonly periods: readonly Period[];
 }
 
+/** A counter of a card: the server's count and the entry list it opens. */
+interface Counter {
+  readonly key: string;
+  readonly label: string;
+  readonly count: number;
+  readonly query: Params;
+}
+
+interface JournalCard {
+  readonly journal: JournalSummary;
+  readonly counters: readonly Counter[];
+  readonly actions: readonly DropdownItem[];
+}
+
+/** A line of « À surveiller »: label, count or level, and its screen when one opens. */
+interface Watch {
+  readonly key: string;
+  readonly label: string;
+  readonly detail: string;
+  readonly count: number | null;
+  readonly level: (typeof ALERT_LEVELS)[string] | null;
+  readonly url: string | null;
+}
+
+const ACCOUNTING = `${APP_ROOT}/comptabilite`;
+
 /**
- * Comptabilité › Tableau de bord, on the API: a workspace, block by block, each with its
- * own loading and error. Only what the server says — open fiscal years and their periods,
- * entries waiting (the server's `count`), active journals, size of the chart of accounts.
- * Nothing is computed here; no block makes one request per item (no N+1).
+ * Comptabilité › Tableau de bord: a work centre, one card per active journal.
+ * - Journals: `GET dashboards/journals/?on=<today>` — one request for every journal (entry
+ *   counts by status; treasury accounts with Treasury's balance of the day and their lines
+ *   to reconcile, only when the API gives them: `treasury_accounts: null` shows nothing).
+ * - « À surveiller »: `GET dashboards/alerts/` from the start of the open fiscal year that
+ *   holds today to today (the API never implies a date); without such a year, said.
+ * Nothing is computed here: counts, balances and alerts are the server's.
  */
 @Component({
   selector: 'alco-accounting-dashboard',
   imports: [
+    DatePipe,
     RouterLink,
+    AlcoAmountPipe,
     AlcoBadge,
     AlcoButton,
     AlcoCard,
+    AlcoDropdown,
     AlcoErrorState,
+    AlcoIcon,
     AlcoLoading,
     AlcoPageHeader,
   ],
@@ -50,14 +113,56 @@ interface OpenYear {
 })
 export class AccountingDashboardPage {
   private readonly api = inject(AccountingApi);
+  private readonly dashboards = inject(DashboardsApi);
+  private readonly navigation = inject(NavigationService);
+  private readonly partners = inject(PartnersApi);
   protected readonly session = inject(SessionStore);
 
   protected readonly yearStatus = FISCAL_YEAR_STATUS;
   protected readonly periodStatus = PERIOD_STATUS;
   protected readonly dateRange = dateRange;
   protected readonly journalTypeLabel = journalTypeLabel;
+  protected readonly accounting = ACCOUNTING;
 
-  /** Open fiscal years (the server's status) with their periods. */
+  /** The day of the balances: Treasury's balance on it, no later operation. */
+  protected readonly today = localToday();
+
+  // ---- Journals (one request) ---------------------------------------------------------
+  protected readonly journals = requestState(() => this.dashboards.journals(this.today), {
+    isEmpty: (body) => body.journals.length === 0,
+  });
+
+  /** Currency precisions, for display only (the API's amounts are exact strings). */
+  private readonly currencies = requestState(() =>
+    this.partners.currencies().pipe(
+      map((page) => page.results),
+      catchError(() => of([] as CurrencyOption[])),
+    ),
+  );
+
+  protected readonly cards = computed<readonly JournalCard[]>(() =>
+    (this.journals.value()?.journals ?? []).map((journal) => ({
+      journal,
+      counters: JOURNAL_COUNTERS.map((counter) => ({
+        key: counter.key,
+        label: counter.label,
+        count: journal.entries[counter.key],
+        query: counter.status
+          ? { journal: journal.public_id, etat: counter.status }
+          : { journal: journal.public_id },
+      })),
+      actions: this.actionsOf(journal),
+    })),
+  );
+
+  /** Whether the API gave at least one treasury account (never when `null`). */
+  protected readonly showsTreasury = computed(() =>
+    (this.journals.value()?.journals ?? []).some(
+      (journal) => (journal.treasury_accounts?.length ?? 0) > 0,
+    ),
+  );
+
+  // ---- Open fiscal years and their periods ----------------------------------------------
   protected readonly years = requestState(() =>
     this.api
       .fiscalYears('open')
@@ -76,17 +181,35 @@ export class AccountingDashboardPage {
       ),
   );
 
-  /** Entries waiting, counted by the server. */
-  protected readonly entries = requestState(() =>
-    forkJoin({
-      draft: this.api.entryCount('draft'),
-      submitted: this.api.entryCount('submitted'),
-    }),
+  /** The open fiscal year that holds today: the alerts run from its start to today. */
+  protected readonly alertYear = computed(() => {
+    const today = this.today;
+    return (
+      this.years
+        .value()
+        ?.map((item) => item.year)
+        .find((year) => year.start_date <= today && today <= year.end_date) ?? null
+    );
+  });
+
+  // ---- Alerts and indicators ----------------------------------------------------------
+  protected readonly alerts = requestState(
+    () => this.dashboards.alerts(this.alertYear()?.start_date ?? this.today, this.today),
+    { immediate: false },
   );
 
-  protected readonly journals = requestState(() =>
-    this.api.journals({ status: 'active' }).pipe(map((page) => page.results)),
-  );
+  protected readonly watches = computed<readonly Watch[]>(() => {
+    const body = this.alerts.value();
+    if (!body) {
+      return [];
+    }
+    return [
+      ...body.alerts.map((alert, index) => this.alertWatch(alert, index)),
+      ...body.indicators
+        .filter((indicator) => indicator.count > 0)
+        .map((indicator) => this.indicatorWatch(indicator)),
+    ];
+  });
 
   protected readonly chart = requestState(() =>
     forkJoin({ all: this.api.accountCount(), postable: this.api.accountCount(true) }),
@@ -110,7 +233,84 @@ export class AccountingDashboardPage {
     [this.session.activeCompany()?.name, this.yearLabel()].filter(Boolean).join(' · '),
   );
 
+  constructor() {
+    // The alerts need a scope: asked once the open fiscal year holding today is known.
+    effect(() => {
+      if (this.alertYear()) {
+        untracked(() => this.alerts.reload());
+      }
+    });
+  }
+
+  protected decimals(currency: string): number {
+    // Unknown precision: no digit is ever dropped (the pipe only trims zeros).
+    return this.currencies.value()?.find((item) => item.code === currency)?.decimal_places ?? 0;
+  }
+
+  /** The screen of reconciliation, when the user may open it. */
+  protected readonly reconcileUrl = computed(() => this.screen('tresorerie/rapprochements'));
+
   protected failure(error: ApiError | null) {
     return error ? toUserError(error, ACCOUNTING_REFERENTIAL_ERRORS) : null;
+  }
+
+  /** ⋮ of a card: only what the API and the user's permissions allow. */
+  private actionsOf(journal: JournalSummary): DropdownItem[] {
+    const id = encodeURIComponent(journal.public_id);
+    return [
+      {
+        id: 'entries',
+        label: 'Voir les écritures',
+        icon: 'eye',
+        route: `${ACCOUNTING}/ecritures?journal=${id}`,
+      },
+      ...(this.session.can('accounting.create')
+        ? [
+            {
+              id: 'new',
+              label: 'Nouvelle écriture',
+              icon: 'plus' as const,
+              route: `${ACCOUNTING}/ecritures/nouvelle?journal=${id}`,
+            },
+          ]
+        : []),
+      {
+        id: 'settings',
+        label: 'Configuration du journal',
+        icon: 'settings',
+        route: `${ACCOUNTING}/journaux/${id}`,
+      },
+    ];
+  }
+
+  private alertWatch(alert: DashboardAlert, index: number): Watch {
+    const target = typeof alert.details['target'] === 'string' ? alert.details['target'] : '';
+    const path = ALERT_PATHS[alert.source];
+    return {
+      key: `alert-${index}`,
+      label: closingCheckLabel(alert.code),
+      detail: target ? `Clôture ${target}` : 'Clôture en cours',
+      count: null,
+      level: ALERT_LEVELS[alert.level] ?? null,
+      url: path ? this.screen(path) : null,
+    };
+  }
+
+  private indicatorWatch(indicator: DashboardIndicator): Watch {
+    const path = INDICATORS[indicator.code]?.path;
+    return {
+      key: `indicator-${indicator.source}-${indicator.code}`,
+      label: indicatorLabel(indicator.code),
+      detail: '',
+      count: indicator.count,
+      level: null,
+      url: path ? this.screen(path) : null,
+    };
+  }
+
+  /** URL of a screen of Comptabilité, or `null` when the user may not open it. */
+  private screen(path: string): string | null {
+    const app = findApplication('accounting');
+    return app && this.navigation.canOpenPath(app, path) ? `${ACCOUNTING}/${path}` : null;
   }
 }

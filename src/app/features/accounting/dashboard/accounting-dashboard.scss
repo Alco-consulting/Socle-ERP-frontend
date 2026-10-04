@@ -20,7 +20,7 @@
 }
 
 .grid--journals {
-  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
   margin: 0;
   padding: 0;
   list-style: none;
@@ -140,7 +140,10 @@
 }
 
 .journal-name {
+  flex: 1;
+  min-width: 0;
   margin: 0;
+  overflow-wrap: anywhere;
   font-size: var(--font-size-subtitle);
   font-weight: var(--font-weight-semibold);
 }
@@ -150,4 +153,115 @@
   gap: var(--space-2);
   margin-top: auto;
   padding-top: var(--space-2);
+}
+
+.journal-menu {
+  margin-left: auto;
+}
+
+.counters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.counter {
+  display: flex;
+  flex-direction: column;
+  min-width: 4.5rem;
+  padding: var(--space-1) var(--space-2);
+  border: var(--border-width) solid var(--color-border);
+  border-radius: var(--radius-md);
+  color: var(--color-text);
+  text-decoration: none;
+
+  &:hover {
+    background: var(--color-surface-sunken);
+  }
+}
+
+.counter--total {
+  border-color: var(--color-primary-soft);
+  background: var(--color-primary-soft);
+}
+
+.counter-count {
+  font-size: var(--font-size-subtitle);
+  font-weight: var(--font-weight-semibold);
+  font-variant-numeric: tabular-nums;
+  color: var(--color-primary-text);
+}
+
+.counter-label {
+  font-size: var(--font-size-caption);
+  color: var(--color-text-muted);
+}
+
+.treasury {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin: 0;
+  padding: var(--space-2) 0 0;
+  border-top: var(--border-width) solid var(--color-border);
+  list-style: none;
+}
+
+.treasury-account {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--space-1) var(--space-3);
+}
+
+.treasury-name {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.treasury-balance {
+  margin-left: auto;
+  font-weight: var(--font-weight-semibold);
+  font-variant-numeric: tabular-nums;
+}
+
+.treasury-lines {
+  flex-basis: 100%;
+  font-size: var(--font-size-caption);
+}
+
+.watches {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.watch {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-1) var(--space-3);
+}
+
+.watch-label {
+  font-weight: var(--font-weight-medium);
+}
+
+.watch-count {
+  margin-left: auto;
+  font-weight: var(--font-weight-semibold);
+  font-variant-numeric: tabular-nums;
+}
+
+.scope {
+  margin: var(--space-3) 0 0;
 }

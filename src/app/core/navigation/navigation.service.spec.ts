@@ -36,18 +36,67 @@ describe('Application catalogue', () => {
     expect(APPLICATIONS.map((app) => app.label)).toEqual([
       'Comptabilité',
       'Tiers',
-      'Reporting',
       'Documents',
       'Tableau de bord',
       'Paramètres',
     ]);
-    for (const label of [...FINANCIAL_DOMAINS, 'Imports / Exports']) {
+    // Reporting is Comptabilité › Analyse, never an application of its own.
+    for (const label of [...FINANCIAL_DOMAINS, 'Imports / Exports', 'Reporting']) {
       expect(APPLICATIONS.some((app) => app.label === label)).toBe(false);
     }
   });
 
   it('makes the financial domains sections of Comptabilité', () => {
-    expect(labels(accounting().sections ?? [])).toEqual(['Tiers', ...FINANCIAL_DOMAINS]);
+    expect(labels(accounting().sections ?? [])).toEqual(FINANCIAL_DOMAINS);
+  });
+
+  it('gives Comptabilité three links and three grouped menus', () => {
+    const nav = accounting().nav;
+    expect(labels(nav)).toEqual([
+      'Tableau de bord',
+      'Clients',
+      'Fournisseurs',
+      'Comptabilité',
+      'Analyse',
+      'Configuration',
+    ]);
+    const groupsOf = (label: string) => [
+      ...new Set(nav.find((entry) => entry.label === label)?.children?.map((link) => link.group)),
+    ];
+    expect(groupsOf('Analyse')).toEqual([
+      'Rapports financiers',
+      'Rapports comptables',
+      'Rapports de tiers',
+      'Analyses',
+    ]);
+    expect(groupsOf('Configuration')).toEqual([
+      'Général',
+      'Comptabilité',
+      'Banques',
+      'Paiements',
+      'Taxes',
+      'Immobilisations',
+      'Analytique',
+      'Emprunts',
+    ]);
+    expect(labels(nav.find((entry) => entry.label === 'Comptabilité')?.children ?? [])).toEqual([
+      'Écritures',
+      'Journaux',
+      'Plan comptable',
+      'Tiers',
+      'Trésorerie',
+      'Lettrage',
+      'Rapprochement',
+      'Clôture',
+    ]);
+  });
+
+  it('never gives a screen to a function the API does not offer (lettrage)', () => {
+    const lettering = accounting()
+      .nav.flatMap((entry) => entry.children ?? [])
+      .find((link) => link.label === 'Lettrage');
+    expect(lettering?.unavailable).toContain('l’API ne propose pas le lettrage');
+    expect(menuLinks(accounting().nav).map((link) => link.label)).not.toContain('Lettrage');
   });
 
   it('never offers import / export as a menu entry: it is a contextual action', () => {
@@ -91,18 +140,18 @@ describe('Application catalogue', () => {
 describe('NavigationService', () => {
   it('shows only the applications the user may open', () => {
     const navigation = signIn(['accounting.read', 'reporting.read', 'dashboards.read']);
-    expect(labels(navigation.applications())).toEqual([
-      'Comptabilité',
-      'Reporting',
-      'Tableau de bord',
-    ]);
+    expect(labels(navigation.applications())).toEqual(['Comptabilité', 'Tableau de bord']);
     expect(signIn([]).applications()).toEqual([]);
   });
 
   it('shows every financial domain inside Comptabilité to a full accountant', () => {
     const navigation = signIn([
       'accounting.read',
+      'dashboards.read',
       'reporting.read',
+      'reporting.read_auxiliary',
+      'reporting.read_analytics',
+      'reporting.read_financial_statements',
       'closing.read',
       'partners.read',
       'treasury.read',
@@ -114,16 +163,54 @@ describe('NavigationService', () => {
     ]);
     expect(labels(navigation.menu(accounting()))).toEqual([
       'Tableau de bord',
-      'Écritures',
-      'Journaux',
-      'Plan comptable',
-      'Tiers',
-      'Trésorerie',
-      'Rapports',
+      'Clients',
+      'Fournisseurs',
+      'Comptabilité',
+      'Analyse',
       'Configuration',
-      'Plus',
     ]);
-    expect(flatLabels(navigation)).toEqual(expect.arrayContaining(FINANCIAL_DOMAINS));
+    const urls = navigation
+      .menu(accounting())
+      .flatMap((entry) => (entry.children ?? [entry]).map((link) => link.url));
+    for (const path of [
+      'tresorerie/operations',
+      'immobilisations/actifs',
+      'emprunts/liste',
+      'taxes/liste',
+      'analytique/rapports',
+      'audit/journal',
+    ]) {
+      expect(urls).toContain(`/app/comptabilite/${path}`);
+    }
+  });
+
+  it('keeps the groups and shows an unavailable function disabled, without URL', () => {
+    const navigation = signIn(['accounting.read', 'reporting.read_auxiliary']);
+    const menu = navigation.menu(accounting());
+    const analysis = menu.find((entry) => entry.label === 'Analyse');
+    // Only the reports of the user's permission, under their title.
+    expect(analysis?.children).toEqual([
+      {
+        label: 'Balance clients',
+        group: 'Rapports de tiers',
+        url: '/app/comptabilite/analyse/balance-clients',
+      },
+      {
+        label: 'Balance fournisseurs',
+        group: 'Rapports de tiers',
+        url: '/app/comptabilite/analyse/balance-fournisseurs',
+      },
+    ]);
+    const lettering = menu
+      .find((entry) => entry.label === 'Comptabilité')
+      ?.children?.find((link) => link.label === 'Lettrage');
+    expect(lettering?.url).toBeUndefined();
+    expect(lettering?.unavailable).toBeTruthy();
+  });
+
+  it('hides a menu whose screens are all closed, even with an unavailable function in it', () => {
+    const navigation = signIn(['accounting.read']);
+    expect(labels(navigation.menu(accounting()))).toEqual(['Comptabilité', 'Configuration']);
   });
 
   it('hides the domains the user may not read', () => {
@@ -168,7 +255,8 @@ describe('NavigationService', () => {
     expect(navigation.canOpenUrl('/app/comptabilite/ecritures')).toBe(true);
     expect(navigation.canOpenUrl('/app/comptabilite/immobilisations/actifs')).toBe(false); // feature
     expect(navigation.canOpenUrl('/app/comptabilite/tresorerie/operations')).toBe(false); // permission
-    expect(navigation.canOpenUrl('/app/comptabilite/rapports/balance')).toBe(false); // group permission
+    expect(navigation.canOpenUrl('/app/comptabilite/analyse/balance')).toBe(false); // link permission
+    expect(navigation.canOpenUrl('/app/comptabilite/tableau-de-bord')).toBe(false); // dashboards.read
     expect(navigation.canOpenUrl('/app/tiers/liste')).toBe(false); // application
   });
 
@@ -234,8 +322,8 @@ describe('NavigationService', () => {
       expect(navigation.landingUrl('/app/comptabilite/tresorerie/operations')).toBe(
         '/app/comptabilite/tresorerie/operations',
       );
-      expect(navigation.landingUrl('/app/comptabilite/rapports/balance')).toBe(
-        '/app/comptabilite/rapports/balance',
+      expect(navigation.landingUrl('/app/comptabilite/analyse/balance')).toBe(
+        '/app/comptabilite/analyse/balance',
       );
     });
 
@@ -255,10 +343,10 @@ describe('NavigationService', () => {
     it('a screen closed in the new company: the home of the application', () => {
       const navigation = signIn(['accounting.read', 'treasury.read']);
       expect(navigation.landingUrl('/app/comptabilite/immobilisations/actifs')).toBe(
-        '/app/comptabilite/tableau-de-bord',
+        '/app/comptabilite/ecritures',
       );
-      expect(navigation.landingUrl('/app/comptabilite/rapports/balance')).toBe(
-        '/app/comptabilite/tableau-de-bord',
+      expect(navigation.landingUrl('/app/comptabilite/analyse/balance')).toBe(
+        '/app/comptabilite/ecritures',
       );
     });
 
@@ -271,10 +359,14 @@ describe('NavigationService', () => {
 
   it('starts an application on its first screen the user may open', () => {
     const navigation = signIn(['accounting.read', 'partners.read']);
-    expect(navigation.homeUrl(accounting())).toBe('/app/comptabilite/tableau-de-bord');
-    expect(navigation.menu(accounting())[1]).toEqual({
-      label: 'Écritures',
-      url: '/app/comptabilite/ecritures',
+    // The dashboard needs dashboards.read: without it, Clients comes first.
+    expect(navigation.homeUrl(accounting())).toBe('/app/comptabilite/clients');
+    expect(navigation.menu(accounting())[0]).toEqual({
+      label: 'Clients',
+      url: '/app/comptabilite/clients',
     });
+    expect(signIn(['accounting.read', 'dashboards.read']).homeUrl(accounting())).toBe(
+      '/app/comptabilite/tableau-de-bord',
+    );
   });
 });

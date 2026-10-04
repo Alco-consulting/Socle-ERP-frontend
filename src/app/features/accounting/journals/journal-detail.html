@@ -30,6 +30,42 @@
     </div>
   </alco-page-header>
 
+  <nav class="smart-buttons" aria-label="Objets liés au journal">
+    <alco-smart-button
+      label="Écritures"
+      icon="accounting"
+      [count]="counts.value()?.total ?? null"
+      [link]="entriesUrl"
+      [queryParams]="{ journal: journal.public_id }"
+    />
+    <alco-smart-button
+      label="Brouillons"
+      icon="edit"
+      [count]="counts.value()?.draft ?? null"
+      [link]="entriesUrl"
+      [queryParams]="{ journal: journal.public_id, etat: 'draft' }"
+    />
+    <alco-smart-button
+      label="Soumises"
+      icon="clock"
+      [count]="counts.value()?.submitted ?? null"
+      [link]="entriesUrl"
+      [queryParams]="{ journal: journal.public_id, etat: 'submitted' }"
+    />
+    @if (canSeeHistory()) {
+      <alco-smart-button
+        label="Historique"
+        icon="clock"
+        [count]="historyCount()"
+        link="."
+        fragment="historique"
+      />
+    }
+  </nav>
+  @if (counts.error()) {
+    <p class="alco-caption">Les compteurs d’écritures n’ont pas pu être chargés.</p>
+  }
+
   @if (actionError(); as failure) {
     <alco-error-state
       [inline]="true"
@@ -76,6 +112,12 @@
         </div>
       </dl>
     </section>
+
+    @if (canSeeHistory()) {
+      <section id="historique" class="section" aria-labelledby="history-title">
+        <alco-object-history [objectType]="auditType" [objectId]="journal.public_id" />
+      </section>
+    }
 
     <p class="dates alco-caption">
       Créé le {{ journal.created_at | date: 'dd/MM/yyyy à HH:mm' }} · modifié le

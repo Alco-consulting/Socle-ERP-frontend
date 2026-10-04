@@ -20,14 +20,29 @@ export interface DropdownItem {
   /** Used by `mode="single"` menus (group by, company switcher). */
   readonly checked?: boolean;
   readonly dividerBefore?: boolean;
+  /**
+   * Title of the item's group: consecutive items with the same `group` are shown under it,
+   * as one `role="group"` named by the title (« Rapports financiers », « Banques »).
+   */
+  readonly group?: string;
 }
+
+/** Consecutive items sharing a group (no title: items outside any group). */
+interface MenuSection {
+  readonly key: string;
+  readonly title: string | undefined;
+  readonly items: readonly DropdownItem[];
+}
+
+let menus = 0;
 
 export type DropdownTrigger = 'secondary' | 'ghost' | 'primary' | 'topbar' | 'nav';
 
 /**
  * Menu of secondary actions or choices behind a single trigger (« Actions ▾ », « Plus ▾ »,
  * société, utilisateur). Keyboard: arrows, Home/End, Escape, typeahead (Angular CDK Menu).
- * The trigger's text is projected; menu entries come from `items`.
+ * The trigger's text is projected; menu entries come from `items`. Items may be grouped
+ * under titles (`group`): each group is a `role="group"` labelled by its visible title.
  */
 @Component({
   selector: 'alco-dropdown',
@@ -62,6 +77,22 @@ export class AlcoDropdown {
   readonly ariaLabel = input<string | undefined>(undefined);
 
   readonly selected = output<DropdownItem>();
+
+  private readonly menuId = `alco-menu-${++menus}`;
+
+  /** Items split into sections: a new section starts where the group changes. */
+  protected readonly sections = computed<readonly MenuSection[]>(() => {
+    const found: { key: string; title: string | undefined; items: DropdownItem[] }[] = [];
+    for (const item of this.items()) {
+      const last = found.at(-1);
+      if (last && last.title === item.group) {
+        last.items.push(item);
+      } else {
+        found.push({ key: `${this.menuId}-${found.length}`, title: item.group, items: [item] });
+      }
+    }
+    return found;
+  });
 
   protected readonly buttonVariant = computed<ButtonVariant>(() => {
     const trigger = this.trigger();

@@ -43,14 +43,8 @@ test.describe('Scénario 1 — société par défaut', () => {
     await expect(companyButton(page)).toHaveAccessibleName(
       'Société active : ALCO GUINÉE (test). Changer de société',
     );
-    await expect(tiles(page)).toHaveText([
-      'Comptabilité',
-      'Tiers',
-      'Reporting',
-      'Documents',
-      'Tableau de bord',
-    ]);
-    await expect(page.getByText('ALCO GUINÉE (test) · 5 applications disponibles')).toBeVisible();
+    await expect(tiles(page)).toHaveText(['Comptabilité', 'Tiers', 'Documents', 'Tableau de bord']);
+    await expect(page.getByText('ALCO GUINÉE (test) · 4 applications disponibles')).toBeVisible();
     const [context] = api.callsTo('company-context/');
     expect(await context.headerValue('x-company-id')).toBeNull(); // the server's default
   });
@@ -87,7 +81,7 @@ test.describe('Scénario 2 — aucune société par défaut : l’utilisateur ch
     expect(makeDefault.postDataJSON()).toEqual({ company: COMPANY_B.public_id });
 
     await page.getByRole('link', { name: 'Toutes les applications' }).click();
-    await expect(tiles(page)).toHaveText(['Comptabilité', 'Reporting']);
+    await expect(tiles(page)).toHaveText(['Comptabilité']);
   });
 
   test('the choice screen: accessible, fits a phone', async ({ page, api }) => {
@@ -170,11 +164,11 @@ test.describe('Scénario 3 — changement de société', () => {
     expect(await switchCall?.headerValue('x-company-id')).toBe(COMPANY_B.public_id);
 
     // Navigation recomputed with B's permissions.
-    await moduleNav(page).getByRole('button', { name: 'Plus' }).click();
+    await moduleNav(page).getByRole('button', { name: 'Configuration', exact: true }).click();
     for (const hidden of ['Immobilisations', 'Emprunts', 'Analytique']) {
-      await expect(page.getByRole('menuitemradio', { name: hidden })).toHaveCount(0);
+      await expect(page.getByRole('group', { name: hidden, exact: true })).toHaveCount(0);
     }
-    await expect(page.getByRole('menuitemradio', { name: 'Taxes' })).toBeVisible();
+    await expect(page.getByRole('group', { name: 'Taxes', exact: true })).toBeVisible();
     await page.keyboard.press('Escape');
 
     // Back to A: its draft is there again (the server kept it).
@@ -209,7 +203,7 @@ test.describe('Scénario 3 — changement de société', () => {
     await expect(page.getByRole('heading', { level: 1 })).toHaveText('Tous les tiers');
     await switchTo(page, /FILIALE SÉNÉGAL/);
     await expect(page).toHaveURL(/\/app$/);
-    await expect(tiles(page)).toHaveText(['Comptabilité', 'Reporting', 'Tableau de bord']);
+    await expect(tiles(page)).toHaveText(['Comptabilité', 'Tableau de bord']);
   });
 
   test('a reload stays in the company chosen in this tab', async ({ page, api }) => {
@@ -247,7 +241,7 @@ test.describe('Scénario 4 — application ou écran interdit', () => {
   }) => {
     api.withPermissions(COMPANY_A.public_id, PROFILES.viewer);
     await page.goto('/app');
-    await expect(tiles(page)).toHaveText(['Comptabilité', 'Reporting', 'Tableau de bord']);
+    await expect(tiles(page)).toHaveText(['Comptabilité', 'Tableau de bord']);
     await page.goto('/app/tiers/liste');
     await expect(page).toHaveURL(/\/app$/);
     await expect(

@@ -66,7 +66,11 @@
         </div>
         <div>
           <dt>Journal</dt>
-          <dd class="mono">{{ entry.journal.code }}</dd>
+          <dd class="mono">
+            <a [routerLink]="[accounting, 'journaux', entry.journal.public_id]">{{
+              entry.journal.code
+            }}</a>
+          </dd>
         </div>
         <div>
           <dt>Date</dt>
@@ -111,6 +115,33 @@
             }
           </dd>
         </div>
+        @if (sourceLabel(); as source) {
+          <div>
+            <dt>Source</dt>
+            <dd>{{ source }}</dd>
+          </div>
+        }
+        @if (treasuryOperations().length > 0) {
+          <div class="wide">
+            <dt>Trésorerie</dt>
+            <dd>
+              <ul class="related" role="list">
+                @for (operation of treasuryOperations(); track operation.public_id) {
+                  <li>
+                    Opération du {{ day(operation.operation_date) }} ·
+                    <span class="mono">{{ operation.treasury_account.code }}</span>
+                    @if (operation.reference) {
+                      · {{ operation.reference }}
+                    }
+                  </li>
+                }
+              </ul>
+              @if (treasuryUrl(); as url) {
+                <a [routerLink]="url">Voir les opérations de trésorerie</a>
+              }
+            </dd>
+          </div>
+        }
         @if (entry.related_entry; as related) {
           <div>
             <dt>{{ entry.kind === 'reversal' ? 'Contrepasse' : 'Corrige' }}</dt>
@@ -138,7 +169,9 @@
         totalsLabel="Totaux"
       >
         <ng-template alcoCell="account" let-line>
-          <span class="mono">{{ line.account.code }}</span>
+          <a class="mono" [routerLink]="[accounting, 'plan-comptable', line.account.public_id]">{{
+            line.account.code
+          }}</a>
         </ng-template>
         <ng-template alcoCell="label" let-line>
           {{ line.label || '—' }}
@@ -147,7 +180,17 @@
             <span class="tag">Répartition analytique</span>
           }
         </ng-template>
-        <ng-template alcoCell="partner" let-line>{{ line.partner?.code ?? '—' }}</ng-template>
+        <ng-template alcoCell="partner" let-line>
+          @if (line.partner; as partner) {
+            @if (canOpenPartners()) {
+              <a [routerLink]="[accounting, 'tiers', partner.public_id]">{{ partner.code }}</a>
+            } @else {
+              {{ partner.code }}
+            }
+          } @else {
+            —
+          }
+        </ng-template>
         <ng-template alcoCell="tax" let-line>
           @if (line.tax; as tax) {
             {{ tax.code }}
@@ -193,7 +236,7 @@
 
     @if (canSeeHistory()) {
       <section class="section" aria-labelledby="history-title">
-        <alco-entry-history [entryId]="entry.public_id" />
+        <alco-object-history [objectType]="auditTypes.entry" [objectId]="entry.public_id" />
       </section>
     }
 

@@ -23,8 +23,12 @@ function run(guard: CanActivateFn, permissions: string[], data: object = {}, url
 
 describe('Application access guards (UX only: the API checks every call)', () => {
   it('the home of an application: its first screen open in the active company', () => {
-    expect(String(run(appHome('accounting'), ['accounting.read']))).toBe(
+    expect(String(run(appHome('accounting'), ['accounting.read', 'dashboards.read']))).toBe(
       '/app/comptabilite/tableau-de-bord',
+    );
+    // The dashboard needs dashboards.read: without it, the first other screen.
+    expect(String(run(appHome('accounting'), ['accounting.read']))).toBe(
+      '/app/comptabilite/ecritures',
     );
     expect(String(run(appHome('settings'), ['currencies.read']))).toBe('/app/parametres/devises');
   });

@@ -136,9 +136,63 @@ describe('Journaux (accounting/journals/)', () => {
   });
 
   describe('record', () => {
+    /** The smart buttons' counts: `count` of the entry list of the journal, by status. */
+    function answerCounts(total = 48, draft = 3, submitted = 2) {
+      const requests = httpMock().match((req) => req.url === '/api/v1/accounting/entries/');
+      for (const request of requests) {
+        const status = request.request.params.get('status');
+        const count = status === 'draft' ? draft : status === 'submitted' ? submitted : total;
+        request.flush({ count, next: null, previous: null, results: [] });
+      }
+      return requests;
+    }
+
+    it('smart buttons: the entries of the journal, by state, and its history', async () => {
+      const { element, stable } = await open('/journaux/j-ach', [...READ, 'audit.read']);
+      httpMock().expectOne('/api/v1/accounting/journals/j-ach/').flush(JOURNAL);
+      const counts = answerCounts();
+      await stable();
+      httpMock()
+        .expectOne('/api/v1/audit/objects/accounting.journal/j-ach/?page_size=50')
+        .flush({ count: 4, next: null, previous: null, results: [] });
+      await stable();
+
+      expect(counts.map((request) => request.request.params.get('journal'))).toEqual([
+        'j-ach',
+        'j-ach',
+        'j-ach',
+      ]);
+      expect(counts.every((request) => request.request.params.get('page_size') === '1')).toBe(true);
+      const buttons = Array.from(element.querySelectorAll<HTMLAnchorElement>('.smart'));
+      expect(buttons.map((button) => button.getAttribute('aria-label'))).toEqual([
+        'Écritures : 48',
+        'Brouillons : 3',
+        'Soumises : 2',
+        'Historique : 4',
+      ]);
+      expect(buttons.map((button) => button.getAttribute('href'))).toEqual([
+        '/app/comptabilite/ecritures?journal=j-ach',
+        '/app/comptabilite/ecritures?journal=j-ach&etat=draft',
+        '/app/comptabilite/ecritures?journal=j-ach&etat=submitted',
+        '/journaux/j-ach#historique',
+      ]);
+      expect(element.querySelector('#historique')?.textContent).toContain('Historique');
+    });
+
+    it('no audit.read: no history button nor section', async () => {
+      const { element, stable } = await open('/journaux/j-ach', READ);
+      httpMock().expectOne('/api/v1/accounting/journals/j-ach/').flush(JOURNAL);
+      answerCounts();
+      await stable();
+      expect(element.querySelectorAll('.smart').length).toBe(3);
+      expect(element.querySelector('#historique')).toBeNull();
+      httpMock().expectNone((req) => req.url.includes('/audit/'));
+    });
+
     it('shows the journal; deactivates after a confirmation (manage_journals)', async () => {
       const { element, stable } = await open('/journaux/j-ach', MANAGE);
       httpMock().expectOne('/api/v1/accounting/journals/j-ach/').flush(JOURNAL);
+      answerCounts();
       await stable();
       expect(element.querySelector('h1')?.textContent).toContain('Achats');
       expect(element.textContent).toContain('ACH · Achats');
@@ -157,6 +211,7 @@ describe('Journaux (accounting/journals/)', () => {
     it('read only: no Modifier, no Actions', async () => {
       const { element, stable } = await open('/journaux/j-ach', READ);
       httpMock().expectOne('/api/v1/accounting/journals/j-ach/').flush(JOURNAL);
+      answerCounts();
       await stable();
       expect(element.textContent).not.toContain('Modifier');
       expect(element.querySelector('alco-dropdown')).toBeNull();

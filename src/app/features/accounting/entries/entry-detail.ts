@@ -9,13 +9,15 @@ import {
   untracked,
   viewChild,
 } from '@angular/core';
-import { toSignal } from '@angular/core/rxjs-interop';
+import { toObservable, toSignal } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
-import { Observable, catchError, firstValueFrom, map, of } from 'rxjs';
+import { Observable, catchError, firstValueFrom, map, of, switchMap } from 'rxjs';
 
 import { UserError, toUserError } from '../../../core/errors/user-error';
 import { ApiError, toApiError } from '../../../core/http/api-error';
 import { requestState } from '../../../core/http/request-state';
+import { APP_ROOT, findApplication } from '../../../core/navigation/applications';
+import { NavigationService } from '../../../core/navigation/navigation.service';
 import { BreadcrumbService } from '../../../core/navigation/route-trail';
 import { SessionStore } from '../../../core/session/session.store';
 import { AlcoAmountPipe } from '../../../shared/pipes/amount.pipe';
@@ -35,11 +37,13 @@ import { AlcoPageHeader } from '../../../shared/ui/page-header/page-header';
 import { AlcoToastService } from '../../../shared/ui/toast/toast.service';
 import { AlcoWorkflowSteps } from '../../../shared/ui/workflow-steps/workflow-steps';
 import { isZeroDecimal, subtractDecimals, sumDecimals } from '../../../shared/utils/decimal';
+import { localToday } from '../../../shared/utils/dates';
 import { PartnersApi } from '../../partners/data-access/partners-api';
+import { TreasuryApi, TreasuryOperationSummary } from '../../treasury/data-access/treasury-api';
 import { EntriesApi } from '../data-access/entries-api';
 import { Entry, EntryCommand, EntryLine } from '../data-access/entry-models';
 import { AlcoEntryDocuments } from './entry-documents';
-import { AlcoEntryHistory } from './entry-history';
+import { AUDIT_TYPES, AlcoObjectHistory } from '../../audit/object-history';
 import {
   ENTRY_ERRORS,
   ENTRY_KINDS,
@@ -57,6 +61,17 @@ interface ActionSpec {
   readonly icon: IconName;
   readonly danger?: boolean;
 }
+
+const ACCOUNTING = `${APP_ROOT}/comptabilite`;
+
+/** Modules that generate entries (`source_type` = `<module>.<object>`), in words. */
+const SOURCE_MODULES: Readonly<Record<string, string>> = {
+  treasury: 'Trésorerie',
+  assets: 'Immobilisations',
+  loans: 'Emprunts',
+  closing: 'Clôture',
+  imports_exports: 'Import d’écritures',
+};
 
 const ACTIONS: Readonly<Record<Action, ActionSpec>> = {
   edit: { label: 'Modifier', icon: 'edit' },
@@ -115,13 +130,6 @@ const DETAIL_WORDS: Readonly<Record<string, string>> = {
   tax: 'Taxe',
 };
 
-/** « 2026-09-28 » of the browser's day (proposed date of a reversal). */
-function today(): string {
-  const now = new Date();
-  const pad = (value: number) => String(value).padStart(2, '0');
-  return `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
-}
-
 /**
  * An entry (`GET accounting/entries/{id}/`): its fields, its lines, its documents and its
  * history. The actions shown follow the server's state, the permissions of the active company
@@ -139,7 +147,7 @@ function today(): string {
     AlcoCell,
     AlcoDropdown,
     AlcoEntryDocuments,
-    AlcoEntryHistory,
+    AlcoObjectHistory,
     AlcoErrorState,
     AlcoIcon,
     AlcoLoading,
@@ -171,7 +179,7 @@ export class EntryDetailPage {
   protected readonly entry = signal<Entry | null>(null);
   protected readonly busy = signal<Action | null>(null);
   protected readonly actionError = signal<UserError | null>(null);
-  private readonly history = viewChild(AlcoEntryHistory);
+  private readonly history = viewChild(AlcoObjectHistory);
 
   /** The company's rules; unknown (failure): no validation straight from a draft. */
   private readonly settings = toSignal(this.api.settings().pipe(catchError(() => of(null))), {
@@ -187,7 +195,37 @@ export class EntryDetailPage {
     { initialValue: new Map<string, number>() },
   );
 
+  // ---- Related objects (links by the public ids the API gives) --------------------------
+  private readonly navigation = inject(NavigationService);
+  protected readonly accounting = ACCOUNTING;
+  /** Partners open from Comptabilité › Tiers (`partners.read`). */
+  protected readonly canOpenPartners = computed(() => this.canOpen('tiers'));
+  /** The treasury operations this entry accounts (`treasury.read`), none otherwise. */
+  private readonly treasuryApi = inject(TreasuryApi);
+  protected readonly treasuryOperations = toSignal(
+    toObservable(this.id).pipe(
+      switchMap((id) =>
+        id && this.session.can('treasury.read')
+          ? this.treasuryApi.operationsOfEntry(id).pipe(
+              map((page) => page.results),
+              catchError(() => of([] as TreasuryOperationSummary[])),
+            )
+          : of([] as TreasuryOperationSummary[]),
+      ),
+    ),
+    { initialValue: [] as TreasuryOperationSummary[] },
+  );
+  protected readonly treasuryUrl = computed(() =>
+    this.canOpen('tresorerie/operations') ? `${ACCOUNTING}/tresorerie/operations` : null,
+  );
+  /** « Trésorerie », « Immobilisations »…: the module that generated the entry. */
+  protected readonly sourceLabel = computed(() => {
+    const type = this.entry()?.source_type ?? '';
+    return type ? (SOURCE_MODULES[type.split('.')[0]] ?? type) : '';
+  });
+
   protected readonly workflow = ENTRY_WORKFLOW;
+  protected readonly auditTypes = AUDIT_TYPES;
   protected readonly day = isoDay;
   protected readonly canSeeDocuments = computed(() => this.session.can('documents.read'));
   protected readonly canSeeHistory = computed(() => this.session.can('audit.read'));
@@ -370,6 +408,11 @@ export class EntryDetailPage {
       }));
   });
 
+  private canOpen(path: string): boolean {
+    const app = findApplication('accounting');
+    return !!app && this.navigation.canOpenPath(app, path);
+  }
+
   constructor() {
     effect(() => {
       this.id();
@@ -441,7 +484,7 @@ export class EntryDetailPage {
     if (!entry || this.busy()) {
       return;
     }
-    const request = await this.reverseDialog.ask(this.title(), today());
+    const request = await this.reverseDialog.ask(this.title(), localToday());
     if (!request) {
       return;
     }

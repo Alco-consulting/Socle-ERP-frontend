@@ -2,6 +2,7 @@ import AxeBuilder from '@axe-core/playwright';
 import { Page } from '@playwright/test';
 
 import { COMPANY_A, COMPANY_B, expect, test } from './support/fake-api';
+import { fixToday, openMenuItem } from './support/navigation';
 
 /**
  * Comptabilité, accounting base (Module 4), on the fake API: dashboard, journals, chart of
@@ -20,6 +21,8 @@ async function axe(page: Page): Promise<string[]> {
 }
 
 test.describe('Comptabilité — tableau de bord réel', () => {
+  test.beforeEach(async ({ page }) => fixToday(page));
+
   test('Scénarios 1 et 2 : lanceur → Comptabilité → tableau de bord de l’API', async ({
     page,
     api,
@@ -31,9 +34,15 @@ test.describe('Comptabilité — tableau de bord réel', () => {
     await expect(page.getByText('ALCO GUINÉE (test) · Exercice : Exercice 2026')).toBeVisible();
     await expect(page.getByRole('note', { name: 'Démonstration' })).toHaveCount(0);
 
-    const entries = page.locator('alco-card', { hasText: 'Écritures' });
-    await expect(entries).toContainText(/Brouillons\s*12/);
-    await expect(entries).toContainText(/Soumises, à valider\s*4/);
+    // Entries waiting, per journal, as dashboards/journals/ counts them (12 drafts, 4 submitted).
+    const total = async (label: string) => {
+      const links = page.getByRole('link', { name: new RegExp(`^${label} : \\d+$`) });
+      await expect(links).toHaveCount(5);
+      const names = await links.evaluateAll((all) => all.map((link) => link.ariaLabel ?? ''));
+      return names.reduce((sum, name) => sum + Number(name.split(': ')[1]), 0);
+    };
+    expect(await total('Brouillons')).toBe(12);
+    expect(await total('Soumises')).toBe(4);
     await expect(page.getByRole('list', { name: 'Périodes de Exercice 2026' })).toContainText(
       /Janvier 2026\s*Clôturée/,
     );
@@ -43,12 +52,14 @@ test.describe('Comptabilité — tableau de bord réel', () => {
       /Comptes\s*10.*Comptes imputables\s*4/s,
     );
 
-    // A fixed number of requests: no request per journal or per period.
+    // A fixed number of requests: no request per journal or per period. Accounting: open
+    // fiscal years, their periods, the chart's two counts; the journals: one dashboards call.
     const accounting = () =>
       api.calls.filter((call) => new URL(call.url()).pathname.startsWith('/api/v1/accounting/'));
-    await expect.poll(() => accounting().length).toBe(7);
+    await expect.poll(() => accounting().length).toBe(4);
     await page.waitForLoadState('networkidle');
-    expect(accounting()).toHaveLength(7);
+    expect(accounting()).toHaveLength(4);
+    expect(api.callsTo('dashboards/journals/')).toHaveLength(1);
     for (const call of accounting()) {
       expect(await call.headerValue('x-company-id')).toBe(COMPANY_A.public_id);
     }
@@ -59,7 +70,7 @@ test.describe('Comptabilité — tableau de bord réel', () => {
 test.describe('Comptabilité — journaux', () => {
   test('Scénario 3 : liste, filtre, fiche, création, désactivation', async ({ page, api }) => {
     await page.goto('/app/comptabilite/tableau-de-bord');
-    await moduleNav(page).getByRole('link', { name: 'Journaux' }).click();
+    await openMenuItem(page, 'Comptabilité', 'Journaux');
     await expect(page.getByRole('heading', { level: 1 })).toHaveText('Journaux');
     await expect(codes(page)).toHaveText(['ACH', 'ANC', 'BQ1', 'CAI', 'OD', 'VTE']);
     await expect(page.getByRole('row', { name: /ANC/ })).toContainText('Inactif');
@@ -184,9 +195,10 @@ test.describe('Comptabilité — exercices, société, permissions, téléphone'
     await page.getByRole('menuitemradio', { name: /FILIALE SÉNÉGAL/ }).click();
     await expect(page).toHaveURL(/\/app\/comptabilite\/plan-comptable$/);
     await expect(codes(page)).toHaveText(['7', '701']);
-    await expect(page.getByText('Fournisseurs')).toHaveCount(0);
+    // A's accounts are gone (« Fournisseurs » stays a link of the navigation).
+    await expect(page.getByRole('table').getByText('Fournisseurs')).toHaveCount(0);
 
-    await moduleNav(page).getByRole('link', { name: 'Journaux' }).click();
+    await openMenuItem(page, 'Comptabilité', 'Journaux');
     await expect(codes(page)).toHaveText(['SN-VTE']);
     await moduleNav(page).getByRole('link', { name: 'Tableau de bord' }).click();
     await expect(page.getByText('FILIALE SÉNÉGAL (test) · Exercice : Exercice 2026')).toBeVisible();

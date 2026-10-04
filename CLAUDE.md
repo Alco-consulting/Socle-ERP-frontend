@@ -4,10 +4,12 @@ Frontend Angular de l'application comptable Alco Consulting (multi-sociétés, O
 backend Django est terminé et en production (`https://api.alcoconsulting.tech`, voir
 `../backend/CLAUDE.md`).
 
-**État actuel : phase UX/UI 0 (design system, App Launcher de 6 applications, coquille des
-modules), Module 0 (socle technique), Module 1 (authentification), Module 2 (société active
-et App Launcher réels), Module 3 (Tiers), Module 4 (socle de la Comptabilité : tableau
-de bord, journaux, plan comptable, exercices et périodes) et Module 5 (Écritures comptables)
+**État actuel : phase UX/UI 0 (design system, App Launcher, coquille des modules), Module 0
+(socle technique), Module 1 (authentification), Module 2 (société active et App Launcher
+réels), Module 3 (Tiers), Module 4 (socle de la Comptabilité : tableau de bord, journaux, plan
+comptable, exercices et périodes), Module 5 (Écritures comptables) et le lot V2.1 A1/A2
+(navigation alignée : lanceur de 5 applications sans Reporting, Comptabilité en 3 liens + 3
+menus groupés, tableau de bord comptable sur `dashboards/journals/` et `dashboards/alerts/`)
 livrés.**
 Le socle parle à l'API Django : environnements, `ApiClient`, intercepteurs (session, CSRF,
 `X-Company-ID`, erreurs, chargement), gardes. Connexion et déconnexion réelles ; utilisateur,
@@ -68,9 +70,11 @@ src/app/
   features/     launcher · auth (écran de connexion) · company-choice (`/societe`) ·
                 partners (Tiers : data-access, pages, présentation, routes) · accounting
                 (socle comptable : data-access, dashboard, journals, accounts, periods ;
-                entries : écritures, Module 5) · documents et audit (data-access seulement) ·
-                transfers (import/export contextuels, sans route propre) · design-system ·
-                prototype
+                entries : écritures, Module 5) · dashboards (data-access : journaux et
+                alertes de `dashboards/`) · treasury (data-access : opérations d'une
+                écriture) · documents (data-access) · audit (data-access, AlcoObjectHistory :
+                historique d'un objet) · transfers (import/export contextuels, sans route
+                propre) · design-system · prototype (écrans prévus, LEGACY_REDIRECTS)
   app.routes.ts `/` → `/app` (lanceur, zone authentifiée dans AlcoCompanyScope),
                 `/app/<application>/…`, `/login`, `/societe`, `/design-system` ; une coquille
                 AlcoModuleShell par application
@@ -159,10 +163,35 @@ supprime ce qui ne sert plus.
 - **État des listes dans l'URL** (`?etat=…&groupe=…&tri=…&page=…`) : retour arrière et
   partage fonctionnent.
 - Fil d'Ariane et titre d'onglet déduits des routes (`data.breadcrumb`, `resolve.breadcrumb`).
-- **Six applications** (Comptabilité, Tiers, Reporting, Documents, Tableau de bord,
-  Paramètres) ; Comptabilité porte Tiers (suivi comptable), Trésorerie en liens directs, puis
-  Immobilisations, Emprunts, Taxes, Analytique, Audit, Clôture sous « Plus ▾ ». L'application
-  Tiers gère les fiches ; Comptabilité › Tiers suit soldes, échéances, lettrage.
+- **Cinq applications (V2.1)** : Comptabilité, Tiers, Documents, Tableau de bord, Paramètres.
+  **Reporting n'est plus une application** : ses rapports sont Comptabilité › Analyse (le
+  domaine `reporting` du backend reste leur source ; aucun endpoint retiré). Comptabilité :
+  Tableau de bord, Clients, Fournisseurs, puis Comptabilité ▾ (Écritures, Journaux, Plan
+  comptable, Tiers, Trésorerie, Lettrage indisponible, Rapprochement, Clôture), Analyse ▾
+  (Rapports financiers, comptables, de tiers, Analyses) et Configuration ▾ (Général,
+  Comptabilité, Banques, Paiements, Taxes, Immobilisations, Analytique, Emprunts). Les
+  sections (Trésorerie, Immobilisations, Emprunts, Taxes, Analytique, Audit) gardent leur
+  navigation ; leurs écrans de configuration sont aussi dans Configuration ▾.
+- **Menus groupés** : `AppNavLink.group` (helper `group()` du catalogue) → `NavLink.group` →
+  `DropdownItem.group` ; le dropdown rend les éléments consécutifs d'un même groupe sous un
+  titre, dans un `role="group"` nommé par ce titre (`aria-labelledby`). Tablette : « Plus ▾ »
+  titré « Menu · Groupe » ; téléphone : un seul menu, mêmes groupes. Menu long : défilement
+  interne (`max-height`).
+- **Fonction sans API** : `unavailable: '<raison>'` dans le catalogue → entrée désactivée avec
+  sa raison, sans route ni écran (Lettrage). Écran dont l'API existe mais non construit :
+  écran prévu (`NotInPrototypePage`), qui le dit. Échéances, balance âgée, journal
+  centralisateur : retirés des menus (pas d'API) ; leurs anciennes URL redirigent.
+- **Clients / Fournisseurs / Comptabilité › Tiers** = `partnerListScreen()` de
+  `partners.routes.ts` (mêmes écrans que l'application Tiers, fiches sous
+  `/app/comptabilite/<liste>/:id`) ; la création reste `/app/tiers/nouveau`.
+- **Coquille chargée à la demande** : `AlcoModuleShell` (barre supérieure, menus, CDK Menu)
+  est un `loadComponent` de chaque application, plus dans le bundle initial (V2.1 : 451 kB au
+  lieu de 504 kB, budget 500 kB).
+- **Anciennes URL** (`LEGACY_REDIRECTS`, `prototype-routes.ts`) : `/app/reporting/*` →
+  `/app/comptabilite/analyse/*`, `/app/comptabilite/rapports/*` → `…/analyse/*`,
+  `…/tiers/clients|fournisseurs` → `…/clients|fournisseurs`, `/app/tiers/configuration/
+  conditions` → `…/configuration/conditions-paiement` ; simples redirections (la garde de la
+  cible décide).
 - Opérations d'import/export absentes de l'API V1 : masquées sur les domaines réels (pas
   d'« Exporter les écritures »), affichées désactivées avec leur raison sur les écrans encore
   prévus (immobilisations, opérations de trésorerie) — **à valider** (tout masquer ou les
@@ -188,9 +217,9 @@ supprime ce qui ne sert plus.
   par l'API) ; création = champs du contrat ; modification = champs changés seulement, jamais
   le code ; pas de suppression (désactivation). Fiche nommée dans le fil d'Ariane par
   `BreadcrumbService.nameCurrent` (pas de resolver).
-- **Comptabilité, socle (Module 4)** : `features/accounting` sur `accounting/` ; pas
-  d'endpoint de tableau de bord comptable → blocs indépendants assemblés depuis l'API (7
-  requêtes fixes, aucun N+1, aucun calcul : `count` du serveur, `postable` du serveur) ;
+- **Comptabilité, socle (Module 4)** : `features/accounting` sur `accounting/` ; tableau de
+  bord : blocs indépendants (V2.1 : journaux et alertes de `dashboards/`, voir plus bas ;
+  exercices, périodes et plan comptable d'`accounting/`), aucun N+1, aucun calcul ;
   exercice affiché = exercices `status=open` du serveur ; exercices et périodes en lecture
   seule ; journaux sans recherche texte (l'API n'en a pas) ; hiérarchie des comptes par
   `parent` / `children/` (pas d'arbre reconstruit : aucun filtre « racines ») ; parent saisi
@@ -199,6 +228,28 @@ supprime ce qui ne sert plus.
   étapes, « Actions ▾ » `AlcoDomainTransfers`). Un domaine décrit les siens
   (`ContextualTransfer`) ; aucun écran générique. Écritures : import `accounting.entries`
   (`ENTRY_TRANSFER`), pas d'export (absent de l'API V1).
+- **Tableau de bord comptable (V2.1)** : `GET dashboards/journals/?on=<jour local>` (une
+  requête pour tous les journaux : compteurs par état, trésorerie liée) et `GET
+  dashboards/alerts/?date_from=<début de l'exercice ouvert qui contient le jour>&date_to=<jour>`
+  (pas d'appel sans tel exercice). Rien n'est reconstruit depuis d'autres endpoints ni
+  calculé : compteurs → liens `/ecritures?journal=<id>&etat=<état>` ;
+  `treasury_accounts: null` → aucune information de trésorerie ; alertes et indicateurs nommés
+  par leur `code` (`dashboard-presentation.ts`), jamais par le `message` du serveur ; lien vers
+  l'écran de leur domaine s'il s'ouvre (`NavigationService.canOpenPath`). Menu ⋮ d'une carte :
+  Voir les écritures, Nouvelle écriture (`accounting.create`, `?journal=<id>`),
+  Configuration du journal — pas d'« Analyse » (aucune API par journal). Permissions :
+  `dashboards.read` (lien du menu) + `accounting.read` ; trésorerie :
+  `dashboards.read_treasury` + `treasury.read` (le serveur décide, `restricted: ['cash']`).
+  Aucune permission n'en implique une autre ; le backend n'a ni rôle ni seed de rôles (les
+  permissions s'accordent par adhésion) : `dashboards.read` s'accorde explicitement aux
+  comptables. Montants : précision de la devise (`currencies/`), jamais d'arrondi.
+- **Smart buttons** (`AlcoSmartButton`) : fiche Journal = Écritures, Brouillons, Soumises
+  (`count` de `accounting/entries/?journal=&status=&page_size=1`, 3 requêtes fixes) et
+  Historique (`audit.read` : `count` de `audit/objects/accounting.journal/<id>/`, lien vers
+  `#historique`). Jamais de compteur sans endpoint.
+- **Liens d'une écriture** : journal, comptes, tiers (`partners.read`) par leurs `public_id` ;
+  opérations de trésorerie liées (`treasury/operations/?accounting_entry=`, `treasury.read`) ;
+  source nommée (`source_type`), sans lien tant que l'écran du domaine n'existe pas.
 - **Écritures (Module 5)** : `features/accounting/entries` sur `accounting/entries/`. Liste =
   filtres de l'API seulement (aucune recherche texte dans l'API → pas de barre de recherche ;
   compte et tiers filtrés par code dans l'URL, trouvés par le serveur), 25 par page, pas de
@@ -249,9 +300,15 @@ supprime ce qui ne sert plus.
   code) ; saisie de la répartition analytique (module Analytique) ; remplacement et
   suppression d'une pièce (`documents/{id}/replace|delete`) ; export des écritures (absent de
   l'API V1).
-- Tiers : écran « Conditions de paiement » (API complète : liste, création, modification,
-  désactivation) ; rapport d'import paginé au-delà de 50 lignes refusées ; export asynchrone
-  pour les gros volumes.
+- Tiers : écran « Conditions de paiement » (API complète ; menu Comptabilité › Configuration ›
+  Paiements) ; rapport d'import paginé au-delà de 50 lignes refusées ; export asynchrone pour
+  les gros volumes.
+- Analyse : construire les rapports sur `reporting/` (balance, grand livre par compte,
+  balances clients et fournisseurs, états financiers, résultat, analytique) ; aujourd'hui des
+  écrans prévus. Lettrage, échéances, balance âgée, journal centralisateur, chatter,
+  notifications, favoris persistants : lots dédiés (backend d'abord).
+- Fiches Compte et Tiers : smart buttons (écritures, grand livre, comptes collectifs) et
+  historique (Audit les enregistre déjà).
 - Domaines utilisés par société (`features`) : à exposer par le backend (puis écran
   Paramètres) avant de masquer quoi que ce soit pour cette raison.
 - Actions GitHub `checkout`/`setup-node` v4 → v5 (Node 20 déprécié) ; `ubuntu-latest` passe

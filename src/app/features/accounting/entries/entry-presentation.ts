@@ -42,19 +42,6 @@ export const ROUNDING_MODES: readonly { id: RoundingMode; label: string }[] = [
   { id: 'floor', label: 'Vers le bas' },
 ];
 
-/** Actions of the backend's Audit, in words. */
-export const AUDIT_ACTIONS: Readonly<Record<string, string>> = {
-  create: 'Création',
-  update: 'Modification',
-  delete: 'Suppression',
-  submit: 'Soumission',
-  validate: 'Validation',
-  reject: 'Renvoi en brouillon',
-  lock: 'Verrouillage',
-  reverse: 'Contrepassation',
-  download: 'Lien de téléchargement d’une pièce',
-};
-
 /** « 28/09/2026 » from an ISO date of the API (no date arithmetic). */
 export function isoDay(iso: string | null): string {
   return iso ? iso.split('-').reverse().join('/') : '—';

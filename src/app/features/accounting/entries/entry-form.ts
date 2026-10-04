@@ -40,6 +40,7 @@ import {
   subtractDecimals,
   sumDecimals,
 } from '../../../shared/utils/decimal';
+import { localToday } from '../../../shared/utils/dates';
 import { CurrencyOption } from '../../partners/data-access/partner-models';
 import { PartnersApi } from '../../partners/data-access/partners-api';
 import { Journal } from '../data-access/accounting-models';
@@ -111,12 +112,6 @@ function sameAmount(a: string | null, b: unknown): boolean {
   return a !== null && typeof b === 'string' && isZeroDecimal(subtractDecimals(a, b));
 }
 
-function today(): string {
-  const now = new Date();
-  const pad = (value: number) => String(value).padStart(2, '0');
-  return `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
-}
-
 /** An amount of the API shown in the field: its trailing zeros dropped (exact). */
 function shownAmount(value: string | null): string {
   if (!value || isZeroDecimal(value)) {
@@ -170,7 +165,7 @@ export class EntryFormPage {
 
   protected readonly form = new FormGroup({
     journal: new FormControl('', { nonNullable: true, validators: Validators.required }),
-    entry_date: new FormControl(this.isNew ? today() : '', {
+    entry_date: new FormControl(this.isNew ? localToday() : '', {
       nonNullable: true,
       validators: Validators.required,
     }),
@@ -268,7 +263,10 @@ export class EntryFormPage {
         map((page) => page.results),
         catchError(() => of([] as Journal[])),
       )
-      .subscribe((list) => this.addJournals(list));
+      .subscribe((list) => {
+        this.addJournals(list);
+        this.preselectJournal(list);
+      });
     inject(PartnersApi)
       .currencies()
       .pipe(
@@ -289,6 +287,25 @@ export class EntryFormPage {
       });
     } else {
       afterNextRender(() => this.focus('journal'), { injector: this.injector });
+    }
+  }
+
+  /**
+   * A new entry opened from a journal (`…/ecritures/nouvelle?journal=<id>`, dashboard):
+   * that journal, if it is one of the active journals the API proposes. Not a change of
+   * the user's (the form stays pristine).
+   */
+  private preselectJournal(active: readonly Pick<Journal, 'public_id'>[]): void {
+    const wanted = this.route.snapshot.queryParamMap.get('journal');
+    const control = this.form.controls.journal;
+    if (
+      this.isNew &&
+      wanted &&
+      !control.value &&
+      control.pristine &&
+      active.some((journal) => journal.public_id === wanted)
+    ) {
+      control.setValue(wanted);
     }
   }
 

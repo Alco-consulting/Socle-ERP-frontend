@@ -1,6 +1,5 @@
 import { Route, Routes } from '@angular/router';
 
-import { AlcoModuleShell } from '../../core/layout/module-shell/module-shell';
 import {
   appAccessGuard,
   appHome,
@@ -9,6 +8,10 @@ import {
 } from '../../core/navigation/app-access.guard';
 import { AlcoApplication, menuLinks } from '../../core/navigation/applications';
 import { TransferKindId } from './transfers/transfer-kinds';
+
+/** The shell of every application, loaded with the first application opened (not at start). */
+const moduleShell = () =>
+  import('../../core/layout/module-shell/module-shell').then((m) => m.AlcoModuleShell);
 
 const notInPrototype = () =>
   import('./not-in-prototype/not-in-prototype').then((m) => m.NotInPrototypePage);
@@ -20,10 +23,8 @@ const notInPrototype = () =>
 const TRANSFERS: Readonly<Record<string, TransferKindId>> = {
   'comptabilite/tresorerie/operations': 'treasury',
   'comptabilite/immobilisations/actifs': 'assets',
-  'comptabilite/rapports/balance': 'balance',
-  'comptabilite/rapports/grand-livre': 'ledger',
-  'reporting/balance': 'balance',
-  'reporting/grand-livre': 'ledger',
+  'comptabilite/analyse/balance': 'balance',
+  'comptabilite/analyse/grand-livre': 'ledger',
 };
 
 function placeholder(label: string, path: string, fullPath: string): Route {
@@ -40,8 +41,15 @@ function placeholder(label: string, path: string, fullPath: string): Route {
  */
 export function placeholderScreens(app: AlcoApplication, built: readonly string[] = []): Routes {
   const sections = new Set((app.sections ?? []).map((section) => section.path));
+  const seen = new Set<string>();
   return menuLinks(app.nav)
-    .filter((link) => !built.includes(link.path) && !sections.has(link.path))
+    .filter((link) => {
+      // A link into a section (`tresorerie/operations`) is served by the section's routes; a
+      // screen linked from two menus (Journaux) has one route.
+      const fresh = !seen.has(link.path);
+      seen.add(link.path);
+      return fresh && !built.includes(link.path) && !sections.has(link.path.split('/')[0]);
+    })
     .map((link) => placeholder(link.label, link.path, `${app.path}/${link.path}`));
 }
 
@@ -76,7 +84,7 @@ export function applicationRoute(app: AlcoApplication, screens: Routes = []): Ro
   const built = screens.map((route) => route.path ?? '');
   return {
     path: app.path,
-    component: AlcoModuleShell,
+    loadComponent: moduleShell,
     data: { appId: app.id },
     canActivate: [appAccessGuard],
     canActivateChild: [screenAccessGuard],

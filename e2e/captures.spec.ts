@@ -2,6 +2,7 @@ import { Page } from '@playwright/test';
 
 import { createEntry, fillEntry } from './support/entries';
 import { COMPANY_A, COMPANY_B, COMPANY_C, PROFILES, expect, test } from './support/fake-api';
+import { openMenuItem } from './support/navigation';
 
 /**
  * Screenshots for the design review (docs/frontend/captures). Not a test of behaviour:
@@ -30,7 +31,7 @@ test('desktop 1440 × 900', async ({ page, api }) => {
   await shoot(page, '02-shell-dashboard', true);
 
   await page.goto('/app/comptabilite/tableau-de-bord');
-  await page.getByRole('button', { name: 'Rapports' }).click();
+  await page.getByRole('button', { name: 'Analyse', exact: true }).click();
   await shoot(page, '03-shell-navigation-menu');
 
   await page.goto('/app/comptabilite/ecritures');
@@ -96,8 +97,8 @@ test('regroupement: applications and domains of Comptabilité', async ({ page, a
   api.withGlobalPermissions();
 
   await page.goto('/app/comptabilite/tableau-de-bord');
-  await moduleNav(page).getByRole('button', { name: 'Plus' }).click();
-  await shoot(page, '41-accounting-more-menu');
+  await moduleNav(page).getByRole('button', { name: 'Configuration', exact: true }).click();
+  await shoot(page, '41-accounting-configuration-menu');
   await page.keyboard.press('Escape');
 
   const domains: [string, string][] = [
@@ -106,7 +107,7 @@ test('regroupement: applications and domains of Comptabilité', async ({ page, a
     ['/app/comptabilite/taxes/declarations', '45-domain-taxes'],
     ['/app/comptabilite/analytique/axes', '46-domain-analytics'],
     ['/app/comptabilite/audit/journal', '47-domain-audit'],
-    ['/app/comptabilite/tiers/clients', '48-domain-partners-follow-up'],
+    ['/app/comptabilite/clients', '48-accounting-customers'],
   ];
   for (const [url, name] of domains) {
     await page.goto(url);
@@ -134,17 +135,14 @@ test('regroupement: applications and domains of Comptabilité', async ({ page, a
   await page.goto('/app/comptabilite/tableau-de-bord');
   await page.getByRole('button', { name: /Société active/ }).click();
   await page.getByRole('menuitemradio', { name: /FILIALE SÉNÉGAL/ }).click();
-  await moduleNav(page).getByRole('button', { name: 'Plus' }).click();
-  await shoot(page, '53-services-company-more-menu');
+  await moduleNav(page).getByRole('button', { name: 'Configuration', exact: true }).click();
+  await shoot(page, '53-services-company-configuration-menu');
 });
 
 test('loading state', async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.goto('/app/comptabilite/tableau-de-bord');
-  await page
-    .getByRole('navigation', { name: 'Navigation Comptabilité' })
-    .getByRole('link', { name: 'Écritures' })
-    .click();
+  await openMenuItem(page, 'Comptabilité', 'Écritures');
   await page.screenshot({ path: `${OUT}/15-state-loading.png` });
 });
 

@@ -2,6 +2,7 @@ import { Page, Request, test as base } from '@playwright/test';
 
 import { FakeAccounting } from './fake-accounting';
 import { FakeAccountingEntries } from './fake-accounting-entries';
+import { FakeDashboards } from './fake-dashboards';
 import { FakePartners, PartnersContext } from './fake-partners';
 
 /**
@@ -63,11 +64,16 @@ const READ = [
   'taxes.read',
   'analytics.read',
   'reporting.read',
+  'reporting.read_auxiliary',
+  'reporting.read_analytics',
+  'reporting.read_financial_statements',
   'closing.read',
   'audit.read',
   'imports_exports.read',
   'documents.read',
   'dashboards.read',
+  // The accounting dashboard's treasury part (V2.1): granted explicitly, never implied.
+  'dashboards.read_treasury',
 ];
 const WRITE = [
   'accounting.create',
@@ -92,14 +98,17 @@ const WRITE = [
 
 /** Permissions of a membership, per profile (backend codes). */
 export const PROFILES = {
-  /** Comptabilité, Tiers, Reporting, Documents, Tableau de bord; every financial domain. */
+  /** Comptabilité (and its Analyse), Tiers, Documents, Tableau de bord; every domain. */
   accountant: [...READ, ...WRITE],
   /** A services company: no fixed assets, no loans, no cost accounting. */
   services: [
     ...READ.filter((code) => !['assets.read', 'loans.read', 'analytics.read'].includes(code)),
     ...WRITE,
   ],
-  /** Comptabilité, Reporting, Tableau de bord; read only. */
+  /**
+   * Comptabilité (dashboard, Analyse) and Tableau de bord; read only. No
+   * `dashboards.read_treasury`: the treasury part of the dashboard is not shown.
+   */
   viewer: ['accounting.read', 'treasury.read', 'taxes.read', 'reporting.read', 'dashboards.read'],
 } as const;
 
@@ -146,6 +155,8 @@ export class FakeApi {
   readonly accounting: FakeAccounting;
   /** Entries, their workflow, taxes, documents and audit history (company scoped). */
   readonly entries: FakeAccountingEntries;
+  /** Dashboards (journals, alerts) and the treasury operations of an entry. */
+  readonly dashboards: FakeDashboards;
 
   constructor(private readonly page: Page) {
     const context: PartnersContext = {
@@ -167,6 +178,7 @@ export class FakeApi {
     this.partners = new FakePartners(context);
     this.accounting = new FakeAccounting(context);
     this.entries = new FakeAccountingEntries(context, this.accounting, this.partners);
+    this.dashboards = new FakeDashboards(context, this.accounting, this.entries);
   }
 
   /** No session open at start (the login screen). */
@@ -241,6 +253,7 @@ export class FakeApi {
     await this.partners.install();
     await this.accounting.install();
     await this.entries.install();
+    await this.dashboards.install();
     await page.route('**/api/v1/auth/me/', (route) => {
       this.calls.push(route.request());
       if (this.down) {

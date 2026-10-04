@@ -3,6 +3,7 @@ import { Page } from '@playwright/test';
 
 import { dateField, confirmWith, createEntry, fillLine } from './support/entries';
 import { COMPANY_A, COMPANY_B, PROFILES, expect, test } from './support/fake-api';
+import { openMenuItem } from './support/navigation';
 
 /**
  * Comptabilité › Écritures (Module 5) on the fake API (e2e/support/fake-accounting-entries.ts):
@@ -10,7 +11,6 @@ import { COMPANY_A, COMPANY_B, PROFILES, expect, test } from './support/fake-api
  */
 
 const LIST = '/app/comptabilite/ecritures';
-const moduleNav = (page: Page) => page.getByRole('navigation', { name: 'Navigation Comptabilité' });
 const companyButton = (page: Page) => page.getByRole('button', { name: /^Société active/ });
 const header = (page: Page) => page.locator('alco-page-header');
 const rows = (page: Page) => page.locator('tbody tr');
@@ -49,7 +49,7 @@ test.describe('Écritures — liste', () => {
     api,
   }) => {
     await page.goto('/app/comptabilite/tableau-de-bord');
-    await moduleNav(page).getByRole('link', { name: 'Écritures' }).click();
+    await openMenuItem(page, 'Comptabilité', 'Écritures');
     await expect(page.getByRole('heading', { level: 1 })).toHaveText('Écritures');
     await expect(page.getByRole('note', { name: 'Démonstration' })).toHaveCount(0);
     await expect(rows(page)).toHaveCount(25);
@@ -185,7 +185,7 @@ test.describe('Écritures — saisie', () => {
     });
     await expect(page.getByText('Pièce « facture-0123.pdf » jointe.')).toBeVisible();
     await expect(page.getByRole('listitem').filter({ hasText: 'facture-0123.pdf' })).toBeVisible();
-    const history = page.locator('alco-entry-history');
+    const history = page.locator('alco-object-history');
     await expect(history).toContainText('Création');
     await expect(history).toContainText('mariam.test@example.org');
   });

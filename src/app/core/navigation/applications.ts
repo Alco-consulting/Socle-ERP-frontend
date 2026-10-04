@@ -10,9 +10,16 @@ export interface AppNavLink {
   readonly path: string;
   /** Extra permission needed for this screen, on top of its application's or section's. */
   readonly permission?: string;
+  /** Title of the link's group in its menu (« Rapports financiers »), see `group()`. */
+  readonly group?: string;
+  /**
+   * A function the API does not offer yet (« Lettrage »): shown disabled with this reason,
+   * no route, no screen. Never presented as operational.
+   */
+  readonly unavailable?: string;
 }
 
-/** A top-level menu entry: a direct link, or a group opened as a menu (« Rapports ▾ »). */
+/** A top-level menu entry: a direct link, or a menu (« Analyse ▾ ») of links, maybe grouped. */
 export interface AppNavEntry {
   readonly label: string;
   readonly path?: string;
@@ -60,7 +67,10 @@ export interface AlcoApplication {
  * Catalogue of the applications, in launcher order: a few broad applications, many
  * functions organised inside them.
  * - Treasury, fixed assets, loans, taxes, analytics and audit are SECTIONS of Comptabilité,
- *   never applications of the launcher.
+ *   never applications of the launcher. Reporting is not an application either: its reports
+ *   are Comptabilité › Analyse (the backend's `reporting` stays their source).
+ * - Comptabilité: Tableau de bord, Clients, Fournisseurs, then three menus — Comptabilité ▾,
+ *   Analyse ▾ and Configuration ▾, their links grouped under titles (`group()`).
  * - Import / export is a contextual action of each domain (« Actions ▾ »), never an
  *   application, a menu entry or a route of its own.
  * Only navigation lives here: each domain's screens are provided by its feature.
@@ -69,7 +79,7 @@ export const APPLICATIONS: readonly AlcoApplication[] = [
   {
     id: 'accounting',
     label: 'Comptabilité',
-    description: 'Écritures, trésorerie, immobilisations, taxes…',
+    description: 'Écritures, trésorerie, analyse, configuration…',
     icon: 'accounting',
     family: 'finance',
     path: 'comptabilite',
@@ -78,10 +88,21 @@ export const APPLICATIONS: readonly AlcoApplication[] = [
       'écriture',
       'journal',
       'compte',
-      'grand livre',
+      'client',
+      'fournisseur',
       'trésorerie',
       'banque',
       'caisse',
+      'rapprochement',
+      'clôture',
+      'analyse',
+      'rapport',
+      'reporting',
+      'balance',
+      'grand livre',
+      'bilan',
+      'état financier',
+      'résultat',
       'immobilisation',
       'amortissement',
       'emprunt',
@@ -89,56 +110,111 @@ export const APPLICATIONS: readonly AlcoApplication[] = [
       'tva',
       'analytique',
       'audit',
-      'lettrage',
-      'clôture',
     ],
     nav: [
-      { label: 'Tableau de bord', path: 'tableau-de-bord' },
-      { label: 'Écritures', path: 'ecritures' },
-      { label: 'Journaux', path: 'journaux' },
-      { label: 'Plan comptable', path: 'plan-comptable' },
-      { label: 'Tiers', path: 'tiers' },
-      { label: 'Trésorerie', path: 'tresorerie' },
+      { label: 'Tableau de bord', path: 'tableau-de-bord', permission: 'dashboards.read' },
+      { label: 'Clients', path: 'clients', permission: 'partners.read' },
+      { label: 'Fournisseurs', path: 'fournisseurs', permission: 'partners.read' },
       {
-        label: 'Rapports',
-        permission: 'reporting.read',
+        label: 'Comptabilité',
         children: [
-          { label: 'Balance générale', path: 'rapports/balance' },
-          { label: 'Grand livre', path: 'rapports/grand-livre' },
-          { label: 'Journal centralisateur', path: 'rapports/centralisateur' },
+          { label: 'Écritures', path: 'ecritures' },
+          { label: 'Journaux', path: 'journaux' },
+          { label: 'Plan comptable', path: 'plan-comptable' },
+          { label: 'Tiers', path: 'tiers', permission: 'partners.read' },
+          { label: 'Trésorerie', path: 'tresorerie/operations' },
+          {
+            label: 'Lettrage',
+            path: 'lettrage',
+            unavailable: 'Pas encore disponible : l’API ne propose pas le lettrage.',
+          },
+          { label: 'Rapprochement', path: 'tresorerie/rapprochements' },
+          { label: 'Clôture', path: 'cloture', permission: 'closing.read' },
+        ],
+      },
+      {
+        label: 'Analyse',
+        children: [
+          ...group('Rapports financiers', [
+            {
+              label: 'États financiers',
+              path: 'analyse/etats-financiers',
+              permission: 'reporting.read_financial_statements',
+            },
+            {
+              label: 'Résultat',
+              path: 'analyse/resultat',
+              permission: 'reporting.read_financial_statements',
+            },
+          ]),
+          ...group('Rapports comptables', [
+            { label: 'Balance générale', path: 'analyse/balance', permission: 'reporting.read' },
+            { label: 'Grand livre', path: 'analyse/grand-livre', permission: 'reporting.read' },
+          ]),
+          ...group('Rapports de tiers', [
+            {
+              label: 'Balance clients',
+              path: 'analyse/balance-clients',
+              permission: 'reporting.read_auxiliary',
+            },
+            {
+              label: 'Balance fournisseurs',
+              path: 'analyse/balance-fournisseurs',
+              permission: 'reporting.read_auxiliary',
+            },
+          ]),
+          ...group('Analyses', [
+            {
+              label: 'Analytique',
+              path: 'analytique/rapports',
+              permission: 'reporting.read_analytics',
+            },
+            { label: 'Immobilisations', path: 'immobilisations/actifs' },
+            { label: 'Emprunts', path: 'emprunts/liste' },
+            { label: 'Journal d’audit', path: 'audit/journal' },
+          ]),
         ],
       },
       {
         label: 'Configuration',
         children: [
-          { label: 'Exercices et périodes', path: 'configuration/exercices' },
-          { label: 'Paramètres comptables', path: 'configuration/parametres' },
-        ],
-      },
-      {
-        label: 'Plus',
-        children: [
-          { label: 'Immobilisations', path: 'immobilisations' },
-          { label: 'Emprunts', path: 'emprunts' },
-          { label: 'Taxes', path: 'taxes' },
-          { label: 'Analytique', path: 'analytique' },
-          { label: 'Audit', path: 'audit' },
-          { label: 'Clôture', path: 'cloture', permission: 'closing.read' },
+          ...group('Général', [
+            { label: 'Exercices et périodes', path: 'configuration/exercices' },
+            { label: 'Paramètres comptables', path: 'configuration/parametres' },
+          ]),
+          ...group('Comptabilité', [
+            { label: 'Journaux', path: 'journaux' },
+            { label: 'Plan comptable', path: 'plan-comptable' },
+          ]),
+          ...group('Banques', [
+            { label: 'Comptes de trésorerie', path: 'tresorerie/comptes' },
+            { label: 'Paramètres de trésorerie', path: 'tresorerie/configuration' },
+          ]),
+          ...group('Paiements', [
+            {
+              label: 'Conditions de paiement',
+              path: 'configuration/conditions-paiement',
+              permission: 'partners.read',
+            },
+          ]),
+          ...group('Taxes', [
+            { label: 'Taxes', path: 'taxes/liste' },
+            { label: 'Paramètres fiscaux', path: 'taxes/configuration' },
+          ]),
+          ...group('Immobilisations', [
+            { label: 'Catégories', path: 'immobilisations/categories' },
+            { label: 'Paramètres', path: 'immobilisations/configuration' },
+          ]),
+          ...group('Analytique', [
+            { label: 'Axes', path: 'analytique/axes' },
+            { label: 'Valeurs', path: 'analytique/valeurs' },
+            { label: 'Règles', path: 'analytique/regles' },
+          ]),
+          ...group('Emprunts', [{ label: 'Types d’emprunt', path: 'emprunts/types' }]),
         ],
       },
     ],
     sections: [
-      {
-        label: 'Tiers',
-        path: 'tiers',
-        permission: 'partners.read',
-        nav: [
-          { label: 'Clients', path: 'clients' },
-          { label: 'Fournisseurs', path: 'fournisseurs' },
-          { label: 'Échéances', path: 'echeances' },
-          { label: 'Lettrage', path: 'lettrage' },
-        ],
-      },
       {
         label: 'Trésorerie',
         path: 'tresorerie',
@@ -226,25 +302,6 @@ export const APPLICATIONS: readonly AlcoApplication[] = [
       { label: 'Tous les tiers', path: 'liste' },
       { label: 'Clients', path: 'clients' },
       { label: 'Fournisseurs', path: 'fournisseurs' },
-      {
-        label: 'Configuration',
-        children: [{ label: 'Conditions de paiement', path: 'configuration/conditions' }],
-      },
-    ],
-  },
-  {
-    id: 'reporting',
-    label: 'Reporting',
-    description: 'Balances, grand livre et états financiers',
-    icon: 'reporting',
-    family: 'steering',
-    path: 'reporting',
-    permission: 'reporting.read',
-    keywords: ['bilan', 'compte de résultat', 'état financier', 'balance'],
-    nav: [
-      { label: 'Balance', path: 'balance' },
-      { label: 'Grand livre', path: 'grand-livre' },
-      { label: 'États financiers', path: 'etats-financiers' },
     ],
   },
   {
@@ -288,6 +345,11 @@ export const APPLICATIONS: readonly AlcoApplication[] = [
   },
 ];
 
+/** Links shown under one title in their menu (« Rapports financiers »). */
+export function group(title: string, links: readonly AppNavLink[]): AppNavLink[] {
+  return links.map((link) => ({ ...link, group: title }));
+}
+
 /** Root of the authenticated area: `/app` is the launcher, `/app/<application>/…` the rest. */
 export const APP_ROOT = '/app';
 
@@ -313,14 +375,16 @@ export function findSection(app: AlcoApplication, path: string): AppSection | un
   return app.sections?.find((section) => section.path === path);
 }
 
-/** Every screen link of a menu, groups flattened. */
+/** Every screen link of a menu, menus flattened; an unavailable function has no screen. */
 export function menuLinks(nav: readonly AppNavEntry[]): AppNavLink[] {
   return nav.flatMap((entry) =>
     entry.children
-      ? entry.children.map((child) => ({
-          ...child,
-          permission: child.permission ?? entry.permission,
-        }))
+      ? entry.children
+          .filter((child) => !child.unavailable)
+          .map((child) => ({
+            ...child,
+            permission: child.permission ?? entry.permission,
+          }))
       : entry.path !== undefined
         ? [{ label: entry.label, path: entry.path, permission: entry.permission }]
         : [],

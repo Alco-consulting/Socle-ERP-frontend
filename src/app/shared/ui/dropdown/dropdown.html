@@ -43,51 +43,65 @@
         }
       </div>
     }
-    @for (item of items(); track item.id) {
-      @if (item.dividerBefore) {
-        <div class="menu-divider" role="separator"></div>
-      }
-      @if (mode() === 'single') {
-        <button
-          type="button"
-          class="menu-item"
-          cdkMenuItemRadio
-          [cdkMenuItemChecked]="!!item.checked"
-          [cdkMenuItemDisabled]="!!item.disabled"
-          (cdkMenuItemTriggered)="choose(item)"
-        >
-          <span class="menu-check" aria-hidden="true">
-            @if (item.checked) {
-              <alco-icon name="check" [size]="16" />
-            }
-          </span>
-          <span class="menu-text">
-            {{ item.label }}
-            @if (item.description) {
-              <span class="menu-description">{{ item.description }}</span>
-            }
-          </span>
-        </button>
-      } @else {
-        <button
-          type="button"
-          class="menu-item"
-          [class.menu-item--danger]="item.danger"
-          cdkMenuItem
-          [cdkMenuItemDisabled]="!!item.disabled"
-          (cdkMenuItemTriggered)="choose(item)"
-        >
-          @if (item.icon) {
-            <alco-icon [name]="item.icon" [size]="16" />
+    @for (section of sections(); track section.key) {
+      <div
+        class="menu-section"
+        [class.menu-section--titled]="!!section.title"
+        [attr.role]="section.title ? 'group' : 'none'"
+        [attr.aria-labelledby]="section.title ? section.key : null"
+      >
+        @if (section.title) {
+          <div class="menu-group-title" role="presentation" [id]="section.key">
+            {{ section.title }}
+          </div>
+        }
+        @for (item of section.items; track item.id) {
+          @if (item.dividerBefore) {
+            <div class="menu-divider" role="separator"></div>
           }
-          <span class="menu-text">
-            {{ item.label }}
-            @if (item.description) {
-              <span class="menu-description">{{ item.description }}</span>
-            }
-          </span>
-        </button>
-      }
+          @if (mode() === 'single') {
+            <button
+              type="button"
+              class="menu-item"
+              cdkMenuItemRadio
+              [cdkMenuItemChecked]="!!item.checked"
+              [cdkMenuItemDisabled]="!!item.disabled"
+              (cdkMenuItemTriggered)="choose(item)"
+            >
+              <span class="menu-check" aria-hidden="true">
+                @if (item.checked) {
+                  <alco-icon name="check" [size]="16" />
+                }
+              </span>
+              <span class="menu-text">
+                {{ item.label }}
+                @if (item.description) {
+                  <span class="menu-description">{{ item.description }}</span>
+                }
+              </span>
+            </button>
+          } @else {
+            <button
+              type="button"
+              class="menu-item"
+              [class.menu-item--danger]="item.danger"
+              cdkMenuItem
+              [cdkMenuItemDisabled]="!!item.disabled"
+              (cdkMenuItemTriggered)="choose(item)"
+            >
+              @if (item.icon) {
+                <alco-icon [name]="item.icon" [size]="16" />
+              }
+              <span class="menu-text">
+                {{ item.label }}
+                @if (item.description) {
+                  <span class="menu-description">{{ item.description }}</span>
+                }
+              </span>
+            </button>
+          }
+        }
+      </div>
     }
   </div>
 </ng-template>

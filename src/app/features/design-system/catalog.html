@@ -63,6 +63,7 @@
         <button alcoButton type="button">Modifier</button>
         <button alcoButton type="button" icon="check">Valider</button>
         <alco-dropdown [items]="actionItems">Actions</alco-dropdown>
+        <alco-dropdown mode="single" [items]="groupedItems">Menu groupé</alco-dropdown>
         <button alcoButton type="button" variant="ghost">Annuler</button>
         <button alcoButton type="button" variant="danger" icon="trash">Supprimer</button>
       </div>
@@ -109,6 +110,20 @@
   </section>
 
   <!-- States -->
+  <section id="smart-buttons" class="block" aria-labelledby="t-smart">
+    <h2 id="t-smart" class="alco-section-title">Objets liés (smart buttons)</h2>
+    <alco-card
+      title="Smart buttons"
+      subtitle="Sur une fiche : ses objets liés, avec le nombre que donne l’API ; « … » pendant le chargement."
+    >
+      <div class="row">
+        <alco-smart-button label="Écritures" icon="accounting" [count]="48" link="/design-system" />
+        <alco-smart-button label="Brouillons" icon="edit" [count]="3" link="/design-system" />
+        <alco-smart-button label="Historique" icon="clock" link="/design-system" />
+      </div>
+    </alco-card>
+  </section>
+
   <section #etats id="etats" class="block" aria-labelledby="t-states">
     <h2 id="t-states" class="alco-section-title">États d’écran</h2>
     <div class="grid">

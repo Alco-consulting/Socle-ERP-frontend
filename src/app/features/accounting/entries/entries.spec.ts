@@ -281,6 +281,62 @@ describe('Comptabilité › Écritures (accounting/entries/)', () => {
       expect(content).toContain('Validée : elle ne se modifie plus.');
     });
 
+    it('links its journal, accounts, partner, treasury and source by their public ids', async () => {
+      const { element, stable } = await openRecord(
+        testEntry('e-1', {
+          status: 'validated',
+          entry_number: 'BQ-000012',
+          origin: 'system',
+          source_type: 'treasury.operation',
+          source_id: 'op-1',
+        }),
+        [...ACCOUNTANT, 'partners.read', 'treasury.read'],
+      );
+      const operations = httpMock().expectOne(is('treasury/operations/'));
+      expect(operations.request.params.get('accounting_entry')).toBe('e-1');
+      operations.flush(
+        page([
+          {
+            public_id: 'op-1',
+            treasury_account: { public_id: 't-1', code: 'BANK1' },
+            operation_type: 'deposit',
+            direction: 'inflow',
+            status: 'accounted',
+            operation_date: '2026-09-28',
+            amount: '1150000.000000',
+            currency: 'GNF',
+            reference: 'VIR-01',
+          },
+        ]),
+      );
+      await stable();
+
+      const href = (label: string) =>
+        Array.from(element().querySelectorAll<HTMLAnchorElement>('a'))
+          .find((link) => text(link).trim() === label)
+          ?.getAttribute('href');
+      expect(href('ACH')).toBe('/app/comptabilite/journaux/j-ach');
+      expect(href('601100')).toBe('/app/comptabilite/plan-comptable/a-601100');
+      expect(href('FRN-001')).toBe('/app/comptabilite/tiers/pt-1');
+      expect(href('Voir les opérations de trésorerie')).toBe(
+        '/app/comptabilite/tresorerie/operations',
+      );
+      const content = text(element());
+      expect(content).toContain('Opération du 28/09/2026 · BANK1 · VIR-01');
+      expect(content).toMatch(/Source\s*Trésorerie/);
+    });
+
+    it('without partners.read nor treasury.read: the codes only, no treasury asked', async () => {
+      const { element } = await openRecord(testEntry('e-1'), READ);
+      httpMock().expectNone(is('treasury/operations/'));
+      const partner = Array.from(element().querySelectorAll('a')).find((link) =>
+        text(link).includes('FRN-001'),
+      );
+      expect(partner).toBeUndefined();
+      expect(text(element())).toContain('FRN-001');
+      expect(text(element())).not.toContain('Trésorerie');
+    });
+
     it('a draft, submission required: « Soumettre » is the main action, no validation', async () => {
       const { element, stable } = await openRecord(testEntry('e-1'));
       expect(text(primaryButton(element()) as Element)).toContain('Soumettre');
@@ -609,6 +665,22 @@ describe('Comptabilité › Écritures (accounting/entries/)', () => {
       await stable();
       expect(toasts()).toContain('Écriture créée.');
       expect(navigate).toHaveBeenCalledWith([BASE, 'e-9']);
+    });
+
+    it('opened from a journal: that journal preselected, the form still untouched', async () => {
+      const { field } = await openForm(`${BASE}/nouvelle?journal=j-ach`);
+      expect(field('journal').value).toBe('j-ach');
+      // Leaving asks nothing: the preselection is not a change of the user's.
+      expect(await TestBed.inject(Router).navigateByUrl(BASE)).toBe(true);
+      await settle();
+      httpMock()
+        .match(() => true)
+        .forEach((request) => request.flush(page([])));
+    });
+
+    it('a journal that is not active (or unknown) is not preselected', async () => {
+      const { field } = await openForm(`${BASE}/nouvelle?journal=j-old`);
+      expect(field('journal').value).toBe('');
     });
 
     it('lines: added and removed; the gap shown exactly (a reading aid only)', async () => {

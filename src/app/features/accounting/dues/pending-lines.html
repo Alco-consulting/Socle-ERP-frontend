@@ -1,0 +1,169 @@
+<p class="intro alco-caption">
+  Factures validées d’un tiers, sur son compte collectif, qui n’ont pas encore d’échéances. Le
+  serveur les calcule à la génération.
+</p>
+
+@if (generated().length > 0) {
+  <section class="generated" aria-labelledby="generated-title">
+    <h2 id="generated-title" class="alco-section-title">Échéanciers générés</h2>
+    <ul>
+      @for (schedule of generated(); track schedule.public_id) {
+        <li>
+          <a [routerLink]="['echeanciers', schedule.public_id]">
+            {{ schedule.entry.entry_number }} · {{ schedule.partner.code }}
+          </a>
+          — {{ schedule.items.length }} {{ schedule.items.length > 1 ? 'échéances' : 'échéance' }},
+          condition
+          {{ schedule.terms.code }}
+        </li>
+      }
+    </ul>
+  </section>
+}
+
+@if (actionError(); as failure) {
+  <alco-error-state
+    [inline]="true"
+    [title]="failure.title"
+    [message]="failure.message"
+    [code]="failure.code"
+    [correlationId]="failure.correlationId ?? ''"
+  />
+}
+
+@if (list.value(); as result) {
+  <div class="toolbar">
+    <p class="alco-caption count">
+      {{ result.count }} {{ result.count > 1 ? 'factures' : 'facture' }} à échéancer
+      @if (!canGenerate()) {
+        · consultation seule
+      }
+    </p>
+    <alco-pagination
+      [page]="result.count > 0 ? scope().page : 1"
+      [pageSize]="pageSize"
+      [total]="result.count"
+      (pageChange)="setPage($event)"
+    />
+  </div>
+}
+
+@switch (list.status()) {
+  @case ('forbidden') {
+    <alco-error-state
+      title="Vous n’avez pas accès aux échéances de cette société."
+      message="Demandez l’accès à un administrateur de la société si vous en avez besoin."
+    />
+  }
+  @case ('error') {
+    @if (failure(); as error) {
+      <alco-error-state
+        [title]="error.title"
+        [message]="error.message"
+        [code]="error.code"
+        [correlationId]="error.correlationId ?? ''"
+        retryLabel="Réessayer"
+        (retry)="list.reload()"
+      />
+    }
+  }
+  @default {
+    @if (list.value() === null) {
+      <alco-loading variant="table" [rows]="5" [columns]="4" label="Chargement des factures…" />
+    } @else if (rows().length === 0) {
+      <div class="empty-frame">
+        <alco-empty-state
+          icon="check"
+          title="Aucune facture sans échéances."
+          message="Toutes les factures concernées ont leurs échéances."
+        />
+      </div>
+    } @else {
+      <div class="wide" [class.reloading]="list.loading()" [attr.aria-busy]="list.loading()">
+        <alco-table
+          caption="Factures sans échéances, les plus anciennes d’abord"
+          [columns]="columns"
+          [rows]="rows()"
+          [rowId]="rowId"
+          [rowLabel]="rowLabel"
+          [selectable]="canGenerate()"
+          [selection]="selected()"
+          (selectionChange)="selected.set($event)"
+        >
+          <ng-template alcoCell="entry" let-line>
+            <a class="code" [routerLink]="[entriesUrl, line.entry.public_id]">
+              {{ line.entry.entry_number }}
+            </a>
+            <span class="sub">{{ day(line.entry.entry_date) }}</span>
+          </ng-template>
+          <ng-template alcoCell="partner" let-line>
+            <span class="mono">{{ line.partner.code }}</span>
+            <span class="sub">{{ line.partner.name }} · {{ roleLabel(line) }}</span>
+          </ng-template>
+          <ng-template alcoCell="label" let-line>{{ line.label || '—' }}</ng-template>
+          <ng-template alcoCell="amount" let-line>
+            {{ line.amount | alcoAmount: decimalsOf(line.currency) }}
+            <span class="currency">{{ line.currency }}</span>
+          </ng-template>
+        </alco-table>
+      </div>
+
+      <ul class="cards" [class.reloading]="list.loading()" aria-label="Factures sans échéances">
+        @for (line of rows(); track line.public_id) {
+          <li class="card" [class.card--selected]="isSelected(line)">
+            <div class="card-head">
+              @if (canGenerate()) {
+                <input
+                  type="checkbox"
+                  [checked]="isSelected(line)"
+                  (change)="toggle(line)"
+                  [attr.aria-label]="'Sélectionner ' + rowLabel(line)"
+                />
+              }
+              <a class="code" [routerLink]="[entriesUrl, line.entry.public_id]">
+                {{ line.entry.entry_number }}
+              </a>
+            </div>
+            <dl class="card-facts">
+              <div>
+                <dt>Tiers</dt>
+                <dd>
+                  <span class="mono">{{ line.partner.code }}</span> · {{ roleLabel(line) }}
+                </dd>
+              </div>
+              <div>
+                <dt>Montant</dt>
+                <dd class="strong">
+                  {{ line.amount | alcoAmount: decimalsOf(line.currency) }} {{ line.currency }}
+                </dd>
+              </div>
+            </dl>
+          </li>
+        }
+      </ul>
+    }
+  }
+}
+
+@if (canGenerate() && rows().length > 0) {
+  <div class="selection-bar">
+    <p role="status" aria-live="polite">
+      {{ selected().size }}
+      {{ selected().size > 1 ? 'factures sélectionnées' : 'facture sélectionnée' }}
+    </p>
+    <div class="bar-actions">
+      <button
+        alcoButton
+        type="button"
+        variant="primary"
+        icon="calendar"
+        [disabled]="selected().size === 0"
+        [loading]="generating()"
+        loadingLabel="Génération en cours…"
+        (click)="generate()"
+      >
+        Générer les échéances
+      </button>
+    </div>
+  </div>
+}

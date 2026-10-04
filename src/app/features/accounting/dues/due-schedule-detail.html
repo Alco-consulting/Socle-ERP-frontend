@@ -1,0 +1,127 @@
+@if (loadError(); as failure) {
+  <alco-error-state
+    [title]="failure.title"
+    [message]="failure.message"
+    [code]="failure.code"
+    [correlationId]="failure.correlationId ?? ''"
+  />
+  <div class="center">
+    <a alcoButton icon="arrow-left" routerLink="../..">Retour aux échéances</a>
+  </div>
+} @else if (schedule(); as schedule) {
+  @let places = decimalsOf(schedule.currency);
+  <alco-page-header
+    [title]="'Échéancier ' + schedule.entry.entry_number"
+    [subtitle]="
+      schedule.partner.code + ' · ' + schedule.partner.name + ' · ' + roles[schedule.role]
+    "
+  >
+    <div alcoPageActions>
+      @if (canRecompute()) {
+        <button
+          alcoButton
+          type="button"
+          icon="refresh"
+          [loading]="busy()"
+          loadingLabel="Recalcul en cours…"
+          (click)="recompute()"
+        >
+          Recalculer
+        </button>
+      }
+    </div>
+  </alco-page-header>
+
+  @if (actionError(); as failure) {
+    <alco-error-state
+      [inline]="true"
+      [title]="failure.title"
+      [message]="failure.message"
+      [code]="failure.code"
+      [correlationId]="failure.correlationId ?? ''"
+    />
+  }
+
+  <div class="sheet">
+    <section class="section" aria-labelledby="general-title">
+      <h2 id="general-title" class="alco-section-title">Informations générales</h2>
+      <dl class="facts">
+        <div>
+          <dt>Écriture</dt>
+          <dd>
+            <a class="mono" [routerLink]="[accounting, 'ecritures', schedule.entry.public_id]">
+              {{ schedule.entry.entry_number }}
+            </a>
+            du {{ day(schedule.entry.entry_date) }}
+          </dd>
+        </div>
+        <div>
+          <dt>Compte</dt>
+          <dd class="mono">{{ schedule.account.code }}</dd>
+        </div>
+        <div>
+          <dt>Montant de la facture</dt>
+          <dd class="amount">{{ schedule.amount | alcoAmount: places }} {{ schedule.currency }}</dd>
+        </div>
+        <div>
+          <dt>Date de référence</dt>
+          <dd>{{ day(schedule.reference_date) }}</dd>
+        </div>
+        <div class="wide">
+          <dt>Condition de paiement (au moment du calcul)</dt>
+          <dd>
+            <span class="mono">{{ schedule.terms.code }}</span> — {{ schedule.terms.name }}
+            <ul class="terms">
+              @for (line of schedule.terms.lines; track line.sequence) {
+                <li>{{ line.percentage }} % à {{ rule(line.days, line.rule) }}</li>
+              }
+            </ul>
+          </dd>
+        </div>
+        @if (schedule.recomputed_at) {
+          <div>
+            <dt>Dernier recalcul</dt>
+            <dd>{{ day(schedule.recomputed_at.slice(0, 10)) }}</dd>
+          </div>
+        }
+      </dl>
+    </section>
+
+    <section class="section" aria-labelledby="items-title">
+      <h2 id="items-title" class="alco-section-title">Échéances</h2>
+      <alco-table
+        [caption]="'Échéances de ' + schedule.entry.entry_number"
+        [columns]="columns"
+        [rows]="schedule.items"
+        [rowId]="rowId"
+        [class.reloading]="record.loading()"
+      >
+        <ng-template alcoCell="due" let-item>
+          <a class="code" [routerLink]="['../..', item.public_id]">{{ day(item.due_date) }}</a>
+        </ng-template>
+        <ng-template alcoCell="share" let-item>{{ item.percentage }} %</ng-template>
+        <ng-template alcoCell="amount" let-item>
+          {{ item.amount | alcoAmount: places }}
+        </ng-template>
+        <ng-template alcoCell="settled" let-item>
+          {{ item.settled_amount | alcoAmount: places }}
+        </ng-template>
+        <ng-template alcoCell="open" let-item>
+          {{ item.open_amount | alcoAmount: places }}
+        </ng-template>
+        <ng-template alcoCell="status" let-item>
+          @let look = statusLook(item);
+          <alco-badge [tone]="look.tone" [icon]="look.icon">{{ look.label }}</alco-badge>
+        </ng-template>
+      </alco-table>
+    </section>
+
+    @if (canSeeHistory()) {
+      <section id="historique" class="section" aria-labelledby="history-title">
+        <alco-object-history [objectType]="auditType" [objectId]="schedule.public_id" />
+      </section>
+    }
+  </div>
+} @else {
+  <alco-loading [rows]="8" label="Chargement de l’échéancier…" />
+}

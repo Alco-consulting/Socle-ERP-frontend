@@ -27,7 +27,7 @@ export interface PaymentTerm {
   readonly code: string;
   readonly name: string;
   readonly status: PartnerStatus;
-  readonly lines: readonly { sequence: number; percentage: string; days: number }[];
+  readonly lines: readonly { sequence: number; percentage: string; days: number; rule?: string }[];
 }
 
 /** `PartnersPartner`: the record. */

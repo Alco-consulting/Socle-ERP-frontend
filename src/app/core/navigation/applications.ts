@@ -124,6 +124,7 @@ export const APPLICATIONS: readonly AlcoApplication[] = [
           { label: 'Tiers', path: 'tiers', permission: 'partners.read' },
           { label: 'Trésorerie', path: 'tresorerie/operations' },
           { label: 'Lettrage', path: 'lettrage' },
+          { label: 'Échéances', path: 'echeances' },
           { label: 'Rapprochement', path: 'tresorerie/rapprochements' },
           { label: 'Clôture', path: 'cloture', permission: 'closing.read' },
         ],
@@ -196,6 +197,11 @@ export const APPLICATIONS: readonly AlcoApplication[] = [
               label: 'Conditions de paiement',
               path: 'configuration/conditions-paiement',
               permission: 'partners.read',
+            },
+            {
+              label: 'Tranches de la balance âgée',
+              path: 'configuration/balance-agee',
+              permission: 'reporting.read_auxiliary',
             },
           ]),
           ...group('Taxes', [

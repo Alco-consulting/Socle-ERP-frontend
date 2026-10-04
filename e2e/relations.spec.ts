@@ -102,16 +102,15 @@ test.describe('Tiers → objets liés', () => {
     await expect(rows(page)).toHaveCount(Math.min(total, 25));
   });
 
-  test('7. Tiers → Grand livre auxiliaire ; comptes collectifs ; lettrage ; échéances indisponibles', async ({
+  test('7. Tiers → Grand livre auxiliaire ; comptes collectifs ; lettrage ; échéances', async ({
     page,
     api,
   }) => {
     await page.goto(`${ACC}/fournisseurs/${partnerId(api, 'FOU-001')}`);
     await expect(smart(page, 'Comptes collectifs')).toHaveAccessibleName('Comptes collectifs : 1');
     await expect(page.locator('#comptes-collectifs')).toContainText(/Compte fournisseur\s*401/);
-    const dueDates = page.getByRole('button', { name: 'Échéances', exact: true });
-    await expect(dueDates).toHaveAttribute('aria-disabled', 'true');
-    await expect(dueDates).toHaveAccessibleDescription(/Pas encore disponible/);
+    // Échéances (V2.1 A5): a link, with the server's count of the partner's installments.
+    await expect(smart(page, 'Échéances')).toHaveAccessibleName(/^Échéances : \d+$/);
     // Lettrage (V2.1 A4): a link, with the server's count of open lines (all lettered here).
     await expect(smart(page, 'Lettrage')).toHaveAccessibleName('Lettrage : 0');
     await smart(page, 'Grand livre auxiliaire').click();
@@ -220,12 +219,8 @@ test.describe('Société, permissions', () => {
       await page.waitForLoadState('networkidle');
       expect(await scan(), url).toEqual([]);
     }
-    // Keyboard: a disabled smart button takes the focus and shows its reason.
+    // Keyboard: the smart buttons are links.
     await page.goto(`${ACC}/fournisseurs/${partnerId(api, 'FOU-001')}`);
-    const dueDates = page.getByRole('button', { name: 'Échéances', exact: true });
-    await dueDates.focus();
-    await expect(dueDates).toBeFocused();
-    await expect(page.getByRole('tooltip', { name: /échéances/ })).toBeVisible();
     const entries = smart(page, 'Écritures');
     await entries.focus();
     await page.keyboard.press('Enter');

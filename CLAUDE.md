@@ -10,8 +10,9 @@ réels), Module 3 (Tiers), Module 4 (socle de la Comptabilité : tableau de bord
 comptable, exercices et périodes), Module 5 (Écritures comptables) et les lots V2.1 A1/A2
 (navigation alignée : lanceur de 5 applications sans Reporting, Comptabilité en 3 liens + 3
 menus groupés, tableau de bord comptable sur `dashboards/journals/` et `dashboards/alerts/`),
-A3 (relations et smart buttons) et A4 (lettrage : lignes, sélection, aperçu, lettrage manuel et
-partiel, propositions, délettrage, historique) livrés.**
+A3 (relations et smart buttons), A4 (lettrage : lignes, sélection, aperçu, lettrage manuel et
+partiel, propositions, délettrage, historique) et A5 (échéances, génération, recalcul, balance
+âgée clients et fournisseurs, tranches) livrés.**
 Le socle parle à l'API Django : environnements, `ApiClient`, intercepteurs (session, CSRF,
 `X-Company-ID`, erreurs, chargement), gardes. Connexion et déconnexion réelles ; utilisateur,
 sociétés accessibles, société active, permissions et lanceur viennent de l'API (plus de
@@ -19,8 +20,8 @@ session simulée). L'application Tiers est réelle (liste, recherche, filtres, f
 création, modification, désactivation, import et export contextuels). Comptabilité : tableau
 de bord, journaux, plan comptable, exercices et périodes sont réels, ainsi que les
 écritures (liste, fiche, saisie des lignes, workflow par les commandes du serveur,
-contrepassation, pièces, historique, import), ainsi que le lettrage (V2.1 A4). Les autres
-domaines de Comptabilité restent des écrans prévus.
+contrepassation, pièces, historique, import), ainsi que le lettrage (V2.1 A4), les échéances
+et la balance âgée (V2.1 A5). Les autres domaines de Comptabilité restent des écrans prévus.
 Architecture technique : `../docs/frontend/technical-architecture.md`. Prochaine étape : les
 modules métier un par un (chacun remplace ses écrans de démonstration).
 
@@ -74,7 +75,8 @@ src/app/
                 launcher · auth (écran de connexion) · company-choice (`/societe`) ·
                 partners (Tiers : data-access, pages, présentation, routes) · accounting
                 (socle comptable : data-access, dashboard, journals, accounts, periods ;
-                entries : écritures, Module 5 ; lettering : lettrage, V2.1 A4) · dashboards (data-access : journaux et
+                entries : écritures, Module 5 ; lettering : lettrage, V2.1 A4 ; dues :
+                échéances, V2.1 A5) · reporting/aging (balance âgée, tranches, V2.1 A5) · dashboards (data-access : journaux et
                 alertes de `dashboards/`) · treasury (data-access : opérations d'une
                 écriture) · documents (data-access) · audit (data-access, AlcoObjectHistory :
                 historique d'un objet) · transfers (import/export contextuels, sans route
@@ -171,7 +173,7 @@ supprime ce qui ne sert plus.
   **Reporting n'est plus une application** : ses rapports sont Comptabilité › Analyse (le
   domaine `reporting` du backend reste leur source ; aucun endpoint retiré). Comptabilité :
   Tableau de bord, Clients, Fournisseurs, puis Comptabilité ▾ (Écritures, Journaux, Plan
-  comptable, Tiers, Trésorerie, Lettrage, Rapprochement, Clôture), Analyse ▾
+  comptable, Tiers, Trésorerie, Lettrage, Échéances, Rapprochement, Clôture), Analyse ▾
   (Rapports financiers, comptables, de tiers, Analyses) et Configuration ▾ (Général,
   Comptabilité, Banques, Paiements, Taxes, Immobilisations, Analytique, Emprunts). Les
   sections (Trésorerie, Immobilisations, Emprunts, Taxes, Analytique, Audit) gardent leur
@@ -259,8 +261,7 @@ supprime ce qui ne sert plus.
   `accounting.account`, `partners.partner`, `accounting.lettering`), compteur = son `total`.
   Visibilité d'une relation = `NavigationService.canOpenUrl('/app/comptabilite/<écran>')`
   (l'application ET l'écran : jamais `canOpenPath` seul, qui ignore la permission de
-  l'application). Échéances : `unavailable` (désactivé, raison), lot A5. Lettrage : réel
-  (A4, voir plus bas). Emprunts et immobilisations d'un
+  l'application). Échéances (A5) et Lettrage (A4) : réels, avec le compteur du serveur. Emprunts et immobilisations d'un
   tiers : pas proposés (leurs écrans n'existent pas encore ; `loans?partner=`,
   `assets?partner=` existent dans l'API).
 - **Grand livre (une seule expérience)** : `features/reporting/ledger/LedgerPage`, routes
@@ -303,6 +304,20 @@ supprime ce qui ne sert plus.
   `/app/comptabilite/tiers/lettrage` → `/app/comptabilite/lettrage`. Le contrat ne donne ni
   la référence du lettrage d'une ligne, ni un motif de proposition, ni d'avertissement
   d'aperçu : rien n'est inventé.
+- **Échéances et balance âgée (V2.1 A5)** : `features/accounting/dues` (ux-guidelines
+  § 5 octies, technical-architecture § 7 sexies) : `/echeances` (onglets Échéances et
+  Échéances à générer, filtres de l'API, état dans l'URL), `/echeances/<id>` (règlements et
+  lettrage source), `/echeances/echeanciers/<id>` (condition au calcul, Recalculer avec motif,
+  historique). Génération (`POST due-schedules/`) et recalcul : commandes confirmées
+  (`accounting.manage_due_dates`), résultat du serveur affiché, données relues.
+  `features/reporting/aging` : `analyse/balance-clients` et `analyse/balance-fournisseurs`
+  (`data.aging` = rôle ; date de référence choisie puis confirmée, `?au=`, aucune requête
+  avant ; synthèse, tranches et montants de l'API ; drill-down tiers → documents (`?tranche=`,
+  filtre d'affichage par le code du serveur) → échéance → écriture),
+  `configuration/balance-agee` (tranches, `reporting.manage_aging`, confirmées). Fiche Tiers :
+  smart button Échéances (`count` de `due-items/?partner`). Ancienne URL
+  `/app/comptabilite/tiers/echeances` → `/echeances`. Faux serveur `e2e/support/fake-dues.ts` :
+  fixtures explicites, rien de calculé.
 - **Modifications non enregistrées** : `UnsavedChangesService.track(() => form.dirty)` dans
   chaque formulaire, `unsavedChangesGuard` sur ses routes ; `switchTo` demande aussi ; une
   sauvegarde réussie appelle `markAsPristine()` avant de naviguer.
@@ -349,8 +364,10 @@ supprime ce qui ne sert plus.
   balances clients et fournisseurs, états financiers, résultat, analytique) ; aujourd'hui des
   écrans prévus. Lettrage, échéances, balance âgée, journal centralisateur, chatter,
   notifications, favoris persistants : lots dédiés (backend d'abord).
-- Lot A5 : échéances (backend puis frontend ; le smart button est prêt, désactivé). Emprunts et
-  immobilisations d'un tiers quand leurs écrans existeront.
+- Emprunts et immobilisations d'un tiers quand leurs écrans existeront.
+- Échéances : filtre par tranche côté serveur (aujourd'hui un filtre d'affichage de la page),
+  génération par écriture (`entry`, offert par l'API) depuis la fiche d'une écriture ; la
+  balance auxiliaire classique (`reporting/partners/`) reste un écran à construire.
 - Lettrage : passage d'un écart en perte ou profit quand le backend aura une règle (aujourd'hui
   refusé) ; référence du lettrage d'une ligne et motif d'une proposition si le contrat les
   expose ; recherche de compte et de tiers par autocomplétion dans les filtres.

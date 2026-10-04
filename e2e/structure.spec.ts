@@ -83,7 +83,9 @@ test.describe('Comptabilité : trois liens et trois menus groupés', () => {
     await expect(page.getByRole('heading', { level: 1 })).toHaveText('Fournisseurs');
   });
 
-  test('Comptabilité ▾: the eight functions, lettrage operational (V2.1 A4)', async ({ page }) => {
+  test('Comptabilité ▾: the nine functions, lettrage and échéances operational (V2.1 A4, A5)', async ({
+    page,
+  }) => {
     await page.goto('/app/comptabilite/tableau-de-bord');
     const menu = await openMenu(page, 'Comptabilité');
     await expect(menu.getByRole('menuitemradio')).toHaveText([
@@ -93,6 +95,7 @@ test.describe('Comptabilité : trois liens et trois menus groupés', () => {
       'Tiers',
       'Trésorerie',
       'Lettrage',
+      'Échéances',
       'Rapprochement',
       'Clôture',
     ]);

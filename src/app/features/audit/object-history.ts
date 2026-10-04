@@ -24,6 +24,7 @@ export const AUDIT_TYPES = {
   account: 'accounting.account',
   partner: 'partners.partner',
   lettering: 'accounting.lettering',
+  dueSchedule: 'accounting.dueschedule',
 } as const;
 
 /** Actions of the backend's Audit (`AuditAction`), in words. */

@@ -73,6 +73,7 @@ test.describe('Affichage selon les permissions (confort d’interface ; l’API 
       'Plan comptable',
       'Trésorerie',
       /Lettrage/,
+      'Échéances',
       'Rapprochement',
     ]);
     await page.keyboard.press('Escape');

@@ -1,0 +1,153 @@
+<alco-page-header
+  [title]="title"
+  subtitle="Montants ouverts à la date de référence, par tranche de retard, calculés par le serveur"
+/>
+
+<form class="as-of" [formGroup]="form" (ngSubmit)="show()" novalidate>
+  <alco-form-field
+    label="Date de référence"
+    [required]="true"
+    hint="La balance est calculée à cette date, jamais automatiquement à aujourd’hui."
+  >
+    <input alcoDatePicker type="date" formControlName="asOf" />
+  </alco-form-field>
+  <button alcoButton type="submit" variant="primary" icon="search">Afficher la balance</button>
+</form>
+
+@if (!asOf()) {
+  <div class="empty-frame">
+    <alco-empty-state
+      icon="calendar"
+      title="Choisissez la date de référence."
+      message="La balance âgée se calcule à une date : indiquez-la puis « Afficher la balance »."
+    />
+  </div>
+} @else {
+  @switch (report.status()) {
+    @case ('forbidden') {
+      <alco-error-state
+        title="Vous n’avez pas accès aux états de tiers de cette société."
+        message="Demandez l’accès à un administrateur de la société si vous en avez besoin."
+      />
+    }
+    @case ('error') {
+      @if (failure(); as error) {
+        <alco-error-state
+          [title]="error.title"
+          [message]="error.message"
+          [code]="error.code"
+          [correlationId]="error.correlationId ?? ''"
+          retryLabel="Réessayer"
+          (retry)="report.reload()"
+        />
+      }
+    }
+    @default {
+      @if (report.value(); as result) {
+        @let places = decimalsOf(result.currency);
+        <alco-aged-summary
+          [asOf]="result.as_of"
+          [currency]="result.currency"
+          [buckets]="result.buckets"
+          [amounts]="result.totals"
+          [decimals]="places"
+          [class.reloading]="report.loading()"
+        />
+
+        <div class="toolbar">
+          <p class="alco-caption count">
+            {{ result.count }} {{ result.count > 1 ? 'tiers' : 'tiers' }}
+          </p>
+          <alco-pagination
+            [page]="result.count > 0 ? page() : 1"
+            [pageSize]="pageSize"
+            [total]="result.count"
+            (pageChange)="setPage($event)"
+          />
+        </div>
+
+        @if (result.results.length === 0) {
+          <div class="empty-frame">
+            <alco-empty-state
+              icon="check"
+              title="Aucun montant ouvert à cette date."
+              message="Aucune facture, échéance ni règlement non affecté n’est ouvert à la date choisie."
+            />
+          </div>
+        } @else {
+          <div class="wide" [class.reloading]="report.loading()">
+            <alco-table
+              [caption]="title + ' au ' + day(result.as_of) + ', par tiers'"
+              [columns]="columns()"
+              [rows]="result.results"
+              [rowId]="rowId"
+            >
+              <ng-template alcoCell="partner" let-row>
+                <a class="code" [routerLink]="partnerLink(row)" [queryParams]="partnerQuery()">
+                  {{ row.partner.code }}
+                </a>
+                <span class="sub">{{ row.partner.name }}</span>
+              </ng-template>
+              @for (bucket of result.buckets; track bucket.code) {
+                <ng-template [alcoCell]="'bucket:' + bucket.code" let-row>
+                  @let amount = amountOf(row, bucket.code);
+                  @if (nonZero(amount)) {
+                    <a
+                      [routerLink]="partnerLink(row)"
+                      [queryParams]="partnerQuery(bucket.code)"
+                      [attr.aria-label]="
+                        row.partner.code +
+                        ', ' +
+                        describe(bucket) +
+                        ' : ' +
+                        (amount | alcoAmount: places)
+                      "
+                    >
+                      {{ amount | alcoAmount: places }}
+                    </a>
+                  } @else {
+                    <span class="zero">{{ amount | alcoAmount: places }}</span>
+                  }
+                </ng-template>
+              }
+              <ng-template alcoCell="total" let-row>{{
+                row.total | alcoAmount: places
+              }}</ng-template>
+              <ng-template alcoCell="balance" let-row>
+                <strong>{{ row.balance | alcoAmount: places }}</strong>
+              </ng-template>
+            </alco-table>
+          </div>
+
+          <ul class="cards" [attr.aria-label]="title + ', par tiers'">
+            @for (row of result.results; track row.partner.public_id) {
+              <li class="card">
+                <div class="card-head">
+                  <a class="code" [routerLink]="partnerLink(row)" [queryParams]="partnerQuery()">
+                    {{ row.partner.code }} — {{ row.partner.name }}
+                  </a>
+                </div>
+                <dl class="card-facts">
+                  @for (bucket of result.buckets; track bucket.code) {
+                    <div>
+                      <dt>{{ label(bucket) }}</dt>
+                      <dd>{{ amountOf(row, bucket.code) | alcoAmount: places }}</dd>
+                    </div>
+                  }
+                  <div>
+                    <dt>Solde</dt>
+                    <dd class="strong">
+                      {{ row.balance | alcoAmount: places }} {{ result.currency }}
+                    </dd>
+                  </div>
+                </dl>
+              </li>
+            }
+          </ul>
+        }
+      } @else {
+        <alco-loading variant="table" [rows]="6" [columns]="6" label="Calcul de la balance âgée…" />
+      }
+    }
+  }
+}

@@ -1,0 +1,130 @@
+<alco-page-header
+  title="Échéances"
+  subtitle="Échéances des factures clients et fournisseurs, calculées et réglées par le serveur"
+/>
+
+<div class="control-panel">
+  <div class="controls">
+    <alco-filter-bar
+      [activeFilterCount]="activeFilterCount()"
+      (applied)="applyFilters()"
+      (cleared)="resetFilters()"
+    >
+      <div alcoFilterFields class="filter-fields" [formGroup]="filterForm">
+        <div class="pair">
+          <alco-form-field label="Tiers" hint="Code exact du tiers">
+            <input alcoInput formControlName="partner" maxlength="32" autocomplete="off" />
+          </alco-form-field>
+          <alco-form-field label="Compte" hint="Code exact (ex. 411100)">
+            <input alcoInput formControlName="account" maxlength="32" autocomplete="off" />
+          </alco-form-field>
+        </div>
+        <div class="pair">
+          <alco-form-field label="Rôle">
+            <select alcoSelect formControlName="role">
+              <option value="">Clients et fournisseurs</option>
+              @for (item of roles; track item.id) {
+                <option [value]="item.id" [selected]="item.id === role()">{{ item.label }}</option>
+              }
+            </select>
+          </alco-form-field>
+          @if (view() === 'echeances') {
+            <alco-form-field label="État">
+              <select alcoSelect formControlName="status">
+                <option value="">Tous les états</option>
+                @for (item of statuses; track item.id) {
+                  <option [value]="item.id" [selected]="item.id === status()">
+                    {{ item.label }}
+                  </option>
+                }
+              </select>
+            </alco-form-field>
+          }
+        </div>
+        <div class="pair">
+          <alco-form-field
+            label="Du"
+            [hint]="view() === 'echeances' ? 'Date d’échéance' : 'Date d’écriture'"
+          >
+            <input alcoDatePicker type="date" formControlName="dateFrom" />
+          </alco-form-field>
+          <alco-form-field label="Au">
+            <input alcoDatePicker type="date" formControlName="dateTo" />
+          </alco-form-field>
+        </div>
+      </div>
+    </alco-filter-bar>
+    @if (partnerCode() || accountCode()) {
+      <p class="context alco-caption">
+        @if (partnerCode()) {
+          Tiers <strong class="mono">{{ partnerCode() }}</strong>
+        }
+        @if (partnerCode() && accountCode()) {
+          ·
+        }
+        @if (accountCode()) {
+          Compte <strong class="mono">{{ accountCode() }}</strong>
+        }
+      </p>
+    }
+  </div>
+</div>
+
+@if (findFailure(); as failure) {
+  <alco-error-state
+    [title]="found.status() === 'forbidden' ? 'Vous n’avez pas accès à ce filtre.' : failure.title"
+    [message]="
+      found.status() === 'forbidden'
+        ? 'Le filtre par tiers demande l’accès aux tiers de la société. Retirez-le ou demandez l’accès.'
+        : failure.message
+    "
+    [code]="failure.code"
+    [correlationId]="failure.correlationId ?? ''"
+  />
+} @else if (unknownCode(); as unknown) {
+  <div class="empty-frame">
+    <alco-empty-state
+      icon="search"
+      [title]="unknown"
+      message="Vérifiez le code saisi dans les filtres."
+    >
+      <button alcoButton type="button" icon="refresh" (click)="resetFilters()">
+        Réinitialiser les filtres
+      </button>
+    </alco-empty-state>
+  </div>
+} @else {
+  <alco-tabs
+    label="Vues des échéances"
+    [tabs]="tabs"
+    [selected]="view()"
+    (selectedChange)="setView($event)"
+  >
+    <ng-template alcoTabPanel="echeances">
+      @if (scope(); as current) {
+        <alco-due-items
+          [scope]="current"
+          [decimals]="decimals()"
+          [filtered]="activeFilterCount() > 0"
+          (pageChange)="setPage($event)"
+          (pastEnd)="firstPage()"
+          (resetFilters)="resetFilters()"
+        />
+      } @else {
+        <alco-loading variant="table" [rows]="6" [columns]="6" label="Chargement des échéances…" />
+      }
+    </ng-template>
+    <ng-template alcoTabPanel="a-generer">
+      @if (scope(); as current) {
+        <alco-pending-lines
+          [scope]="current"
+          [decimals]="decimals()"
+          (pageChange)="setPage($event)"
+          (pastEnd)="firstPage()"
+        />
+      } @else {
+        <alco-loading variant="table" [rows]="6" [columns]="5" label="Chargement des factures…" />
+      }
+    </ng-template>
+  </alco-tabs>
+}

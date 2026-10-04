@@ -1,0 +1,16 @@
+@use 'breakpoints' as bp;
+
+.pair {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-3);
+
+  @include bp.below-tablet {
+    grid-template-columns: 1fr;
+  }
+}
+
+.context {
+  margin: 0;
+  overflow-wrap: anywhere;
+}

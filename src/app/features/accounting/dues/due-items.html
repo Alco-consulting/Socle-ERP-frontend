@@ -1,0 +1,139 @@
+@if (list.value(); as result) {
+  <div class="toolbar">
+    <p class="alco-caption count">
+      {{ result.count }} {{ result.count > 1 ? 'échéances' : 'échéance' }}
+    </p>
+    <alco-pagination
+      [page]="result.count > 0 ? scope().page : 1"
+      [pageSize]="pageSize"
+      [total]="result.count"
+      (pageChange)="setPage($event)"
+    />
+  </div>
+}
+
+@switch (list.status()) {
+  @case ('forbidden') {
+    <alco-error-state
+      title="Vous n’avez pas accès aux échéances de cette société."
+      message="Demandez l’accès à un administrateur de la société si vous en avez besoin."
+    />
+  }
+  @case ('error') {
+    @if (failure(); as error) {
+      <alco-error-state
+        [title]="error.title"
+        [message]="error.message"
+        [code]="error.code"
+        [correlationId]="error.correlationId ?? ''"
+        retryLabel="Réessayer"
+        (retry)="list.reload()"
+      />
+    }
+  }
+  @default {
+    @if (list.value() === null) {
+      <alco-loading variant="table" [rows]="6" [columns]="6" label="Chargement des échéances…" />
+    } @else if (rows().length === 0) {
+      <div class="empty-frame">
+        @if (filtered()) {
+          <alco-empty-state
+            icon="search"
+            title="Aucune échéance ne correspond à ces critères."
+            message="Retirez un filtre ou élargissez les dates."
+          >
+            <button alcoButton type="button" icon="refresh" (click)="resetFilters.emit()">
+              Réinitialiser les filtres
+            </button>
+          </alco-empty-state>
+        } @else {
+          <alco-empty-state
+            icon="calendar"
+            title="Aucune échéance dans cette société."
+            message="Les échéances se génèrent depuis l’onglet « Échéances à générer »."
+          />
+        }
+      </div>
+    } @else {
+      <div class="wide" [class.reloading]="list.loading()" [attr.aria-busy]="list.loading()">
+        <alco-table
+          caption="Échéances des factures, les plus proches d’abord"
+          [columns]="columns"
+          [rows]="rows()"
+          [rowId]="rowId"
+          [clickableRows]="true"
+          (rowActivated)="open($event)"
+        >
+          <ng-template alcoCell="due" let-item>
+            <a class="code" [routerLink]="item.public_id">{{ day(item.due_date) }}</a>
+          </ng-template>
+          <ng-template alcoCell="partner" let-item>
+            <span class="mono">{{ item.partner.code }}</span>
+            <span class="sub">{{ item.partner.name }} · {{ roleLabel(item) }}</span>
+          </ng-template>
+          <ng-template alcoCell="entry" let-item>
+            <a class="code" [routerLink]="[entriesUrl, item.entry.public_id]">
+              {{ item.entry.entry_number }}
+            </a>
+            <span class="sub">{{ day(item.entry.entry_date) }}</span>
+          </ng-template>
+          <ng-template alcoCell="amount" let-item>
+            {{ item.amount | alcoAmount: decimalsOf(item.currency) }}
+          </ng-template>
+          <ng-template alcoCell="settled" let-item>
+            {{ item.settled_amount | alcoAmount: decimalsOf(item.currency) }}
+          </ng-template>
+          <ng-template alcoCell="open" let-item>
+            {{ item.open_amount | alcoAmount: decimalsOf(item.currency) }}
+            <span class="currency">{{ item.currency }}</span>
+          </ng-template>
+          <ng-template alcoCell="status" let-item>
+            @let look = statusLook(item);
+            <alco-badge [tone]="look.tone" [icon]="look.icon">{{ look.label }}</alco-badge>
+          </ng-template>
+        </alco-table>
+      </div>
+
+      <ul class="cards" [class.reloading]="list.loading()" aria-label="Échéances des factures">
+        @for (item of rows(); track item.public_id) {
+          @let look = statusLook(item);
+          @let places = decimalsOf(item.currency);
+          <li class="card">
+            <div class="card-head">
+              <a class="code" [routerLink]="item.public_id">
+                Échéance du {{ day(item.due_date) }}
+              </a>
+              <alco-badge [tone]="look.tone" [icon]="look.icon">{{ look.label }}</alco-badge>
+            </div>
+            <dl class="card-facts">
+              <div>
+                <dt>Tiers</dt>
+                <dd>
+                  <span class="mono">{{ item.partner.code }}</span> · {{ item.partner.name }}
+                </dd>
+              </div>
+              <div>
+                <dt>Écriture</dt>
+                <dd>
+                  <a [routerLink]="[entriesUrl, item.entry.public_id]">{{
+                    item.entry.entry_number
+                  }}</a>
+                </dd>
+              </div>
+              <div>
+                <dt>Montant</dt>
+                <dd>{{ item.amount | alcoAmount: places }} {{ item.currency }}</dd>
+              </div>
+              <div>
+                <dt>Ouvert</dt>
+                <dd class="strong">
+                  {{ item.open_amount | alcoAmount: places }} {{ item.currency }}
+                </dd>
+              </div>
+            </dl>
+          </li>
+        }
+      </ul>
+    }
+  }
+}

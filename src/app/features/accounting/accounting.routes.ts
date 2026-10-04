@@ -8,6 +8,28 @@ const dashboard = () =>
 const fiscalYears = () => import('./periods/fiscal-years').then((m) => m.FiscalYearsPage);
 const ledger = () => import('../reporting/ledger/ledger-page').then((m) => m.LedgerPage);
 
+/** An aged balance (`data.aging`: the role) and one partner of it. */
+function agedBalance(path: string, label: string, role: 'customer' | 'supplier'): Route {
+  return {
+    path,
+    data: { breadcrumb: label, aging: role },
+    children: [
+      {
+        path: '',
+        loadComponent: () =>
+          import('../reporting/aging/aged-balance-page').then((m) => m.AgedBalancePage),
+      },
+      {
+        path: ':id',
+        // Named after the partner once loaded (BreadcrumbService.nameCurrent).
+        data: { breadcrumb: 'Tiers' },
+        loadComponent: () =>
+          import('../reporting/aging/aged-partner-page').then((m) => m.AgedPartnerPage),
+      },
+    ],
+  };
+}
+
 /** A referential list with its creation, record and modification (manage permission). */
 function referential(
   path: string,
@@ -54,8 +76,8 @@ function referential(
 
 /**
  * Comptabilité on the API: dashboard (journals and alerts of `dashboards/`, V2.1), entries
- * (Module 5), lettering (V2.1 A4), journals, chart of accounts, fiscal years and periods
- * (Module 4). Treasury, Analyse and the other domains are still planned screens.
+ * (Module 5), lettering (V2.1 A4), due dates and aged balance (V2.1 A5), journals, chart of
+ * accounts, fiscal years and periods (Module 4). Treasury, Analyse and the other domains are still planned screens.
  */
 export const ACCOUNTING_ROUTES: Routes = [
   // dashboards.read is the menu link's (catalogue): the screen guard checks it.
@@ -99,6 +121,36 @@ export const ACCOUNTING_ROUTES: Routes = [
           import('./lettering/lettering-detail').then((m) => m.LetteringDetailPage),
       },
     ],
+  },
+  // Due dates (V2.1 A5): installments and pending invoices; an installment, a schedule.
+  {
+    path: 'echeances',
+    data: { breadcrumb: 'Échéances' },
+    children: [
+      { path: '', loadComponent: () => import('./dues/due-page').then((m) => m.DuePage) },
+      {
+        path: 'echeanciers/:id',
+        // Named after the schedule once loaded (BreadcrumbService.nameCurrent).
+        data: { breadcrumb: 'Échéancier' },
+        loadComponent: () =>
+          import('./dues/due-schedule-detail').then((m) => m.DueScheduleDetailPage),
+      },
+      {
+        path: ':id',
+        data: { breadcrumb: 'Échéance' },
+        loadComponent: () => import('./dues/due-item-detail').then((m) => m.DueItemDetailPage),
+      },
+    ],
+  },
+  // Analyse › Rapports de tiers: the aged balance (V2.1 A5), customers and suppliers.
+  agedBalance('analyse/balance-clients', 'Balance clients', 'customer'),
+  agedBalance('analyse/balance-fournisseurs', 'Balance fournisseurs', 'supplier'),
+  {
+    path: 'configuration/balance-agee',
+    data: { breadcrumb: 'Tranches de la balance âgée' },
+    canDeactivate: [unsavedChangesGuard],
+    loadComponent: () =>
+      import('../reporting/aging/aging-policy-page').then((m) => m.AgingPolicyPage),
   },
   // Analyse: one ledger experience on Reporting (account, or partner: route data `ledger`).
   {

@@ -1,0 +1,135 @@
+@if (loadError(); as failure) {
+  <alco-error-state
+    [title]="failure.title"
+    [message]="failure.message"
+    [code]="failure.code"
+    [correlationId]="failure.correlationId ?? ''"
+  />
+  <div class="center">
+    <a alcoButton icon="arrow-left" routerLink="..">Retour aux échéances</a>
+  </div>
+} @else if (item(); as item) {
+  @let places = decimalsOf(item.currency);
+  <alco-page-header
+    [title]="'Échéance du ' + day(item.due_date)"
+    [subtitle]="item.partner.code + ' · ' + item.partner.name + ' · ' + roles[item.role]"
+  >
+    <div alcoPageStatus>
+      @if (status(); as badge) {
+        <alco-badge [tone]="badge.tone" [icon]="badge.icon">{{ badge.label }}</alco-badge>
+      }
+    </div>
+    <div alcoPageActions>
+      <a alcoButton icon="calendar" [routerLink]="['../echeanciers', item.schedule]">
+        Voir l’échéancier
+      </a>
+    </div>
+  </alco-page-header>
+
+  <div class="sheet">
+    <section class="section" aria-labelledby="amounts-title">
+      <h2 id="amounts-title" class="alco-section-title">Montants</h2>
+      <dl class="facts">
+        <div>
+          <dt>Montant de l’échéance</dt>
+          <dd class="amount">{{ item.amount | alcoAmount: places }} {{ item.currency }}</dd>
+        </div>
+        <div>
+          <dt>Réglé</dt>
+          <dd>{{ item.settled_amount | alcoAmount: places }} {{ item.currency }}</dd>
+        </div>
+        <div>
+          <dt>Ouvert</dt>
+          <dd class="amount">{{ item.open_amount | alcoAmount: places }} {{ item.currency }}</dd>
+        </div>
+        <div>
+          <dt>Part de la facture</dt>
+          <dd>{{ item.percentage }} % (échéance n° {{ item.sequence }})</dd>
+        </div>
+        <div>
+          <dt>Dernier règlement</dt>
+          <dd>{{ item.last_settled_on ? day(item.last_settled_on) : 'Aucun' }}</dd>
+        </div>
+      </dl>
+    </section>
+
+    <section class="section" aria-labelledby="source-title">
+      <h2 id="source-title" class="alco-section-title">Facture</h2>
+      <dl class="facts">
+        <div>
+          <dt>Écriture</dt>
+          <dd>
+            <a class="mono" [routerLink]="[accounting, 'ecritures', item.entry.public_id]">
+              {{ item.entry.entry_number }}
+            </a>
+            du {{ day(item.entry.entry_date) }}
+          </dd>
+        </div>
+        <div>
+          <dt>Compte</dt>
+          <dd>
+            <a class="mono" [routerLink]="[accounting, 'plan-comptable', item.account.public_id]">
+              {{ item.account.code }}
+            </a>
+          </dd>
+        </div>
+        <div>
+          <dt>Tiers</dt>
+          <dd>
+            @if (canOpenPartner()) {
+              <a [routerLink]="[accounting, 'tiers', item.partner.public_id]">
+                {{ item.partner.code }} — {{ item.partner.name }}
+              </a>
+            } @else {
+              {{ item.partner.code }} — {{ item.partner.name }}
+            }
+          </dd>
+        </div>
+      </dl>
+    </section>
+
+    <section class="section" aria-labelledby="settlements-title">
+      <h2 id="settlements-title" class="alco-section-title">Règlements</h2>
+      @if (item.settlements.length === 0) {
+        <p class="alco-caption">Aucun règlement : rien n’est encore lettré sur cette facture.</p>
+      } @else {
+        <div class="rows" role="region" tabindex="0" aria-label="Règlements de l’échéance">
+          <table>
+            <caption class="alco-sr-only">
+              Parts de l’échéance réglées par lettrage
+            </caption>
+            <thead>
+              <tr>
+                <th scope="col">Lettrage</th>
+                <th scope="col">Date</th>
+                <th scope="col" class="num">Montant réglé</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (settlement of item.settlements; track settlement.lettering.public_id) {
+                <tr>
+                  <td>
+                    @if (canOpenLettering()) {
+                      <a
+                        class="mono"
+                        [routerLink]="[accounting, 'lettrage', settlement.lettering.public_id]"
+                      >
+                        {{ settlement.lettering.reference }}
+                      </a>
+                    } @else {
+                      <span class="mono">{{ settlement.lettering.reference }}</span>
+                    }
+                  </td>
+                  <td>{{ day(settlement.settled_on) }}</td>
+                  <td class="num">{{ settlement.amount | alcoAmount: places }}</td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+      }
+    </section>
+  </div>
+} @else {
+  <alco-loading [rows]="8" label="Chargement de l’échéance…" />
+}

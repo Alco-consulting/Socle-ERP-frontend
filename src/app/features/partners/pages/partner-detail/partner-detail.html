@@ -56,7 +56,15 @@
           link="."
           fragment="comptes-collectifs"
         />
-        <alco-smart-button label="Échéances" icon="calendar" [unavailable]="unavailable.dueDates" />
+      }
+      @if (canOpenDues()) {
+        <alco-smart-button
+          label="Échéances"
+          icon="calendar"
+          [count]="dueItems.value() ?? null"
+          [link]="accounting + '/echeances'"
+          [queryParams]="{ tiers: partner.code }"
+        />
       }
       @if (canOpenLettering()) {
         <alco-smart-button

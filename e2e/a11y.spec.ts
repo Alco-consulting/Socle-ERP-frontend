@@ -6,6 +6,8 @@ const SCREENS = [
   { name: 'Tableau de bord', url: '/app/comptabilite/tableau-de-bord' },
   { name: 'Liste', url: '/app/comptabilite/ecritures' },
   { name: 'Lettrage', url: '/app/comptabilite/lettrage' },
+  { name: 'Échéances', url: '/app/comptabilite/echeances' },
+  { name: 'Balance âgée', url: '/app/comptabilite/analyse/balance-clients?au=2026-04-15' },
   { name: 'Clients (liste de Comptabilité)', url: '/app/comptabilite/clients' },
   { name: 'Analyse › Balance générale', url: '/app/comptabilite/analyse/balance' },
   { name: 'Liste regroupée', url: '/app/comptabilite/plan-comptable?groupe=classe' },

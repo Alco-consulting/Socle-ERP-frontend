@@ -30,6 +30,7 @@ import { AlcoPageHeader } from '../../../../shared/ui/page-header/page-header';
 import { AlcoSmartButton } from '../../../../shared/ui/smart-button/smart-button';
 import { AlcoToastService } from '../../../../shared/ui/toast/toast.service';
 import { AUDIT_TYPES, AlcoObjectHistory } from '../../../audit/object-history';
+import { DueApi } from '../../../accounting/data-access/due-api';
 import { LetteringApi } from '../../../accounting/data-access/lettering-api';
 import { CollectiveAccount, RelationsApi } from '../../../relations/data-access/relations-api';
 import { Partner, PaymentTerm } from '../../data-access/partner-models';
@@ -44,8 +45,8 @@ import { PARTNER_ERRORS, PARTNER_STATUS, roleLabel } from '../../partner-present
  * with its own permission: its entries (`accounting.read`, the entry list's `count`), its
  * subsidiary ledger (`reporting.read_auxiliary`), its collective accounts
  * (`accounting/partners/<id>/accounts/`), its lettering (its open lines, the `count` of
- * `accounting/letterable-lines/`) and its history (`audit.read`). Échéances is shown
- * disabled: its API does not exist yet.
+ * `accounting/letterable-lines/`), its installments (the `count` of `accounting/due-items/`)
+ * and its history (`audit.read`).
  */
 @Component({
   selector: 'alco-partner-detail',
@@ -134,10 +135,13 @@ export class PartnerDetailPage {
   protected readonly canSeeHistory = computed(() => this.session.can('audit.read'));
   private readonly history = viewChild(AlcoObjectHistory);
   protected readonly historyCount = computed(() => this.history()?.total() ?? null);
-  /** Relations of the V2.1 target whose API is not delivered yet (lot A5). */
-  protected readonly unavailable = {
-    dueDates: 'Pas encore disponible : l’API ne propose pas encore les échéances.',
-  };
+  protected readonly canOpenDues = computed(() => this.canOpen('echeances'));
+  private readonly dues = inject(DueApi);
+  protected readonly dueItems = requestState(
+    (): Observable<number | null> =>
+      untracked(this.canOpenDues) ? this.dues.itemCount(untracked(this.id)) : of(null),
+    { immediate: false },
+  );
   protected readonly roleWords: Readonly<Partial<Record<string, string>>> = {
     customer: 'Compte client',
     supplier: 'Compte fournisseur',
@@ -162,6 +166,7 @@ export class PartnerDetailPage {
         this.entries.reload();
         this.collective.reload();
         this.openLines.reload();
+        this.dueItems.reload();
       });
     });
     effect(() => {

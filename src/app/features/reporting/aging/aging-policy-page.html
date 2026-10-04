@@ -1,0 +1,115 @@
+<alco-page-header
+  title="Tranches de la balance âgée"
+  subtitle="Les tranches de retard utilisées par la balance âgée clients et fournisseurs"
+/>
+
+@switch (record.status()) {
+  @case ('forbidden') {
+    <alco-error-state
+      title="Vous n’avez pas accès aux états de tiers de cette société."
+      message="Demandez l’accès à un administrateur de la société si vous en avez besoin."
+    />
+  }
+  @case ('error') {
+    @if (loadError(); as error) {
+      <alco-error-state
+        [title]="error.title"
+        [message]="error.message"
+        [code]="error.code"
+        [correlationId]="error.correlationId ?? ''"
+        retryLabel="Réessayer"
+        (retry)="record.reload()"
+      />
+    }
+  }
+  @default {
+    @if (policy(); as current) {
+      <section class="section" aria-labelledby="buckets-title">
+        <h2 id="buckets-title" class="alco-section-title">Tranches actuelles</h2>
+        <p class="note">
+          @if (current.default) {
+            Tranches par défaut d’Alco (un choix du produit, pas une obligation SYSCOHADA).
+          } @else {
+            Tranches propres à la société.
+          }
+        </p>
+        <ol class="buckets">
+          @for (bucket of current.buckets; track bucket.code) {
+            <li>
+              <strong>{{ label(bucket) }}</strong>
+              <span class="alco-caption"> — {{ describe(bucket) }}</span>
+            </li>
+          }
+        </ol>
+      </section>
+
+      @if (canManage()) {
+        <section class="section" aria-labelledby="limits-title">
+          <h2 id="limits-title" class="alco-section-title">Modifier les limites</h2>
+          <p class="note">
+            Chaque limite est le dernier jour de retard d’une tranche (ex. 30, 60, 90, 120). La
+            tranche « non échue » et la dernière tranche (au-delà de la dernière limite) sont
+            toujours présentes. Le serveur vérifie les limites et donne les tranches.
+          </p>
+          <form [formGroup]="form" (ngSubmit)="save()" novalidate>
+            <ol class="limits">
+              @for (control of limits.controls; track control; let index = $index) {
+                <li class="limit">
+                  <alco-form-field [label]="'Limite ' + (index + 1) + ' (jours)'" [required]="true">
+                    <input alcoInput type="number" min="1" step="1" [formControl]="control" />
+                  </alco-form-field>
+                  <button
+                    alcoButton
+                    type="button"
+                    variant="ghost"
+                    icon="trash"
+                    [iconOnly]="true"
+                    (click)="remove(index)"
+                  >
+                    Retirer la limite {{ index + 1 }}
+                  </button>
+                </li>
+              }
+            </ol>
+            @if (saveError(); as failure) {
+              <alco-error-state
+                [inline]="true"
+                [title]="failure.title"
+                [message]="failure.message"
+                [code]="failure.code"
+                [correlationId]="failure.correlationId ?? ''"
+              />
+            }
+            <div class="form-actions">
+              <button
+                alcoButton
+                type="button"
+                icon="plus"
+                [disabled]="limits.length >= maxLimits"
+                (click)="add()"
+              >
+                Ajouter une limite
+              </button>
+              <button alcoButton type="button" [disabled]="!limits.dirty" (click)="cancel()">
+                Annuler les modifications
+              </button>
+              <button
+                alcoButton
+                type="submit"
+                variant="primary"
+                [loading]="saving()"
+                loadingLabel="Enregistrement…"
+              >
+                Enregistrer les tranches
+              </button>
+            </div>
+          </form>
+        </section>
+      } @else {
+        <p class="note">Votre profil permet de consulter les tranches, pas de les modifier.</p>
+      }
+    } @else {
+      <alco-loading [rows]="5" label="Chargement des tranches…" />
+    }
+  }
+}

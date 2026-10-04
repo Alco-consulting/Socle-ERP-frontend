@@ -1,0 +1,186 @@
+@if (!asOf()) {
+  <alco-page-header [title]="title" />
+  <div class="empty-frame">
+    <alco-empty-state
+      icon="calendar"
+      title="La date de référence manque."
+      message="Revenez à la balance âgée pour choisir la date."
+    >
+      <a alcoButton icon="arrow-left" routerLink="..">Retour à la balance</a>
+    </alco-empty-state>
+  </div>
+} @else {
+  @switch (report.status()) {
+    @case ('forbidden') {
+      <alco-page-header [title]="title" />
+      <alco-error-state
+        title="Vous n’avez pas accès aux états de tiers de cette société."
+        message="Demandez l’accès à un administrateur de la société si vous en avez besoin."
+      />
+    }
+    @case ('error') {
+      <alco-page-header [title]="title" />
+      @if (failure(); as error) {
+        <alco-error-state
+          [title]="error.title"
+          [message]="error.message"
+          [code]="error.code"
+          [correlationId]="error.correlationId ?? ''"
+        />
+      }
+      <div class="center">
+        <a alcoButton icon="arrow-left" routerLink=".." [queryParams]="{ au: asOf() }">
+          Retour à la balance
+        </a>
+      </div>
+    }
+    @default {
+      @if (report.value(); as result) {
+        @let places = decimalsOf(result.currency);
+        <alco-page-header
+          [title]="result.partner.code + ' — ' + result.partner.name"
+          [subtitle]="title + ' au ' + day(result.as_of)"
+        >
+          <div alcoPageActions>
+            <a alcoButton icon="arrow-left" routerLink=".." [queryParams]="{ au: result.as_of }">
+              Balance
+            </a>
+            @if (canOpenDues()) {
+              <a
+                alcoButton
+                icon="calendar"
+                [routerLink]="[accounting, 'echeances']"
+                [queryParams]="{ tiers: result.partner.code }"
+              >
+                Toutes ses échéances
+              </a>
+            }
+          </div>
+        </alco-page-header>
+
+        <alco-aged-summary
+          [asOf]="result.as_of"
+          [currency]="result.currency"
+          [buckets]="result.buckets"
+          [amounts]="result.totals"
+          [decimals]="places"
+        />
+
+        <div class="toolbar">
+          <p class="alco-caption count">
+            @if (bucketName(); as name) {
+              Tranche {{ name }} : {{ documents().length }} sur {{ result.results.length }}
+              documents de la page ·
+              <a routerLink="." [queryParams]="allBuckets()" queryParamsHandling="merge">
+                Toutes les tranches
+              </a>
+            } @else {
+              {{ result.count }} {{ result.count > 1 ? 'documents ouverts' : 'document ouvert' }}
+            }
+          </p>
+          <alco-pagination
+            [page]="result.count > 0 ? page() : 1"
+            [pageSize]="pageSize"
+            [total]="result.count"
+            (pageChange)="setPage($event)"
+          />
+        </div>
+
+        @if (documents().length === 0) {
+          <div class="empty-frame">
+            <alco-empty-state icon="check" title="Aucun document ouvert à cette date." />
+          </div>
+        } @else {
+          <div class="wide" [class.reloading]="report.loading()">
+            <alco-table
+              [caption]="'Documents ouverts de ' + result.partner.code + ' au ' + day(result.as_of)"
+              [columns]="columns"
+              [rows]="documents()"
+              [rowId]="rowId"
+            >
+              <ng-template alcoCell="kind" let-doc>
+                {{ kindLabel(doc) }}
+                @if (bucketOf(doc); as bucket) {
+                  <span class="sub">{{ bucket }}</span>
+                }
+              </ng-template>
+              <ng-template alcoCell="entry" let-doc>
+                <a class="code" [routerLink]="[accounting, 'ecritures', doc.entry.public_id]">
+                  {{ doc.entry.entry_number }}
+                </a>
+                <span class="sub"
+                  >{{ day(doc.entry.entry_date) }} · {{ doc.label || doc.document_reference }}</span
+                >
+              </ng-template>
+              <ng-template alcoCell="due" let-doc>
+                @if (doc.due_date) {
+                  @if (doc.due_item && canOpenDues()) {
+                    <a [routerLink]="[accounting, 'echeances', doc.due_item]">{{
+                      day(doc.due_date)
+                    }}</a>
+                  } @else {
+                    {{ day(doc.due_date) }}
+                  }
+                } @else if (doc.kind === 'unscheduled' && canOpenDues()) {
+                  <a
+                    [routerLink]="[accounting, 'echeances']"
+                    [queryParams]="{ vue: 'a-generer', tiers: result.partner.code }"
+                  >
+                    À générer
+                  </a>
+                } @else {
+                  —
+                }
+              </ng-template>
+              <ng-template alcoCell="late" let-doc>
+                {{ doc.days_past_due === null ? '—' : doc.days_past_due + ' j' }}
+              </ng-template>
+              <ng-template alcoCell="amount" let-doc>{{
+                doc.amount | alcoAmount: places
+              }}</ng-template>
+              <ng-template alcoCell="open" let-doc>
+                <strong>{{ doc.open_amount | alcoAmount: places }}</strong>
+              </ng-template>
+            </alco-table>
+          </div>
+
+          <ul class="cards" [attr.aria-label]="'Documents ouverts de ' + result.partner.code">
+            @for (doc of documents(); track rowId(doc)) {
+              <li class="card">
+                <div class="card-head">
+                  <a class="code" [routerLink]="[accounting, 'ecritures', doc.entry.public_id]">
+                    {{ doc.entry.entry_number }}
+                  </a>
+                  <span class="sub">{{ kindLabel(doc) }}</span>
+                </div>
+                <dl class="card-facts">
+                  <div>
+                    <dt>Échéance</dt>
+                    <dd>
+                      @if (doc.due_date && doc.due_item && canOpenDues()) {
+                        <a [routerLink]="[accounting, 'echeances', doc.due_item]">{{
+                          day(doc.due_date)
+                        }}</a>
+                      } @else {
+                        {{ doc.due_date ? day(doc.due_date) : '—' }}
+                      }
+                    </dd>
+                  </div>
+                  <div>
+                    <dt>Ouvert</dt>
+                    <dd class="strong">
+                      {{ doc.open_amount | alcoAmount: places }} {{ result.currency }}
+                    </dd>
+                  </div>
+                </dl>
+              </li>
+            }
+          </ul>
+        }
+      } @else {
+        <alco-page-header [title]="title" />
+        <alco-loading variant="table" [rows]="6" [columns]="5" label="Chargement des documents…" />
+      }
+    }
+  }
+}

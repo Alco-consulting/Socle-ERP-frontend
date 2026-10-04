@@ -6,6 +6,8 @@ const SCREENS = [
   { name: 'Liste', url: '/app/comptabilite/ecritures' },
   { name: 'Journaux', url: '/app/comptabilite/journaux' },
   { name: 'Lettrage', url: '/app/comptabilite/lettrage' },
+  { name: 'Échéances', url: '/app/comptabilite/echeances' },
+  { name: 'Balance âgée', url: '/app/comptabilite/analyse/balance-clients?au=2026-04-15' },
   { name: 'Analyse', url: '/app/comptabilite/analyse/balance' },
   { name: 'Nouvelle écriture', url: '/app/comptabilite/ecritures/nouvelle' },
   { name: 'Trésorerie (domaine de Comptabilité)', url: '/app/comptabilite/tresorerie/operations' },
@@ -130,6 +132,39 @@ test.describe('Règles de mise en page', () => {
       () => document.documentElement.scrollWidth - document.documentElement.clientWidth,
     );
     expect(overflow).toBeLessThanOrEqual(0);
+  });
+
+  test('due dates and aged balance: tables from the tablet up, cards on a phone', async ({
+    page,
+  }, testInfo) => {
+    const phone = testInfo.project.name === 'phone';
+    for (const url of [
+      '/app/comptabilite/echeances',
+      '/app/comptabilite/analyse/balance-clients?au=2026-04-15',
+    ]) {
+      await page.goto(url);
+      await expect(page.getByRole('heading', { level: 1 })).toBeVisible();
+      await expect(phone ? page.locator('.cards') : page.locator('.wide')).toBeVisible();
+      await expect(phone ? page.locator('.wide') : page.locator('.cards')).toBeHidden();
+      if (testInfo.project.name === 'tablet' && url.includes('balance')) {
+        // Main columns only: the buckets are in the summary, always readable.
+        await expect(page.getByRole('columnheader', { name: '1–30 j' })).toBeHidden();
+        await expect(page.getByRole('columnheader', { name: 'Solde' })).toBeVisible();
+      }
+      if (url.includes('balance')) {
+        await expect(page.locator('alco-aged-summary')).toContainText('Solde');
+      }
+      const overflow = await page.evaluate(
+        () => document.documentElement.scrollWidth - document.documentElement.clientWidth,
+      );
+      expect(overflow, url).toBeLessThanOrEqual(0);
+    }
+    // A partner card leads to its documents, also on a phone.
+    await (phone ? page.locator('.cards') : page.locator('.wide'))
+      .getByRole('link', { name: /CLI-001/ })
+      .first()
+      .click();
+    await expect(page.getByRole('heading', { level: 1 })).toHaveText(/^CLI-001/);
   });
 
   test('the records’ smart buttons and the ledger fit every width', async ({ page, api }) => {

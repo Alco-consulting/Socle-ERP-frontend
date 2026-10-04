@@ -86,6 +86,7 @@ describe('Application catalogue', () => {
       'Tiers',
       'Trésorerie',
       'Lettrage',
+      'Échéances',
       'Rapprochement',
       'Clôture',
     ]);

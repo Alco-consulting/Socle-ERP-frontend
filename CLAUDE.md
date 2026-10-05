@@ -11,8 +11,9 @@ comptable, exercices et périodes), Module 5 (Écritures comptables) et les lots
 (navigation alignée : lanceur de 5 applications sans Reporting, Comptabilité en 3 liens + 3
 menus groupés, tableau de bord comptable sur `dashboards/journals/` et `dashboards/alerts/`),
 A3 (relations et smart buttons), A4 (lettrage : lignes, sélection, aperçu, lettrage manuel et
-partiel, propositions, délettrage, historique) et A5 (échéances, génération, recalcul, balance
-âgée clients et fournisseurs, tranches) livrés.**
+partiel, propositions, délettrage, historique), A5 (échéances, génération, recalcul, balance
+âgée clients et fournisseurs, tranches) et A6 (rapprochement bancaire : lignes, propositions,
+confirmation, dé-rapprochement) livrés.**
 Le socle parle à l'API Django : environnements, `ApiClient`, intercepteurs (session, CSRF,
 `X-Company-ID`, erreurs, chargement), gardes. Connexion et déconnexion réelles ; utilisateur,
 sociétés accessibles, société active, permissions et lanceur viennent de l'API (plus de
@@ -21,7 +22,8 @@ création, modification, désactivation, import et export contextuels). Comptabi
 de bord, journaux, plan comptable, exercices et périodes sont réels, ainsi que les
 écritures (liste, fiche, saisie des lignes, workflow par les commandes du serveur,
 contrepassation, pièces, historique, import), ainsi que le lettrage (V2.1 A4), les échéances
-et la balance âgée (V2.1 A5). Les autres domaines de Comptabilité restent des écrans prévus.
+et la balance âgée (V2.1 A5) et le rapprochement bancaire (V2.1 A6, Trésorerie ›
+Rapprochements). Les autres domaines de Comptabilité restent des écrans prévus.
 Architecture technique : `../docs/frontend/technical-architecture.md`. Prochaine étape : les
 modules métier un par un (chacun remplace ses écrans de démonstration).
 
@@ -78,7 +80,7 @@ src/app/
                 entries : écritures, Module 5 ; lettering : lettrage, V2.1 A4 ; dues :
                 échéances, V2.1 A5) · reporting/aging (balance âgée, tranches, V2.1 A5) · dashboards (data-access : journaux et
                 alertes de `dashboards/`) · treasury (data-access : opérations d'une
-                écriture) · documents (data-access) · audit (data-access, AlcoObjectHistory :
+                écriture ; reconciliation : rapprochement bancaire, V2.1 A6) · documents (data-access) · audit (data-access, AlcoObjectHistory :
                 historique d'un objet) · transfers (import/export contextuels, sans route
                 propre) · design-system · prototype (écrans prévus, LEGACY_REDIRECTS)
   app.routes.ts `/` → `/app` (lanceur, zone authentifiée dans AlcoCompanyScope),
@@ -319,6 +321,23 @@ supprime ce qui ne sert plus.
   smart button Échéances (`count` de `due-items/?partner`). Ancienne URL
   `/app/comptabilite/tiers/echeances` → `/echeances`. Faux serveur `e2e/support/fake-dues.ts` :
   fixtures explicites, rien de calculé.
+- **Rapprochement bancaire (V2.1 A6)** : `features/treasury/reconciliation` sur
+  `treasury/` (ux-guidelines § 5 nonies, technical-architecture § 7 septies).
+  `/app/comptabilite/tresorerie/rapprochements` (Comptabilité ▾ › Rapprochement, section
+  Trésorerie › Rapprochements, `treasury.read`) : compte par code (`?compte=`, choisi d'office
+  s'il est seul), relevé (`?releve=`), onglets À rapprocher / Propositions / Rapprochées /
+  Exclues (`?vue=`, un `status` de l'API par onglet), page dans l'URL. Ligne ouverte (depuis la
+  liste) : ses rapprochements par `reconciliations/?statement_line=` (lot backend A6.2), leurs
+  opérations (`operations/{id}/`), le lettrage créé à la confirmation (lien vers Lettrage),
+  historique Audit (`treasury.reconciliation`). Propositions telles que le serveur les donne
+  (critères en mots, aucun score) ; sélection et « Régler aussi cette facture »
+  (`accounting.letter`, jamais coché d'office) ; confirmation (boîte de dialogue, une commande,
+  tout ou rien), résultat de l'API affiché, propositions relues ;
+  `treasury_reconciliation_proposal_stale` relit et vide la sélection. Dé-rapprocher
+  (`treasury.reconcile`, motif) : la boîte de dialogue et le message disent que seul le lien
+  bancaire est annulé (A6.1) — opération, écriture, lettrage et échéances inchangés, délettrage
+  dans Lettrage. Faux serveur `e2e/support/fake-treasury.ts` : fixtures explicites, aucune
+  correspondance jouée.
 - **Modifications non enregistrées** : `UnsavedChangesService.track(() => form.dirty)` dans
   chaque formulaire, `unsavedChangesGuard` sur ses routes ; `switchTo` demande aussi ; une
   sauvegarde réussie appelle `markAsPristine()` avant de naviguer.

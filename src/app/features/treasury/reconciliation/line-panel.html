@@ -1,0 +1,223 @@
+@let current = line();
+@let places = decimals();
+<section class="panel" aria-labelledby="line-panel-title">
+  <header class="panel-head">
+    <div class="heading">
+      <h2 id="line-panel-title" class="alco-section-title">
+        Ligne du {{ day(current.line_date) }}
+      </h2>
+      <alco-badge [tone]="lineStatus().tone" [icon]="lineStatus().icon">
+        {{ lineStatus().label }}
+      </alco-badge>
+    </div>
+    <button alcoButton type="button" icon="close" (click)="closed.emit()">Fermer</button>
+  </header>
+
+  <dl class="facts">
+    <div class="wide">
+      <dt>Libellé</dt>
+      <dd>{{ current.description || '—' }}</dd>
+    </div>
+    <div>
+      <dt>Montant</dt>
+      <dd class="amount">
+        {{ directions[current.direction] }} · {{ current.amount | alcoAmount: places }}
+        {{ scope().currency }}
+      </dd>
+    </div>
+    <div>
+      <dt>Compte</dt>
+      <dd class="mono">{{ scope().accountCode }}</dd>
+    </div>
+    <div>
+      <dt>Référence de la banque</dt>
+      <dd class="mono">{{ current.bank_reference || '—' }}</dd>
+    </div>
+    <div>
+      <dt>Identifiant de la transaction</dt>
+      <dd class="mono">{{ current.external_id || '—' }}</dd>
+    </div>
+    <div>
+      <dt>Date de valeur</dt>
+      <dd>{{ day(current.value_date) }}</dd>
+    </div>
+    <div>
+      <dt>Solde après la ligne</dt>
+      <dd>
+        @if (current.running_balance !== null) {
+          {{ current.running_balance | alcoAmount: places }} {{ scope().currency }}
+        } @else {
+          —
+        }
+      </dd>
+    </div>
+    @if (current.status === 'excluded') {
+      <div class="wide">
+        <dt>Motif de l’exclusion</dt>
+        <dd>{{ current.exclusion_reason || '—' }}</dd>
+      </div>
+    }
+  </dl>
+
+  @if (current.status === 'unreconciled') {
+    <div class="note">
+      <p>
+        Le serveur calcule ses propositions pour le compte ou le relevé : s’il en a une pour cette
+        ligne, elle figure dans l’onglet Propositions.
+      </p>
+      <button alcoButton type="button" icon="chevron-right" (click)="showProposals.emit()">
+        Voir les propositions
+      </button>
+    </div>
+  }
+
+  @if (actionError(); as failure) {
+    <alco-error-state
+      [inline]="true"
+      [title]="failure.title"
+      [message]="failure.message"
+      [help]="failure.help ?? ''"
+      [code]="failure.code"
+      [correlationId]="failure.correlationId ?? ''"
+    />
+  }
+
+  <section class="reconciliations" aria-labelledby="line-reconciliations-title">
+    <h3 id="line-reconciliations-title" class="subtitle">Rapprochements de la ligne</h3>
+    @switch (record.status()) {
+      @case ('forbidden') {
+        <p class="muted">Votre profil ne permet pas de consulter les rapprochements.</p>
+      }
+      @case ('error') {
+        @if (failure(); as error) {
+          <alco-error-state
+            [inline]="true"
+            [title]="error.title"
+            [message]="error.message"
+            [code]="error.code"
+            [correlationId]="error.correlationId ?? ''"
+            retryLabel="Réessayer"
+            (retry)="record.reload()"
+          />
+        }
+      }
+      @default {
+        @if (record.value() === null) {
+          <alco-loading [rows]="3" label="Chargement des rapprochements…" />
+        } @else if (reconciliations().length === 0) {
+          <p class="muted">Aucun rapprochement pour cette ligne.</p>
+        } @else {
+          <ul class="cards" [class.reloading]="record.loading()">
+            @for (item of reconciliations(); track item.public_id) {
+              @let look = reconciliationStatus(item);
+              <li class="card">
+                <div class="card-head">
+                  <alco-badge [tone]="look.tone" [icon]="look.icon">
+                    {{ look.label }}
+                  </alco-badge>
+                  <span class="muted">
+                    Rapproché le {{ item.created_at | date: 'dd/MM/yyyy à HH:mm' }}
+                  </span>
+                </div>
+
+                <dl class="facts">
+                  <div class="wide">
+                    <dt>{{ item.operations.length > 1 ? 'Opérations' : 'Opération' }}</dt>
+                    <dd>
+                      <ul class="operations">
+                        @for (operation of operationsOf(item); track $index) {
+                          <li>
+                            @if (isOperation(operation)) {
+                              {{ day(operation.operation_date) }} ·
+                              <span class="mono">{{
+                                operation.reference || 'Sans référence'
+                              }}</span>
+                              @if (operation.counterparty; as partner) {
+                                · <span class="mono">{{ partner.code }}</span>
+                              }
+                              · {{ operation.amount | alcoAmount: places }} {{ operation.currency }}
+                              @if (operation.accounting_entry; as entry) {
+                                @if (canOpenEntries()) {
+                                  · <a [routerLink]="[entriesUrl, entry]">Voir l’écriture</a>
+                                }
+                              }
+                            } @else {
+                              <span class="mono">{{ operation }}</span>
+                            }
+                          </li>
+                        }
+                      </ul>
+                    </dd>
+                  </div>
+                  <div class="wide">
+                    <dt>Lettrage créé à la confirmation</dt>
+                    <dd>
+                      @if (item.lettering; as lettering) {
+                        @let state = letteringState(lettering.status);
+                        @if (canOpenLettering()) {
+                          <a class="mono" [routerLink]="[letteringUrl, lettering.public_id]">
+                            {{ lettering.reference }}
+                          </a>
+                        } @else {
+                          <span class="mono">{{ lettering.reference }}</span>
+                        }
+                        <alco-badge [tone]="state.tone" [icon]="state.icon">
+                          {{ state.label }}
+                        </alco-badge>
+                      } @else {
+                        Aucun
+                      }
+                    </dd>
+                  </div>
+                  @if (item.status === 'cancelled') {
+                    <div>
+                      <dt>Annulé le</dt>
+                      <dd>{{ item.cancelled_at | date: 'dd/MM/yyyy à HH:mm' }}</dd>
+                    </div>
+                    <div class="wide">
+                      <dt>Motif de l’annulation</dt>
+                      <dd>{{ item.reason || '—' }}</dd>
+                    </div>
+                  }
+                </dl>
+
+                @if (item.status === 'cancelled' && item.lettering?.status === 'active') {
+                  <p class="kept" role="note">
+                    L’annulation n’a défait que le lien bancaire : le lettrage
+                    {{ item.lettering?.reference }} est resté actif et la facture reste réglée par
+                    ce paiement. Pour la rouvrir, délettrez depuis la fiche du lettrage.
+                  </p>
+                }
+
+                @if (item.status === 'active' && canReconcile()) {
+                  <div class="card-actions">
+                    <button
+                      alcoButton
+                      type="button"
+                      icon="reverse"
+                      [loading]="busy()"
+                      loadingLabel="Annulation en cours…"
+                      (click)="dereconcile(item)"
+                    >
+                      Dé-rapprocher
+                    </button>
+                  </div>
+                }
+              </li>
+            }
+          </ul>
+        }
+      }
+    }
+  </section>
+
+  @if (canSeeHistory() && latest(); as shown) {
+    <section class="history" aria-labelledby="line-history-title">
+      <alco-object-history
+        titleId="line-history-title"
+        [objectType]="auditType"
+        [objectId]="shown.public_id"
+      />
+    </section>
+  }
+</section>

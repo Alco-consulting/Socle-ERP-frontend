@@ -54,24 +54,36 @@ export function placeholderScreens(app: AlcoApplication, built: readonly string[
 
 /**
  * One route per section (Trésorerie, Immobilisations…): its label in the breadcrumb, its
- * first allowed screen by default, a placeholder for each of its screens.
+ * first allowed screen by default, then each of its screens — the one a feature provides
+ * (`screens`, path relative to the application: `tresorerie/rapprochements`), else a
+ * placeholder.
  */
-export function sectionRoutes(app: AlcoApplication): Routes {
-  return (app.sections ?? []).map((section) => ({
-    path: section.path,
-    data: { breadcrumb: section.label },
-    children: [
-      {
-        path: '',
-        pathMatch: 'full',
-        canActivate: [sectionHome(app.id, section.path)],
-        children: [],
-      },
-      ...menuLinks(section.nav).map((link) =>
-        placeholder(link.label, link.path, `${app.path}/${section.path}/${link.path}`),
-      ),
-    ],
-  }));
+export function sectionRoutes(app: AlcoApplication, screens: Routes = []): Routes {
+  return (app.sections ?? []).map((section) => {
+    const prefix = `${section.path}/`;
+    const built = screens
+      .filter((route) => route.path?.startsWith(prefix))
+      .map((route) => ({ ...route, path: (route.path ?? '').slice(prefix.length) }));
+    const builtPaths = built.map((route) => route.path);
+    return {
+      path: section.path,
+      data: { breadcrumb: section.label },
+      children: [
+        {
+          path: '',
+          pathMatch: 'full',
+          canActivate: [sectionHome(app.id, section.path)],
+          children: [],
+        },
+        ...built,
+        ...menuLinks(section.nav)
+          .filter((link) => !builtPaths.includes(link.path))
+          .map((link) =>
+            placeholder(link.label, link.path, `${app.path}/${section.path}/${link.path}`),
+          ),
+      ],
+    };
+  });
 }
 
 /**
@@ -81,6 +93,9 @@ export function sectionRoutes(app: AlcoApplication): Routes {
  */
 export function applicationRoute(app: AlcoApplication, screens: Routes = []): Route {
   const built = screens.map((route) => route.path ?? '');
+  // A screen of a section (`tresorerie/rapprochements`) lives among the section's routes.
+  const sections = new Set((app.sections ?? []).map((section) => section.path));
+  const inSection = (route: Route) => sections.has((route.path ?? '').split('/')[0]);
   return {
     path: app.path,
     loadComponent: moduleShell,
@@ -89,9 +104,9 @@ export function applicationRoute(app: AlcoApplication, screens: Routes = []): Ro
     canActivateChild: [screenAccessGuard],
     children: [
       { path: '', pathMatch: 'full', canActivate: [appHome(app.id)], children: [] },
-      ...screens,
+      ...screens.filter((route) => !inSection(route)),
       ...placeholderScreens(app, built),
-      ...sectionRoutes(app),
+      ...sectionRoutes(app, screens.filter(inSection)),
     ],
   };
 }

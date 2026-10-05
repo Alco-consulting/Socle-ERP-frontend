@@ -25,6 +25,7 @@ export const AUDIT_TYPES = {
   partner: 'partners.partner',
   lettering: 'accounting.lettering',
   dueSchedule: 'accounting.dueschedule',
+  reconciliation: 'treasury.reconciliation',
 } as const;
 
 /** Actions of the backend's Audit (`AuditAction`), in words. */
@@ -42,6 +43,8 @@ export const AUDIT_ACTIONS: Readonly<Record<string, string>> = {
   download: 'Lien de téléchargement d’une pièce',
   letter: 'Lettrage',
   unletter: 'Délettrage',
+  reconcile: 'Rapprochement bancaire',
+  dereconcile: 'Annulation du rapprochement bancaire',
 };
 
 /**

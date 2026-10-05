@@ -1,0 +1,261 @@
+<p class="intro alco-caption">
+  Propositions calculées par le serveur : même compte, même sens, montant identique et une seule
+  correspondance possible. Une proposition n’est pas un rapprochement : sélectionnez-la puis
+  confirmez-la.
+</p>
+
+@if (actionError(); as failure) {
+  <alco-error-state
+    [inline]="true"
+    [title]="failure.title"
+    [message]="failure.message"
+    [help]="failure.help ?? ''"
+    [code]="failure.code"
+    [correlationId]="failure.correlationId ?? ''"
+  />
+}
+
+@if (outcomes().length > 0) {
+  <section class="outcomes" aria-labelledby="outcomes-title">
+    <h2 id="outcomes-title" class="alco-section-title">Rapprochements confirmés</h2>
+    <ul>
+      @for (outcome of outcomes(); track outcome.result.reconciliation.public_id) {
+        <li>
+          Ligne du {{ day(outcome.line.line_date) }} · {{ outcome.line.description || '—' }} :
+          rapprochée.
+          @if (outcome.result.lettering; as lettering) {
+            Facture réglée par le lettrage
+            @if (canOpenLettering()) {
+              <a class="mono" [routerLink]="[letteringUrl, lettering.public_id]">
+                {{ lettering.reference }}
+              </a>
+            } @else {
+              <span class="mono">{{ lettering.reference }}</span>
+            }
+            .
+          }
+        </li>
+      }
+    </ul>
+    <p class="alco-caption">
+      Les lignes rapprochées sont dans l’onglet Rapprochées, avec leur rapprochement.
+    </p>
+  </section>
+}
+
+@if (list.value(); as result) {
+  <div class="toolbar">
+    <p class="alco-caption count">
+      {{ result.count }} {{ result.count > 1 ? 'propositions' : 'proposition' }}
+    </p>
+    <alco-pagination
+      [page]="result.count > 0 ? scope().page : 1"
+      [pageSize]="pageSize"
+      [total]="result.count"
+      (pageChange)="setPage($event)"
+    />
+  </div>
+}
+
+@switch (list.status()) {
+  @case ('forbidden') {
+    <alco-error-state
+      title="Vous n’avez pas accès au rapprochement de cette société."
+      message="Demandez l’accès à un administrateur de la société si vous en avez besoin."
+    />
+  }
+  @case ('error') {
+    @if (failure(); as error) {
+      <alco-error-state
+        [title]="error.title"
+        [message]="error.message"
+        [code]="error.code"
+        [correlationId]="error.correlationId ?? ''"
+        retryLabel="Réessayer"
+        (retry)="list.reload()"
+      />
+    }
+  }
+  @default {
+    @if (list.value() === null) {
+      <alco-loading variant="cards" [rows]="3" label="Chargement des propositions…" />
+    } @else if (proposals().length === 0) {
+      <div class="empty-frame">
+        <alco-empty-state
+          icon="check"
+          title="Aucune proposition de rapprochement."
+          message="Le serveur ne propose aucune correspondance sûre pour les lignes non rapprochées : rapprochez-les manuellement ou attendez les opérations correspondantes."
+        />
+      </div>
+    } @else {
+      @let decimals = places();
+      @let currency = scope().currency;
+      <ul
+        class="proposals"
+        [class.reloading]="list.loading()"
+        aria-label="Propositions de rapprochement"
+      >
+        @for (proposal of proposals(); track proposal.line.public_id) {
+          <li class="proposal" [class.proposal--selected]="isSelected(proposal)">
+            <div class="proposal-head">
+              @if (canReconcile()) {
+                <label class="choice">
+                  <input
+                    type="checkbox"
+                    [checked]="isSelected(proposal)"
+                    [disabled]="confirming()"
+                    [attr.aria-label]="selectionLabel(proposal)"
+                    (change)="toggle(proposal)"
+                  />
+                  <span aria-hidden="true">Sélectionner</span>
+                </label>
+              }
+              <p class="amount">
+                {{ proposal.amount | alcoAmount: decimals }}
+                <span class="currency">{{ currency }}</span>
+              </p>
+            </div>
+
+            <div class="pair">
+              <section
+                class="side"
+                [attr.aria-label]="'Ligne de relevé du ' + day(proposal.line.line_date)"
+              >
+                <h3 class="side-title">Ligne de relevé</h3>
+                <dl class="facts">
+                  <div>
+                    <dt>Date</dt>
+                    <dd>{{ day(proposal.line.line_date) }}</dd>
+                  </div>
+                  <div>
+                    <dt>Sens</dt>
+                    <dd>{{ directions[proposal.line.direction] }}</dd>
+                  </div>
+                  <div class="wide">
+                    <dt>Libellé</dt>
+                    <dd>{{ proposal.line.description || '—' }}</dd>
+                  </div>
+                  <div>
+                    <dt>Référence</dt>
+                    <dd class="mono">{{ proposal.line.bank_reference || '—' }}</dd>
+                  </div>
+                  <div>
+                    <dt>Montant</dt>
+                    <dd>{{ proposal.amount | alcoAmount: decimals }}</dd>
+                  </div>
+                </dl>
+              </section>
+              <section
+                class="side"
+                [attr.aria-label]="
+                  'Opération proposée du ' + day(proposal.operation.operation_date)
+                "
+              >
+                <h3 class="side-title">Opération proposée</h3>
+                <dl class="facts">
+                  <div>
+                    <dt>Date</dt>
+                    <dd>{{ day(proposal.operation.operation_date) }}</dd>
+                  </div>
+                  <div>
+                    <dt>Tiers</dt>
+                    <dd class="mono">{{ proposal.operation.counterparty ?? '—' }}</dd>
+                  </div>
+                  <div class="wide">
+                    <dt>Libellé</dt>
+                    <dd>{{ proposal.operation.description || '—' }}</dd>
+                  </div>
+                  <div>
+                    <dt>Référence</dt>
+                    <dd class="mono">{{ proposal.operation.reference || '—' }}</dd>
+                  </div>
+                  <div>
+                    <dt>Montant</dt>
+                    <dd>{{ proposal.matched_amount | alcoAmount: decimals }}</dd>
+                  </div>
+                </dl>
+              </section>
+            </div>
+
+            <dl class="figures">
+              <div>
+                <dt>Écart</dt>
+                <dd>{{ proposal.difference | alcoAmount: decimals }} {{ currency }}</dd>
+              </div>
+              <div>
+                <dt>Écart de dates</dt>
+                <dd>
+                  {{ proposal.days_apart }} {{ proposal.days_apart > 1 ? 'jours' : 'jour' }}
+                  <span class="muted">(information)</span>
+                </dd>
+              </div>
+              <div class="wide">
+                <dt>Critères vérifiés par le serveur</dt>
+                <dd>
+                  <ul class="criteria">
+                    @for (code of proposal.criteria; track code) {
+                      <li>{{ criterion(code) }}</li>
+                    }
+                  </ul>
+                </dd>
+              </div>
+            </dl>
+
+            @if (proposal.settlement; as settlement) {
+              <div class="settlement">
+                <p class="settlement-text">
+                  Facture réglable par ce paiement : écriture
+                  <span class="mono">{{ settlement.invoice_line.entry }}</span>
+                  du {{ day(settlement.invoice_line.entry_date) }}, compte
+                  <span class="mono">{{ settlement.invoice_line.account }}</span
+                  >, tiers <span class="mono">{{ settlement.invoice_line.partner }}</span
+                  >, {{ settlement.amount | alcoAmount: decimals }} {{ currency }}.
+                </p>
+                @if (canReconcile() && canLetter()) {
+                  <label class="settle">
+                    <input
+                      type="checkbox"
+                      [checked]="settles(proposal)"
+                      [disabled]="confirming()"
+                      (change)="toggleSettle(proposal)"
+                    />
+                    Régler aussi cette facture (lettrage dans Comptabilité)
+                  </label>
+                } @else if (canReconcile()) {
+                  <p class="muted">Le règlement de la facture demande le droit de lettrer.</p>
+                }
+              </div>
+            }
+
+            <p class="state alco-caption">Proposée, non rapprochée</p>
+          </li>
+        }
+      </ul>
+
+      @if (canReconcile() && selectedCount() > 0) {
+        <div class="selection-bar" role="region" aria-label="Sélection de propositions">
+          <p class="selection-count" aria-live="polite">
+            {{ selectedCount() }}
+            {{ selectedCount() > 1 ? 'propositions sélectionnées' : 'proposition sélectionnée' }}
+          </p>
+          <div class="selection-actions">
+            <button alcoButton type="button" [disabled]="confirming()" (click)="clearSelection()">
+              Tout désélectionner
+            </button>
+            <button
+              alcoButton
+              type="button"
+              variant="primary"
+              icon="check"
+              [loading]="confirming()"
+              loadingLabel="Confirmation en cours…"
+              (click)="confirm()"
+            >
+              Rapprocher la sélection
+            </button>
+          </div>
+        </div>
+      }
+    }
+  }
+}

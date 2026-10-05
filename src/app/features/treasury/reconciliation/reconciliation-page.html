@@ -1,0 +1,154 @@
+<alco-page-header
+  title="Rapprochement bancaire"
+  subtitle="Rapprocher les lignes des relevés bancaires des opérations de trésorerie"
+/>
+
+@if (accountsFailure(); as failure) {
+  @if (accounts.status() === 'forbidden') {
+    <alco-error-state
+      title="Vous n’avez pas accès à la trésorerie de cette société."
+      message="Demandez l’accès à un administrateur de la société si vous en avez besoin."
+    />
+  } @else {
+    <alco-error-state
+      [title]="failure.title"
+      [message]="failure.message"
+      [code]="failure.code"
+      [correlationId]="failure.correlationId ?? ''"
+      retryLabel="Réessayer"
+      (retry)="accounts.reload()"
+    />
+  }
+} @else if (accounts.value() === null) {
+  <alco-loading [rows]="3" label="Chargement des comptes de trésorerie…" />
+} @else if (accountChoices().length === 0) {
+  <div class="empty-frame">
+    <alco-empty-state
+      icon="treasury"
+      title="Aucun compte de trésorerie dans cette société."
+      message="Un compte bancaire ou de caisse doit exister pour rapprocher ses relevés."
+    />
+  </div>
+} @else {
+  <form
+    class="context-form"
+    [formGroup]="form"
+    (ngSubmit)="show()"
+    novalidate
+    aria-label="Compte et relevé à rapprocher"
+  >
+    <alco-form-field label="Compte de trésorerie" [required]="true">
+      <select alcoSelect formControlName="account">
+        <option value="" disabled>Choisir un compte</option>
+        @for (item of accountChoices(); track item.public_id) {
+          <option [value]="item.code">
+            {{ item.code }} — {{ item.name }} ({{ item.currency }})
+          </option>
+        }
+      </select>
+    </alco-form-field>
+    <alco-form-field label="Relevé" hint="Tous les relevés du compte si aucun n’est choisi.">
+      <select alcoSelect formControlName="statement">
+        <option value="">Tous les relevés</option>
+        @for (item of formStatements(); track item.public_id) {
+          <option [value]="item.public_id">
+            {{ item.reference || 'Sans référence' }} — {{ day(item.period_start) }} au
+            {{ day(item.period_end) }}
+          </option>
+        }
+      </select>
+    </alco-form-field>
+    <button alcoButton type="submit" variant="primary" icon="search">Afficher</button>
+  </form>
+
+  @if (unknownAccount()) {
+    <div class="empty-frame">
+      <alco-empty-state
+        icon="search"
+        [title]="
+          'Aucun compte de trésorerie de cette société n’a le code « ' + accountCode() + ' ».'
+        "
+        message="Choisissez un compte dans la liste."
+      />
+    </div>
+  } @else if (!account()) {
+    <div class="empty-frame">
+      <alco-empty-state
+        icon="treasury"
+        title="Choisissez le compte de trésorerie à rapprocher."
+        message="Ses lignes de relevé, les propositions du serveur et les rapprochements s’afficheront ici."
+      />
+    </div>
+  } @else if (unknownStatement()) {
+    <div class="empty-frame">
+      <alco-empty-state
+        icon="search"
+        title="Ce relevé n’existe pas pour ce compte."
+        message="Il a peut-être été choisi pour un autre compte ou une autre société."
+      >
+        <button alcoButton type="button" icon="refresh" (click)="clearStatement()">
+          Tous les relevés du compte
+        </button>
+      </alco-empty-state>
+    </div>
+  } @else {
+    <alco-tabs
+      label="Vues du rapprochement"
+      [tabs]="tabs"
+      [selected]="view()"
+      (selectedChange)="setView($event)"
+    >
+      <ng-template alcoTabPanel="a-rapprocher">
+        @if (scope(); as current) {
+          <alco-statement-lines
+            [scope]="current"
+            [decimals]="decimals()"
+            (pageChange)="setPage($event)"
+            (pastEnd)="firstPage()"
+            (showProposals)="showProposals()"
+          />
+        } @else {
+          <alco-loading variant="table" [rows]="6" [columns]="5" label="Chargement des lignes…" />
+        }
+      </ng-template>
+      <ng-template alcoTabPanel="propositions">
+        @if (scope(); as current) {
+          <alco-reconciliation-proposals
+            [scope]="current"
+            [decimals]="decimals()"
+            (pageChange)="setPage($event)"
+            (pastEnd)="firstPage()"
+          />
+        } @else {
+          <alco-loading variant="cards" [rows]="3" label="Chargement des propositions…" />
+        }
+      </ng-template>
+      <ng-template alcoTabPanel="rapprochees">
+        @if (scope(); as current) {
+          <alco-statement-lines
+            [scope]="current"
+            [decimals]="decimals()"
+            (pageChange)="setPage($event)"
+            (pastEnd)="firstPage()"
+            (showProposals)="showProposals()"
+          />
+        } @else {
+          <alco-loading variant="table" [rows]="6" [columns]="5" label="Chargement des lignes…" />
+        }
+      </ng-template>
+      <ng-template alcoTabPanel="exclues">
+        @if (scope(); as current) {
+          <alco-statement-lines
+            [scope]="current"
+            [decimals]="decimals()"
+            (pageChange)="setPage($event)"
+            (pastEnd)="firstPage()"
+            (showProposals)="showProposals()"
+          />
+        } @else {
+          <alco-loading variant="table" [rows]="6" [columns]="5" label="Chargement des lignes…" />
+        }
+      </ng-template>
+    </alco-tabs>
+  }
+}

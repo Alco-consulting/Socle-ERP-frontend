@@ -6,6 +6,7 @@ import { FakeDashboards } from './fake-dashboards';
 import { FakeDues } from './fake-dues';
 import { FakeLettering } from './fake-lettering';
 import { FakeReporting } from './fake-reporting';
+import { FakeTreasury } from './fake-treasury';
 import { FakePartners, PartnersContext } from './fake-partners';
 
 /**
@@ -92,6 +93,8 @@ const WRITE = [
   'accounting.unletter',
   'accounting.manage_due_dates',
   'reporting.manage_aging',
+  // Bank reconciliation (V2.1 A6): granted explicitly, never implied.
+  'treasury.reconcile',
   'partners.create',
   'partners.update',
   'partners.disable',
@@ -171,6 +174,8 @@ export class FakeApi {
   readonly lettering: FakeLettering;
   /** Due dates and the aged balance (fixtures: nothing computed). */
   readonly dues: FakeDues;
+  /** Bank reconciliation: accounts, statement lines, proposals, reconciliations (fixtures). */
+  readonly treasury: FakeTreasury;
 
   constructor(private readonly page: Page) {
     const context: PartnersContext = {
@@ -196,6 +201,7 @@ export class FakeApi {
     this.reporting = new FakeReporting(context, this.accounting, this.entries, this.partners);
     this.lettering = new FakeLettering(context, this.accounting, this.partners, this.entries);
     this.dues = new FakeDues(context, this.accounting, this.partners, this.entries, this.lettering);
+    this.treasury = new FakeTreasury(context, this.lettering);
   }
 
   /** No session open at start (the login screen). */
@@ -274,6 +280,7 @@ export class FakeApi {
     await this.reporting.install();
     await this.lettering.install();
     await this.dues.install();
+    await this.treasury.install();
     await page.route('**/api/v1/auth/me/', (route) => {
       this.calls.push(route.request());
       if (this.down) {

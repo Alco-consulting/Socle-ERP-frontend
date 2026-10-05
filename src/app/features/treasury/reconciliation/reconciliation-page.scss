@@ -1,0 +1,13 @@
+@use 'breakpoints' as bp;
+
+.context-form {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto;
+  align-items: end;
+  gap: var(--space-3);
+
+  @include bp.below-tablet {
+    grid-template-columns: 1fr;
+    align-items: stretch;
+  }
+}

@@ -1,0 +1,94 @@
+@if (notice(); as message) {
+  <p class="notice" role="status">{{ message }}</p>
+}
+
+@if (list.value(); as result) {
+  <div class="toolbar">
+    <p class="alco-caption count">{{ result.count }} {{ result.count > 1 ? 'lignes' : 'ligne' }}</p>
+    <alco-pagination
+      [page]="result.count > 0 ? scope().page : 1"
+      [pageSize]="pageSize"
+      [total]="result.count"
+      (pageChange)="setPage($event)"
+    />
+  </div>
+}
+
+@switch (list.status()) {
+  @case ('forbidden') {
+    <alco-error-state
+      title="Vous n’avez pas accès aux relevés de cette société."
+      message="Demandez l’accès à un administrateur de la société si vous en avez besoin."
+    />
+  }
+  @case ('error') {
+    @if (failure(); as error) {
+      <alco-error-state
+        [title]="error.title"
+        [message]="error.message"
+        [code]="error.code"
+        [correlationId]="error.correlationId ?? ''"
+        retryLabel="Réessayer"
+        (retry)="list.reload()"
+      />
+    }
+  }
+  @default {
+    @if (list.value() === null) {
+      <alco-loading variant="table" [rows]="6" [columns]="5" label="Chargement des lignes…" />
+    } @else if (rows().length === 0) {
+      <div class="empty-frame">
+        <alco-empty-state icon="check" [title]="empty().title" [message]="empty().message" />
+      </div>
+    } @else {
+      @let places = decimalsOf();
+      <div [class.reloading]="list.loading()">
+        <alco-table
+          [caption]="'Lignes de relevé du compte ' + scope().accountCode"
+          [columns]="columns"
+          [rows]="rows()"
+          [rowId]="rowId"
+        >
+          <ng-template alcoCell="date" let-line>{{ day(line.line_date) }}</ng-template>
+          <ng-template alcoCell="description" let-line>
+            <button
+              type="button"
+              class="row-link"
+              [attr.aria-label]="'Ouvrir la ligne du ' + lineName(line)"
+              [attr.aria-expanded]="selected()?.public_id === line.public_id"
+              (click)="open(line)"
+            >
+              {{ line.description || 'Sans libellé' }}
+            </button>
+          </ng-template>
+          <ng-template alcoCell="reference" let-line>
+            <span class="mono">{{ line.bank_reference || '—' }}</span>
+          </ng-template>
+          <ng-template alcoCell="direction" let-line>{{ directionOf(line) }}</ng-template>
+          <ng-template alcoCell="amount" let-line>
+            <span class="amount">
+              {{ line.direction === 'outflow' ? '−' : '' }}{{ line.amount | alcoAmount: places }}
+            </span>
+          </ng-template>
+          <ng-template alcoCell="status" let-line>
+            @let look = statusOf(line);
+            <alco-badge [tone]="look.tone" [icon]="look.icon">{{ look.label }}</alco-badge>
+          </ng-template>
+        </alco-table>
+      </div>
+    }
+  }
+}
+
+@if (selected(); as line) {
+  <div class="panel-anchor" tabindex="-1" #panelAnchor>
+    <alco-line-panel
+      [line]="line"
+      [scope]="scope()"
+      [decimals]="decimalsOf()"
+      (closed)="close()"
+      (changed)="changed($event)"
+      (showProposals)="showProposals.emit()"
+    />
+  </div>
+}

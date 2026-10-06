@@ -186,11 +186,13 @@ export class AlcoEntryDocuments {
   private readonly window = inject(DOCUMENT).defaultView;
 
   readonly entryId = input.required<string>();
+  /** The Documents resource type of the record (an entry by default; `treasury.operation`…). */
+  readonly resourceType = input<string>(ENTRY_RESOURCE_TYPE);
   /** The entry is a draft: its documents may still change. */
   readonly editable = input(false);
 
   protected readonly documents = requestState(
-    () => this.api.attachedTo(ENTRY_RESOURCE_TYPE, untracked(this.entryId)),
+    () => this.api.attachedTo(untracked(this.resourceType), untracked(this.entryId)),
     { immediate: false },
   );
   protected readonly rows = computed(() => this.documents.value()?.results ?? []);
@@ -219,7 +221,7 @@ export class AlcoEntryDocuments {
     this.uploading.set(true);
     this.actionError.set(null);
     try {
-      await firstValueFrom(this.api.upload(ENTRY_RESOURCE_TYPE, this.entryId(), file));
+      await firstValueFrom(this.api.upload(this.resourceType(), this.entryId(), file));
       this.toast.success(`Pièce « ${file.name} » jointe.`);
       this.documents.reload();
     } catch (failure) {

@@ -42,12 +42,30 @@ const ROW_MESSAGES: Readonly<Record<string, string>> = {
   required: 'Valeur obligatoire manquante.',
   invalid: 'Valeur invalide.',
   invalid_format: 'Format non reconnu.',
-  duplicate_in_file: 'Ce code apparaît plus haut dans le fichier.',
+  duplicate_in_file: 'Cette valeur apparaît plus haut dans le fichier.',
+  // Bank statements (treasury.statements, V2.1 A6).
+  unknown_account: 'Compte de trésorerie inconnu dans cette société.',
+  statement_header_mismatch:
+    'Les lignes d’un même relevé doivent avoir la même date, la même période et les mêmes soldes.',
+  zero_amount: 'Une ligne de relevé a un montant non nul.',
+  line_already_imported: 'Cette transaction est déjà dans un relevé de ce compte.',
+  possible_duplicate:
+    'Une ligne du compte a déjà la même date, le même montant et la même référence : vérifiez qu’il ne s’agit pas d’un doublon.',
+  statement_unbalanced:
+    'Le solde d’ouverture plus les lignes diffère du solde de clôture : le relevé sera importé tel quel, à vérifier.',
   unknown_currency: 'Devise inconnue.',
   currency_inactive: 'Devise inactive.',
   validation_error: 'Valeur refusée par le serveur.',
 };
 
 export function rowMessage(message: ImportMessageDto): string {
-  return ROW_MESSAGES[message.code] ?? 'Refusé par le serveur.';
+  const text = ROW_MESSAGES[message.code];
+  if (
+    message.code === 'statement_unbalanced' &&
+    typeof message.details['difference'] === 'string'
+  ) {
+    // The server's figure, shown as given (never recomputed).
+    return `${text} Écart : ${message.details['difference']}.`;
+  }
+  return text ?? (message.level === 'warning' ? 'À vérifier.' : 'Refusé par le serveur.');
 }

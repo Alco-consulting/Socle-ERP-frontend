@@ -106,6 +106,25 @@ export const DELIMITERS = [
   { id: '|', label: 'Barre verticale ( | )' },
 ] as const;
 
+/** Reading of dates and amounts (`date_format`, `decimal_separator` of `mapping.py`). */
+export const DATE_FORMATS = [
+  { id: '%Y-%m-%d', label: 'AAAA-MM-JJ (2026-09-30)' },
+  { id: '%d/%m/%Y', label: 'JJ/MM/AAAA (30/09/2026)' },
+  { id: '%d.%m.%Y', label: 'JJ.MM.AAAA (30.09.2026)' },
+  { id: '%Y%m%d', label: 'AAAAMMJJ (20260930)' },
+] as const;
+
+export const DECIMAL_SEPARATORS = [
+  { id: '.', label: 'Point (1250.50)' },
+  { id: ',', label: 'Virgule (1250,50)' },
+] as const;
+
+/** How the file writes its values (`options` of the mapping); the server's defaults otherwise. */
+export interface ImportOptions {
+  readonly date_format?: string;
+  readonly decimal_separator?: string;
+}
+
 const imports = 'imports-exports/imports/';
 
 @Injectable({ providedIn: 'root' })
@@ -130,9 +149,13 @@ export class TransfersApi {
     return this.api.post<ImportRunDto>(`${imports}${runId}/parse/`, options);
   }
 
-  /** `columns`: field of the importer → column of the file. */
-  map(runId: string, columns: Readonly<Record<string, string>>): Observable<ImportRunDto> {
-    return this.api.post<ImportRunDto>(`${imports}${runId}/map/`, { columns });
+  /** `columns`: field of the importer → column of the file; `options`: how values are written. */
+  map(
+    runId: string,
+    columns: Readonly<Record<string, string>>,
+    options: ImportOptions = {},
+  ): Observable<ImportRunDto> {
+    return this.api.post<ImportRunDto>(`${imports}${runId}/map/`, { columns, options });
   }
 
   validate(runId: string): Observable<ImportRunDto> {

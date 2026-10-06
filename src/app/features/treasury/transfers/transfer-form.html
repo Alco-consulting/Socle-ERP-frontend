@@ -1,0 +1,86 @@
+<alco-page-header
+  title="Nouveau virement"
+  subtitle="Créé en brouillon : il se confirme puis se comptabilise depuis sa fiche."
+>
+  <div alcoPageActions>
+    <button alcoButton type="button" variant="ghost" (click)="cancel()">Annuler</button>
+    <button
+      alcoButton
+      type="submit"
+      form="treasury-transfer-form"
+      variant="primary"
+      [loading]="saving()"
+      loadingLabel="Enregistrement…"
+    >
+      Enregistrer
+    </button>
+  </div>
+</alco-page-header>
+
+@if (error(); as failure) {
+  <alco-error-state
+    [inline]="true"
+    [title]="failure.title"
+    [message]="failure.message"
+    [code]="failure.code"
+    [correlationId]="failure.correlationId ?? ''"
+  />
+}
+@if (invalidSubmit() && form.invalid) {
+  <alco-error-state
+    [inline]="true"
+    title="Certaines informations sont manquantes ou incorrectes."
+    message="Corrigez les champs signalés, puis enregistrez à nouveau."
+  />
+}
+
+<form id="treasury-transfer-form" class="sheet" [formGroup]="form" (ngSubmit)="save()" novalidate>
+  <section class="section" aria-labelledby="transfer-title">
+    <h2 id="transfer-title" class="alco-section-title">Virement</h2>
+    <div class="alco-form-grid">
+      <alco-form-field label="Compte d’origine" [required]="true">
+        <select alcoSelect formControlName="source_account">
+          <option value="" disabled>Choisir un compte</option>
+          @for (account of activeAccounts(); track account.public_id) {
+            <option [value]="account.public_id">
+              {{ account.code }} — {{ account.name }} ({{ account.currency }})
+            </option>
+          }
+        </select>
+      </alco-form-field>
+      <alco-form-field label="Compte de destination" [required]="true">
+        <select alcoSelect formControlName="destination_account">
+          <option value="" disabled>Choisir un compte</option>
+          @for (account of activeAccounts(); track account.public_id) {
+            <option [value]="account.public_id">
+              {{ account.code }} — {{ account.name }} ({{ account.currency }})
+            </option>
+          }
+        </select>
+      </alco-form-field>
+      <alco-form-field label="Date" [required]="true">
+        <input alcoDatePicker type="date" formControlName="transfer_date" />
+      </alco-form-field>
+      <alco-form-field label="Montant" [required]="true" hint="Dans la devise du compte d’origine.">
+        <input alcoInput formControlName="amount" inputmode="decimal" autocomplete="off" />
+      </alco-form-field>
+      <alco-form-field
+        label="Mode d’arrondi"
+        hint="Seulement entre deux devises : le serveur convertit et fixe le taux."
+      >
+        <select alcoSelect formControlName="rounding">
+          <option value="">Aucun</option>
+          @for (item of roundings; track item.id) {
+            <option [value]="item.id">{{ item.label }}</option>
+          }
+        </select>
+      </alco-form-field>
+      <alco-form-field label="Référence">
+        <input alcoInput formControlName="reference" maxlength="64" autocomplete="off" />
+      </alco-form-field>
+      <alco-form-field label="Libellé">
+        <input alcoInput formControlName="description" maxlength="255" />
+      </alco-form-field>
+    </div>
+  </section>
+</form>

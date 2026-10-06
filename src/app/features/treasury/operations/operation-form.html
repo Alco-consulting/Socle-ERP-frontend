@@ -1,0 +1,132 @@
+@if (loadError(); as failure) {
+  <alco-error-state
+    [title]="failure.title"
+    [message]="failure.message"
+    [code]="failure.code"
+    [correlationId]="failure.correlationId ?? ''"
+  />
+  <div class="center">
+    <a alcoButton icon="arrow-left" routerLink="/app/comptabilite/tresorerie/operations">
+      Retour aux opérations
+    </a>
+  </div>
+} @else if (!ready()) {
+  <alco-loading [rows]="6" label="Chargement de l’opération…" />
+} @else {
+  <alco-page-header
+    [title]="isNew ? 'Nouvelle opération de trésorerie' : 'Modifier le brouillon'"
+    subtitle="Créée en brouillon : elle se confirme puis se comptabilise depuis sa fiche."
+  >
+    <div alcoPageActions>
+      <button alcoButton type="button" variant="ghost" (click)="cancel()">Annuler</button>
+      <button
+        alcoButton
+        type="submit"
+        form="treasury-operation-form"
+        variant="primary"
+        [loading]="saving()"
+        loadingLabel="Enregistrement…"
+      >
+        Enregistrer
+      </button>
+    </div>
+  </alco-page-header>
+
+  @if (error(); as failure) {
+    <alco-error-state
+      [inline]="true"
+      [title]="failure.title"
+      [message]="failure.message"
+      [code]="failure.code"
+      [correlationId]="failure.correlationId ?? ''"
+    />
+  }
+  @if (invalidSubmit() && form.invalid) {
+    <alco-error-state
+      [inline]="true"
+      title="Certaines informations sont manquantes ou incorrectes."
+      message="Corrigez les champs signalés, puis enregistrez à nouveau."
+    />
+  }
+
+  <form
+    id="treasury-operation-form"
+    class="sheet"
+    [formGroup]="form"
+    (ngSubmit)="save()"
+    novalidate
+  >
+    <section class="section" aria-labelledby="movement-title">
+      <h2 id="movement-title" class="alco-section-title">Mouvement</h2>
+      <div class="alco-form-grid">
+        <alco-form-field label="Compte de trésorerie" [required]="true">
+          <select alcoSelect formControlName="treasury_account">
+            <option value="" disabled>Choisir un compte</option>
+            @for (account of accountOptions(); track account.public_id) {
+              <option [value]="account.public_id">
+                {{ account.code }} — {{ account.name }} ({{ account.currency }})
+              </option>
+            }
+          </select>
+        </alco-form-field>
+        <alco-form-field
+          label="Type"
+          [required]="true"
+          hint="Un virement entre deux comptes se saisit dans Virements."
+        >
+          <select alcoSelect formControlName="operation_type">
+            <option value="" disabled>Choisir un type</option>
+            @for (item of types; track item.id) {
+              <option [value]="item.id">{{ item.label }}</option>
+            }
+          </select>
+        </alco-form-field>
+        <alco-form-field label="Sens" [required]="true">
+          <select alcoSelect formControlName="direction">
+            <option value="" disabled>Choisir le sens</option>
+            @for (item of directions; track item.id) {
+              <option [value]="item.id">{{ item.label }}</option>
+            }
+          </select>
+        </alco-form-field>
+        <alco-form-field
+          label="Montant"
+          [required]="true"
+          hint="Positif, dans la devise du compte."
+        >
+          <input alcoInput formControlName="amount" inputmode="decimal" autocomplete="off" />
+        </alco-form-field>
+        <alco-form-field label="Date de l’opération" [required]="true">
+          <input alcoDatePicker type="date" formControlName="operation_date" />
+        </alco-form-field>
+        <alco-form-field label="Date de valeur">
+          <input alcoDatePicker type="date" formControlName="value_date" />
+        </alco-form-field>
+      </div>
+    </section>
+
+    <section class="section" aria-labelledby="description-title">
+      <h2 id="description-title" class="alco-section-title">Description</h2>
+      <div class="alco-form-grid">
+        <alco-form-field label="Référence" hint="Référence de la pièce ou du virement">
+          <input alcoInput formControlName="reference" maxlength="64" autocomplete="off" />
+        </alco-form-field>
+        <alco-form-field label="Libellé">
+          <input alcoInput formControlName="description" maxlength="255" />
+        </alco-form-field>
+        <alco-form-field label="Tiers" hint="Code exact du tiers (ex. CLI-001)">
+          <input alcoInput formControlName="counterparty" maxlength="32" autocomplete="off" />
+        </alco-form-field>
+        <alco-form-field label="Nom du tiers" hint="Si le tiers n’est pas enregistré">
+          <input alcoInput formControlName="counterparty_name" maxlength="255" />
+        </alco-form-field>
+        <alco-form-field
+          label="Compte de contrepartie"
+          hint="Code exact du compte comptable ; nécessaire pour comptabiliser."
+        >
+          <input alcoInput formControlName="offset_account" maxlength="32" autocomplete="off" />
+        </alco-form-field>
+      </div>
+    </section>
+  </form>
+}

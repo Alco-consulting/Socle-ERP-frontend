@@ -111,7 +111,7 @@ const WRITABLE = [
   'supplier_account_code',
 ] as const;
 
-const IMPORT_FIELDS = [
+export const IMPORT_FIELDS = [
   { name: 'code', kind: 'code', required: true },
   { name: 'name', kind: 'text', required: true },
   { name: 'country', kind: 'code', required: true },

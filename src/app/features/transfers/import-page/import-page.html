@@ -85,6 +85,32 @@
               Associez une colonne du fichier à chaque champ obligatoire.
             </p>
           }
+          @if (readsDates() || readsAmounts()) {
+            <div class="options">
+              @if (readsDates()) {
+                <alco-form-field label="Format des dates" hint="Comme dans le fichier.">
+                  <select alcoSelect (change)="onDateFormat($event)">
+                    @for (option of dateFormats; track option.id) {
+                      <option [value]="option.id" [selected]="option.id === dateFormat()">
+                        {{ option.label }}
+                      </option>
+                    }
+                  </select>
+                </alco-form-field>
+              }
+              @if (readsAmounts()) {
+                <alco-form-field label="Séparateur décimal">
+                  <select alcoSelect (change)="onDecimalSeparator($event)">
+                    @for (option of decimalSeparators; track option.id) {
+                      <option [value]="option.id" [selected]="option.id === decimalSeparator()">
+                        {{ option.label }}
+                      </option>
+                    }
+                  </select>
+                </alco-form-field>
+              }
+            </div>
+          }
           <div class="mapping">
             @for (field of fields() ?? []; track field.name) {
               <alco-form-field
@@ -155,6 +181,38 @@
                 <dd>{{ summary().errors ?? 0 }}</dd>
               </div>
             </dl>
+            @if (warningRows().length > 0) {
+              <p class="note">
+                <alco-icon name="alert-triangle" [size]="16" />
+                {{ rowsLabel(summary().warnings ?? 0) }} à vérifier : elle{{
+                  (summary().warnings ?? 0) > 1 ? 's seront importées' : ' sera importée'
+                }}
+                telle{{ (summary().warnings ?? 0) > 1 ? 's' : '' }} quelle{{
+                  (summary().warnings ?? 0) > 1 ? 's' : ''
+                }}, rien n’est corrigé.
+              </p>
+              <div class="refused" role="region" aria-label="Lignes à vérifier" tabindex="0">
+                <table>
+                  <caption class="alco-sr-only">
+                    Lignes à vérifier, signalées par le serveur
+                  </caption>
+                  <thead>
+                    <tr>
+                      <th scope="col">Ligne</th>
+                      <th scope="col">À vérifier</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    @for (row of warningRows(); track row.line_number) {
+                      <tr>
+                        <td>{{ row.line_number }}</td>
+                        <td>{{ warningText(row) }}</td>
+                      </tr>
+                    }
+                  </tbody>
+                </table>
+              </div>
+            }
             @if ((summary().errors ?? 0) > 0) {
               <p class="warning" role="alert">
                 <alco-icon name="alert-triangle" [size]="16" />

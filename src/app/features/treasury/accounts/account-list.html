@@ -1,0 +1,121 @@
+<alco-page-header
+  title="Comptes de trésorerie"
+  subtitle="Comptes bancaires, caisses et autres comptes de trésorerie de la société"
+>
+  @if (canManage()) {
+    <div alcoPageActions>
+      <a alcoButton variant="primary" icon="plus" routerLink="nouveau">Nouveau compte</a>
+    </div>
+  }
+</alco-page-header>
+
+<div class="control-panel">
+  <div class="controls">
+    <alco-filter-bar
+      [activeFilterCount]="activeFilterCount()"
+      (applied)="applyFilters()"
+      (cleared)="resetFilters()"
+    >
+      <div alcoFilterFields class="filter-fields" [formGroup]="filterForm">
+        <alco-form-field label="Type">
+          <select alcoSelect formControlName="type">
+            <option value="">Tous les types</option>
+            @for (item of types; track item.id) {
+              <option [value]="item.id">{{ item.label }}</option>
+            }
+          </select>
+        </alco-form-field>
+        <alco-form-field label="État">
+          <select alcoSelect formControlName="status">
+            <option value="">Tous les états</option>
+            @for (item of statuses; track item.id) {
+              <option [value]="item.id">{{ item.label }}</option>
+            }
+          </select>
+        </alco-form-field>
+        <alco-form-field label="Recherche" hint="Code ou libellé, recherché par le serveur">
+          <input alcoInput formControlName="search" maxlength="100" autocomplete="off" />
+        </alco-form-field>
+      </div>
+    </alco-filter-bar>
+    @if (list.value(); as result) {
+      <alco-pagination
+        class="pager"
+        [page]="result.count > 0 ? page() : 1"
+        [pageSize]="pageSize"
+        [total]="result.count"
+        (pageChange)="setPage($event)"
+      />
+    }
+  </div>
+</div>
+
+@switch (list.status()) {
+  @case ('forbidden') {
+    <alco-error-state
+      title="Vous n’avez pas accès à la trésorerie de cette société."
+      message="Demandez l’accès à un administrateur de la société si vous en avez besoin."
+    />
+  }
+  @case ('error') {
+    @if (failure(); as error) {
+      <alco-error-state
+        [title]="error.title"
+        [message]="error.message"
+        [code]="error.code"
+        [correlationId]="error.correlationId ?? ''"
+        retryLabel="Réessayer"
+        (retry)="list.reload()"
+      />
+    }
+  }
+  @default {
+    @if (list.value() === null) {
+      <alco-loading variant="table" [rows]="5" [columns]="5" label="Chargement des comptes…" />
+    } @else if (rows().length === 0) {
+      <div class="empty-frame">
+        @if (activeFilterCount() > 0) {
+          <alco-empty-state
+            icon="search"
+            title="Aucun compte ne correspond à ces critères."
+            message="Retirez un filtre."
+          >
+            <button alcoButton type="button" icon="refresh" (click)="resetFilters()">
+              Réinitialiser les filtres
+            </button>
+          </alco-empty-state>
+        } @else {
+          <alco-empty-state icon="treasury" title="Aucun compte de trésorerie dans cette société.">
+            @if (canManage()) {
+              <a alcoButton variant="primary" icon="plus" routerLink="nouveau">Créer un compte</a>
+            }
+          </alco-empty-state>
+        }
+      </div>
+    } @else {
+      <alco-table
+        [class.reloading]="list.loading()"
+        [attr.aria-busy]="list.loading()"
+        caption="Comptes de trésorerie de la société"
+        [columns]="columns"
+        [rows]="rows()"
+        [rowId]="rowId"
+        [rowLabel]="rowLabel"
+        [clickableRows]="true"
+        (rowActivated)="open($event)"
+      >
+        <ng-template alcoCell="code" let-account>
+          <a class="code mono" [routerLink]="account.public_id">{{ account.code }}</a>
+        </ng-template>
+        <ng-template alcoCell="type" let-account>{{ typeLabel(account.account_type) }}</ng-template>
+        <ng-template alcoCell="ledger" let-account>
+          <span class="mono">{{ account.ledger_account?.code ?? '—' }}</span>
+        </ng-template>
+        <ng-template alcoCell="status" let-account>
+          @let look = statusLook(account);
+          <alco-badge [tone]="look.tone" [icon]="look.icon">{{ look.label }}</alco-badge>
+        </ng-template>
+      </alco-table>
+    }
+  }
+}

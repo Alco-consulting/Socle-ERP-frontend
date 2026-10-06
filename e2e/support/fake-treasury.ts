@@ -1,7 +1,17 @@
 import { Route } from '@playwright/test';
 
 import { FakeLettering } from './fake-lettering';
-import { PartnersContext } from './fake-partners';
+import { IMPORT_FIELDS, PartnersContext } from './fake-partners';
+import {
+  BALANCES,
+  IMPORT_SCENARIOS,
+  ImportRunJson,
+  STATEMENT_IMPORT_FIELDS,
+  StateJson,
+  runJson,
+  state,
+  uploadedName,
+} from './fake-treasury-module';
 
 /**
  * Bank reconciliation (V2.1, lots A6, A6.1, A6.2) in the fake API, shaped like the OpenAPI
@@ -32,20 +42,51 @@ interface LineJson {
   exclusion_reason: string;
 }
 
+type OperationStatus = 'draft' | 'confirmed' | 'accounted' | 'cancelled';
+
 interface OperationJson {
   public_id: string;
   treasury_account: { public_id: string; code: string };
   operation_type: string;
   direction: Direction;
-  status: 'accounted';
+  status: OperationStatus;
   operation_date: string;
+  value_date: string | null;
   amount: string;
   currency: string;
   reference: string;
   description: string;
   counterparty: { public_id: string; code: string } | null;
   counterparty_name: string;
+  offset_account: { public_id: string; code: string } | null;
+  transfer: string | null;
+  related_operation: string | null;
+  reason: string;
   accounting_entry: string | null;
+  reconciled?: boolean;
+  confirmed_at: string | null;
+  accounted_at: string | null;
+  cancelled_at: string | null;
+  created_at: string;
+}
+
+interface AccountJson {
+  public_id: string;
+  code: string;
+  name: string;
+  account_type: string;
+  currency: string;
+  ledger_account: { public_id: string; code: string } | null;
+  journal: { public_id: string; code: string } | null;
+  bank_name: string;
+  bank_branch: string;
+  account_number: string;
+  iban: string;
+  bic: string;
+  opening_balance: string;
+  status: string;
+  created_at: string;
+  updated_at: string;
 }
 
 interface ReconciliationJson {
@@ -205,16 +246,25 @@ const PROPOSALS: readonly {
   },
 ];
 
+interface TransferJson {
+  public_id: string;
+  source_account: { public_id: string; code: string };
+  destination_account: { public_id: string; code: string };
+  transfer_date: string;
+  amount: string;
+  destination_amount: string;
+  exchange_rate: string;
+  rate_details: Record<string, string>;
+  rounding: string;
+  reference: string;
+  description: string;
+  operations: OperationJson[];
+  created_at: string;
+}
+
 interface Desk {
   company: string;
-  accounts: {
-    public_id: string;
-    code: string;
-    name: string;
-    account_type: string;
-    currency: string;
-    status: string;
-  }[];
+  accounts: AccountJson[];
   statements: {
     public_id: string;
     treasury_account: { public_id: string; code: string };
@@ -235,6 +285,12 @@ interface Desk {
   reconciliations: ReconciliationJson[];
   events: EventJson[];
   letterings: number;
+  /** The server's check of each statement (fixtures). */
+  states: Map<string, StateJson>;
+  /** The statement of each line (public ids). */
+  lineStatement: Map<string, string>;
+  transfers: TransferJson[];
+  entries: number;
 }
 
 export class FakeTreasury {
@@ -275,9 +331,11 @@ export class FakeTreasury {
     const page = this.context.page;
     // Registered after the other fakes: tried first for these paths.
     await page.route('**/api/v1/treasury/**', (route) => this.handle(route));
-    await page.route('**/api/v1/audit/objects/treasury.reconciliation/**', (route) =>
-      this.audit(route),
+    await page.route(
+      (url) => url.pathname.startsWith('/api/v1/audit/objects/treasury.'),
+      (route) => this.audit(route),
     );
+    await page.route('**/api/v1/imports-exports/**', (route) => this.imports(route));
   }
 
   private desk(company: string): Desk {
@@ -295,25 +353,38 @@ export class FakeTreasury {
       reconciliations: [],
       events: [],
       letterings: 1,
+      states: new Map(),
+      lineStatement: new Map(),
+      transfers: [],
+      entries: 0,
     };
     this.desks[company] = desk;
     const currency = company === 'A' ? 'GNF' : 'XOF';
-    const bank = {
+    const account = (code: string, name: string, type: string, bankName: string): AccountJson => ({
       public_id: uuid(),
-      code: `BQ-${currency}`,
-      name: `Banque principale ${company} (test)`,
-      account_type: 'bank',
+      code,
+      name,
+      account_type: type,
       currency,
+      ledger_account: type === 'bank' ? { public_id: uuid(), code: '521100' } : null,
+      journal: type === 'bank' ? { public_id: uuid(), code: 'BQ1' } : null,
+      bank_name: bankName,
+      bank_branch: bankName ? 'Kaloum' : '',
+      account_number: bankName ? '00012345678' : '',
+      iban: bankName ? 'GN00TEST00012345678' : '',
+      bic: bankName ? 'TESTGNGN' : '',
+      opening_balance: D(code === 'CAISSE' ? '250000' : '1000000'),
       status: 'active',
-    };
-    desk.accounts.push(bank, {
-      public_id: uuid(),
-      code: 'CAISSE',
-      name: `Caisse ${company} (test)`,
-      account_type: 'cash',
-      currency,
-      status: 'active',
+      created_at: NOW,
+      updated_at: NOW,
     });
+    const bank = account(
+      `BQ-${currency}`,
+      `Banque principale ${company} (test)`,
+      'bank',
+      'Banque test',
+    );
+    desk.accounts.push(bank, account('CAISSE', `Caisse ${company} (test)`, 'cash', ''));
     if (company !== 'A') {
       return desk; // Another company: its own accounts, no line (and nothing of A).
     }
@@ -325,7 +396,7 @@ export class FakeTreasury {
       period_start: '2026-09-01',
       period_end: '2026-09-30',
       opening_balance: D('3000000'),
-      closing_balance: D('5365000'),
+      closing_balance: D('5415000'),
       status: 'open',
       lines: [],
       created_at: NOW,
@@ -333,32 +404,147 @@ export class FakeTreasury {
     };
     desk.statements.push(statement);
     LINES.forEach(({ key, ...line }, index) => {
-      desk.lines.set(key, {
+      const created = {
         ...line,
         public_id: uuid(),
         sequence: index + 1,
         value_date: line.line_date,
         running_balance: null,
-      });
+      };
+      desk.lines.set(key, created);
+      desk.lineStatement.set(created.public_id, statement.public_id);
+    });
+    // The server's check of the September statement (fixture: opening + lines = closing).
+    desk.states.set(
+      statement.public_id,
+      state(statement.public_id, {
+        statement_balance: D('5415000'),
+        lines_total: D('2415000'),
+        opening_balance: D('3000000'),
+        computed_closing_balance: D('5415000'),
+        closing_difference: D('0'),
+        balanced: true,
+        treasury_balance: D('4115000'),
+        statement_vs_treasury: D('1300000'),
+        accounting_balance: D('4115000'),
+        statement_vs_accounting: D('1300000'),
+        reconciled_total: D('500000'),
+        unreconciled_total: D('1925000'),
+        excluded_total: D('-10000'),
+        reconciled_count: 1,
+        unreconciled_count: 3,
+        excluded_count: 1,
+      }),
+    );
+    const operation = (values: Partial<OperationJson> & { amount: string }): OperationJson => ({
+      public_id: uuid(),
+      treasury_account: { public_id: bank.public_id, code: bank.code },
+      operation_type: 'deposit',
+      direction: 'inflow',
+      status: 'accounted',
+      operation_date: '2026-09-01',
+      value_date: null,
+      currency: 'GNF',
+      reference: '',
+      description: '',
+      counterparty: null,
+      counterparty_name: '',
+      offset_account: { public_id: uuid(), code: '411100' },
+      transfer: null,
+      related_operation: null,
+      reason: '',
+      accounting_entry: null,
+      confirmed_at: null,
+      accounted_at: null,
+      cancelled_at: null,
+      created_at: NOW,
+      ...values,
     });
     for (const item of OPERATIONS) {
-      desk.operations.set(item.key, {
-        public_id: uuid(),
-        treasury_account: { public_id: bank.public_id, code: bank.code },
-        operation_type: 'deposit',
-        direction: 'inflow',
-        status: 'accounted',
-        operation_date: item.date,
-        amount: D(item.amount),
-        currency: 'GNF',
-        reference: item.reference,
-        description: item.description,
-        counterparty: { public_id: uuid(), code: item.partner },
-        counterparty_name: '',
-        accounting_entry: uuid(),
-      });
+      desk.operations.set(
+        item.key,
+        operation({
+          operation_date: item.date,
+          amount: D(item.amount),
+          reference: item.reference,
+          description: item.description,
+          counterparty: { public_id: uuid(), code: item.partner },
+          accounting_entry: uuid(),
+          confirmed_at: NOW,
+          accounted_at: NOW,
+        }),
+      );
       desk.invoices.set(item.key, uuid());
     }
+    // A bank fee still a draft, and a collection confirmed but not posted yet.
+    desk.operations.set(
+      'O5',
+      operation({
+        operation_type: 'bank_fee',
+        direction: 'outflow',
+        status: 'draft',
+        operation_date: '2026-09-15',
+        amount: D('25000'),
+        reference: 'FRAIS-09',
+        description: 'Frais bancaires septembre',
+        offset_account: { public_id: uuid(), code: '627100' },
+      }),
+    );
+    desk.operations.set(
+      'O6',
+      operation({
+        status: 'confirmed',
+        operation_date: '2026-09-20',
+        amount: D('300000'),
+        reference: 'VIR-201',
+        description: 'Règlement CLI-004',
+        counterparty: { public_id: uuid(), code: 'CLI-004' },
+        confirmed_at: NOW,
+      }),
+    );
+    // A transfer from the bank to the cash desk, a draft: its two legs.
+    const cash = desk.accounts[1];
+    const transferId = uuid();
+    const legs = [
+      operation({
+        operation_type: 'transfer',
+        direction: 'outflow',
+        status: 'draft',
+        operation_date: '2026-09-25',
+        amount: D('200000'),
+        reference: 'VIR-INT-1',
+        transfer: transferId,
+        offset_account: null,
+      }),
+      operation({
+        treasury_account: { public_id: cash.public_id, code: cash.code },
+        operation_type: 'transfer',
+        direction: 'inflow',
+        status: 'draft',
+        operation_date: '2026-09-25',
+        amount: D('200000'),
+        reference: 'VIR-INT-1',
+        transfer: transferId,
+        offset_account: null,
+      }),
+    ];
+    desk.operations.set('O7', legs[0]);
+    desk.operations.set('O8', legs[1]);
+    desk.transfers.push({
+      public_id: transferId,
+      source_account: { public_id: bank.public_id, code: bank.code },
+      destination_account: { public_id: cash.public_id, code: cash.code },
+      transfer_date: '2026-09-25',
+      amount: D('200000'),
+      destination_amount: D('200000'),
+      exchange_rate: '1',
+      rate_details: {},
+      rounding: '',
+      reference: 'VIR-INT-1',
+      description: 'Approvisionnement caisse',
+      operations: legs,
+      created_at: NOW,
+    });
     // B4 already reconciled with O4 at a confirmation that settled its invoice: the lettering
     // is the lettering fake's LET-000001 (its record opens).
     const made = this.lettering.letterings('A')[0];
@@ -393,10 +579,16 @@ export class FakeTreasury {
     return this.answer(route, 200, { count: items.length, next: null, previous: null, results });
   }
 
-  private event(desk: Desk, objectId: string, action: string, at = NOW): void {
+  private event(
+    desk: Desk,
+    objectId: string,
+    action: string,
+    at = NOW,
+    objectType = 'treasury.reconciliation',
+  ): void {
     desk.events.push({
       public_id: uuid(),
-      object_type: 'treasury.reconciliation',
+      object_type: objectType,
       object_id: objectId,
       action,
       occurred_at: at,
@@ -439,13 +631,18 @@ export class FakeTreasury {
     const can = (permission: string) => permissions.includes(permission);
     const params = url.searchParams;
 
-    if (method === 'GET' && path === 'accounts/') {
-      return this.paged(route, desk.accounts);
+    const handled = await this.module(route, desk, path, method, params, can);
+    if (handled) {
+      return;
     }
     if (method === 'GET' && path === 'statements/') {
       return this.paged(
         route,
-        desk.statements.filter((item) => item.treasury_account.public_id === params.get('account')),
+        desk.statements.filter(
+          (item) =>
+            (!params.get('account') || item.treasury_account.public_id === params.get('account')) &&
+            (!params.get('status') || item.status === params.get('status')),
+        ),
       );
     }
     if (method === 'GET' && path === 'statement-lines/') {
@@ -458,10 +655,14 @@ export class FakeTreasury {
           error('validation_error', { statement: ['Unknown reference.'] }),
         );
       }
-      const lines =
-        account && account.account_type === 'bank'
-          ? [...desk.lines.values()].filter((line) => line.status === params.get('status'))
-          : [];
+      const status = params.get('status');
+      const lines = [...desk.lines.values()].filter(
+        (line) =>
+          (!status || line.status === status) &&
+          (statement
+            ? desk.lineStatement.get(line.public_id) === statement
+            : !params.get('account') || account?.account_type === 'bank'),
+      );
       return this.paged(route, lines);
     }
     if (method === 'GET' && path === 'reconciliation-proposals/') {
@@ -526,12 +727,592 @@ export class FakeTreasury {
       this.event(desk, found.public_id, 'dereconcile');
       return this.answer(route, 200, found);
     }
-    const operation = /^operations\/([^/]+)\/$/.exec(path);
-    if (method === 'GET' && operation) {
-      const found = [...desk.operations.values()].find((item) => item.public_id === operation[1]);
-      return found ? this.answer(route, 200, found) : this.answer(route, 404, error('not_found'));
-    }
     return this.answer(route, 404, error('not_found'));
+  }
+
+  // ---- Module 6: accounts, operations, transfers, statements, imports ------------------------
+
+  private readonly runs = new Map<string, ImportRunJson>();
+
+  /** An account as the server shows it: bank identifiers masked unless managed. */
+  private shown(account: AccountJson, full: boolean): AccountJson {
+    if (full) {
+      return account;
+    }
+    const mask = (value: string) => (value ? `••••${value.slice(-4)}` : '');
+    return {
+      ...account,
+      account_number: mask(account.account_number),
+      iban: mask(account.iban),
+      bic: mask(account.bic),
+    };
+  }
+
+  /** An operation as the server shows it: `reconciled` from its active reconciliations. */
+  private operationJson(desk: Desk, operation: OperationJson): OperationJson {
+    return {
+      ...operation,
+      reconciled: desk.reconciliations.some(
+        (item) => item.status === 'active' && item.operations.includes(operation.public_id),
+      ),
+    };
+  }
+
+  private async module(
+    route: Route,
+    desk: Desk,
+    path: string,
+    method: string,
+    params: URLSearchParams,
+    can: (permission: string) => boolean,
+  ): Promise<boolean> {
+    const request = route.request();
+    const body = () => (request.postDataJSON() ?? {}) as Record<string, unknown>;
+    const forbidden = async () => {
+      await this.answer(route, 403, error('company_permission_denied'));
+      return true;
+    };
+    const reply = async (status: number, json: unknown) => {
+      await this.answer(route, status, json);
+      return true;
+    };
+    const parts = path.split('/').filter(Boolean);
+
+    // Accounts.
+    if (parts[0] === 'accounts') {
+      const full = can('treasury.manage_accounts');
+      if (parts.length === 1 && method === 'GET') {
+        const search = params.get('search')?.toLowerCase() ?? '';
+        await this.paged(
+          route,
+          desk.accounts
+            .filter(
+              (item) =>
+                (!params.get('account_type') || item.account_type === params.get('account_type')) &&
+                (!params.get('status') || item.status === params.get('status')) &&
+                (!search ||
+                  item.code.toLowerCase().includes(search) ||
+                  item.name.toLowerCase().includes(search)),
+            )
+            .map((item) => this.shown(item, full)),
+        );
+        return true;
+      }
+      if (parts.length === 1 && method === 'POST') {
+        if (!full) {
+          return forbidden();
+        }
+        const data = body();
+        const code = String(data['code'] ?? '')
+          .trim()
+          .toUpperCase();
+        if (desk.accounts.some((item) => item.code === code)) {
+          return reply(400, error('treasury_account_code_exists'));
+        }
+        const created: AccountJson = {
+          public_id: uuid(),
+          code,
+          name: String(data['name'] ?? ''),
+          account_type: String(data['account_type'] ?? 'bank'),
+          currency: String(data['currency'] ?? 'GNF'),
+          ledger_account: null,
+          journal: null,
+          bank_name: String(data['bank_name'] ?? ''),
+          bank_branch: String(data['bank_branch'] ?? ''),
+          account_number: String(data['account_number'] ?? ''),
+          iban: String(data['iban'] ?? ''),
+          bic: String(data['bic'] ?? ''),
+          opening_balance: D(String(data['opening_balance'] ?? '0')),
+          status: 'active',
+          created_at: NOW,
+          updated_at: NOW,
+        };
+        desk.accounts.push(created);
+        this.event(desk, created.public_id, 'create', NOW, 'treasury.treasuryaccount');
+        return reply(201, created);
+      }
+      const account = desk.accounts.find((item) => item.public_id === parts[1]);
+      if (!account) {
+        return reply(404, error('not_found'));
+      }
+      if (parts.length === 2 && method === 'GET') {
+        return reply(200, this.shown(account, full));
+      }
+      if (parts.length === 2 && method === 'PATCH') {
+        if (!full) {
+          return forbidden();
+        }
+        const data = body();
+        for (const name of ['name', 'bank_name', 'bank_branch', 'account_number', 'iban', 'bic']) {
+          if (name in data) {
+            (account as unknown as Record<string, unknown>)[name] = data[name];
+          }
+        }
+        this.event(desk, account.public_id, 'update', NOW, 'treasury.treasuryaccount');
+        return reply(200, account);
+      }
+      if (parts[2] === 'balance') {
+        const [opening, inflows, outflows, balance] = BALANCES[account.code] ?? [
+          '0',
+          '0',
+          '0',
+          '0',
+        ];
+        return reply(200, {
+          account: { public_id: account.public_id, code: account.code },
+          on: null,
+          currency: account.currency,
+          opening_balance: D(opening),
+          inflows: D(inflows),
+          outflows: D(outflows),
+          balance: D(balance),
+        });
+      }
+      if (parts[2] === 'deactivate' || parts[2] === 'reactivate') {
+        if (!full) {
+          return forbidden();
+        }
+        account.status = parts[2] === 'deactivate' ? 'inactive' : 'active';
+        this.event(desk, account.public_id, parts[2], NOW, 'treasury.treasuryaccount');
+        return reply(200, account);
+      }
+      return reply(404, error('not_found'));
+    }
+
+    // Operations.
+    if (parts[0] === 'operations') {
+      if (parts.length === 1 && method === 'GET') {
+        const reconciled = params.get('reconciled');
+        await this.paged(
+          route,
+          [...desk.operations.values()]
+            .map((item) => this.operationJson(desk, item))
+            .filter(
+              (item) =>
+                (!params.get('account') ||
+                  item.treasury_account.public_id === params.get('account')) &&
+                (!params.get('operation_type') ||
+                  item.operation_type === params.get('operation_type')) &&
+                (!params.get('direction') || item.direction === params.get('direction')) &&
+                (!params.get('status') || item.status === params.get('status')) &&
+                (!params.get('reference') || item.reference === params.get('reference')) &&
+                (!params.get('date_from') || item.operation_date >= params.get('date_from')!) &&
+                (!params.get('date_to') || item.operation_date <= params.get('date_to')!) &&
+                (reconciled === null || String(item.reconciled) === reconciled),
+            ),
+        );
+        return true;
+      }
+      if (parts.length === 1 && method === 'POST') {
+        if (!can('treasury.create')) {
+          return forbidden();
+        }
+        const data = body();
+        const account = desk.accounts.find((item) => item.public_id === data['treasury_account']);
+        if (!account) {
+          return reply(400, error('validation_error', { treasury_account: [{ code: 'unknown' }] }));
+        }
+        const created: OperationJson = {
+          public_id: uuid(),
+          treasury_account: { public_id: account.public_id, code: account.code },
+          operation_type: String(data['operation_type']),
+          direction: data['direction'] as Direction,
+          status: 'draft',
+          operation_date: String(data['operation_date']),
+          value_date: (data['value_date'] as string | null) ?? null,
+          amount: D(String(data['amount'])),
+          currency: account.currency,
+          reference: String(data['reference'] ?? ''),
+          description: String(data['description'] ?? ''),
+          counterparty: data['counterparty']
+            ? { public_id: String(data['counterparty']), code: 'CLI-001' }
+            : null,
+          counterparty_name: String(data['counterparty_name'] ?? ''),
+          offset_account: null,
+          transfer: null,
+          related_operation: null,
+          reason: '',
+          accounting_entry: null,
+          confirmed_at: null,
+          accounted_at: null,
+          cancelled_at: null,
+          created_at: NOW,
+        };
+        desk.operations.set(`N${desk.operations.size + 1}`, created);
+        this.event(desk, created.public_id, 'create', NOW, 'treasury.treasuryoperation');
+        return reply(201, this.operationJson(desk, created));
+      }
+      const operation = [...desk.operations.values()].find((item) => item.public_id === parts[1]);
+      if (!operation) {
+        return reply(404, error('not_found'));
+      }
+      if (parts.length === 2 && method === 'GET') {
+        return reply(200, this.operationJson(desk, operation));
+      }
+      if (parts.length === 2 && method === 'PATCH') {
+        if (!can('treasury.update')) {
+          return forbidden();
+        }
+        if (operation.status !== 'draft' || operation.transfer) {
+          return reply(400, error('treasury_operation_not_editable'));
+        }
+        const data = body();
+        for (const name of ['reference', 'description', 'operation_date', 'counterparty_name']) {
+          if (name in data) {
+            (operation as unknown as Record<string, unknown>)[name] = data[name];
+          }
+        }
+        if ('amount' in data) {
+          operation.amount = D(String(data['amount']));
+        }
+        this.event(desk, operation.public_id, 'update', NOW, 'treasury.treasuryoperation');
+        return reply(200, this.operationJson(desk, operation));
+      }
+      return this.operationCommand(route, desk, operation, parts[2], can, body);
+    }
+
+    // Transfers.
+    if (parts[0] === 'transfers') {
+      if (parts.length === 1 && method === 'GET') {
+        await this.paged(route, desk.transfers);
+        return true;
+      }
+      if (parts.length === 1 && method === 'POST') {
+        if (!can('treasury.create')) {
+          return forbidden();
+        }
+        const data = body();
+        if (data['source_account'] === data['destination_account']) {
+          return reply(400, error('treasury_transfer_same_account'));
+        }
+        return reply(400, error('validation_error', { amount: [{ code: 'invalid' }] }));
+      }
+      const transfer = desk.transfers.find((item) => item.public_id === parts[1]);
+      if (!transfer) {
+        return reply(404, error('not_found'));
+      }
+      if (parts.length === 2 && method === 'GET') {
+        return reply(200, transfer);
+      }
+      const command = parts[2];
+      const permission = command === 'account' ? 'treasury.account' : 'treasury.confirm';
+      if (!can(permission)) {
+        return forbidden();
+      }
+      const legs = transfer.operations;
+      const next: Record<string, [OperationStatus[], OperationStatus]> = {
+        confirm: [['draft'], 'confirmed'],
+        cancel: [['draft', 'confirmed'], 'cancelled'],
+        account: [['confirmed'], 'accounted'],
+      };
+      const [from, to] = next[command] ?? [[], 'draft'];
+      if (!from.includes(legs[0].status)) {
+        return reply(400, error('treasury_invalid_transition'));
+      }
+      for (const leg of legs) {
+        leg.status = to;
+      }
+      this.event(desk, transfer.public_id, command, NOW, 'treasury.treasurytransfer');
+      return reply(200, transfer);
+    }
+
+    // Statements: record, the server's check, closing.
+    if (parts[0] === 'statements' && parts.length >= 2) {
+      const statement = desk.statements.find((item) => item.public_id === parts[1]);
+      if (!statement) {
+        return reply(404, error('not_found'));
+      }
+      if (parts.length === 2 && method === 'GET') {
+        return reply(200, statement);
+      }
+      if (parts[2] === 'reconciliation') {
+        return reply(200, desk.states.get(statement.public_id) ?? state(statement.public_id, {}));
+      }
+      if (parts[2] === 'close' && method === 'POST') {
+        if (!can('treasury.manage_statements')) {
+          return forbidden();
+        }
+        if (statement.status === 'closed') {
+          return reply(400, error('treasury_statement_closed'));
+        }
+        if (!(desk.states.get(statement.public_id)?.balanced ?? true)) {
+          return reply(400, error('treasury_statement_unbalanced'));
+        }
+        statement.status = 'closed';
+        this.event(desk, statement.public_id, 'update', NOW, 'treasury.bankstatement');
+        return reply(200, statement);
+      }
+      return reply(404, error('not_found'));
+    }
+
+    // A line set aside, or brought back.
+    const lineCommand = /^statement-lines\/([^/]+)\/(exclude|include)\/$/.exec(path);
+    if (lineCommand && method === 'POST') {
+      if (!can('treasury.reconcile')) {
+        return forbidden();
+      }
+      const line = [...desk.lines.values()].find((item) => item.public_id === lineCommand[1]);
+      if (!line) {
+        return reply(404, error('not_found'));
+      }
+      if (lineCommand[2] === 'exclude') {
+        const reason = String(body()['reason'] ?? '').trim();
+        if (!reason) {
+          return reply(400, error('validation_error', { reason: [{ code: 'blank' }] }));
+        }
+        if (line.status !== 'unreconciled') {
+          return reply(400, error('treasury_line_not_reconcilable'));
+        }
+        line.status = 'excluded';
+        line.exclusion_reason = reason;
+      } else {
+        if (line.status !== 'excluded') {
+          return reply(400, error('treasury_line_not_reconcilable'));
+        }
+        line.status = 'unreconciled';
+        line.exclusion_reason = '';
+      }
+      return reply(200, line);
+    }
+    return false;
+  }
+
+  private async operationCommand(
+    route: Route,
+    desk: Desk,
+    operation: OperationJson,
+    command: string | undefined,
+    can: (permission: string) => boolean,
+    body: () => Record<string, unknown>,
+  ): Promise<boolean> {
+    const reply = async (status: number, json: unknown) => {
+      await this.answer(route, status, json);
+      return true;
+    };
+    const permission =
+      command === 'confirm' || command === 'cancel' ? 'treasury.confirm' : 'treasury.account';
+    if (!can(permission)) {
+      return reply(403, error('company_permission_denied'));
+    }
+    if (operation.transfer) {
+      return reply(400, error('treasury_operation_is_transfer'));
+    }
+    const shown = () => this.operationJson(desk, operation);
+    switch (command) {
+      case 'confirm':
+        if (operation.status !== 'draft') {
+          return reply(400, error('treasury_invalid_transition'));
+        }
+        operation.status = 'confirmed';
+        operation.confirmed_at = NOW;
+        break;
+      case 'cancel': {
+        if (!String(body()['reason'] ?? '').trim()) {
+          return reply(400, error('validation_error', { reason: [{ code: 'blank' }] }));
+        }
+        if (shown().reconciled) {
+          return reply(400, error('treasury_operation_reconciled'));
+        }
+        if (operation.status !== 'draft' && operation.status !== 'confirmed') {
+          return reply(400, error('treasury_invalid_transition'));
+        }
+        operation.status = 'cancelled';
+        operation.reason = String(body()['reason']).trim();
+        operation.cancelled_at = NOW;
+        break;
+      }
+      case 'account':
+        if (operation.status !== 'confirmed') {
+          return reply(400, error('treasury_invalid_transition'));
+        }
+        if (!operation.offset_account) {
+          return reply(400, error('treasury_offset_account_missing'));
+        }
+        operation.status = 'accounted';
+        operation.accounted_at = NOW;
+        operation.accounting_entry = uuid();
+        break;
+      case 'unpost':
+        if (operation.status !== 'accounted') {
+          return reply(400, error('treasury_invalid_transition'));
+        }
+        operation.status = 'confirmed';
+        operation.accounted_at = null;
+        operation.accounting_entry = null;
+        break;
+      default:
+        return reply(404, error('not_found'));
+    }
+    this.event(desk, operation.public_id, command, NOW, 'treasury.treasuryoperation');
+    return reply(200, shown());
+  }
+
+  /** Imports of statements (`treasury.statements`); the other types stay the partners fake's. */
+  private async imports(route: Route): Promise<void> {
+    const request = route.request();
+    const path = new URL(request.url()).pathname.replace('/api/v1/imports-exports/', '');
+    const company = await this.context.companyOf(request);
+    if (path === 'import-types/') {
+      this.context.calls.push(request);
+      return route.fulfill({
+        status: 200,
+        json: [
+          { import_type: 'partners', fields: IMPORT_FIELDS },
+          { import_type: 'treasury.statements', fields: STATEMENT_IMPORT_FIELDS },
+        ],
+      });
+    }
+    if (path === 'imports/' && request.method() === 'POST') {
+      const body = request.postDataJSON() as { import_type?: string };
+      if (body.import_type !== 'treasury.statements') {
+        return route.fallback();
+      }
+      const permissions = await this.context.permissionsOf(request);
+      if (!permissions.includes('treasury.manage_statements')) {
+        return this.answer(route, 403, error('company_permission_denied'));
+      }
+      const run: ImportRunJson = {
+        public_id: `ts-run-${this.runs.size + 1}`,
+        company,
+        status: 'created',
+        filename: '',
+        scenario: null,
+        columns: {},
+        options: {},
+        summary: {},
+      };
+      this.runs.set(run.public_id, run);
+      return this.answer(route, 201, runJson(run));
+    }
+    const [, id, command] = path.split('/');
+    const run = this.runs.get(id);
+    if (!run) {
+      return route.fallback();
+    }
+    if (run.company !== company) {
+      return this.answer(route, 404, error('not_found'));
+    }
+    const scenario = () => run.scenario ?? IMPORT_SCENARIOS['releve-errone.csv'];
+    switch (command) {
+      case 'upload':
+        run.filename = uploadedName(request);
+        run.scenario = IMPORT_SCENARIOS[run.filename] ?? null;
+        run.status = 'uploaded';
+        break;
+      case 'parse':
+        run.status = 'parsed';
+        run.summary = { total: scenario().summary['total'] };
+        break;
+      case 'map': {
+        const body = request.postDataJSON() as {
+          columns: Record<string, string>;
+          options?: Record<string, string>;
+        };
+        run.columns = body.columns;
+        run.options = body.options ?? {};
+        run.status = 'mapped';
+        break;
+      }
+      case 'validate':
+        run.summary = { ...scenario().summary };
+        run.status = 'validated';
+        break;
+      case 'rows': {
+        const status = new URL(request.url()).searchParams.get('status');
+        const rows = scenario()
+          .rows.filter((row) => row.status === status)
+          .map((row) => ({
+            line_number: row.line,
+            status: row.status,
+            raw: {},
+            messages: [
+              {
+                level: row.status,
+                field: row.field,
+                code: row.code,
+                message: row.code,
+                details: row.details ?? {},
+              },
+            ],
+          }));
+        return this.answer(route, 200, {
+          count: rows.length,
+          next: null,
+          previous: null,
+          results: rows,
+        });
+      }
+      case 'preview':
+        run.summary = {
+          ...run.summary,
+          preview: {
+            creations: {
+              statements: scenario().creations,
+              lines: scenario().statement?.lines.length ?? 0,
+            },
+            updates: 0,
+            skipped_duplicates: scenario().skipped,
+          },
+        };
+        run.status = 'previewed';
+        break;
+      case 'execute': {
+        const created = scenario().statement;
+        if (created) {
+          this.createStatement(this.desk(company), created);
+        }
+        run.summary = { created: scenario().creations, imported: created?.lines.length ?? 0 };
+        run.status = 'completed';
+        break;
+      }
+      case 'cancel':
+        run.status = 'cancelled';
+        break;
+    }
+    return this.answer(route, 200, runJson(run));
+  }
+
+  /** The statement an import creates, with its lines and the server's check (fixtures). */
+  private createStatement(
+    desk: Desk,
+    created: NonNullable<(typeof IMPORT_SCENARIOS)[string]['statement']>,
+  ): void {
+    const bank = desk.accounts[0];
+    const statement = {
+      public_id: uuid(),
+      treasury_account: { public_id: bank.public_id, code: bank.code },
+      reference: created.reference,
+      statement_date: created.period[1],
+      period_start: created.period[0],
+      period_end: created.period[1],
+      opening_balance: D(created.balances[0]),
+      closing_balance: D(created.balances[1]),
+      status: 'open',
+      lines: [] as LineJson[],
+      created_at: NOW,
+      updated_at: NOW,
+    };
+    desk.statements.push(statement);
+    desk.states.set(statement.public_id, state(statement.public_id, created.check));
+    created.lines.forEach((line, index) => {
+      const json: LineJson = {
+        public_id: uuid(),
+        sequence: index + 1,
+        line_date: line.date,
+        value_date: line.date,
+        direction: line.direction,
+        amount: D(line.amount),
+        description: line.description,
+        bank_reference: '',
+        external_id: line.external_id,
+        running_balance: null,
+        status: 'unreconciled',
+        exclusion_reason: '',
+      };
+      desk.lines.set(`I${desk.lines.size + 1}`, json);
+      desk.lineStatement.set(json.public_id, statement.public_id);
+    });
+    this.event(desk, statement.public_id, 'create', NOW, 'treasury.bankstatement');
   }
 
   /** The fixture proposals whose line is still unreconciled and operation still free. */

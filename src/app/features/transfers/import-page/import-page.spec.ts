@@ -128,6 +128,8 @@ describe('ImportPage (contextual import on the API)', () => {
     // Columns named like the fields (or their words) are suggested; the user may change them.
     expect(map.request.body).toEqual({
       columns: { code: 'Code', name: 'Nom', country: 'Pays', email: 'Email' },
+      // How dates and amounts are written: the server's defaults unless changed.
+      options: { date_format: '%Y-%m-%d', decimal_separator: '.' },
     });
     map.flush(run('mapped'));
     await stable();

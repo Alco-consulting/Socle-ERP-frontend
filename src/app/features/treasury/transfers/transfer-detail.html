@@ -1,0 +1,132 @@
+@if (loadError(); as failure) {
+  <alco-error-state
+    [title]="failure.title"
+    [message]="failure.message"
+    [code]="failure.code"
+    [correlationId]="failure.correlationId ?? ''"
+  />
+  <div class="center">
+    <a alcoButton icon="arrow-left" routerLink="..">Retour aux virements</a>
+  </div>
+} @else if (transfer(); as transfer) {
+  @let outgoing = legOf(transfer, 'outflow');
+  @let incoming = legOf(transfer, 'inflow');
+  <alco-page-header
+    [title]="title(transfer)"
+    [subtitle]="transfer.source_account.code + ' → ' + transfer.destination_account.code"
+  >
+    <div alcoPageStatus>
+      @if (status(); as badge) {
+        <alco-badge [tone]="badge.tone" [icon]="badge.icon">{{ badge.label }}</alco-badge>
+      }
+    </div>
+    <div alcoPageActions>
+      @if (commands().length > 0) {
+        <alco-dropdown align="end" [items]="commands()" (selected)="onCommand($event)">
+          {{ busy() ? 'Action en cours…' : 'Actions' }}
+        </alco-dropdown>
+      }
+    </div>
+  </alco-page-header>
+
+  @if (actionError(); as failure) {
+    <alco-error-state
+      [inline]="true"
+      [title]="failure.title"
+      [message]="failure.message"
+      [code]="failure.code"
+      [correlationId]="failure.correlationId ?? ''"
+    />
+  }
+
+  <div class="sheet">
+    <section class="section" aria-labelledby="general-title">
+      <h2 id="general-title" class="alco-section-title">Informations générales</h2>
+      <dl class="facts">
+        <div>
+          <dt>Compte d’origine</dt>
+          <dd>
+            <a class="mono" [routerLink]="[accountsUrl, transfer.source_account.public_id]">
+              {{ transfer.source_account.code }}
+            </a>
+          </dd>
+        </div>
+        <div>
+          <dt>Compte de destination</dt>
+          <dd>
+            <a class="mono" [routerLink]="[accountsUrl, transfer.destination_account.public_id]">
+              {{ transfer.destination_account.code }}
+            </a>
+          </dd>
+        </div>
+        <div>
+          <dt>Date</dt>
+          <dd>{{ day(transfer.transfer_date) }}</dd>
+        </div>
+        <div>
+          <dt>Montant envoyé</dt>
+          <dd>
+            {{ transfer.amount | alcoAmount: places(outgoing?.currency) }} {{ outgoing?.currency }}
+          </dd>
+        </div>
+        <div>
+          <dt>Montant reçu</dt>
+          <dd>
+            {{ transfer.destination_amount | alcoAmount: places(incoming?.currency) }}
+            {{ incoming?.currency }}
+          </dd>
+        </div>
+        @if (outgoing && incoming && outgoing.currency !== incoming.currency) {
+          <div>
+            <dt>Taux fixé par le serveur</dt>
+            <dd class="mono">{{ transfer.exchange_rate }}</dd>
+          </div>
+        }
+        <div>
+          <dt>Référence</dt>
+          <dd class="mono">{{ transfer.reference || '—' }}</dd>
+        </div>
+        <div class="wide">
+          <dt>Libellé</dt>
+          <dd>{{ transfer.description || '—' }}</dd>
+        </div>
+        <div>
+          <dt>Créé le</dt>
+          <dd>{{ transfer.created_at | date: 'dd/MM/yyyy à HH:mm' }}</dd>
+        </div>
+      </dl>
+    </section>
+
+    <section class="section" aria-labelledby="legs-title">
+      <h2 id="legs-title" class="alco-section-title">Opérations du virement</h2>
+      <alco-table
+        caption="Les deux opérations du virement"
+        [columns]="legColumns"
+        [rows]="transfer.operations"
+        [rowId]="legId"
+      >
+        <ng-template alcoCell="account" let-leg>
+          <a class="mono" [routerLink]="[operationsUrl, leg.public_id]">
+            {{ leg.treasury_account.code }}
+          </a>
+        </ng-template>
+        <ng-template alcoCell="direction" let-leg>{{ legDirection(leg) }}</ng-template>
+        <ng-template alcoCell="amount" let-leg>
+          {{ leg.amount | alcoAmount: places(leg.currency) }} {{ leg.currency }}
+        </ng-template>
+        <ng-template alcoCell="status" let-leg>
+          @let look = legStatusLook(leg);
+          <alco-badge [tone]="look.tone" [icon]="look.icon">{{ look.label }}</alco-badge>
+        </ng-template>
+      </alco-table>
+    </section>
+
+    @if (canSeeHistory()) {
+      <section id="historique" class="section" aria-labelledby="history-title">
+        <alco-object-history [objectType]="auditType" [objectId]="transfer.public_id" />
+      </section>
+    }
+  </div>
+} @else {
+  <alco-loading [rows]="8" label="Chargement du virement…" />
+}

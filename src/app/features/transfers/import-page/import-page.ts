@@ -26,6 +26,8 @@ import { AlcoWorkflowSteps } from '../../../shared/ui/workflow-steps/workflow-st
 import { ContextualTransfer, fieldLabel } from '../contextual-transfer';
 import { TRANSFER_ERRORS, rowMessage } from '../transfer-messages';
 import {
+  DATE_FORMATS,
+  DECIMAL_SEPARATORS,
   DELIMITERS,
   ENCODINGS,
   ImportFieldDto,
@@ -92,6 +94,8 @@ export class ImportPage {
   protected readonly steps = STEPS;
   protected readonly encodings = ENCODINGS;
   protected readonly delimiters = DELIMITERS;
+  protected readonly dateFormats = DATE_FORMATS;
+  protected readonly decimalSeparators = DECIMAL_SEPARATORS;
 
   protected readonly phase = signal<Phase>('file');
   protected readonly run = signal<ImportRunDto | null>(null);
@@ -99,6 +103,11 @@ export class ImportPage {
   protected readonly file = signal<File | null>(null);
   protected readonly encoding = signal<string>('utf-8');
   protected readonly delimiter = signal<string>(',');
+  /** How the file writes dates and amounts: the server's defaults unless changed. */
+  protected readonly dateFormat = signal<string>(DATE_FORMATS[0].id);
+  protected readonly decimalSeparator = signal<string>(DECIMAL_SEPARATORS[0].id);
+  /** Rows the server imports with a warning: shown to be checked (nothing refused). */
+  protected readonly warningRows = signal<readonly ImportRowDto[]>([]);
   protected readonly columns = signal<Readonly<Record<string, string>>>({});
   /** The server command running (one at a time). */
   protected readonly busy = signal<string | null>(null);
@@ -148,6 +157,22 @@ export class ImportPage {
     this.delimiter.set((event.target as HTMLSelectElement).value);
   }
 
+  protected onDateFormat(event: Event): void {
+    this.dateFormat.set((event.target as HTMLSelectElement).value);
+  }
+
+  protected onDecimalSeparator(event: Event): void {
+    this.decimalSeparator.set((event.target as HTMLSelectElement).value);
+  }
+
+  /** Whether the importer reads dates or amounts (its fields' kinds, from the server). */
+  protected readonly readsDates = computed(() =>
+    (this.fields() ?? []).some((field) => field.kind === 'date'),
+  );
+  protected readonly readsAmounts = computed(() =>
+    (this.fields() ?? []).some((field) => field.kind === 'decimal'),
+  );
+
   protected onColumn(field: string, event: Event): void {
     const header = (event.target as HTMLSelectElement).value;
     const next = { ...this.columns() };
@@ -195,7 +220,12 @@ export class ImportPage {
       return;
     }
     await this.command('map', async () => {
-      const mapped = await firstValueFrom(this.api.map(run.public_id, this.columns()));
+      const mapped = await firstValueFrom(
+        this.api.map(run.public_id, this.columns(), {
+          date_format: this.dateFormat(),
+          decimal_separator: this.decimalSeparator(),
+        }),
+      );
       this.run.set(mapped);
       if (!this.canValidate()) {
         this.phase.set('checks');
@@ -206,6 +236,11 @@ export class ImportPage {
       this.refusedRows.set(
         checked.summary.errors
           ? (await firstValueFrom(this.api.rows(run.public_id, 'error'))).results
+          : [],
+      );
+      this.warningRows.set(
+        checked.summary.warnings
+          ? (await firstValueFrom(this.api.rows(run.public_id, 'warning'))).results
           : [],
       );
       this.phase.set('checks');
@@ -260,6 +295,7 @@ export class ImportPage {
     this.file.set(null);
     this.columns.set({});
     this.refusedRows.set([]);
+    this.warningRows.set([]);
     this.error.set(null);
     this.phase.set('file');
   }
@@ -267,6 +303,13 @@ export class ImportPage {
   protected rowText(row: ImportRowDto): string {
     return row.messages
       .filter((message) => message.level === 'error')
+      .map((message) => this.messageText(message))
+      .join(' ');
+  }
+
+  protected warningText(row: ImportRowDto): string {
+    return row.messages
+      .filter((message) => message.level === 'warning')
       .map((message) => this.messageText(message))
       .join(' ');
   }

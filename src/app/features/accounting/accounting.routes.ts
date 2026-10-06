@@ -2,6 +2,7 @@ import { Route, Routes } from '@angular/router';
 
 import { permissionGuard } from '../../core/navigation/app-access.guard';
 import { unsavedChangesGuard } from '../../core/navigation/unsaved-changes';
+import { TREASURY_ROUTES } from '../treasury/treasury.routes';
 
 const dashboard = () =>
   import('./dashboard/accounting-dashboard').then((m) => m.AccountingDashboardPage);
@@ -77,8 +78,8 @@ function referential(
 /**
  * Comptabilité on the API: dashboard (journals and alerts of `dashboards/`, V2.1), entries
  * (Module 5), lettering (V2.1 A4), due dates and aged balance (V2.1 A5), journals, chart of
- * accounts, fiscal years and periods (Module 4), bank reconciliation (V2.1 A6). The rest of
- * Treasury, Analyse and the other domains are still planned screens.
+ * accounts, fiscal years and periods (Module 4), Trésorerie (Module 6, reconciliation V2.1
+ * A6). Analyse and the other domains are still planned screens.
  */
 export const ACCOUNTING_ROUTES: Routes = [
   // dashboards.read is the menu link's (catalogue): the screen guard checks it.
@@ -143,15 +144,8 @@ export const ACCOUNTING_ROUTES: Routes = [
       },
     ],
   },
-  // Trésorerie › Rapprochements (V2.1 A6): bank lines, proposals, reconciliations. Served
-  // among the section's routes (placeholder-routes.ts): its home and breadcrumb stay the
-  // section's; its other screens stay planned.
-  {
-    path: 'tresorerie/rapprochements',
-    data: { breadcrumb: 'Rapprochements' },
-    loadComponent: () =>
-      import('../treasury/reconciliation/reconciliation-page').then((m) => m.ReconciliationPage),
-  },
+  // Trésorerie (Module 6; reconciliation V2.1 A6): served among the section's routes.
+  ...TREASURY_ROUTES,
   // Analyse › Rapports de tiers: the aged balance (V2.1 A5), customers and suppliers.
   agedBalance('analyse/balance-clients', 'Balance clients', 'customer'),
   agedBalance('analyse/balance-fournisseurs', 'Balance fournisseurs', 'supplier'),

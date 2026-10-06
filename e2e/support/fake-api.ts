@@ -93,7 +93,13 @@ const WRITE = [
   'accounting.unletter',
   'accounting.manage_due_dates',
   'reporting.manage_aging',
-  // Bank reconciliation (V2.1 A6): granted explicitly, never implied.
+  // Treasury (Module 6) and bank reconciliation (V2.1 A6): granted explicitly, never implied.
+  'treasury.create',
+  'treasury.update',
+  'treasury.confirm',
+  'treasury.account',
+  'treasury.manage_accounts',
+  'treasury.manage_statements',
   'treasury.reconcile',
   'partners.create',
   'partners.update',

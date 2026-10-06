@@ -286,6 +286,8 @@ test.describe('Tiers — import et export contextuels', () => {
     const map = api.calls.find((call) => call.url().endsWith('/map/'))!;
     expect(map.postDataJSON()).toEqual({
       columns: { code: 'Code', name: 'Nom', country: 'Pays', is_customer: 'Client' },
+      // How dates and amounts are written: the server's defaults unless changed.
+      options: { date_format: '%Y-%m-%d', decimal_separator: '.' },
     });
 
     await page.getByRole('link', { name: 'Retour aux tiers' }).click();

@@ -1,0 +1,310 @@
+@if (loadError(); as failure) {
+  <alco-error-state
+    [title]="failure.title"
+    [message]="failure.message"
+    [code]="failure.code"
+    [correlationId]="failure.correlationId ?? ''"
+  />
+  <div class="center">
+    <a alcoButton icon="arrow-left" routerLink="..">Retour aux relevés</a>
+  </div>
+} @else if (statement(); as statement) {
+  @let decimals = places();
+  <alco-page-header
+    [title]="name()"
+    [subtitle]="
+      statement.treasury_account.code +
+      ' · du ' +
+      day(statement.period_start) +
+      ' au ' +
+      day(statement.period_end)
+    "
+  >
+    <div alcoPageStatus>
+      @if (status(); as badge) {
+        <alco-badge [tone]="badge.tone" [icon]="badge.icon">{{ badge.label }}</alco-badge>
+      }
+    </div>
+    <div alcoPageActions>
+      @if (canOpenReconciliation() && statement.status === 'open') {
+        <a
+          alcoButton
+          icon="check"
+          [routerLink]="reconciliationUrl"
+          [queryParams]="reconcileParams('propositions')"
+        >
+          Rapprocher
+        </a>
+      }
+      @if (canManage() && statement.status === 'open') {
+        <button
+          alcoButton
+          type="button"
+          variant="primary"
+          icon="lock"
+          [loading]="busy()"
+          loadingLabel="Clôture en cours…"
+          (click)="close()"
+        >
+          Clôturer
+        </button>
+      }
+    </div>
+  </alco-page-header>
+
+  <alco-workflow-steps [steps]="steps" [current]="step()" label="Étapes du relevé" />
+
+  @if (actionError(); as failure) {
+    <alco-error-state
+      [inline]="true"
+      [title]="failure.title"
+      [message]="failure.message"
+      [code]="failure.code"
+      [correlationId]="failure.correlationId ?? ''"
+    />
+  }
+
+  <div class="sheet">
+    <section class="section" aria-labelledby="check-title">
+      <h2 id="check-title" class="alco-section-title">Contrôle du relevé</h2>
+      @switch (check.status()) {
+        @case ('error') {
+          <alco-error-state
+            [inline]="true"
+            title="Le contrôle du relevé n’a pas pu être chargé."
+            message="Réessayez dans un instant."
+            retryLabel="Réessayer"
+            (retry)="check.reload()"
+          />
+        }
+        @default {
+          @if (check.value(); as result) {
+            @if (result.balanced) {
+              <p class="check check--ok" role="status">
+                Relevé équilibré : le solde d’ouverture plus les lignes donne le solde de clôture.
+              </p>
+            } @else {
+              <p class="check check--warning" role="alert">
+                Vérification nécessaire : le solde d’ouverture plus les lignes diffère du solde de
+                clôture de {{ result.closing_difference | alcoAmount: decimals }} {{ currency() }}.
+                Rien n’est corrigé ; le relevé ne peut pas être clôturé tant que l’écart reste.
+              </p>
+            }
+            <dl class="facts">
+              <div>
+                <dt>Solde d’ouverture</dt>
+                <dd>{{ result.opening_balance | alcoAmount: decimals }} {{ currency() }}</dd>
+              </div>
+              <div>
+                <dt>Mouvements des lignes</dt>
+                <dd>{{ result.lines_total | alcoAmount: decimals }} {{ currency() }}</dd>
+              </div>
+              <div>
+                <dt>Solde calculé par le serveur</dt>
+                <dd>
+                  {{ result.computed_closing_balance | alcoAmount: decimals }} {{ currency() }}
+                </dd>
+              </div>
+              <div>
+                <dt>Solde de clôture du relevé</dt>
+                <dd>{{ result.statement_balance | alcoAmount: decimals }} {{ currency() }}</dd>
+              </div>
+              <div>
+                <dt>Écart</dt>
+                <dd>
+                  <strong
+                    >{{ result.closing_difference | alcoAmount: decimals }} {{ currency() }}</strong
+                  >
+                </dd>
+              </div>
+              <div>
+                <dt>Solde de trésorerie à la fin de la période</dt>
+                <dd>{{ result.treasury_balance | alcoAmount: decimals }} {{ currency() }}</dd>
+              </div>
+              <div>
+                <dt>Écart relevé / trésorerie</dt>
+                <dd>{{ result.statement_vs_treasury | alcoAmount: decimals }} {{ currency() }}</dd>
+              </div>
+              <div>
+                <dt>Solde comptable</dt>
+                <dd>
+                  @if (result.accounting_balance !== null) {
+                    {{ result.accounting_balance | alcoAmount: decimals }}
+                    {{ result.accounting_currency }}
+                  } @else {
+                    Non donné (devise du compte différente de celle de la société)
+                  }
+                </dd>
+              </div>
+              @if (result.statement_vs_accounting !== null) {
+                <div>
+                  <dt>Écart relevé / comptabilité</dt>
+                  <dd>
+                    {{ result.statement_vs_accounting | alcoAmount: decimals }}
+                    {{ result.accounting_currency }}
+                  </dd>
+                </div>
+              }
+            </dl>
+            <dl class="facts states" aria-label="Lignes par état">
+              <div>
+                <dt>Rapprochées</dt>
+                <dd>
+                  {{ result.reconciled_count }} ·
+                  {{ result.reconciled_total | alcoAmount: decimals }} {{ currency() }}
+                </dd>
+              </div>
+              <div>
+                <dt>À rapprocher</dt>
+                <dd>
+                  {{ result.unreconciled_count }} ·
+                  {{ result.unreconciled_total | alcoAmount: decimals }} {{ currency() }}
+                </dd>
+              </div>
+              <div>
+                <dt>Exclues</dt>
+                <dd>
+                  {{ result.excluded_count }} · {{ result.excluded_total | alcoAmount: decimals }}
+                  {{ currency() }}
+                </dd>
+              </div>
+            </dl>
+          } @else {
+            <alco-loading [rows]="3" label="Contrôle du relevé…" />
+          }
+        }
+      }
+    </section>
+
+    <section id="lignes" class="section" aria-labelledby="lines-title">
+      <div class="lines-head">
+        <h2 id="lines-title" class="alco-section-title">Lignes du relevé</h2>
+        <label class="state-filter">
+          <span>État des lignes</span>
+          <select class="alco-control alco-control--select" (change)="setLineState($event)">
+            <option value="" [selected]="lineState() === null">Toutes les lignes</option>
+            @for (item of lineStates; track item.id) {
+              <option [value]="item.id" [selected]="item.id === lineState()">
+                {{ item.label }}
+              </option>
+            }
+          </select>
+        </label>
+      </div>
+      @if (lines.value(); as result) {
+        <alco-pagination
+          [page]="result.count > 0 ? page() : 1"
+          [pageSize]="pageSize"
+          [total]="result.count"
+          (pageChange)="setPage($event)"
+        />
+      }
+      @switch (lines.status()) {
+        @case ('error') {
+          <alco-error-state
+            [inline]="true"
+            title="Les lignes n’ont pas pu être chargées."
+            message="Réessayez dans un instant."
+            retryLabel="Réessayer"
+            (retry)="lines.reload()"
+          />
+        }
+        @default {
+          @if (lines.value() === null) {
+            <alco-loading variant="table" [rows]="4" [columns]="5" label="Chargement des lignes…" />
+          } @else if (lineRows().length === 0) {
+            <alco-empty-state icon="check" title="Aucune ligne dans cet état." />
+          } @else {
+            <alco-table
+              [class.reloading]="lines.loading()"
+              [caption]="'Lignes du relevé ' + name()"
+              [columns]="lineColumns"
+              [rows]="lineRows()"
+              [rowId]="lineId"
+            >
+              <ng-template alcoCell="date" let-line>{{ day(line.line_date) }}</ng-template>
+              <ng-template alcoCell="description" let-line>
+                {{ line.description || 'Sans libellé' }}
+                @if (line.status === 'excluded' && line.exclusion_reason) {
+                  <span class="alco-caption reason">Motif : {{ line.exclusion_reason }}</span>
+                }
+              </ng-template>
+              <ng-template alcoCell="reference" let-line>
+                <span class="mono">{{ line.bank_reference || '—' }}</span>
+              </ng-template>
+              <ng-template alcoCell="amount" let-line>
+                <span
+                  class="nowrap"
+                  [attr.aria-label]="direction(line) + ' ' + (line.amount | alcoAmount: decimals)"
+                >
+                  {{ line.direction === 'outflow' ? '−' : ''
+                  }}{{ line.amount | alcoAmount: decimals }}
+                </span>
+              </ng-template>
+              <ng-template alcoCell="status" let-line>
+                @let look = lineStatus(line);
+                <alco-badge [tone]="look.tone" [icon]="look.icon">{{ look.label }}</alco-badge>
+              </ng-template>
+              <ng-template alcoCell="actions" let-line>
+                <div class="line-actions">
+                  @if (line.status === 'reconciled') {
+                    @if (canOpenReconciliation()) {
+                      <a
+                        class="link"
+                        [routerLink]="reconciliationUrl"
+                        [queryParams]="reconcileParams('rapprochees')"
+                      >
+                        Voir le rapprochement
+                      </a>
+                    }
+                  } @else if (line.status === 'unreconciled') {
+                    @if (canOpenReconciliation()) {
+                      <a
+                        class="link"
+                        [routerLink]="reconciliationUrl"
+                        [queryParams]="reconcileParams('a-rapprocher')"
+                      >
+                        Rapprocher
+                      </a>
+                    }
+                    @if (canReconcile() && statement.status === 'open') {
+                      <button
+                        alcoButton
+                        type="button"
+                        size="sm"
+                        [disabled]="busy()"
+                        [attr.aria-label]="'Exclure la ligne du ' + day(line.line_date)"
+                        (click)="exclude(line)"
+                      >
+                        Exclure
+                      </button>
+                    }
+                  } @else if (canReconcile() && statement.status === 'open') {
+                    <button
+                      alcoButton
+                      type="button"
+                      size="sm"
+                      [disabled]="busy()"
+                      [attr.aria-label]="'Réintégrer la ligne du ' + day(line.line_date)"
+                      (click)="include(line)"
+                    >
+                      Réintégrer
+                    </button>
+                  }
+                </div>
+              </ng-template>
+            </alco-table>
+          }
+        }
+      }
+    </section>
+
+    @if (canSeeHistory()) {
+      <section id="historique" class="section" aria-labelledby="history-title">
+        <alco-object-history [objectType]="auditType" [objectId]="statement.public_id" />
+      </section>
+    }
+  </div>
+} @else {
+  <alco-loading [rows]="8" label="Chargement du relevé…" />
+}

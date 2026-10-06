@@ -13,7 +13,8 @@ menus groupés, tableau de bord comptable sur `dashboards/journals/` et `dashboa
 A3 (relations et smart buttons), A4 (lettrage : lignes, sélection, aperçu, lettrage manuel et
 partiel, propositions, délettrage, historique), A5 (échéances, génération, recalcul, balance
 âgée clients et fournisseurs, tranches) et A6 (rapprochement bancaire : lignes, propositions,
-confirmation, dé-rapprochement) livrés.**
+confirmation, dé-rapprochement) et le Module 6 (Trésorerie : comptes, opérations, virements,
+relevés, contrôle, import des relevés) livrés.**
 Le socle parle à l'API Django : environnements, `ApiClient`, intercepteurs (session, CSRF,
 `X-Company-ID`, erreurs, chargement), gardes. Connexion et déconnexion réelles ; utilisateur,
 sociétés accessibles, société active, permissions et lanceur viennent de l'API (plus de
@@ -22,8 +23,8 @@ création, modification, désactivation, import et export contextuels). Comptabi
 de bord, journaux, plan comptable, exercices et périodes sont réels, ainsi que les
 écritures (liste, fiche, saisie des lignes, workflow par les commandes du serveur,
 contrepassation, pièces, historique, import), ainsi que le lettrage (V2.1 A4), les échéances
-et la balance âgée (V2.1 A5) et le rapprochement bancaire (V2.1 A6, Trésorerie ›
-Rapprochements). Les autres domaines de Comptabilité restent des écrans prévus.
+et la balance âgée (V2.1 A5) ; la Trésorerie est réelle (Module 6 : comptes, opérations,
+virements, relevés et leur import ; rapprochement bancaire V2.1 A6). Les autres domaines de Comptabilité restent des écrans prévus.
 Architecture technique : `../docs/frontend/technical-architecture.md`. Prochaine étape : les
 modules métier un par un (chacun remplace ses écrans de démonstration).
 
@@ -338,6 +339,19 @@ supprime ce qui ne sert plus.
   bancaire est annulé (A6.1) — opération, écriture, lettrage et échéances inchangés, délettrage
   dans Lettrage. Faux serveur `e2e/support/fake-treasury.ts` : fixtures explicites, aucune
   correspondance jouée.
+- **Trésorerie (Module 6)** : `features/treasury` (ux-guidelines § 5 decies,
+  technical-architecture § 7 octies), routes `tresorerie/…` de `treasury.routes.ts` servies
+  parmi celles de la section (`placeholder-routes.ts` : accueil et fil d'Ariane de la section).
+  Comptes (filtres de l'API, fiche avec solde du serveur, relations par les filtres officiels,
+  gestion `treasury.manage_accounts`), opérations (9 filtres de l'API dans l'URL, fiche, pièces
+  `treasury.operation`, commandes selon l'état et les permissions, brouillon avec clé
+  d'idempotence), virements (deux opérations ensemble), relevés (contrôle du serveur, étapes,
+  lignes par état : rapprochée protégée, exclusion motivée, clôture refusée tant qu'un écart
+  reste), import `treasury.statements` par l'écran d'import générique (format des dates et
+  séparateur décimal — `options` —, lignes à vérifier listées, pour tous les domaines). Aucun
+  solde, contrôle ni doublon calculé. Corps des commandes : OpenAPI depuis le lot backend M6.0.
+  Non proposés (contrat) : `link-entry` (pas de filtre des écritures par numéro), création
+  manuelle d'un relevé (l'import la couvre). Faux serveur : `e2e/support/fake-treasury*.ts`.
 - **Modifications non enregistrées** : `UnsavedChangesService.track(() => form.dirty)` dans
   chaque formulaire, `unsavedChangesGuard` sur ses routes ; `switchTo` demande aussi ; une
   sauvegarde réussie appelle `markAsPristine()` avant de naviguer.

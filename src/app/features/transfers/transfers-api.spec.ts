@@ -30,7 +30,11 @@ describe('TransfersApi (imports-exports/)', () => {
         'imports/r1/parse/',
         { encoding: 'utf-8', delimiter: ';' },
       ],
-      [() => api.map('r1', { code: 'Code' }), 'imports/r1/map/', { columns: { code: 'Code' } }],
+      [
+        () => api.map('r1', { code: 'Code' }, { date_format: '%d/%m/%Y' }),
+        'imports/r1/map/',
+        { columns: { code: 'Code' }, options: { date_format: '%d/%m/%Y' } },
+      ],
       [() => api.validate('r1'), 'imports/r1/validate/', null],
       [() => api.preview('r1'), 'imports/r1/preview/', null],
       [() => api.execute('r1'), 'imports/r1/execute/', { asynchronous: false }],

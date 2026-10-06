@@ -159,7 +159,7 @@ test.describe('Comptabilité : trois liens et trois menus groupés', () => {
     const sectionNav = page.getByRole('navigation', { name: 'Navigation Trésorerie' });
     await expect(sectionNav).toBeVisible();
     await expect(breadcrumb(page)).toHaveText(/Comptabilité\s*Trésorerie\s*Opérations/);
-    await expect(page.getByRole('heading', { level: 1 })).toHaveText('Opérations');
+    await expect(page.getByRole('heading', { level: 1 })).toHaveText('Opérations de trésorerie');
   });
 
   const DOMAINS = [

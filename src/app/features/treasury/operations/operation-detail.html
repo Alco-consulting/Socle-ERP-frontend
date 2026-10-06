@@ -1,0 +1,223 @@
+@if (loadError(); as failure) {
+  <alco-error-state
+    [title]="failure.title"
+    [message]="failure.message"
+    [code]="failure.code"
+    [correlationId]="failure.correlationId ?? ''"
+  />
+  <div class="center">
+    <a alcoButton icon="arrow-left" routerLink="..">Retour aux opérations</a>
+  </div>
+} @else if (operation(); as operation) {
+  @let decimals = places(operation.currency);
+  <alco-page-header
+    [title]="title(operation)"
+    [subtitle]="typeLabel(operation.operation_type) + ' du ' + day(operation.operation_date)"
+  >
+    <div alcoPageStatus>
+      @if (status(); as badge) {
+        <alco-badge [tone]="badge.tone" [icon]="badge.icon">{{ badge.label }}</alco-badge>
+      }
+      @if (operation.reconciled) {
+        <alco-badge tone="success" icon="check">Rapprochée</alco-badge>
+      }
+    </div>
+    <div alcoPageActions>
+      @if (commands().length > 0) {
+        <alco-dropdown align="end" [items]="commands()" (selected)="onCommand($event)">
+          {{ busy() ? 'Action en cours…' : 'Actions' }}
+        </alco-dropdown>
+      }
+      @if (canEdit()) {
+        <a alcoButton variant="primary" icon="edit" routerLink="modifier">Modifier</a>
+      }
+    </div>
+  </alco-page-header>
+
+  <nav class="smart-buttons" aria-label="Objets liés à l’opération">
+    @if (operation.accounting_entry && canOpenEntries()) {
+      <alco-smart-button
+        label="Écriture"
+        icon="accounting"
+        [link]="[entriesUrl, operation.accounting_entry]"
+      />
+    }
+    @if (operation.transfer) {
+      <alco-smart-button
+        label="Virement"
+        icon="transfers"
+        [link]="[transfersUrl, operation.transfer]"
+      />
+    }
+    @if (operation.related_operation) {
+      <alco-smart-button
+        label="Opération liée"
+        icon="reverse"
+        [link]="[operationsUrl, operation.related_operation]"
+      />
+    }
+    @if (operation.reconciled) {
+      <alco-smart-button
+        label="Rapprochement"
+        icon="check"
+        [link]="reconciliationUrl"
+        [queryParams]="{ compte: operation.treasury_account.code, vue: 'rapprochees' }"
+      />
+    }
+    @if (canSeeDocuments()) {
+      <alco-smart-button label="Pièces" icon="attachment" link="." fragment="pieces" />
+    }
+    @if (canSeeHistory()) {
+      <alco-smart-button
+        label="Historique"
+        icon="clock"
+        [count]="historyCount()"
+        link="."
+        fragment="historique"
+      />
+    }
+  </nav>
+
+  @if (actionError(); as failure) {
+    <alco-error-state
+      [inline]="true"
+      [title]="failure.title"
+      [message]="failure.message"
+      [help]="failure.help ?? ''"
+      [code]="failure.code"
+      [correlationId]="failure.correlationId ?? ''"
+    />
+  }
+
+  @if (operation.transfer) {
+    <p class="note" role="note">
+      Cette opération est une jambe d’un virement : elle change seulement avec son virement.
+    </p>
+  }
+  @if (operation.status === 'cancelled') {
+    <p class="note" role="note">
+      Cette opération est annulée : elle ne compte plus dans le solde. Elle reste consultable avec
+      son motif et son historique.
+    </p>
+  }
+
+  <div class="sheet">
+    <section class="section" aria-labelledby="general-title">
+      <h2 id="general-title" class="alco-section-title">Informations générales</h2>
+      <dl class="facts">
+        <div>
+          <dt>Compte de trésorerie</dt>
+          <dd>
+            <a class="mono" [routerLink]="[accountsUrl, operation.treasury_account.public_id]">
+              {{ operation.treasury_account.code }}
+            </a>
+          </dd>
+        </div>
+        <div>
+          <dt>Type</dt>
+          <dd>{{ typeLabel(operation.operation_type) }}</dd>
+        </div>
+        <div>
+          <dt>Sens</dt>
+          <dd>{{ directions[operation.direction] }}</dd>
+        </div>
+        <div>
+          <dt>Montant</dt>
+          <dd>
+            <strong>{{ operation.amount | alcoAmount: decimals }} {{ operation.currency }}</strong>
+          </dd>
+        </div>
+        <div>
+          <dt>Date de l’opération</dt>
+          <dd>{{ day(operation.operation_date) }}</dd>
+        </div>
+        <div>
+          <dt>Date de valeur</dt>
+          <dd>{{ day(operation.value_date ?? null) }}</dd>
+        </div>
+        <div>
+          <dt>Référence</dt>
+          <dd class="mono">{{ operation.reference || '—' }}</dd>
+        </div>
+        <div class="wide">
+          <dt>Libellé</dt>
+          <dd>{{ operation.description || '—' }}</dd>
+        </div>
+        <div>
+          <dt>Tiers</dt>
+          <dd>
+            @if (operation.counterparty; as partner) {
+              @if (canOpenPartners()) {
+                <a class="mono" [routerLink]="[accounting, 'tiers', partner.public_id]">
+                  {{ partner.code }}
+                </a>
+              } @else {
+                <span class="mono">{{ partner.code }}</span>
+              }
+            } @else {
+              {{ operation.counterparty_name || 'Aucun' }}
+            }
+          </dd>
+        </div>
+        <div>
+          <dt>Compte de contrepartie</dt>
+          <dd>
+            @if (operation.offset_account; as offset) {
+              @if (canOpenChart()) {
+                <a class="mono" [routerLink]="[accounting, 'plan-comptable', offset.public_id]">
+                  {{ offset.code }}
+                </a>
+              } @else {
+                <span class="mono">{{ offset.code }}</span>
+              }
+            } @else {
+              Aucun
+            }
+          </dd>
+        </div>
+        @if (operation.reason) {
+          <div class="wide">
+            <dt>Motif</dt>
+            <dd>{{ operation.reason }}</dd>
+          </div>
+        }
+        @if (operation.confirmed_at) {
+          <div>
+            <dt>Confirmée le</dt>
+            <dd>{{ operation.confirmed_at | date: 'dd/MM/yyyy à HH:mm' }}</dd>
+          </div>
+        }
+        @if (operation.accounted_at) {
+          <div>
+            <dt>Comptabilisée le</dt>
+            <dd>{{ operation.accounted_at | date: 'dd/MM/yyyy à HH:mm' }}</dd>
+          </div>
+        }
+        @if (operation.cancelled_at) {
+          <div>
+            <dt>Annulée le</dt>
+            <dd>{{ operation.cancelled_at | date: 'dd/MM/yyyy à HH:mm' }}</dd>
+          </div>
+        }
+      </dl>
+    </section>
+
+    @if (canSeeDocuments()) {
+      <section id="pieces" class="section" aria-labelledby="documents-title">
+        <alco-entry-documents
+          [entryId]="operation.public_id"
+          [resourceType]="documentsType"
+          [editable]="operation.status === 'draft'"
+        />
+      </section>
+    }
+
+    @if (canSeeHistory()) {
+      <section id="historique" class="section" aria-labelledby="history-title">
+        <alco-object-history [objectType]="auditType" [objectId]="operation.public_id" />
+      </section>
+    }
+  </div>
+} @else {
+  <alco-loading [rows]="8" label="Chargement de l’opération…" />
+}

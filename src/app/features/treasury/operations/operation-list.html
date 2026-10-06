@@ -1,0 +1,186 @@
+<alco-page-header
+  title="Opérations de trésorerie"
+  subtitle="Encaissements, décaissements, frais et autres mouvements des comptes de trésorerie"
+>
+  @if (canCreate()) {
+    <div alcoPageActions>
+      <a alcoButton variant="primary" icon="plus" routerLink="nouvelle">Nouvelle opération</a>
+    </div>
+  }
+</alco-page-header>
+
+<div class="control-panel">
+  <div class="controls">
+    <alco-filter-bar
+      [activeFilterCount]="activeFilterCount()"
+      (applied)="applyFilters()"
+      (cleared)="resetFilters()"
+    >
+      <div alcoFilterFields class="filter-fields" [formGroup]="filterForm">
+        <alco-form-field label="Compte de trésorerie">
+          <select alcoSelect formControlName="account">
+            <option value="">Tous les comptes</option>
+            @for (item of accountChoices(); track item.public_id) {
+              <option [value]="item.code">{{ item.code }} — {{ item.name }}</option>
+            }
+          </select>
+        </alco-form-field>
+        <alco-form-field label="Type">
+          <select alcoSelect formControlName="type">
+            <option value="">Tous les types</option>
+            @for (item of types; track item.id) {
+              <option [value]="item.id">{{ item.label }}</option>
+            }
+          </select>
+        </alco-form-field>
+        <alco-form-field label="Sens">
+          <select alcoSelect formControlName="direction">
+            <option value="">Entrées et sorties</option>
+            @for (item of directions; track item.id) {
+              <option [value]="item.id">{{ item.label }}</option>
+            }
+          </select>
+        </alco-form-field>
+        <alco-form-field label="État">
+          <select alcoSelect formControlName="status">
+            <option value="">Tous les états</option>
+            @for (item of statuses; track item.id) {
+              <option [value]="item.id">{{ item.label }}</option>
+            }
+          </select>
+        </alco-form-field>
+        <alco-form-field label="Du" hint="Date de l’opération">
+          <input alcoDatePicker type="date" formControlName="dateFrom" />
+        </alco-form-field>
+        <alco-form-field label="Au">
+          <input alcoDatePicker type="date" formControlName="dateTo" />
+        </alco-form-field>
+        <alco-form-field label="Référence" hint="Référence exacte">
+          <input alcoInput formControlName="reference" maxlength="64" autocomplete="off" />
+        </alco-form-field>
+        <alco-form-field label="Rapprochement bancaire">
+          <select alcoSelect formControlName="reconciled">
+            <option value="">Toutes les opérations</option>
+            <option value="oui">Rapprochées</option>
+            <option value="non">Non rapprochées</option>
+          </select>
+        </alco-form-field>
+      </div>
+    </alco-filter-bar>
+    @if (list.value(); as result) {
+      <alco-pagination
+        class="pager"
+        [page]="result.count > 0 ? page() : 1"
+        [pageSize]="pageSize"
+        [total]="result.count"
+        (pageChange)="setPage($event)"
+      />
+    }
+  </div>
+</div>
+
+@if (unknownAccount()) {
+  <div class="empty-frame">
+    <alco-empty-state
+      icon="search"
+      [title]="'Aucun compte de trésorerie de cette société n’a le code « ' + accountCode() + ' ».'"
+      message="Choisissez un compte dans les filtres."
+    >
+      <button alcoButton type="button" icon="refresh" (click)="resetFilters()">
+        Réinitialiser les filtres
+      </button>
+    </alco-empty-state>
+  </div>
+} @else {
+  @switch (list.status()) {
+    @case ('forbidden') {
+      <alco-error-state
+        title="Vous n’avez pas accès à la trésorerie de cette société."
+        message="Demandez l’accès à un administrateur de la société si vous en avez besoin."
+      />
+    }
+    @case ('error') {
+      @if (failure(); as error) {
+        <alco-error-state
+          [title]="error.title"
+          [message]="error.message"
+          [code]="error.code"
+          [correlationId]="error.correlationId ?? ''"
+          retryLabel="Réessayer"
+          (retry)="list.reload()"
+        />
+      }
+    }
+    @default {
+      @if (list.value() === null) {
+        <alco-loading variant="table" [rows]="6" [columns]="5" label="Chargement des opérations…" />
+      } @else if (rows().length === 0) {
+        <div class="empty-frame">
+          @if (activeFilterCount() > 0) {
+            <alco-empty-state
+              icon="search"
+              title="Aucune opération ne correspond à ces critères."
+              message="Retirez un filtre."
+            >
+              <button alcoButton type="button" icon="refresh" (click)="resetFilters()">
+                Réinitialiser les filtres
+              </button>
+            </alco-empty-state>
+          } @else {
+            <alco-empty-state icon="treasury" title="Aucune opération de trésorerie.">
+              @if (canCreate()) {
+                <a alcoButton variant="primary" icon="plus" routerLink="nouvelle">
+                  Saisir une opération
+                </a>
+              }
+            </alco-empty-state>
+          }
+        </div>
+      } @else {
+        <alco-table
+          [class.reloading]="list.loading()"
+          [attr.aria-busy]="list.loading()"
+          caption="Opérations de trésorerie"
+          [columns]="columns"
+          [rows]="rows()"
+          [rowId]="rowId"
+          [rowLabel]="rowLabel"
+          [clickableRows]="true"
+          (rowActivated)="open($event)"
+        >
+          <ng-template alcoCell="date" let-operation>{{
+            day(operation.operation_date)
+          }}</ng-template>
+          <ng-template alcoCell="reference" let-operation>
+            <a class="code" [routerLink]="operation.public_id">{{ name(operation) }}</a>
+          </ng-template>
+          <ng-template alcoCell="account" let-operation>
+            <span class="mono">{{ operation.treasury_account.code }}</span>
+          </ng-template>
+          <ng-template alcoCell="type" let-operation>{{
+            typeLabel(operation.operation_type)
+          }}</ng-template>
+          <ng-template alcoCell="counterparty" let-operation>
+            <span class="mono">{{
+              operation.counterparty?.code ?? (operation.counterparty_name || '—')
+            }}</span>
+          </ng-template>
+          <ng-template alcoCell="amount" let-operation>
+            <span class="nowrap">
+              {{ operation.direction === 'outflow' ? '−' : ''
+              }}{{ operation.amount | alcoAmount: places(operation.currency) }}
+              {{ operation.currency }}
+            </span>
+          </ng-template>
+          <ng-template alcoCell="status" let-operation>
+            @let look = statusLook(operation);
+            <alco-badge [tone]="look.tone" [icon]="look.icon">{{ look.label }}</alco-badge>
+            @if (operation.reconciled) {
+              <span class="alco-caption"> · rapprochée</span>
+            }
+          </ng-template>
+        </alco-table>
+      }
+    }
+  }
+}

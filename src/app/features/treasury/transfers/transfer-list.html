@@ -1,0 +1,85 @@
+<alco-page-header title="Virements" subtitle="Virements internes entre deux comptes de trésorerie">
+  @if (canCreate()) {
+    <div alcoPageActions>
+      <a alcoButton variant="primary" icon="plus" routerLink="nouveau">Nouveau virement</a>
+    </div>
+  }
+</alco-page-header>
+
+@if (list.value(); as result) {
+  <div class="control-panel">
+    <div class="controls">
+      <p class="alco-caption">{{ result.count }} virement{{ result.count > 1 ? 's' : '' }}</p>
+      <alco-pagination
+        class="pager"
+        [page]="result.count > 0 ? page() : 1"
+        [pageSize]="pageSize"
+        [total]="result.count"
+        (pageChange)="setPage($event)"
+      />
+    </div>
+  </div>
+}
+
+@switch (list.status()) {
+  @case ('forbidden') {
+    <alco-error-state
+      title="Vous n’avez pas accès à la trésorerie de cette société."
+      message="Demandez l’accès à un administrateur de la société si vous en avez besoin."
+    />
+  }
+  @case ('error') {
+    @if (failure(); as error) {
+      <alco-error-state
+        [title]="error.title"
+        [message]="error.message"
+        [code]="error.code"
+        [correlationId]="error.correlationId ?? ''"
+        retryLabel="Réessayer"
+        (retry)="list.reload()"
+      />
+    }
+  }
+  @default {
+    @if (list.value() === null) {
+      <alco-loading variant="table" [rows]="5" [columns]="4" label="Chargement des virements…" />
+    } @else if (rows().length === 0) {
+      <div class="empty-frame">
+        <alco-empty-state icon="transfers" title="Aucun virement entre comptes de trésorerie.">
+          @if (canCreate()) {
+            <a alcoButton variant="primary" icon="plus" routerLink="nouveau">Saisir un virement</a>
+          }
+        </alco-empty-state>
+      </div>
+    } @else {
+      <alco-table
+        [class.reloading]="list.loading()"
+        caption="Virements entre comptes de trésorerie"
+        [columns]="columns"
+        [rows]="rows()"
+        [rowId]="rowId"
+        [rowLabel]="rowLabel"
+        [clickableRows]="true"
+        (rowActivated)="open($event)"
+      >
+        <ng-template alcoCell="date" let-transfer>{{ day(transfer.transfer_date) }}</ng-template>
+        <ng-template alcoCell="reference" let-transfer>
+          <a class="code" [routerLink]="transfer.public_id">{{ name(transfer) }}</a>
+        </ng-template>
+        <ng-template alcoCell="route" let-transfer>
+          <span class="mono">{{ transfer.source_account.code }}</span> →
+          <span class="mono">{{ transfer.destination_account.code }}</span>
+        </ng-template>
+        <ng-template alcoCell="amount" let-transfer>
+          @let leg = source(transfer);
+          {{ transfer.amount | alcoAmount: places(leg?.currency) }} {{ leg?.currency }}
+        </ng-template>
+        <ng-template alcoCell="status" let-transfer>
+          @if (statusLook(transfer); as look) {
+            <alco-badge [tone]="look.tone" [icon]="look.icon">{{ look.label }}</alco-badge>
+          }
+        </ng-template>
+      </alco-table>
+    }
+  }
+}

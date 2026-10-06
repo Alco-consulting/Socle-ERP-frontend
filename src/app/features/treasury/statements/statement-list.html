@@ -1,0 +1,139 @@
+<alco-page-header
+  title="Relevés bancaires"
+  subtitle="Relevés importés : vérifier leurs soldes, rapprocher leurs lignes, les clôturer"
+>
+  <div alcoPageActions>
+    <alco-domain-transfers [transfer]="transfer" />
+  </div>
+</alco-page-header>
+
+<div class="control-panel">
+  <div class="controls">
+    <alco-filter-bar
+      [activeFilterCount]="activeFilterCount()"
+      (applied)="applyFilters()"
+      (cleared)="resetFilters()"
+    >
+      <div alcoFilterFields class="filter-fields" [formGroup]="filterForm">
+        <alco-form-field label="Compte de trésorerie">
+          <select alcoSelect formControlName="account">
+            <option value="">Tous les comptes</option>
+            @for (item of accountChoices(); track item.public_id) {
+              <option [value]="item.code">{{ item.code }} — {{ item.name }}</option>
+            }
+          </select>
+        </alco-form-field>
+        <alco-form-field label="État">
+          <select alcoSelect formControlName="status">
+            <option value="">Tous les états</option>
+            @for (item of statuses; track item.id) {
+              <option [value]="item.id">{{ item.label }}</option>
+            }
+          </select>
+        </alco-form-field>
+      </div>
+    </alco-filter-bar>
+    @if (list.value(); as result) {
+      <alco-pagination
+        class="pager"
+        [page]="result.count > 0 ? page() : 1"
+        [pageSize]="pageSize"
+        [total]="result.count"
+        (pageChange)="setPage($event)"
+      />
+    }
+  </div>
+</div>
+
+@if (unknownAccount()) {
+  <div class="empty-frame">
+    <alco-empty-state
+      icon="search"
+      [title]="'Aucun compte de trésorerie de cette société n’a le code « ' + accountCode() + ' ».'"
+      message="Choisissez un compte dans les filtres."
+    >
+      <button alcoButton type="button" icon="refresh" (click)="resetFilters()">
+        Réinitialiser les filtres
+      </button>
+    </alco-empty-state>
+  </div>
+} @else {
+  @switch (list.status()) {
+    @case ('forbidden') {
+      <alco-error-state
+        title="Vous n’avez pas accès à la trésorerie de cette société."
+        message="Demandez l’accès à un administrateur de la société si vous en avez besoin."
+      />
+    }
+    @case ('error') {
+      @if (failure(); as error) {
+        <alco-error-state
+          [title]="error.title"
+          [message]="error.message"
+          [code]="error.code"
+          [correlationId]="error.correlationId ?? ''"
+          retryLabel="Réessayer"
+          (retry)="list.reload()"
+        />
+      }
+    }
+    @default {
+      @if (list.value() === null) {
+        <alco-loading variant="table" [rows]="5" [columns]="5" label="Chargement des relevés…" />
+      } @else if (rows().length === 0) {
+        <div class="empty-frame">
+          @if (activeFilterCount() > 0) {
+            <alco-empty-state
+              icon="search"
+              title="Aucun relevé ne correspond à ces critères."
+              message="Retirez un filtre."
+            >
+              <button alcoButton type="button" icon="refresh" (click)="resetFilters()">
+                Réinitialiser les filtres
+              </button>
+            </alco-empty-state>
+          } @else {
+            <alco-empty-state
+              icon="book"
+              title="Aucun relevé bancaire."
+              message="Importez un relevé depuis « Actions »."
+            />
+          }
+        </div>
+      } @else {
+        <alco-table
+          [class.reloading]="list.loading()"
+          [attr.aria-busy]="list.loading()"
+          caption="Relevés bancaires"
+          [columns]="columns"
+          [rows]="rows()"
+          [rowId]="rowId"
+          [rowLabel]="rowLabel"
+          [clickableRows]="true"
+          (rowActivated)="open($event)"
+        >
+          <ng-template alcoCell="reference" let-statement>
+            <a class="code" [routerLink]="statement.public_id">{{ name(statement) }}</a>
+          </ng-template>
+          <ng-template alcoCell="account" let-statement>
+            <span class="mono">{{ statement.treasury_account.code }}</span>
+          </ng-template>
+          <ng-template alcoCell="period" let-statement>
+            {{ day(statement.period_start) }} au {{ day(statement.period_end) }}
+          </ng-template>
+          <ng-template alcoCell="opening" let-statement>
+            {{ statement.opening_balance | alcoAmount: places(statement) }}
+          </ng-template>
+          <ng-template alcoCell="closing" let-statement>
+            {{ statement.closing_balance | alcoAmount: places(statement) }}
+            {{ currency(statement) }}
+          </ng-template>
+          <ng-template alcoCell="status" let-statement>
+            @let look = statusLook(statement);
+            <alco-badge [tone]="look.tone" [icon]="look.icon">{{ look.label }}</alco-badge>
+          </ng-template>
+        </alco-table>
+      }
+    }
+  }
+}

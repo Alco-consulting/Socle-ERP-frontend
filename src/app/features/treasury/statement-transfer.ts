@@ -10,7 +10,7 @@ export const STATEMENT_TRANSFER: ContextualTransfer = {
   exportLabel: 'Exporter les relevés',
   importTitle: 'Import de relevés bancaires',
   importEffect:
-    'Crée les relevés et leurs lignes à partir d’un fichier CSV ; un relevé déjà présent est ignoré, rien n’est corrigé.',
+    'Crée les relevés et leurs lignes à partir d’un fichier CSV ou Excel (.xlsx) ; un relevé déjà présent est ignoré, rien n’est corrigé.',
   creationKey: 'statements',
   countLabel: (count) => `${count} relevé${count > 1 ? 's' : ''}`,
   backLabel: 'Retour aux relevés',

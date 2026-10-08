@@ -5,7 +5,7 @@ import { ImportMessageDto } from './transfers-api';
 export const TRANSFER_ERRORS: ErrorCatalog = {
   imports_file_rejected: {
     title: 'Ce fichier n’est pas accepté.',
-    message: 'Envoyez un fichier CSV (texte, 5 Mo au plus).',
+    message: 'Envoyez un fichier CSV ou Excel (.xlsx), 5 Mo au plus.',
   },
   imports_file_already_imported: {
     title: 'Ce fichier a déjà été importé.',
@@ -24,6 +24,15 @@ export const TRANSFER_ERRORS: ErrorCatalog = {
     title: 'Impossible de déterminer automatiquement le séparateur des colonnes.',
     message:
       'Vérifiez que chaque ligne a le même nombre de colonnes, ou choisissez le séparateur dans les options avancées.',
+  },
+  imports_workbook_unreadable: {
+    title: 'Ce classeur ne peut pas être lu.',
+    message:
+      'Il est endommagé ou contient un contenu refusé : ouvrez-le dans Excel et enregistrez-le en .xlsx.',
+  },
+  imports_sheet_unknown: {
+    title: 'Cette feuille n’existe pas dans le classeur.',
+    message: 'Choisissez à nouveau le fichier : les feuilles visibles seront proposées.',
   },
   imports_encoding_invalid: {
     title: 'Le fichier n’est pas dans l’encodage choisi.',

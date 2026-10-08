@@ -316,3 +316,37 @@ test('écritures: list, form, record, workflow, reversal, unsaved changes', asyn
   await page.goto('/app/comptabilite/ecritures/nouvelle');
   await shoot(page, '96-phone-entries-form', true);
 });
+
+test('import: file analysed (CSV, Excel), sheet choice, phone', async ({ page }) => {
+  test.setTimeout(90_000);
+  const read = async (name: string) => {
+    await page.goto('/app/comptabilite/plan-comptable/import');
+    await page.locator('input[type=file]').setInputFiles({
+      name,
+      mimeType: 'text/csv',
+      buffer: Buffer.from('Code;Nom du compte;Type\n'),
+    });
+    await page.getByRole('button', { name: 'Envoyer et lire le fichier' }).click();
+  };
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto('/app/comptabilite/plan-comptable/import');
+  await shoot(page, '97-import-file-choice', true);
+  await read('plan-comptable.xlsx');
+  await expect(page.locator('.analysis')).toBeVisible();
+  await shoot(page, '98-import-analysed-xlsx', true);
+  await read('plan-comptable.csv');
+  await expect(page.locator('.analysis')).toBeVisible();
+  await shoot(page, '99-import-analysed-csv', true);
+  await read('plan-feuilles.xlsx');
+  await expect(page.getByRole('radio', { name: 'Plan 2026' })).toBeVisible();
+  await page.getByRole('radio', { name: 'Plan 2026' }).check();
+  await shoot(page, '100-import-sheet-choice', true);
+  await page.setViewportSize({ width: 820, height: 1180 });
+  await read('plan-comptable.xlsx');
+  await expect(page.locator('.analysis')).toBeVisible();
+  await shoot(page, '101-tablet-import-analysed-xlsx', true);
+  await page.setViewportSize({ width: 390, height: 844 });
+  await read('plan-comptable.xlsx');
+  await expect(page.locator('.analysis')).toBeVisible();
+  await shoot(page, '102-phone-import-analysed-xlsx', true);
+});

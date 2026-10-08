@@ -13,6 +13,7 @@ import { SessionStore } from '../../../core/session/session.store';
 import { openTestSession } from '../../../core/session/testing';
 import { AlcoConfirmService } from '../../../shared/ui/confirm-dialog/confirm-dialog';
 import { PARTNER_TRANSFER } from '../../partners/partner-presentation';
+import { WORKBOOK_CONTENT_TYPE } from '../transfers-api';
 import { ImportPage } from './import-page';
 
 const ALL = [
@@ -92,6 +93,31 @@ describe('ImportPage (contextual import on the API)', () => {
     await stable();
   }
 
+  /** The first rows the screen asks once the file is read (the `rows/` endpoint). */
+  function firstRows(rows: readonly { line: number; raw: Record<string, string> }[] = []) {
+    const request = httpMock().expectOne(
+      (req) => req.url === '/api/v1/imports-exports/imports/r1/rows/',
+    );
+    expect(request.request.params.get('page_size')).toBe('5');
+    expect(request.request.params.has('status')).toBe(false);
+    request.flush({
+      count: rows.length,
+      next: null,
+      previous: null,
+      results: rows.map((row) => ({
+        line_number: row.line,
+        status: 'pending',
+        raw: row.raw,
+        messages: [],
+      })),
+    });
+  }
+
+  /** An error envelope with its details (`envelope` has none). */
+  function refusal(code: string, details: object) {
+    return { error: { code, message: 'x', details, correlation_id: 'c' } };
+  }
+
   /** Up to the mapping step, with the columns the server read. */
   async function toMapping() {
     const page = await open();
@@ -108,7 +134,9 @@ describe('ImportPage (contextual import on the API)', () => {
     expect(parse.request.body).toEqual({});
     parse.flush(run('parsed', { options: { encoding: 'utf-8-sig', delimiter: ';' } }));
     await page.stable();
-    await page.click('Continuer');
+    firstRows();
+    await page.stable();
+    await page.click('Continuer vers la correspondance des colonnes');
     return page;
   }
 
@@ -138,6 +166,22 @@ describe('ImportPage (contextual import on the API)', () => {
     page.post('r1/cancel/').flush(run('cancelled'));
   }
 
+  /** « Fichier analysé »: the tiles (label value), the table of the first rows. */
+  function analysis(element: HTMLElement) {
+    return {
+      stats: Array.from(element.querySelectorAll('.stats div')).map(
+        (item) =>
+          `${item.querySelector('dt')?.textContent?.trim()} ${item.querySelector('dd')?.textContent?.trim()}`,
+      ),
+      head: Array.from(element.querySelectorAll('.sample-table th')).map((cell) =>
+        cell.textContent?.trim(),
+      ),
+      rows: Array.from(element.querySelectorAll('.sample-table tbody tr')).map((row) =>
+        Array.from(row.querySelectorAll('td')).map((cell) => cell.textContent?.trim()),
+      ),
+    };
+  }
+
   afterEach(() => {
     httpMock().verify();
     clearCookie('XSRF-TOKEN');
@@ -153,28 +197,136 @@ describe('ImportPage (contextual import on the API)', () => {
     expect(rows).toEqual(['Code Oui', 'Nom Oui', 'Pays Oui', 'E-mail Non']);
   });
 
-  it('only the file is asked; what the server read is shown, then the mapping', async () => {
+  it('a CSV: only the file is asked; analysed, its first rows, then the mapping', async () => {
     const page = await withFile();
+    const input = page.element.querySelector<HTMLInputElement>('input[type=file]')!;
+    expect(input.accept).toContain('.xlsx');
     const advanced = page.element.querySelector<HTMLDetailsElement>('details.advanced')!;
     expect(advanced.open).toBe(false);
     expect(advanced.querySelector('summary')?.textContent?.trim()).toBe('Options avancées');
-    (await sent(page)).flush(run('parsed', { options: { encoding: 'cp1252', delimiter: '\t' } }));
+    const parse = await sent(page);
+    // While the server reads: the button says so.
+    expect(page.element.textContent).toContain('Envoi et lecture…');
+    parse.flush(run('parsed', { options: { encoding: 'cp1252', delimiter: '\t' } }));
     await page.stable();
-    const facts = Array.from(page.element.querySelectorAll('.facts div')).map(
-      (item) =>
-        `${item.querySelector('dt')?.textContent?.trim()} ${item.querySelector('dd')?.textContent?.trim()}`,
-    );
-    expect(facts).toEqual([
-      'Fichier détecté tiers.csv',
-      'Encodage détecté Windows (cp1252)',
-      'Séparateur détecté Tabulation',
-      'Colonnes détectées 4',
-      'Lignes lues 2',
+    firstRows([
+      { line: 2, raw: { Code: 'C1', Nom: 'Client un', Pays: 'GN', Email: '' } },
+      { line: 3, raw: { Code: 'C2', Nom: 'Client deux', Pays: 'SN', Email: 'b@x.org' } },
     ]);
+    await page.stable();
+
+    expect(page.element.querySelector('.file-name')?.textContent?.trim()).toBe('tiers.csv');
+    expect(page.element.textContent).toContain('Fichier analysé');
+    expect(page.element.querySelector('.file-title')?.textContent?.replace(/\s+/g, ' ')).toContain(
+      'Encodage détecté : Windows (cp1252) · Séparateur détecté : Tabulation',
+    );
+    expect(analysis(page.element)).toEqual({
+      stats: ['Format CSV / TXT', 'Colonnes détectées 4', 'Lignes de données lues 2'],
+      head: ['Ligne', 'Code', 'Nom', 'Pays', 'Email'],
+      rows: [
+        ['2', 'C1', 'Client un', 'GN', ''],
+        ['3', 'C2', 'Client deux', 'SN', 'b@x.org'],
+      ],
+    });
     expect(page.element.querySelector('.mapping')).toBeNull();
-    await page.click('Continuer');
+    await page.click('Continuer vers la correspondance des colonnes');
     expect(page.element.querySelector('.mapping')).not.toBeNull();
     leave(page);
+  });
+
+  it('an Excel workbook: its sheet, no encoding nor delimiter, its rows as read', async () => {
+    const page = await withFile('plan.xlsx');
+    // No CSV setting for a workbook.
+    expect(page.element.querySelector('details.advanced')).toBeNull();
+    const parse = await sent(page);
+    expect(parse.request.body).toEqual({});
+    parse.flush(
+      run('parsed', {
+        filename: 'plan.xlsx',
+        content_type: WORKBOOK_CONTENT_TYPE,
+        headers: ['Code', 'Nom du compte', 'Type'],
+        options: { encoding: 'utf-8', delimiter: ',', sheet: 'Plan OHADA' },
+        summary: { total: 1245 },
+      }),
+    );
+    await page.stable();
+    firstRows([
+      {
+        line: 2,
+        raw: {
+          Code: '101100',
+          'Nom du compte': 'Capital engagé non appelé',
+          Type: 'Capitaux propres',
+        },
+      },
+    ]);
+    await page.stable();
+
+    expect(analysis(page.element)).toEqual({
+      stats: [
+        'Format Excel (.xlsx)',
+        'Feuille Plan OHADA',
+        'Colonnes détectées 3',
+        'Lignes de données lues 1245',
+      ],
+      head: ['Ligne', 'Code', 'Nom du compte', 'Type'],
+      rows: [['2', '101100', 'Capital engagé non appelé', 'Capitaux propres']],
+    });
+    expect(page.element.textContent).not.toContain('Encodage');
+    expect(page.element.textContent).not.toContain('Séparateur détecté');
+    expect(page.element.textContent).toContain('1 premières lignes sur 1245');
+    leave(page);
+  });
+
+  it('a workbook with several sheets of data: the user chooses, then it is read', async () => {
+    const page = await withFile('plan.xlsx');
+    (await sent(page)).flush(
+      refusal('imports_sheet_required', { sheets: ['Plan 2025', 'Plan 2026'] }),
+      { status: 400, statusText: 'x' },
+    );
+    await page.stable();
+    const radios = Array.from(
+      page.element.querySelectorAll<HTMLInputElement>('.sheets input[type=radio]'),
+    );
+    expect(radios.map((radio) => radio.value)).toEqual(['Plan 2025', 'Plan 2026']);
+    expect(page.element.textContent).toContain(
+      'tiers.csv contient plusieurs feuilles avec des données.',
+    );
+    const read = Array.from(page.element.querySelectorAll('button')).find((button) =>
+      button.textContent?.includes('Lire cette feuille'),
+    )!;
+    expect(read.disabled).toBe(true);
+    radios[1].checked = true;
+    radios[1].dispatchEvent(new Event('change'));
+    await page.stable();
+    await page.click('Lire cette feuille');
+    const parse = page.post('r1/parse/');
+    expect(parse.request.body).toEqual({ sheet: 'Plan 2026' });
+    parse.flush(
+      run('parsed', {
+        content_type: WORKBOOK_CONTENT_TYPE,
+        options: { sheet: 'Plan 2026' },
+      }),
+    );
+    await page.stable();
+    firstRows();
+    await page.stable();
+    expect(analysis(page.element).stats).toContain('Feuille Plan 2026');
+    expect(page.element.textContent).toContain('Le fichier ne contient que la ligne des en-têtes.');
+    leave(page);
+  });
+
+  it('replacing the file: back to the choice, the run cancelled', async () => {
+    const page = await withFile();
+    (await sent(page)).flush(run('parsed', { options: { encoding: 'utf-8', delimiter: ',' } }));
+    await page.stable();
+    firstRows();
+    await page.stable();
+    await page.click('Remplacer le fichier');
+    page.post('r1/cancel/').flush(run('cancelled'));
+    await page.stable();
+    expect(page.element.querySelector('input[type=file]')).not.toBeNull();
+    expect(page.element.querySelector('.analysis')).toBeNull();
   });
 
   it('options avancées: only a forced value is sent, and said « choisi »', async () => {
@@ -185,6 +337,8 @@ describe('ImportPage (contextual import on the API)', () => {
     const parse = await sent(page);
     expect(parse.request.body).toEqual({ delimiter: ';' });
     parse.flush(run('parsed', { options: { encoding: 'utf-8', delimiter: ';' } }));
+    await page.stable();
+    firstRows();
     await page.stable();
     expect(page.element.textContent).toContain('Séparateur choisi');
     expect(page.element.textContent).toContain('Encodage détecté');
@@ -200,53 +354,50 @@ describe('ImportPage (contextual import on the API)', () => {
       'imports_delimiter_undetermined',
       'Impossible de déterminer automatiquement le séparateur des colonnes.',
     ],
+    ['imports_workbook_unreadable', 'Ce classeur ne peut pas être lu.'],
   ]) {
-    it(`an undecided file stays blocked, with the reason (${code})`, async () => {
+    it(`a file the server cannot read stays blocked, with the reason (${code})`, async () => {
       const page = await withFile();
       (await sent(page)).flush(envelope(code), { status: 400, statusText: 'x' });
       await page.stable();
       expect(page.element.textContent).toContain(text);
-      expect(page.element.querySelector('.facts')).toBeNull();
+      expect(page.element.querySelector('.analysis')).toBeNull();
       leave(page);
     });
   }
 
-  it('an Excel file is refused before sending', async () => {
-    const page = await withFile('plan.xlsx');
-    expect(page.element.textContent).toContain(
-      'Format non pris en charge. Utilisez un fichier CSV.',
-    );
-    const send = Array.from(page.element.querySelectorAll('button')).find((button) =>
-      button.textContent?.includes('Envoyer et lire le fichier'),
-    );
-    expect(send?.disabled).toBe(true);
-  });
+  for (const name of ['plan.xls', 'plan.xlsm', 'plan.pdf']) {
+    it(`a format other than CSV, TXT or XLSX is refused before sending (${name})`, async () => {
+      const page = await withFile(name);
+      expect(page.element.textContent).toContain(
+        'Format non pris en charge. Utilisez un fichier CSV ou Excel (.xlsx).',
+      );
+      const send = Array.from(page.element.querySelectorAll('button')).find((button) =>
+        button.textContent?.includes('Envoyer et lire le fichier'),
+      );
+      expect(send?.disabled).toBe(true);
+    });
+  }
 
-  it('an Excel file named .csv is refused by the server, said the same way', async () => {
-    const page = await withFile('plan.csv');
-    await page.click('Envoyer et lire le fichier');
-    page.post('').flush(run('created'));
-    await page.stable();
-    page.post('r1/upload/').flush(
-      {
-        error: {
-          code: 'imports_file_rejected',
-          message: 'x',
-          details: { reason: 'not a text file' },
-          correlation_id: 'c',
-        },
-      },
-      {
-        status: 400,
-        statusText: 'x',
-      },
-    );
-    await page.stable();
-    expect(page.element.textContent).toContain(
-      'Format non pris en charge. Utilisez un fichier CSV.',
-    );
-    leave(page);
-  });
+  for (const [reason, text] of [
+    ['not a text file', 'Format non pris en charge. Utilisez un fichier CSV ou Excel (.xlsx).'],
+    ['macros', 'Ce classeur contient des macros.'],
+    ['corrupt', 'Ce classeur ne peut pas être lu.'],
+    ['too large once uncompressed', 'Ce classeur est trop volumineux.'],
+  ]) {
+    it(`a file refused by the server is said by its reason (${reason})`, async () => {
+      const page = await withFile('plan.xlsx');
+      await page.click('Envoyer et lire le fichier');
+      page.post('').flush(run('created'));
+      await page.stable();
+      page
+        .post('r1/upload/')
+        .flush(refusal('imports_file_rejected', { reason }), { status: 400, statusText: 'x' });
+      await page.stable();
+      expect(page.element.textContent).toContain(text);
+      leave(page);
+    });
+  }
 
   it('the whole import: file, mapping, checks, preview, then the only write', async () => {
     const { element, click, post, stable } = await toMapping();
@@ -353,7 +504,9 @@ describe('ImportPage (contextual import on the API)', () => {
     await page.stable();
     page.post('r1/parse/').flush(run('parsed'));
     await page.stable();
-    await page.click('Continuer');
+    firstRows();
+    await page.stable();
+    await page.click('Continuer vers la correspondance des colonnes');
     await page.click('Contrôler les lignes');
     page.post('r1/map/').flush(run('mapped'));
     await page.stable();

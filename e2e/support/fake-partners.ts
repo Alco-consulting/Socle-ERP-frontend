@@ -381,6 +381,20 @@ export class FakePartners {
         break;
       }
       case 'rows':
+        if (!new URL(request.url()).searchParams.get('status')) {
+          // The first rows read: the file's lines, by column.
+          return this.answer(route, 200, {
+            count: run.rows.length,
+            next: null,
+            previous: null,
+            results: run.rows.slice(0, 5).map((values, index) => ({
+              line_number: index + 2,
+              status: 'pending',
+              raw: Object.fromEntries(run.headers.map((header, at) => [header, values[at] ?? ''])),
+              messages: [],
+            })),
+          });
+        }
         return this.answer(route, 200, {
           count: 0,
           next: null,

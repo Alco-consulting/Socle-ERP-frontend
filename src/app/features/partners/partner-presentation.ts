@@ -68,7 +68,8 @@ export const PARTNER_TRANSFER: ContextualTransfer = {
   importLabel: 'Importer des tiers',
   exportLabel: 'Exporter les tiers',
   importTitle: 'Import de tiers',
-  importEffect: 'Crée des fiches clients et fournisseurs à partir d’un fichier CSV.',
+  importEffect:
+    'Crée des fiches clients et fournisseurs à partir d’un fichier CSV ou Excel (.xlsx).',
   creationKey: 'partners',
   countLabel: (count) => `${count} tiers`,
   backLabel: 'Retour aux tiers',

@@ -54,7 +54,7 @@ async function read(page: Page, name: string) {
 
 const fact = (page: Page, label: string) =>
   page
-    .locator('.facts div')
+    .locator('.stats div')
     .filter({ has: page.getByText(label, { exact: true }) })
     .locator('dd');
 
@@ -153,11 +153,12 @@ test.describe('Plan comptable — import', () => {
 });
 
 test.describe('Plan comptable — import : lecture du fichier par le serveur', () => {
-  test('seul le fichier est demandé ; les options avancées restent fermées', async ({ page }) => {
+  test('seul le fichier est demandé ; CSV ou Excel ; options avancées fermées', async ({
+    page,
+  }) => {
     await openImport(page);
-    await expect(
-      page.getByText('L’encodage et le séparateur des colonnes sont lus dans le fichier.'),
-    ).toBeVisible();
+    await expect(page.getByText('Sélectionner un fichier CSV ou Excel (.xlsx)')).toBeVisible();
+    await expect(page.locator('input[type=file]')).toHaveAttribute('accept', /\.xlsx/);
     await expect(page.getByRole('combobox', { name: 'Encodage' })).toBeHidden();
     await expect(page.getByRole('combobox', { name: 'Séparateur de colonnes' })).toBeHidden();
     await page.getByText('Options avancées').click();
@@ -170,32 +171,110 @@ test.describe('Plan comptable — import : lecture du fichier par le serveur', (
     ['plan-windows.csv', 'Windows (cp1252)', 'Point-virgule ( ; )'],
     ['plan-tabulation.csv', 'UTF-8', 'Tabulation'],
   ] as const) {
-    test(`${name} : ${encoding}, ${delimiter}, détectés puis la correspondance`, async ({
+    test(`${name} : analysé, ${encoding}, ${delimiter}, puis la correspondance`, async ({
       page,
       api,
     }) => {
       await read(page, name);
-      await expect(fact(page, 'Fichier détecté')).toHaveText(name);
-      await expect(fact(page, 'Encodage détecté')).toHaveText(encoding);
-      await expect(fact(page, 'Séparateur détecté')).toHaveText(delimiter);
+      await expect(page.getByText('Fichier analysé')).toBeVisible();
+      await expect(page.locator('.file-name')).toHaveText(name);
+      await expect(page.locator('.file-title')).toContainText(`Encodage détecté : ${encoding}`);
+      await expect(page.locator('.file-title')).toContainText(`Séparateur détecté : ${delimiter}`);
+      await expect(fact(page, 'Format')).toHaveText('CSV / TXT');
       await expect(fact(page, 'Colonnes détectées')).toHaveText('3');
+      await expect(fact(page, 'Lignes de données lues')).toHaveText('4');
       // Nothing technical was sent: the server read it.
       const parse = api.calls.find((call) => call.url().endsWith('/parse/'))!;
       expect(parse.postDataJSON()).toEqual({});
-      await page.getByRole('button', { name: 'Continuer' }).click();
+      await page
+        .getByRole('button', { name: 'Continuer vers la correspondance des colonnes' })
+        .click();
       await expect(page.getByRole('combobox', { name: 'Code' })).toHaveValue('Code');
     });
   }
+
+  test('un classeur Excel : sa feuille, ses premières lignes réelles, aucun encodage', async ({
+    page,
+  }) => {
+    await read(page, 'plan-comptable.xlsx');
+    await expect(page.locator('.file-name')).toHaveText('plan-comptable.xlsx');
+    await expect(fact(page, 'Format')).toHaveText('Excel (.xlsx)');
+    await expect(fact(page, 'Feuille')).toHaveText('Plan comptable');
+    await expect(fact(page, 'Colonnes détectées')).toHaveText('3');
+    await expect(fact(page, 'Lignes de données lues')).toHaveText('4');
+    await expect(page.getByText('Encodage', { exact: false })).toHaveCount(0);
+    await expect(page.getByText('Séparateur détecté')).toHaveCount(0);
+    const sample = page.getByRole('region', { name: 'Aperçu des données' });
+    await expect(sample.locator('thead th')).toHaveText(['Ligne', 'Code', 'Nom du compte', 'Type']);
+    await expect(sample.locator('tbody tr').first()).toHaveText(
+      /2\s*101100\s*Capital engagé non appelé\s*Capitaux propres/,
+    );
+    await expect(sample.locator('tbody tr').nth(1)).toContainText(
+      'Capital souscrit, appelé, non versé',
+    );
+  });
+
+  test('un classeur Excel jusqu’à l’import : mêmes contrôles, même tout ou rien', async ({
+    page,
+    api,
+  }) => {
+    await read(page, 'plan-comptable.xlsx');
+    await page
+      .getByRole('button', { name: 'Continuer vers la correspondance des colonnes' })
+      .click();
+    await expect(page.getByRole('combobox', { name: 'Type' })).toHaveValue('Type');
+    // A workbook's numbers are numbers: no decimal separator to choose.
+    await expect(page.getByRole('combobox', { name: 'Séparateur décimal' })).toHaveCount(0);
+    await page.getByRole('button', { name: 'Contrôler les lignes' }).click();
+    await expect(page.getByText('Lignes correctes')).toBeVisible();
+    await page.getByRole('button', { name: 'Voir l’aperçu' }).click();
+    await page.getByRole('button', { name: 'Lancer l’import' }).click();
+    await page.getByRole('alertdialog').getByRole('button', { name: 'Lancer l’import' }).click();
+    await expect(page.getByText('Import terminé', { exact: true })).toBeVisible();
+    expect(
+      api.accounting.books('A').accounts.filter((item) => item.account_class === '').length,
+    ).toBe(3);
+  });
+
+  test('un classeur à plusieurs feuilles : l’utilisateur choisit, jamais l’écran', async ({
+    page,
+    api,
+  }) => {
+    await read(page, 'plan-feuilles.xlsx');
+    await expect(
+      page.getByRole('heading', { name: 'Choisir la feuille à importer' }),
+    ).toBeVisible();
+    await expect(
+      page.getByText('plan-feuilles.xlsx contient plusieurs feuilles avec des données.'),
+    ).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Lire cette feuille' })).toBeDisabled();
+    await page.getByRole('radio', { name: 'Plan 2026' }).check();
+    await page.getByRole('button', { name: 'Lire cette feuille' }).click();
+    await expect(fact(page, 'Feuille')).toHaveText('Plan 2026');
+    const parses = api.calls.filter((call) => call.url().endsWith('/parse/'));
+    expect(parses.map((call) => call.postDataJSON())).toEqual([{}, { sheet: 'Plan 2026' }]);
+  });
+
+  test('remplacer le fichier : retour au choix, l’import en cours abandonné', async ({
+    page,
+    api,
+  }) => {
+    await read(page, 'plan-comptable.xlsx');
+    await page.getByRole('button', { name: 'Remplacer le fichier' }).click();
+    await expect(page.getByText('Sélectionner un fichier CSV ou Excel (.xlsx)')).toBeVisible();
+    await expect.poll(() => api.calls.some((call) => call.url().endsWith('/cancel/'))).toBe(true);
+  });
 
   for (const [name, message] of [
     ['plan-ambigu.csv', 'Impossible de déterminer automatiquement le séparateur des colonnes.'],
     ['plan-illisible.csv', 'Impossible de déterminer automatiquement l’encodage du fichier.'],
     ['plan-casse.csv', 'Le fichier n’a pas pu être lu.'],
+    ['plan-macros.xlsx', 'Ce classeur contient des macros.'],
   ] as const) {
     test(`${name} : refusé, le fichier reste bloqué`, async ({ page }) => {
       await read(page, name);
       await expect(page.getByText(message)).toBeVisible();
-      await expect(page.getByRole('button', { name: 'Continuer' })).toHaveCount(0);
+      await expect(page.getByRole('button', { name: /^Continuer/ })).toHaveCount(0);
       await expect(page.locator('.mapping')).toHaveCount(0);
     });
   }
@@ -213,24 +292,28 @@ test.describe('Plan comptable — import : lecture du fichier par le serveur', (
     await page.getByText('Options avancées').click();
     await page.getByRole('combobox', { name: 'Séparateur de colonnes' }).selectOption(';');
     await page.getByRole('button', { name: 'Envoyer et lire le fichier' }).click();
-    await expect(fact(page, 'Séparateur choisi')).toHaveText('Point-virgule ( ; )');
+    await expect(page.locator('.file-title')).toContainText(
+      'Séparateur choisi : Point-virgule ( ; )',
+    );
     const parse = api.calls.find((call) => call.url().endsWith('/parse/'))!;
     expect(parse.postDataJSON()).toEqual({ delimiter: ';' });
   });
 
-  test('un fichier Excel est refusé avant l’envoi', async ({ page, api }) => {
-    await openImport(page);
-    await page.locator('input[type=file]').setInputFiles({
-      name: 'plan.xlsx',
-      mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-      buffer: Buffer.from('PK\u0003\u0004'),
+  for (const name of ['plan.xls', 'plan.xlsm', 'plan.pdf']) {
+    test(`${name} : format refusé avant l’envoi`, async ({ page, api }) => {
+      await openImport(page);
+      await page.locator('input[type=file]').setInputFiles({
+        name,
+        mimeType: 'application/octet-stream',
+        buffer: Buffer.from('PK\u0003\u0004'),
+      });
+      await expect(
+        page.getByText('Format non pris en charge. Utilisez un fichier CSV ou Excel (.xlsx).'),
+      ).toBeVisible();
+      await expect(page.getByRole('button', { name: 'Envoyer et lire le fichier' })).toBeDisabled();
+      expect(api.calls.some((call) => call.url().endsWith('/upload/'))).toBe(false);
     });
-    await expect(
-      page.getByText('Format non pris en charge. Utilisez un fichier CSV.'),
-    ).toBeVisible();
-    await expect(page.getByRole('button', { name: 'Envoyer et lire le fichier' })).toBeDisabled();
-    expect(api.calls.some((call) => call.url().endsWith('/upload/'))).toBe(false);
-  });
+  }
 });
 
 test.describe('Plan comptable — import : permissions, société, URL', () => {
@@ -301,6 +384,19 @@ test.describe('Plan comptable — import : tailles d’écran et accessibilité'
       await page.goto(ROOT);
       await expect(rows(page).first()).toBeVisible();
       expect(await overflow()).toBeLessThanOrEqual(0);
+      // The analysed workbook: its tiles and its sample table fit (the table scrolls inside).
+      await read(page, 'plan-comptable.xlsx');
+      await expect(page.locator('.analysis')).toBeVisible();
+      expect(await overflow()).toBeLessThanOrEqual(0);
+      // Every action of the card stays inside the screen (none cut on the left or right).
+      for (const name of [
+        'Continuer vers la correspondance des colonnes',
+        'Choisir un autre fichier',
+      ]) {
+        const box = (await page.getByRole('button', { name }).boundingBox())!;
+        expect(box.x, name).toBeGreaterThanOrEqual(0);
+        expect(box.x + box.width, name).toBeLessThanOrEqual(width);
+      }
       await check(page, 'plan-errone.csv');
       await expect(page.getByRole('region', { name: 'Lignes refusées' })).toBeVisible();
       expect(await overflow()).toBeLessThanOrEqual(0);
@@ -317,6 +413,32 @@ test.describe('Plan comptable — import : tailles d’écran et accessibilité'
     await read(page, 'plan-comptable.csv');
     await expect(page.getByText('Encodage détecté')).toBeVisible();
     expect(await axe(page)).toEqual([]);
+  });
+
+  test('13. axe sans violation : classeur analysé et choix de la feuille', async ({ page }) => {
+    await read(page, 'plan-comptable.xlsx');
+    await expect(page.locator('.analysis')).toBeVisible();
+    expect(await axe(page)).toEqual([]);
+    await read(page, 'plan-feuilles.xlsx');
+    await expect(page.getByRole('radio', { name: 'Plan 2025' })).toBeVisible();
+    expect(await axe(page)).toEqual([]);
+  });
+
+  test('14. clavier seul : choisir la feuille, lire, continuer', async ({ page }) => {
+    await read(page, 'plan-feuilles.xlsx');
+    await page.getByRole('radio', { name: 'Plan 2025' }).focus();
+    await page.keyboard.press('ArrowDown');
+    await expect(page.getByRole('radio', { name: 'Plan 2026' })).toBeChecked();
+    await page.getByRole('button', { name: 'Lire cette feuille' }).focus();
+    await page.keyboard.press('Enter');
+    await expect(fact(page, 'Feuille')).toHaveText('Plan 2026');
+    await page.getByRole('region', { name: 'Aperçu des données' }).focus();
+    await expect(page.getByRole('region', { name: 'Aperçu des données' })).toBeFocused();
+    await page
+      .getByRole('button', { name: 'Continuer vers la correspondance des colonnes' })
+      .focus();
+    await page.keyboard.press('Enter');
+    await expect(page.getByRole('combobox', { name: 'Code' })).toBeVisible();
   });
 
   test('13. axe sans violation : contrôles et lignes refusées', async ({ page }) => {

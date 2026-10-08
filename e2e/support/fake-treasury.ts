@@ -1223,6 +1223,22 @@ export class FakeTreasury {
         break;
       case 'rows': {
         const status = new URL(request.url()).searchParams.get('status');
+        if (!status) {
+          // The first rows read (fixture: one line of the statement file).
+          return this.answer(route, 200, {
+            count: 1,
+            next: null,
+            previous: null,
+            results: [
+              {
+                line_number: 2,
+                status: 'pending',
+                raw: { account: 'BQ-GNF', amount: '300000' },
+                messages: [],
+              },
+            ],
+          });
+        }
         const rows = scenario()
           .rows.filter((row) => row.status === status)
           .map((row) => ({

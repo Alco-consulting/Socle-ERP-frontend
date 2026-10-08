@@ -11,6 +11,10 @@ import { ApiClient, ApiFile, Paginated } from '../../core/http/api-client';
  * status is never changed here.
  */
 
+/** The `content_type` of a run whose file is an Excel workbook (.xlsx). */
+export const WORKBOOK_CONTENT_TYPE =
+  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
+
 /** `created → uploaded → parsed → mapped → validated → previewed → completed` (or failed, cancelled). */
 export type ImportStatus =
   | 'created'
@@ -46,6 +50,8 @@ export interface ImportRunDto {
   readonly import_type: string;
   readonly status: ImportStatus;
   readonly filename: string;
+  /** What the server found the file to be: `text/csv` or `WORKBOOK_CONTENT_TYPE`. */
+  readonly content_type?: string;
   readonly headers: readonly string[];
   readonly columns: Readonly<Record<string, string>>;
   readonly options: Readonly<Record<string, string>>;
@@ -151,7 +157,7 @@ export class TransfersApi {
   /** Without `encoding` or `delimiter`, the server reads them from the file (and returns them in `options`). */
   parse(
     runId: string,
-    options: { encoding?: string; delimiter?: string } = {},
+    options: { encoding?: string; delimiter?: string; sheet?: string } = {},
   ): Observable<ImportRunDto> {
     return this.api.post<ImportRunDto>(`${imports}${runId}/parse/`, options);
   }
@@ -194,6 +200,13 @@ export class TransfersApi {
   ): Observable<Paginated<ImportRowDto>> {
     return this.api.get<Paginated<ImportRowDto>>(`${imports}${runId}/rows/`, {
       params: { status, page, page_size: 50 },
+    });
+  }
+
+  /** The first rows read from the file, as staged (raw values by column), in line order. */
+  firstRows(runId: string, count: number): Observable<Paginated<ImportRowDto>> {
+    return this.api.get<Paginated<ImportRowDto>>(`${imports}${runId}/rows/`, {
+      params: { page: 1, page_size: count },
     });
   }
 

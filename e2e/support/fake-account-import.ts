@@ -34,6 +34,8 @@ interface Scenario {
   /** [code, name, account_type] of each account the import creates. */
   accounts: [string, string, string][];
   skipped: number;
+  /** The first rows as the server read them (Code, Nom du compte, Type). */
+  sample: [string, string, string][];
 }
 
 export const ACCOUNT_IMPORT_SCENARIOS: Record<string, Scenario> = {
@@ -46,6 +48,12 @@ export const ACCOUNT_IMPORT_SCENARIOS: Record<string, Scenario> = {
       ['605100', 'Fournitures non stockables – Eau', 'expense'],
     ],
     skipped: 1,
+    sample: [
+      ['101100', 'Capital engagé non appelé', 'Capitaux propres'],
+      ['101200', 'Capital souscrit, appelé, non versé', 'Capitaux propres'],
+      ['521100', 'Banques locales', 'Banque et espèces'],
+      ['605100', 'Fournitures non stockables – Eau', 'Charges'],
+    ],
   },
   'plan-errone.csv': {
     summary: { total: 3, valid: 1, warnings: 0, errors: 2, duplicates: 0, units: 3 },
@@ -61,17 +69,36 @@ export const ACCOUNT_IMPORT_SCENARIOS: Record<string, Scenario> = {
     ],
     accounts: [],
     skipped: 0,
+    sample: [
+      ['101100', 'Capital', 'Capitaux propres'],
+      ['101200', 'Capital souscrit', 'Capitaux Propres'],
+      ['601000', '', 'Charges'],
+    ],
   },
 };
+// A workbook gives the same rows as its CSV export (fixtures).
+ACCOUNT_IMPORT_SCENARIOS['plan-comptable.xlsx'] = ACCOUNT_IMPORT_SCENARIOS['plan-comptable.csv'];
+ACCOUNT_IMPORT_SCENARIOS['plan-feuilles.xlsx'] = ACCOUNT_IMPORT_SCENARIOS['plan-comptable.csv'];
+// The same chart written another way (encoding, delimiter): the same rows.
+for (const name of ['plan-utf8.csv', 'plan-windows.csv', 'plan-tabulation.csv']) {
+  ACCOUNT_IMPORT_SCENARIOS[name] = ACCOUNT_IMPORT_SCENARIOS['plan-comptable.csv'];
+}
+
+const WORKBOOK = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
+/** Files the server refuses on upload (`imports_file_rejected`, `details.reason`). */
+const REJECTED_FILES: Record<string, string> = { 'plan-macros.xlsx': 'macros' };
 
 /**
- * What the server reads in each file (encoding, delimiter), or why it cannot decide: an
- * explicit fixture by file name — nothing is detected here. Default: UTF-8 with BOM, « ; ».
+ * What the server reads in each file (a CSV's encoding and delimiter, a workbook's sheet), or
+ * why it cannot decide: an explicit fixture by file name — nothing is read here. Default:
+ * UTF-8 with BOM, « ; ».
  */
 export const ACCOUNT_FILE_READINGS: Record<
   string,
-  { encoding: string; delimiter: string } | string
+  { encoding: string; delimiter: string } | { sheet: string } | { sheets: string[] } | string
 > = {
+  'plan-comptable.xlsx': { sheet: 'Plan comptable' },
+  'plan-feuilles.xlsx': { sheets: ['Plan 2025', 'Plan 2026'] },
   'plan-comptable.csv': { encoding: 'utf-8-sig', delimiter: ';' },
   'plan-utf8.csv': { encoding: 'utf-8', delimiter: ',' },
   'plan-windows.csv': { encoding: 'cp1252', delimiter: ';' },
@@ -86,6 +113,7 @@ interface Run {
   company: string;
   status: string;
   filename: string;
+  content_type: string;
   scenario: Scenario | null;
   columns: Record<string, string>;
   options: Record<string, string>;
@@ -102,6 +130,7 @@ function runJson(run: Run) {
     import_type: 'accounting.accounts',
     status: run.status,
     filename: run.filename,
+    content_type: run.content_type,
     headers: HEADERS,
     columns: run.columns,
     options: run.options,
@@ -158,6 +187,7 @@ export class FakeAccountImport {
         company,
         status: 'created',
         filename: '',
+        content_type: '',
         scenario: null,
         columns: {},
         options: {},
@@ -181,6 +211,14 @@ export class FakeAccountImport {
         if (this.imported.has(`${company}:${run.filename}`)) {
           return this.answer(route, 400, error('imports_file_already_imported'));
         }
+        if (REJECTED_FILES[run.filename]) {
+          return this.answer(
+            route,
+            400,
+            error('imports_file_rejected', { reason: REJECTED_FILES[run.filename] }),
+          );
+        }
+        run.content_type = run.filename.endsWith('.xlsx') ? WORKBOOK : 'text/csv';
         run.scenario = ACCOUNT_IMPORT_SCENARIOS[run.filename] ?? null;
         run.status = 'uploaded';
         break;
@@ -190,6 +228,26 @@ export class FakeAccountImport {
         // An option forced in « Options avancées » decides, as on the server: it settles
         // what the file alone left undecided.
         const forced = (request.postDataJSON() ?? {}) as Record<string, string>;
+        if (typeof reading === 'object' && 'sheets' in reading) {
+          // Several sheets with data: the server waits for the user's choice.
+          if (!reading.sheets.includes(forced['sheet'] ?? '')) {
+            return this.answer(
+              route,
+              400,
+              error('imports_sheet_required', { sheets: reading.sheets }),
+            );
+          }
+          run.options = { encoding: 'utf-8', delimiter: ',', sheet: forced['sheet'] };
+          run.status = 'parsed';
+          run.summary = { total: scenario().summary['total'] };
+          break;
+        }
+        if (typeof reading === 'object' && 'sheet' in reading) {
+          run.options = { encoding: 'utf-8', delimiter: ',', sheet: reading.sheet };
+          run.status = 'parsed';
+          run.summary = { total: scenario().summary['total'] };
+          break;
+        }
         const settled =
           (reading === 'imports_delimiter_undetermined' && forced['delimiter']) ||
           (reading === 'imports_encoding_undetermined' && forced['encoding']);
@@ -221,7 +279,26 @@ export class FakeAccountImport {
         run.status = 'validated';
         break;
       case 'rows': {
-        const status = new URL(request.url()).searchParams.get('status');
+        const params = new URL(request.url()).searchParams;
+        const status = params.get('status');
+        if (!status) {
+          // The first rows read (the screen's sample), in line order.
+          const size = Number(params.get('page_size')) || 50;
+          const sample = scenario()
+            .sample.slice(0, size)
+            .map(([code, name, type], index) => ({
+              line_number: index + 2,
+              status: 'pending',
+              raw: { Code: code, 'Nom du compte': name, Type: type },
+              messages: [],
+            }));
+          return this.answer(route, 200, {
+            count: scenario().sample.length,
+            next: null,
+            previous: null,
+            results: sample,
+          });
+        }
         const rows = scenario()
           .rows.filter((row) => row.status === status)
           .map((row) => ({

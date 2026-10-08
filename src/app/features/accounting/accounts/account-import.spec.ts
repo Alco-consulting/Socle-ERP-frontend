@@ -181,10 +181,18 @@ describe('Import du plan comptable (accounting.accounts)', () => {
         .flush({ ...run, status: 'parsed', options: { encoding: 'utf-8-sig', delimiter: ';' } });
       await settle();
       await harness.fixture.whenStable();
+      httpMock()
+        .expectOne((req) => req.url === '/api/v1/imports-exports/imports/r1/rows/')
+        .flush({ count: 0, next: null, previous: null, results: [] });
+      await settle();
+      await harness.fixture.whenStable();
       expect(element.textContent).toContain('Encodage détecté');
       expect(element.textContent).toContain('UTF-8 avec BOM (Excel)');
       Array.from(element.querySelectorAll('button'))
-        .find((button) => button.textContent?.trim() === 'Continuer')
+        .find(
+          (button) =>
+            button.textContent?.trim() === 'Continuer vers la correspondance des colonnes',
+        )
         ?.click();
       await settle();
       await harness.fixture.whenStable();

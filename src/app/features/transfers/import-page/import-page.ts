@@ -14,6 +14,7 @@ import { toApiError } from '../../../core/http/api-error';
 import { SessionStore } from '../../../core/session/session.store';
 import { AlcoFormField } from '../../../shared/forms/form-field';
 import { AlcoInput } from '../../../shared/forms/input';
+import { AlcoBadge } from '../../../shared/ui/badge/badge';
 import { AlcoButton } from '../../../shared/ui/button/button';
 import { AlcoCard } from '../../../shared/ui/card/card';
 import { AlcoConfirmService } from '../../../shared/ui/confirm-dialog/confirm-dialog';
@@ -35,6 +36,7 @@ import {
   ImportRowDto,
   ImportRunDto,
   TransfersApi,
+  WORKBOOK_CONTENT_TYPE,
 } from '../transfers-api';
 
 const IMPORT_UNAVAILABLE = {
@@ -42,18 +44,51 @@ const IMPORT_UNAVAILABLE = {
   message: 'Le serveur ne le propose pas : rien ne peut être importé ici pour le moment.',
 };
 
-/** `read`: the file was read; what the server found is shown before the mapping. */
-type Phase = 'file' | 'read' | 'mapping' | 'checks' | 'preview' | 'done';
+/**
+ * `sheet`: a workbook with several sheets of data waits for the user's choice; `read`: the
+ * file was read, what the server found and its first rows are shown before the mapping.
+ */
+type Phase = 'file' | 'sheet' | 'read' | 'mapping' | 'checks' | 'preview' | 'done';
 
-/** Only CSV text is read (Excel is not, in this version). */
-const READABLE = /.(csv|txt)$/i;
-const NOT_CSV = {
-  title: 'Format non pris en charge. Utilisez un fichier CSV.',
-  message: 'Enregistrez le classeur en CSV (UTF-8 ou point-virgule) puis choisissez ce fichier.',
+/** CSV/TXT text or an Excel workbook (.xlsx), read by the server. */
+const READABLE = /\.(csv|txt|xlsx)$/i;
+const NOT_READABLE = {
+  title: 'Format non pris en charge. Utilisez un fichier CSV ou Excel (.xlsx).',
+  message: 'Les classeurs .xls et .xlsm (avec macros) ne sont pas lus : enregistrez-le en .xlsx.',
 };
+const DAMAGED = {
+  title: 'Ce classeur ne peut pas être lu.',
+  message:
+    'Il est endommagé ou n’est pas un vrai fichier Excel : ouvrez-le et enregistrez-le en .xlsx.',
+};
+/** Why the server refused the file (`details.reason` of `imports_file_rejected`), in words. */
+const FILE_REJECTIONS: Readonly<Record<string, { title: string; message: string }>> = {
+  extension: NOT_READABLE,
+  'not a text file': NOT_READABLE,
+  'binary content': NOT_READABLE,
+  'not a workbook': DAMAGED,
+  corrupt: DAMAGED,
+  encrypted: {
+    title: 'Ce classeur est protégé par un mot de passe.',
+    message: 'Enregistrez-le sans mot de passe, puis choisissez-le à nouveau.',
+  },
+  macros: {
+    title: 'Ce classeur contient des macros.',
+    message:
+      'Les macros ne sont jamais lues : enregistrez-le en classeur Excel (.xlsx) sans macros.',
+  },
+  'too many parts': DAMAGED,
+  'too large once uncompressed': {
+    title: 'Ce classeur est trop volumineux.',
+    message: 'Gardez seulement la feuille à importer, ou découpez le fichier.',
+  },
+};
+/** First rows shown once the file is read (never the whole file). */
+const PREVIEW_ROWS = 5;
 
 const STEPS = [
   { id: 'file', label: 'Fichier' },
+  { id: 'read', label: 'Lecture' },
   { id: 'mapping', label: 'Correspondance des colonnes' },
   { id: 'checks', label: 'Contrôles' },
   { id: 'preview', label: 'Aperçu' },
@@ -76,13 +111,16 @@ function comparable(text: string): string {
  * imported by no one (all or nothing, decided by the server). The domain is given by the
  * route (`data.transfer`). Each step needs its own permission (`imports_exports.create`,
  * `.validate`, `.execute`): without it, the screen says so instead of offering the button.
- * The user only chooses the file: its encoding and delimiter are read by the server and
- * shown; forcing them stays in « Options avancées », closed by default.
+ * The user only chooses the file (CSV/TXT or Excel .xlsx), read by the server: a CSV's
+ * encoding and delimiter, a workbook's sheet (chosen by the user when several hold data).
+ * What was read and its first rows are shown before the mapping; forcing a CSV's encoding or
+ * delimiter stays in « Options avancées », closed by default.
  */
 @Component({
   selector: 'alco-import-page',
   imports: [
     RouterLink,
+    AlcoBadge,
     AlcoButton,
     AlcoCard,
     AlcoErrorState,
@@ -134,18 +172,27 @@ export class ImportPage {
   protected readonly canValidate = computed(() => this.session.can('imports_exports.validate'));
   protected readonly canExecute = computed(() => this.session.can('imports_exports.execute'));
   protected readonly summary = computed(() => this.run()?.summary ?? {});
-  /** The step shown: reading the file belongs to the first one. */
-  protected readonly step = computed(() => (this.phase() === 'read' ? 'file' : this.phase()));
-  /** What the server read, as it says it (`options`, `headers` of the run). */
+  /** The step shown: choosing the sheet belongs to the reading. */
+  protected readonly step = computed(() => (this.phase() === 'sheet' ? 'read' : this.phase()));
+  /** The visible sheets with data, when the server asks which one to read. */
+  protected readonly sheets = signal<readonly string[]>([]);
+  protected readonly chosenSheet = signal('');
+  /** The first rows read (the existing `rows/` endpoint), shown as they are. */
+  protected readonly previewRows = signal<readonly ImportRowDto[]>([]);
+  /** The file chosen is a workbook: no encoding nor delimiter applies to it. */
+  protected readonly chosenIsWorkbook = computed(() => /\.xlsx$/i.test(this.file()?.name ?? ''));
+  /** What the server read, as it says it (`content_type`, `options`, `headers` of the run). */
   protected readonly reading = computed(() => {
     const run = this.run();
     const encoding = String(run?.options['encoding'] ?? '');
     const delimiter = String(run?.options['delimiter'] ?? '');
     return {
       filename: run?.filename ?? '',
+      workbook: run?.content_type === WORKBOOK_CONTENT_TYPE,
+      sheet: String(run?.options['sheet'] ?? ''),
       encoding: ENCODINGS.find((option) => option.id === encoding)?.label ?? encoding,
       delimiter: DELIMITERS.find((option) => option.id === delimiter)?.label ?? delimiter,
-      columns: run?.headers.length ?? 0,
+      headers: run?.headers ?? [],
       rows: run?.summary.total ?? 0,
       forced: { encoding: this.encoding() !== '', delimiter: this.delimiter() !== '' },
     };
@@ -188,7 +235,7 @@ export class ImportPage {
       // Refused before sending: the server would refuse it too (Excel, PDF…).
       input.value = '';
       this.file.set(null);
-      this.error.set({ ...NOT_CSV, code: 'imports_file_rejected' });
+      this.error.set({ ...NOT_READABLE, code: 'imports_file_rejected' });
       return;
     }
     this.file.set(chosen);
@@ -230,7 +277,10 @@ export class ImportPage {
     this.mappingIncomplete.set(false);
   }
 
-  /** Step 1: a new run, the file sent, then read: the server finds its encoding and delimiter. */
+  /**
+   * Step 1: a new run, the file sent, then read by the server: a CSV's encoding and delimiter,
+   * a workbook's sheet. Several sheets with data: the user chooses (never the screen).
+   */
   protected async send(): Promise<void> {
     const file = this.file();
     const type = this.transfer.importType;
@@ -241,17 +291,49 @@ export class ImportPage {
       this.abandon();
       const created = await firstValueFrom(this.api.createImport(type));
       this.run.set(created);
-      await firstValueFrom(this.api.upload(created.public_id, file));
-      const parsed = await firstValueFrom(
-        this.api.parse(created.public_id, {
-          ...(this.encoding() ? { encoding: this.encoding() } : {}),
-          ...(this.delimiter() ? { delimiter: this.delimiter() } : {}),
+      this.run.set(await firstValueFrom(this.api.upload(created.public_id, file)));
+      await this.read(created.public_id);
+    });
+  }
+
+  /** The sheet chosen among those the server listed: read it. */
+  protected async readSheet(): Promise<void> {
+    const run = this.run();
+    if (!run || !this.chosenSheet()) {
+      return;
+    }
+    await this.command('sheet', () => this.read(run.public_id, this.chosenSheet()));
+  }
+
+  protected onSheet(event: Event): void {
+    this.chosenSheet.set((event.target as HTMLInputElement).value);
+  }
+
+  private async read(runId: string, sheet = ''): Promise<void> {
+    let parsed: ImportRunDto;
+    try {
+      parsed = await firstValueFrom(
+        this.api.parse(runId, {
+          ...(this.encoding() && !sheet ? { encoding: this.encoding() } : {}),
+          ...(this.delimiter() && !sheet ? { delimiter: this.delimiter() } : {}),
+          ...(sheet ? { sheet } : {}),
         }),
       );
-      this.run.set(parsed);
-      this.columns.set(this.suggestColumns(parsed.headers));
-      this.phase.set('read');
-    });
+    } catch (failure) {
+      const error = toApiError(failure);
+      const sheets = (error.details as { sheets?: string[] } | null)?.sheets;
+      if (error.code === 'imports_sheet_required' && sheets?.length) {
+        this.sheets.set(sheets);
+        this.chosenSheet.set('');
+        this.phase.set('sheet');
+        return;
+      }
+      throw failure;
+    }
+    this.run.set(parsed);
+    this.columns.set(this.suggestColumns(parsed.headers));
+    this.previewRows.set((await firstValueFrom(this.api.firstRows(runId, PREVIEW_ROWS))).results);
+    this.phase.set('read');
   }
 
   /** What was read is right: on to the mapping. */
@@ -273,7 +355,8 @@ export class ImportPage {
       const mapped = await firstValueFrom(
         this.api.map(run.public_id, this.columns(), {
           date_format: this.dateFormat(),
-          decimal_separator: this.decimalSeparator(),
+          // A workbook's numbers are read as numbers (written with « . »).
+          decimal_separator: this.reading().workbook ? '.' : this.decimalSeparator(),
         }),
       );
       this.run.set(mapped);
@@ -346,6 +429,9 @@ export class ImportPage {
     this.columns.set({});
     this.refusedRows.set([]);
     this.warningRows.set([]);
+    this.previewRows.set([]);
+    this.sheets.set([]);
+    this.chosenSheet.set('');
     this.error.set(null);
     this.phase.set('file');
   }
@@ -403,12 +489,10 @@ export class ImportPage {
       if (error.kind === 'unauthenticated') {
         return;
       }
-      const reason = (error.details as { reason?: string } | null)?.reason;
+      const reason = (error.details as { reason?: string } | null)?.reason ?? '';
+      const rejected = error.code === 'imports_file_rejected' ? FILE_REJECTIONS[reason] : null;
       this.error.set(
-        error.code === 'imports_file_rejected' &&
-          (reason === 'extension' || reason === 'not a text file')
-          ? { ...NOT_CSV, code: error.code }
-          : toUserError(error, TRANSFER_ERRORS),
+        rejected ? { ...rejected, code: error.code ?? '' } : toUserError(error, TRANSFER_ERRORS),
       );
     } finally {
       this.busy.set(null);

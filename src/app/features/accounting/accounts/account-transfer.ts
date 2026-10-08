@@ -14,7 +14,7 @@ export const ACCOUNT_TRANSFER: ContextualTransfer = {
   exportLabel: 'Exporter le plan comptable',
   importTitle: 'Import du plan comptable',
   importEffect:
-    'Crée les comptes à partir d’un fichier CSV (code, nom, type), sans hiérarchie ; un code déjà présent est ignoré, jamais modifié.',
+    'Crée les comptes (code, nom, type) à partir d’un fichier CSV ou Excel (.xlsx), sans hiérarchie ; un code déjà présent est ignoré, jamais modifié.',
   creationKey: 'accounts',
   countLabel: (count) => `${count} compte${count > 1 ? 's' : ''}`,
   backLabel: 'Retour au plan comptable',

@@ -192,7 +192,7 @@ export const ENTRY_TRANSFER: ContextualTransfer = {
   exportLabel: 'Exporter les écritures',
   importTitle: 'Import d’écritures',
   importEffect:
-    'Crée des écritures en brouillon à partir d’un fichier CSV ; elles restent à valider.',
+    'Crée des écritures en brouillon à partir d’un fichier CSV ou Excel (.xlsx) ; elles restent à valider.',
   creationKey: 'entries',
   countLabel: (count) => `${count} écriture${count > 1 ? 's' : ''}`,
   backLabel: 'Retour aux écritures',

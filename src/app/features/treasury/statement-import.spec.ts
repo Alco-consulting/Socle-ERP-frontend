@@ -137,9 +137,13 @@ describe('Trésorerie › Relevés › Import (Module 6)', () => {
     await view.stable();
     view.post('r1/parse/').flush(run('parsed', { options: { encoding: 'utf-8', delimiter: ';' } }));
     await view.stable();
+    httpMock()
+      .expectOne((req) => req.url === '/api/v1/imports-exports/imports/r1/rows/')
+      .flush({ count: 0, next: null, previous: null, results: [] });
+    await view.stable();
     // What the server read is shown, then the mapping.
     expect(view.element.textContent).toContain('Séparateur détecté');
-    await view.click('Continuer');
+    await view.click('Continuer vers la correspondance des colonnes');
     return view;
   }
 

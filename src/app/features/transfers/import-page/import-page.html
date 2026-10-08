@@ -20,53 +20,59 @@
           <div class="file">
             <label class="drop" for="import-file">
               <alco-icon name="upload" [size]="28" />
-              <span class="drop-title">Sélectionner un fichier CSV</span>
+              <span class="drop-title">Sélectionner un fichier CSV ou Excel (.xlsx)</span>
               <span class="alco-caption">5 Mo au plus ; la première ligne nomme les colonnes.</span>
             </label>
             <input
               id="import-file"
               class="alco-sr-only"
               type="file"
-              accept=".csv,.txt,text/csv"
+              accept=".csv,.txt,.xlsx,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
               (change)="onFile($event)"
             />
             @if (file(); as chosen) {
               <p class="chosen" role="status">
-                <alco-icon name="attachment" [size]="16" /> {{ chosen.name }}
+                <alco-icon [name]="chosenIsWorkbook() ? 'file-spreadsheet' : 'file'" [size]="16" />
+                {{ chosen.name }}
               </p>
             }
             <p class="note">
               <alco-icon name="info" [size]="16" />
-              L’encodage et le séparateur des colonnes sont lus dans le fichier.
+              Le serveur lit le fichier : la feuille d’un classeur, l’encodage et le séparateur d’un
+              CSV. Rien n’est enregistré avant la dernière étape.
             </p>
-            <details class="advanced">
-              <summary>Options avancées</summary>
-              <p class="alco-caption">
-                Seulement pour un fichier que la lecture automatique ne comprend pas.
-              </p>
-              <div class="options">
-                <alco-form-field label="Encodage">
-                  <select alcoSelect (change)="onEncoding($event)">
-                    <option value="" [selected]="encoding() === ''">Détection automatique</option>
-                    @for (option of encodings; track option.id) {
-                      <option [value]="option.id" [selected]="option.id === encoding()">
-                        {{ option.label }}
+            @if (!chosenIsWorkbook()) {
+              <details class="advanced">
+                <summary>Options avancées</summary>
+                <p class="alco-caption">
+                  Seulement pour un fichier CSV que la lecture automatique ne comprend pas.
+                </p>
+                <div class="options">
+                  <alco-form-field label="Encodage">
+                    <select alcoSelect (change)="onEncoding($event)">
+                      <option value="" [selected]="encoding() === ''">Détection automatique</option>
+                      @for (option of encodings; track option.id) {
+                        <option [value]="option.id" [selected]="option.id === encoding()">
+                          {{ option.label }}
+                        </option>
+                      }
+                    </select>
+                  </alco-form-field>
+                  <alco-form-field label="Séparateur de colonnes">
+                    <select alcoSelect (change)="onDelimiter($event)">
+                      <option value="" [selected]="delimiter() === ''">
+                        Détection automatique
                       </option>
-                    }
-                  </select>
-                </alco-form-field>
-                <alco-form-field label="Séparateur de colonnes">
-                  <select alcoSelect (change)="onDelimiter($event)">
-                    <option value="" [selected]="delimiter() === ''">Détection automatique</option>
-                    @for (option of delimiters; track option.id) {
-                      <option [value]="option.id" [selected]="option.id === delimiter()">
-                        {{ option.label }}
-                      </option>
-                    }
-                  </select>
-                </alco-form-field>
-              </div>
-            </details>
+                      @for (option of delimiters; track option.id) {
+                        <option [value]="option.id" [selected]="option.id === delimiter()">
+                          {{ option.label }}
+                        </option>
+                      }
+                    </select>
+                  </alco-form-field>
+                </div>
+              </details>
+            }
           </div>
           <div alcoCardFooter class="footer">
             <button alcoButton type="button" variant="ghost" (click)="back()">Annuler</button>
@@ -86,38 +92,142 @@
         </alco-card>
       }
 
-      @case ('read') {
-        @let read = reading();
+      @case ('sheet') {
         <alco-card
-          title="Fichier lu"
-          icon="check"
-          subtitle="Ce que le serveur a trouvé dans le fichier"
+          title="Choisir la feuille à importer"
+          icon="file-spreadsheet"
+          [subtitle]="(run()?.filename ?? '') + ' contient plusieurs feuilles avec des données.'"
         >
-          <dl class="facts">
-            <div>
-              <dt>Fichier détecté</dt>
-              <dd>{{ read.filename }}</dd>
-            </div>
-            <div>
-              <dt>{{ read.forced.encoding ? 'Encodage choisi' : 'Encodage détecté' }}</dt>
-              <dd>{{ read.encoding }}</dd>
-            </div>
-            <div>
-              <dt>{{ read.forced.delimiter ? 'Séparateur choisi' : 'Séparateur détecté' }}</dt>
-              <dd>{{ read.delimiter }}</dd>
-            </div>
-            <div>
-              <dt>Colonnes détectées</dt>
-              <dd>{{ read.columns }}</dd>
-            </div>
-            <div>
-              <dt>Lignes lues</dt>
-              <dd>{{ read.rows }}</dd>
-            </div>
-          </dl>
+          <fieldset class="sheets">
+            <legend class="alco-sr-only">Feuilles du classeur</legend>
+            @for (name of sheets(); track name) {
+              <label class="sheet" [class.selected]="chosenSheet() === name">
+                <input
+                  type="radio"
+                  name="sheet"
+                  [value]="name"
+                  [checked]="chosenSheet() === name"
+                  (change)="onSheet($event)"
+                />
+                <alco-icon name="file-spreadsheet" [size]="18" />
+                <span>{{ name }}</span>
+              </label>
+            }
+          </fieldset>
           <div alcoCardFooter class="footer">
             <button alcoButton type="button" variant="ghost" (click)="restart()">
-              Autre fichier
+              Choisir un autre fichier
+            </button>
+            <button
+              alcoButton
+              type="button"
+              variant="primary"
+              trailingIcon="chevron-right"
+              [disabled]="!chosenSheet()"
+              [loading]="busy() === 'sheet'"
+              loadingLabel="Lecture de la feuille…"
+              (click)="readSheet()"
+            >
+              Lire cette feuille
+            </button>
+          </div>
+        </alco-card>
+      }
+
+      @case ('read') {
+        @let read = reading();
+        <alco-card>
+          <div class="analysis">
+            <div class="analysis-head">
+              <span class="file-icon" [class.workbook]="read.workbook" aria-hidden="true">
+                <alco-icon [name]="read.workbook ? 'file-spreadsheet' : 'file'" [size]="26" />
+              </span>
+              <div class="file-title">
+                <alco-badge tone="success" icon="check-circle">Fichier analysé</alco-badge>
+                <h2 class="file-name">{{ read.filename }}</h2>
+                @if (!read.workbook) {
+                  <p class="alco-caption">
+                    {{ read.forced.encoding ? 'Encodage choisi' : 'Encodage détecté' }} :
+                    {{ read.encoding }} ·
+                    {{ read.forced.delimiter ? 'Séparateur choisi' : 'Séparateur détecté' }} :
+                    {{ read.delimiter }}
+                  </p>
+                }
+              </div>
+              <button
+                alcoButton
+                type="button"
+                variant="ghost"
+                size="sm"
+                icon="refresh"
+                class="replace"
+                (click)="restart()"
+              >
+                Remplacer le fichier
+              </button>
+            </div>
+
+            <dl class="stats">
+              <div>
+                <dt>Format</dt>
+                <dd>{{ read.workbook ? 'Excel (.xlsx)' : 'CSV / TXT' }}</dd>
+              </div>
+              @if (read.workbook && read.sheet) {
+                <div>
+                  <dt>Feuille</dt>
+                  <dd>{{ read.sheet }}</dd>
+                </div>
+              }
+              <div>
+                <dt>Colonnes détectées</dt>
+                <dd>{{ read.headers.length }}</dd>
+              </div>
+              <div>
+                <dt>Lignes de données lues</dt>
+                <dd>{{ read.rows }}</dd>
+              </div>
+            </dl>
+
+            <section class="sample">
+              <h3 id="sample-title" class="sample-title">Aperçu des données</h3>
+              @if (previewRows().length > 0) {
+                <div class="sample-table" role="region" aria-labelledby="sample-title" tabindex="0">
+                  <table>
+                    <caption class="alco-sr-only">
+                      Premières lignes lues dans le fichier, telles que le serveur les a lues
+                    </caption>
+                    <thead>
+                      <tr>
+                        <th scope="col" class="line">Ligne</th>
+                        @for (header of read.headers; track header) {
+                          <th scope="col">{{ header }}</th>
+                        }
+                      </tr>
+                    </thead>
+                    <tbody>
+                      @for (row of previewRows(); track row.line_number) {
+                        <tr>
+                          <td class="line">{{ row.line_number }}</td>
+                          @for (header of read.headers; track header) {
+                            <td>{{ row.raw[header] }}</td>
+                          }
+                        </tr>
+                      }
+                    </tbody>
+                  </table>
+                </div>
+                <p class="alco-caption">
+                  {{ previewRows().length }} premières lignes sur {{ read.rows }} : toutes seront
+                  contrôlées à l’étape suivante.
+                </p>
+              } @else {
+                <p class="note">Le fichier ne contient que la ligne des en-têtes.</p>
+              }
+            </section>
+          </div>
+          <div alcoCardFooter class="footer">
+            <button alcoButton type="button" variant="ghost" (click)="restart()">
+              Choisir un autre fichier
             </button>
             <button
               alcoButton
@@ -126,7 +236,7 @@
               trailingIcon="chevron-right"
               (click)="continueToMapping()"
             >
-              Continuer
+              Continuer vers la correspondance des colonnes
             </button>
           </div>
         </alco-card>
@@ -143,10 +253,17 @@
               Associez une colonne du fichier à chaque champ obligatoire.
             </p>
           }
-          @if (readsDates() || readsAmounts()) {
+          @if (readsDates() || (readsAmounts() && !reading().workbook)) {
             <div class="options">
               @if (readsDates()) {
-                <alco-form-field label="Format des dates" hint="Comme dans le fichier.">
+                <alco-form-field
+                  label="Format des dates"
+                  [hint]="
+                    reading().workbook
+                      ? 'Les cellules date d’Excel sont lues en AAAA-MM-JJ.'
+                      : 'Comme dans le fichier.'
+                  "
+                >
                   <select alcoSelect (change)="onDateFormat($event)">
                     @for (option of dateFormats; track option.id) {
                       <option [value]="option.id" [selected]="option.id === dateFormat()">
@@ -156,7 +273,7 @@
                   </select>
                 </alco-form-field>
               }
-              @if (readsAmounts()) {
+              @if (readsAmounts() && !reading().workbook) {
                 <alco-form-field label="Séparateur décimal">
                   <select alcoSelect (change)="onDecimalSeparator($event)">
                     @for (option of decimalSeparators; track option.id) {

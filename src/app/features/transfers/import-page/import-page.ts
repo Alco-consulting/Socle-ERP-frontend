@@ -42,7 +42,15 @@ const IMPORT_UNAVAILABLE = {
   message: 'Le serveur ne le propose pas : rien ne peut être importé ici pour le moment.',
 };
 
-type Phase = 'file' | 'mapping' | 'checks' | 'preview' | 'done';
+/** `read`: the file was read; what the server found is shown before the mapping. */
+type Phase = 'file' | 'read' | 'mapping' | 'checks' | 'preview' | 'done';
+
+/** Only CSV text is read (Excel is not, in this version). */
+const READABLE = /.(csv|txt)$/i;
+const NOT_CSV = {
+  title: 'Format non pris en charge. Utilisez un fichier CSV.',
+  message: 'Enregistrez le classeur en CSV (UTF-8 ou point-virgule) puis choisissez ce fichier.',
+};
 
 const STEPS = [
   { id: 'file', label: 'Fichier' },
@@ -68,6 +76,8 @@ function comparable(text: string): string {
  * imported by no one (all or nothing, decided by the server). The domain is given by the
  * route (`data.transfer`). Each step needs its own permission (`imports_exports.create`,
  * `.validate`, `.execute`): without it, the screen says so instead of offering the button.
+ * The user only chooses the file: its encoding and delimiter are read by the server and
+ * shown; forcing them stays in « Options avancées », closed by default.
  */
 @Component({
   selector: 'alco-import-page',
@@ -106,8 +116,9 @@ export class ImportPage {
   protected readonly run = signal<ImportRunDto | null>(null);
   protected readonly fields = signal<readonly ImportFieldDto[] | null>(null);
   protected readonly file = signal<File | null>(null);
-  protected readonly encoding = signal<string>('utf-8');
-  protected readonly delimiter = signal<string>(',');
+  /** « Options avancées »: empty = read from the file by the server (the normal way). */
+  protected readonly encoding = signal<string>('');
+  protected readonly delimiter = signal<string>('');
   /** How the file writes dates and amounts: the server's defaults unless changed. */
   protected readonly dateFormat = signal<string>(DATE_FORMATS[0].id);
   protected readonly decimalSeparator = signal<string>(DECIMAL_SEPARATORS[0].id);
@@ -123,6 +134,22 @@ export class ImportPage {
   protected readonly canValidate = computed(() => this.session.can('imports_exports.validate'));
   protected readonly canExecute = computed(() => this.session.can('imports_exports.execute'));
   protected readonly summary = computed(() => this.run()?.summary ?? {});
+  /** The step shown: reading the file belongs to the first one. */
+  protected readonly step = computed(() => (this.phase() === 'read' ? 'file' : this.phase()));
+  /** What the server read, as it says it (`options`, `headers` of the run). */
+  protected readonly reading = computed(() => {
+    const run = this.run();
+    const encoding = String(run?.options['encoding'] ?? '');
+    const delimiter = String(run?.options['delimiter'] ?? '');
+    return {
+      filename: run?.filename ?? '',
+      encoding: ENCODINGS.find((option) => option.id === encoding)?.label ?? encoding,
+      delimiter: DELIMITERS.find((option) => option.id === delimiter)?.label ?? delimiter,
+      columns: run?.headers.length ?? 0,
+      rows: run?.summary.total ?? 0,
+      forced: { encoding: this.encoding() !== '', delimiter: this.delimiter() !== '' },
+    };
+  });
   protected readonly creations = computed(
     () => this.summary().preview?.creations[this.transfer.creationKey] ?? 0,
   );
@@ -154,8 +181,17 @@ export class ImportPage {
   }
 
   protected onFile(event: Event): void {
-    this.file.set((event.target as HTMLInputElement).files?.[0] ?? null);
+    const input = event.target as HTMLInputElement;
+    const chosen = input.files?.[0] ?? null;
     this.error.set(null);
+    if (chosen && !READABLE.test(chosen.name)) {
+      // Refused before sending: the server would refuse it too (Excel, PDF…).
+      input.value = '';
+      this.file.set(null);
+      this.error.set({ ...NOT_CSV, code: 'imports_file_rejected' });
+      return;
+    }
+    this.file.set(chosen);
   }
 
   protected onEncoding(event: Event): void {
@@ -194,7 +230,7 @@ export class ImportPage {
     this.mappingIncomplete.set(false);
   }
 
-  /** Step 1: a new run, the file sent, then read with the chosen encoding and separator. */
+  /** Step 1: a new run, the file sent, then read: the server finds its encoding and delimiter. */
   protected async send(): Promise<void> {
     const file = this.file();
     const type = this.transfer.importType;
@@ -208,14 +244,19 @@ export class ImportPage {
       await firstValueFrom(this.api.upload(created.public_id, file));
       const parsed = await firstValueFrom(
         this.api.parse(created.public_id, {
-          encoding: this.encoding(),
-          delimiter: this.delimiter(),
+          ...(this.encoding() ? { encoding: this.encoding() } : {}),
+          ...(this.delimiter() ? { delimiter: this.delimiter() } : {}),
         }),
       );
       this.run.set(parsed);
       this.columns.set(this.suggestColumns(parsed.headers));
-      this.phase.set('mapping');
+      this.phase.set('read');
     });
+  }
+
+  /** What was read is right: on to the mapping. */
+  protected continueToMapping(): void {
+    this.phase.set('mapping');
   }
 
   /** Step 2: the mapping, then the checks of every row (nothing written). */
@@ -359,9 +400,16 @@ export class ImportPage {
       await work();
     } catch (failure) {
       const error = toApiError(failure);
-      if (error.kind !== 'unauthenticated') {
-        this.error.set(toUserError(error, TRANSFER_ERRORS));
+      if (error.kind === 'unauthenticated') {
+        return;
       }
+      const reason = (error.details as { reason?: string } | null)?.reason;
+      this.error.set(
+        error.code === 'imports_file_rejected' &&
+          (reason === 'extension' || reason === 'not a text file')
+          ? { ...NOT_CSV, code: error.code }
+          : toUserError(error, TRANSFER_ERRORS),
+      );
     } finally {
       this.busy.set(null);
     }

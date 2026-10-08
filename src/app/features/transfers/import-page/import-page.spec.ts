@@ -2,7 +2,13 @@ import { TestBed } from '@angular/core/testing';
 import { provideRouter } from '@angular/router';
 import { RouterTestingHarness } from '@angular/router/testing';
 
-import { clearCookie, httpMock, provideHttpTesting, setCookie } from '../../../core/http/testing';
+import {
+  clearCookie,
+  envelope,
+  httpMock,
+  provideHttpTesting,
+  setCookie,
+} from '../../../core/http/testing';
 import { SessionStore } from '../../../core/session/session.store';
 import { openTestSession } from '../../../core/session/testing';
 import { AlcoConfirmService } from '../../../shared/ui/confirm-dialog/confirm-dialog';
@@ -98,10 +104,38 @@ describe('ImportPage (contextual import on the API)', () => {
     page.post('r1/upload/').flush(run('uploaded'));
     await page.stable();
     const parse = page.post('r1/parse/');
-    expect(parse.request.body).toEqual({ encoding: 'utf-8', delimiter: ',' });
-    parse.flush(run('parsed'));
+    // Nothing technical is chosen: the server reads the encoding and the delimiter.
+    expect(parse.request.body).toEqual({});
+    parse.flush(run('parsed', { options: { encoding: 'utf-8-sig', delimiter: ';' } }));
+    await page.stable();
+    await page.click('Continuer');
+    return page;
+  }
+
+  /** The file chosen (not sent yet). */
+  async function withFile(name = 'tiers.csv') {
+    const page = await open();
+    const input = page.element.querySelector<HTMLInputElement>('input[type=file]')!;
+    Object.defineProperty(input, 'files', { value: [new File(['x'], name)] });
+    input.dispatchEvent(new Event('change'));
     await page.stable();
     return page;
+  }
+
+  /** Sent: created and uploaded; the parse request is left to the test. */
+  async function sent(page: Awaited<ReturnType<typeof withFile>>) {
+    await page.click('Envoyer et lire le fichier');
+    page.post('').flush(run('created'));
+    await page.stable();
+    page.post('r1/upload/').flush(run('uploaded'));
+    await page.stable();
+    return page.post('r1/parse/');
+  }
+
+  /** Leaving: the unfinished run is cancelled. */
+  function leave(page: Awaited<ReturnType<typeof withFile>>) {
+    page.harness.fixture.destroy();
+    page.post('r1/cancel/').flush(run('cancelled'));
   }
 
   afterEach(() => {
@@ -117,6 +151,101 @@ describe('ImportPage (contextual import on the API)', () => {
         .join(' '),
     );
     expect(rows).toEqual(['Code Oui', 'Nom Oui', 'Pays Oui', 'E-mail Non']);
+  });
+
+  it('only the file is asked; what the server read is shown, then the mapping', async () => {
+    const page = await withFile();
+    const advanced = page.element.querySelector<HTMLDetailsElement>('details.advanced')!;
+    expect(advanced.open).toBe(false);
+    expect(advanced.querySelector('summary')?.textContent?.trim()).toBe('Options avancées');
+    (await sent(page)).flush(run('parsed', { options: { encoding: 'cp1252', delimiter: '\t' } }));
+    await page.stable();
+    const facts = Array.from(page.element.querySelectorAll('.facts div')).map(
+      (item) =>
+        `${item.querySelector('dt')?.textContent?.trim()} ${item.querySelector('dd')?.textContent?.trim()}`,
+    );
+    expect(facts).toEqual([
+      'Fichier détecté tiers.csv',
+      'Encodage détecté Windows (cp1252)',
+      'Séparateur détecté Tabulation',
+      'Colonnes détectées 4',
+      'Lignes lues 2',
+    ]);
+    expect(page.element.querySelector('.mapping')).toBeNull();
+    await page.click('Continuer');
+    expect(page.element.querySelector('.mapping')).not.toBeNull();
+    leave(page);
+  });
+
+  it('options avancées: only a forced value is sent, and said « choisi »', async () => {
+    const page = await withFile();
+    const select = page.element.querySelectorAll<HTMLSelectElement>('details.advanced select')[1];
+    select.value = ';';
+    select.dispatchEvent(new Event('change'));
+    const parse = await sent(page);
+    expect(parse.request.body).toEqual({ delimiter: ';' });
+    parse.flush(run('parsed', { options: { encoding: 'utf-8', delimiter: ';' } }));
+    await page.stable();
+    expect(page.element.textContent).toContain('Séparateur choisi');
+    expect(page.element.textContent).toContain('Encodage détecté');
+    leave(page);
+  });
+
+  for (const [code, text] of [
+    [
+      'imports_encoding_undetermined',
+      'Impossible de déterminer automatiquement l’encodage du fichier.',
+    ],
+    [
+      'imports_delimiter_undetermined',
+      'Impossible de déterminer automatiquement le séparateur des colonnes.',
+    ],
+  ]) {
+    it(`an undecided file stays blocked, with the reason (${code})`, async () => {
+      const page = await withFile();
+      (await sent(page)).flush(envelope(code), { status: 400, statusText: 'x' });
+      await page.stable();
+      expect(page.element.textContent).toContain(text);
+      expect(page.element.querySelector('.facts')).toBeNull();
+      leave(page);
+    });
+  }
+
+  it('an Excel file is refused before sending', async () => {
+    const page = await withFile('plan.xlsx');
+    expect(page.element.textContent).toContain(
+      'Format non pris en charge. Utilisez un fichier CSV.',
+    );
+    const send = Array.from(page.element.querySelectorAll('button')).find((button) =>
+      button.textContent?.includes('Envoyer et lire le fichier'),
+    );
+    expect(send?.disabled).toBe(true);
+  });
+
+  it('an Excel file named .csv is refused by the server, said the same way', async () => {
+    const page = await withFile('plan.csv');
+    await page.click('Envoyer et lire le fichier');
+    page.post('').flush(run('created'));
+    await page.stable();
+    page.post('r1/upload/').flush(
+      {
+        error: {
+          code: 'imports_file_rejected',
+          message: 'x',
+          details: { reason: 'not a text file' },
+          correlation_id: 'c',
+        },
+      },
+      {
+        status: 400,
+        statusText: 'x',
+      },
+    );
+    await page.stable();
+    expect(page.element.textContent).toContain(
+      'Format non pris en charge. Utilisez un fichier CSV.',
+    );
+    leave(page);
   });
 
   it('the whole import: file, mapping, checks, preview, then the only write', async () => {
@@ -224,6 +353,7 @@ describe('ImportPage (contextual import on the API)', () => {
     await page.stable();
     page.post('r1/parse/').flush(run('parsed'));
     await page.stable();
+    await page.click('Continuer');
     await page.click('Contrôler les lignes');
     page.post('r1/map/').flush(run('mapped'));
     await page.stable();

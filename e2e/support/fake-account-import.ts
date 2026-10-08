@@ -64,6 +64,23 @@ export const ACCOUNT_IMPORT_SCENARIOS: Record<string, Scenario> = {
   },
 };
 
+/**
+ * What the server reads in each file (encoding, delimiter), or why it cannot decide: an
+ * explicit fixture by file name — nothing is detected here. Default: UTF-8 with BOM, « ; ».
+ */
+export const ACCOUNT_FILE_READINGS: Record<
+  string,
+  { encoding: string; delimiter: string } | string
+> = {
+  'plan-comptable.csv': { encoding: 'utf-8-sig', delimiter: ';' },
+  'plan-utf8.csv': { encoding: 'utf-8', delimiter: ',' },
+  'plan-windows.csv': { encoding: 'cp1252', delimiter: ';' },
+  'plan-tabulation.csv': { encoding: 'utf-8', delimiter: '\t' },
+  'plan-ambigu.csv': 'imports_delimiter_undetermined',
+  'plan-illisible.csv': 'imports_encoding_undetermined',
+  'plan-casse.csv': 'imports_parse_failed',
+};
+
 interface Run {
   public_id: string;
   company: string;
@@ -167,17 +184,31 @@ export class FakeAccountImport {
         run.scenario = ACCOUNT_IMPORT_SCENARIOS[run.filename] ?? null;
         run.status = 'uploaded';
         break;
-      case 'parse':
+      case 'parse': {
+        const reading =
+          ACCOUNT_FILE_READINGS[run.filename] ?? ACCOUNT_FILE_READINGS['plan-comptable.csv'];
+        // An option forced in « Options avancées » decides, as on the server: it settles
+        // what the file alone left undecided.
+        const forced = (request.postDataJSON() ?? {}) as Record<string, string>;
+        const settled =
+          (reading === 'imports_delimiter_undetermined' && forced['delimiter']) ||
+          (reading === 'imports_encoding_undetermined' && forced['encoding']);
+        if (typeof reading === 'string' && !settled) {
+          return this.answer(route, 400, error(reading));
+        }
+        const found = typeof reading === 'string' ? { encoding: 'utf-8', delimiter: ';' } : reading;
+        run.options = { ...found, ...forced };
         run.status = 'parsed';
         run.summary = { total: scenario().summary['total'] };
         break;
+      }
       case 'map': {
         const body = request.postDataJSON() as {
           columns: Record<string, string>;
           options?: Record<string, string>;
         };
         run.columns = body.columns;
-        run.options = body.options ?? {};
+        run.options = { ...run.options, ...(body.options ?? {}) };
         run.status = 'mapped';
         break;
       }

@@ -204,3 +204,35 @@
     font-variant-numeric: tabular-nums;
   }
 }
+
+.advanced {
+  margin-top: var(--space-3);
+
+  summary {
+    cursor: pointer;
+    color: var(--color-text-muted);
+    font-size: var(--font-size-caption);
+  }
+
+  .options {
+    margin-top: var(--space-2);
+  }
+}
+
+.facts {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(10rem, 1fr));
+  gap: var(--space-3);
+  margin: 0;
+
+  dt {
+    color: var(--color-text-muted);
+    font-size: var(--font-size-caption);
+  }
+
+  dd {
+    margin: 0;
+    font-weight: var(--font-weight-semibold);
+    overflow-wrap: anywhere;
+  }
+}

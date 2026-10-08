@@ -36,6 +36,8 @@ async function importFile(page: Page, name: string) {
     buffer: Buffer.from('account;amount\nBQ-GNF;300000\n'),
   });
   await page.getByRole('button', { name: 'Envoyer et lire le fichier' }).click();
+  await expect(page.getByText('Encodage détecté')).toBeVisible();
+  await page.getByRole('button', { name: 'Continuer' }).click();
   await expect(page.getByText('Correspondance des colonnes').first()).toBeVisible();
   await page.getByRole('combobox', { name: 'Format des dates' }).selectOption('%d/%m/%Y');
   await page.getByRole('combobox', { name: 'Séparateur décimal' }).selectOption(',');

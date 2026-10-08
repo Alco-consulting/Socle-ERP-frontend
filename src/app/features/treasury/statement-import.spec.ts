@@ -135,8 +135,11 @@ describe('Trésorerie › Relevés › Import (Module 6)', () => {
     await view.stable();
     view.post('r1/upload/').flush(run('uploaded'));
     await view.stable();
-    view.post('r1/parse/').flush(run('parsed'));
+    view.post('r1/parse/').flush(run('parsed', { options: { encoding: 'utf-8', delimiter: ';' } }));
     await view.stable();
+    // What the server read is shown, then the mapping.
+    expect(view.element.textContent).toContain('Séparateur détecté');
+    await view.click('Continuer');
     return view;
   }
 

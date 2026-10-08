@@ -235,6 +235,7 @@ test('tiers: list, record, form, import', async ({ page, api }) => {
     buffer: Buffer.from(['Code,Nom,Pays', 'IMP-001,Import Un,GN', ',Sans nom,GN', ''].join('\n')),
   });
   await page.getByRole('button', { name: 'Envoyer et lire le fichier' }).click();
+  await page.getByRole('button', { name: 'Continuer' }).click();
   await shoot(page, '73-tiers-import-mapping', true);
   await page.getByRole('button', { name: 'Contrôler les lignes' }).click();
   await shoot(page, '74-tiers-import-refused-rows', true);

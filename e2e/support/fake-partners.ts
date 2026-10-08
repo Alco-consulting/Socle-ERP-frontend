@@ -462,7 +462,10 @@ export class FakePartners {
       filename: run.filename,
       headers: run.headers,
       columns: run.columns,
-      options: {},
+      // The reading the server gives once parsed (fixture: the partner files are UTF-8, « , »).
+      options: ['created', 'uploaded'].includes(run.status)
+        ? {}
+        : { encoding: 'utf-8', delimiter: ',' },
       summary: run.summary,
       error: {},
     };

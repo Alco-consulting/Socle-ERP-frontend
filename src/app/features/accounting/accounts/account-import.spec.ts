@@ -178,7 +178,14 @@ describe('Import du plan comptable (accounting.accounts)', () => {
       await settle();
       httpMock()
         .expectOne('/api/v1/imports-exports/imports/r1/parse/')
-        .flush({ ...run, status: 'parsed' });
+        .flush({ ...run, status: 'parsed', options: { encoding: 'utf-8-sig', delimiter: ';' } });
+      await settle();
+      await harness.fixture.whenStable();
+      expect(element.textContent).toContain('Encodage détecté');
+      expect(element.textContent).toContain('UTF-8 avec BOM (Excel)');
+      Array.from(element.querySelectorAll('button'))
+        .find((button) => button.textContent?.trim() === 'Continuer')
+        ?.click();
       await settle();
       await harness.fixture.whenStable();
 

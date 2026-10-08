@@ -148,7 +148,11 @@ export class TransfersApi {
     return this.api.upload<ImportRunDto>(`${imports}${runId}/upload/`, data);
   }
 
-  parse(runId: string, options: { encoding: string; delimiter: string }): Observable<ImportRunDto> {
+  /** Without `encoding` or `delimiter`, the server reads them from the file (and returns them in `options`). */
+  parse(
+    runId: string,
+    options: { encoding?: string; delimiter?: string } = {},
+  ): Observable<ImportRunDto> {
     return this.api.post<ImportRunDto>(`${imports}${runId}/parse/`, options);
   }
 

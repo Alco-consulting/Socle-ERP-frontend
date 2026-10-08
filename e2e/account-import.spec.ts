@@ -35,10 +35,28 @@ async function sendFile(page: Page, name: string) {
     mimeType: 'text/csv',
     buffer: Buffer.from('Code;Nom du compte;Type\n101100;Capital;Capitaux propres\n'),
   });
-  await page.getByRole('combobox', { name: 'Séparateur de colonnes' }).selectOption(';');
   await page.getByRole('button', { name: 'Envoyer et lire le fichier' }).click();
+  await expect(page.getByText('Encodage détecté')).toBeVisible();
+  await page.getByRole('button', { name: 'Continuer' }).click();
   await expect(page.getByText('Correspondance des colonnes').first()).toBeVisible();
 }
+
+/** The file chosen and sent; what the server read (or its refusal) is on screen. */
+async function read(page: Page, name: string) {
+  await openImport(page);
+  await page.locator('input[type=file]').setInputFiles({
+    name,
+    mimeType: 'text/csv',
+    buffer: Buffer.from('Code;Nom du compte;Type\n101100;Capital;Capitaux propres\n'),
+  });
+  await page.getByRole('button', { name: 'Envoyer et lire le fichier' }).click();
+}
+
+const fact = (page: Page, label: string) =>
+  page
+    .locator('.facts div')
+    .filter({ has: page.getByText(label, { exact: true }) })
+    .locator('dd');
 
 async function check(page: Page, name: string) {
   await openImport(page);
@@ -134,6 +152,87 @@ test.describe('Plan comptable — import', () => {
   });
 });
 
+test.describe('Plan comptable — import : lecture du fichier par le serveur', () => {
+  test('seul le fichier est demandé ; les options avancées restent fermées', async ({ page }) => {
+    await openImport(page);
+    await expect(
+      page.getByText('L’encodage et le séparateur des colonnes sont lus dans le fichier.'),
+    ).toBeVisible();
+    await expect(page.getByRole('combobox', { name: 'Encodage' })).toBeHidden();
+    await expect(page.getByRole('combobox', { name: 'Séparateur de colonnes' })).toBeHidden();
+    await page.getByText('Options avancées').click();
+    await expect(page.getByRole('combobox', { name: 'Encodage' })).toHaveValue('');
+  });
+
+  for (const [name, encoding, delimiter] of [
+    ['plan-utf8.csv', 'UTF-8', 'Virgule ( , )'],
+    ['plan-comptable.csv', 'UTF-8 avec BOM (Excel)', 'Point-virgule ( ; )'],
+    ['plan-windows.csv', 'Windows (cp1252)', 'Point-virgule ( ; )'],
+    ['plan-tabulation.csv', 'UTF-8', 'Tabulation'],
+  ] as const) {
+    test(`${name} : ${encoding}, ${delimiter}, détectés puis la correspondance`, async ({
+      page,
+      api,
+    }) => {
+      await read(page, name);
+      await expect(fact(page, 'Fichier détecté')).toHaveText(name);
+      await expect(fact(page, 'Encodage détecté')).toHaveText(encoding);
+      await expect(fact(page, 'Séparateur détecté')).toHaveText(delimiter);
+      await expect(fact(page, 'Colonnes détectées')).toHaveText('3');
+      // Nothing technical was sent: the server read it.
+      const parse = api.calls.find((call) => call.url().endsWith('/parse/'))!;
+      expect(parse.postDataJSON()).toEqual({});
+      await page.getByRole('button', { name: 'Continuer' }).click();
+      await expect(page.getByRole('combobox', { name: 'Code' })).toHaveValue('Code');
+    });
+  }
+
+  for (const [name, message] of [
+    ['plan-ambigu.csv', 'Impossible de déterminer automatiquement le séparateur des colonnes.'],
+    ['plan-illisible.csv', 'Impossible de déterminer automatiquement l’encodage du fichier.'],
+    ['plan-casse.csv', 'Le fichier n’a pas pu être lu.'],
+  ] as const) {
+    test(`${name} : refusé, le fichier reste bloqué`, async ({ page }) => {
+      await read(page, name);
+      await expect(page.getByText(message)).toBeVisible();
+      await expect(page.getByRole('button', { name: 'Continuer' })).toHaveCount(0);
+      await expect(page.locator('.mapping')).toHaveCount(0);
+    });
+  }
+
+  test('options avancées : un séparateur forcé est envoyé et dit « choisi »', async ({
+    page,
+    api,
+  }) => {
+    await openImport(page);
+    await page.locator('input[type=file]').setInputFiles({
+      name: 'plan-ambigu.csv',
+      mimeType: 'text/csv',
+      buffer: Buffer.from('Code;Nom;Type\n'),
+    });
+    await page.getByText('Options avancées').click();
+    await page.getByRole('combobox', { name: 'Séparateur de colonnes' }).selectOption(';');
+    await page.getByRole('button', { name: 'Envoyer et lire le fichier' }).click();
+    await expect(fact(page, 'Séparateur choisi')).toHaveText('Point-virgule ( ; )');
+    const parse = api.calls.find((call) => call.url().endsWith('/parse/'))!;
+    expect(parse.postDataJSON()).toEqual({ delimiter: ';' });
+  });
+
+  test('un fichier Excel est refusé avant l’envoi', async ({ page, api }) => {
+    await openImport(page);
+    await page.locator('input[type=file]').setInputFiles({
+      name: 'plan.xlsx',
+      mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      buffer: Buffer.from('PK\u0003\u0004'),
+    });
+    await expect(
+      page.getByText('Format non pris en charge. Utilisez un fichier CSV.'),
+    ).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Envoyer et lire le fichier' })).toBeDisabled();
+    expect(api.calls.some((call) => call.url().endsWith('/upload/'))).toBe(false);
+  });
+});
+
 test.describe('Plan comptable — import : permissions, société, URL', () => {
   test('2. sans accounting.manage_accounts ou sans imports_exports.create : ni menu ni écran', async ({
     page,
@@ -211,6 +310,12 @@ test.describe('Plan comptable — import : tailles d’écran et accessibilité'
   test('13. axe sans violation : choix du fichier', async ({ page }) => {
     await openImport(page);
     await page.waitForLoadState('networkidle');
+    expect(await axe(page)).toEqual([]);
+  });
+
+  test('13. axe sans violation : fichier lu', async ({ page }) => {
+    await read(page, 'plan-comptable.csv');
+    await expect(page.getByText('Encodage détecté')).toBeVisible();
     expect(await axe(page)).toEqual([]);
   });
 

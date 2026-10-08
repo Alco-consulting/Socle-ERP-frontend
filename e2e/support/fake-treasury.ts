@@ -1202,6 +1202,8 @@ export class FakeTreasury {
         run.status = 'uploaded';
         break;
       case 'parse':
+        // The reading the server gives (fixture: the statement files are UTF-8, « ; »).
+        run.options = { encoding: 'utf-8', delimiter: ';' };
         run.status = 'parsed';
         run.summary = { total: scenario().summary['total'] };
         break;

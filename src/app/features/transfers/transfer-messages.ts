@@ -15,6 +15,20 @@ export const TRANSFER_ERRORS: ErrorCatalog = {
     title: 'Le fichier n’a pas pu être lu.',
     message: 'Vérifiez l’encodage et le séparateur choisis, puis réessayez.',
   },
+  imports_encoding_undetermined: {
+    title: 'Impossible de déterminer automatiquement l’encodage du fichier.',
+    message:
+      'Enregistrez-le en CSV UTF-8, ou choisissez l’encodage dans les options avancées, puis renvoyez-le.',
+  },
+  imports_delimiter_undetermined: {
+    title: 'Impossible de déterminer automatiquement le séparateur des colonnes.',
+    message:
+      'Vérifiez que chaque ligne a le même nombre de colonnes, ou choisissez le séparateur dans les options avancées.',
+  },
+  imports_encoding_invalid: {
+    title: 'Le fichier n’est pas dans l’encodage choisi.',
+    message: 'Laissez l’encodage en détection automatique, ou choisissez-en un autre.',
+  },
   imports_mapping_invalid: {
     title: 'La correspondance des colonnes ne convient pas.',
     message: 'Associez une colonne du fichier à chaque champ obligatoire.',

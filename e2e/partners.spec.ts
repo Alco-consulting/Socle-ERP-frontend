@@ -270,6 +270,8 @@ test.describe('Tiers — import et export contextuels', () => {
       ),
     });
     await page.getByRole('button', { name: 'Envoyer et lire le fichier' }).click();
+    await expect(page.getByText('Séparateur détecté')).toBeVisible();
+    await page.getByRole('button', { name: 'Continuer' }).click();
     await expect(page.getByText('2 lignes lues dans nouveaux-tiers.csv')).toBeVisible();
     await expect(page.getByRole('combobox', { name: 'Code', exact: true })).toHaveValue('Code');
     await page.getByRole('combobox', { name: 'Client (oui/non)' }).selectOption('Client');

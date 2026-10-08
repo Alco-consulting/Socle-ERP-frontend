@@ -339,6 +339,11 @@ supprime ce qui ne sert plus.
   bancaire est annulé (A6.1) — opération, écriture, lettrage et échéances inchangés, délettrage
   dans Lettrage. Faux serveur `e2e/support/fake-treasury.ts` : fixtures explicites, aucune
   correspondance jouée.
+- **Écran d'import générique** : l'utilisateur choisit seulement le fichier ; le serveur lit
+  l'encodage et le séparateur (`parse` sans corps), l'écran les montre (`options`,
+  `headers`) avant « Continuer ». Indécis : bloqué avec le motif. Forcer : « Options
+  avancées », fermées par défaut. Excel refusé (« Format non pris en charge. Utilisez un
+  fichier CSV. »).
 - **Import du plan comptable** : Plan comptable › Actions ▾ › Importer des comptes
   (`ACCOUNT_TRANSFER`, type `accounting.accounts`, route `plan-comptable/import`), écran
   d'import générique ; plan à plat (aucun parent), type traduit par le serveur. Validation et

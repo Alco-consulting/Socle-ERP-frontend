@@ -53,6 +53,9 @@ const ROW_MESSAGES: Readonly<Record<string, string>> = {
     'Une ligne du compte a déjà la même date, le même montant et la même référence : vérifiez qu’il ne s’agit pas d’un doublon.',
   statement_unbalanced:
     'Le solde d’ouverture plus les lignes diffère du solde de clôture : le relevé sera importé tel quel, à vérifier.',
+  // Chart of accounts (accounting.accounts): the server's labels only, never guessed.
+  unknown_account_type: 'Type inconnu : seuls les libellés validés du plan sont acceptés.',
+  accounting_account_code_exists: 'Ce code de compte existe déjà dans la société.',
   unknown_currency: 'Devise inconnue.',
   currency_inactive: 'Devise inactive.',
   validation_error: 'Valeur refusée par le serveur.',
@@ -66,6 +69,9 @@ export function rowMessage(message: ImportMessageDto): string {
   ) {
     // The server's figure, shown as given (never recomputed).
     return `${text} Écart : ${message.details['difference']}.`;
+  }
+  if (message.code === 'unknown_account_type' && typeof message.details['value'] === 'string') {
+    return `${text} Valeur lue : « ${message.details['value']} ».`;
   }
   return text ?? (message.level === 'warning' ? 'À vérifier.' : 'Refusé par le serveur.');
 }

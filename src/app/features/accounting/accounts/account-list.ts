@@ -28,6 +28,7 @@ import { AlcoIcon } from '../../../shared/ui/icon/icon';
 import { AlcoLoading } from '../../../shared/ui/loading/loading';
 import { AlcoPageHeader } from '../../../shared/ui/page-header/page-header';
 import { AlcoPagination } from '../../../shared/ui/pagination/pagination';
+import { AlcoDomainTransfers } from '../../transfers/domain-transfers';
 import {
   ACCOUNTING_REFERENTIAL_ERRORS,
   ACCOUNT_TYPES,
@@ -36,6 +37,7 @@ import {
 } from '../accounting-presentation';
 import { Account, AccountType, ActiveInactive } from '../data-access/accounting-models';
 import { ACCOUNT_PAGE_SIZE, AccountingApi } from '../data-access/accounting-api';
+import { ACCOUNT_TRANSFER } from './account-transfer';
 
 const PARAM = {
   search: 'q',
@@ -64,6 +66,7 @@ const GROUP_OPTIONS: readonly GroupOption[] = [{ id: 'classe', label: 'Classe' }
     AlcoBadge,
     AlcoButton,
     AlcoCell,
+    AlcoDomainTransfers,
     AlcoEmptyState,
     AlcoErrorState,
     AlcoFilterBar,
@@ -92,6 +95,11 @@ export class AccountListPage {
   protected readonly pageSize = ACCOUNT_PAGE_SIZE;
   protected readonly typeLabel = accountTypeLabel;
   protected readonly canManage = computed(() => this.session.can('accounting.manage_accounts'));
+  /** « Actions ▾ › Importer des comptes » (`accounting.accounts`): flat, checked by the server. */
+  protected readonly transfer = ACCOUNT_TRANSFER;
+  protected readonly canImport = computed(
+    () => this.canManage() && this.session.can('imports_exports.create'),
+  );
 
   protected readonly columns: readonly TableColumn[] = [
     { key: 'code', label: 'Code', width: '9rem' },

@@ -1,9 +1,10 @@
 <alco-page-header title="Plan comptable">
-  @if (canManage()) {
-    <div alcoPageActions>
+  <div alcoPageActions>
+    <alco-domain-transfers [transfer]="transfer" />
+    @if (canManage()) {
       <a alcoButton variant="primary" icon="plus" routerLink="nouveau">Nouveau compte</a>
-    </div>
-  }
+    }
+  </div>
 </alco-page-header>
 
 <div class="control-panel">
@@ -104,6 +105,9 @@
           </alco-empty-state>
         } @else {
           <alco-empty-state icon="book" title="Le plan comptable de cette société est vide.">
+            @if (canImport()) {
+              <a alcoButton icon="upload" routerLink="import">Importer des comptes</a>
+            }
             @if (canManage()) {
               <a alcoButton variant="primary" icon="plus" routerLink="nouveau">Créer un compte</a>
             }

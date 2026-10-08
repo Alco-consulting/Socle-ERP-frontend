@@ -3,6 +3,7 @@ import { Route, Routes } from '@angular/router';
 import { permissionGuard } from '../../core/navigation/app-access.guard';
 import { unsavedChangesGuard } from '../../core/navigation/unsaved-changes';
 import { TREASURY_ROUTES } from '../treasury/treasury.routes';
+import { ACCOUNT_TRANSFER } from './accounts/account-transfer';
 
 const dashboard = () =>
   import('./dashboard/accounting-dashboard').then((m) => m.AccountingDashboardPage);
@@ -31,7 +32,10 @@ function agedBalance(path: string, label: string, role: 'customer' | 'supplier')
   };
 }
 
-/** A referential list with its creation, record and modification (manage permission). */
+/**
+ * A referential list with its creation, record and modification (manage permission);
+ * `more`: other screens of the list (its import), placed before the record's `:id`.
+ */
 function referential(
   path: string,
   label: string,
@@ -43,6 +47,7 @@ function referential(
     detail: Route['loadComponent'];
     form: Route['loadComponent'];
   },
+  more: Routes = [],
 ): Route {
   return {
     path,
@@ -56,6 +61,7 @@ function referential(
         canDeactivate: [unsavedChangesGuard],
         loadComponent: screens.form,
       },
+      ...more,
       {
         path: ':id',
         // Named after the record once loaded (BreadcrumbService.nameCurrent).
@@ -105,6 +111,15 @@ export const ACCOUNTING_ROUTES: Routes = [
       detail: () => import('./accounts/account-detail').then((m) => m.AccountDetailPage),
       form: () => import('./accounts/account-form').then((m) => m.AccountFormPage),
     },
+    [
+      {
+        path: 'import',
+        data: { breadcrumb: 'Import du plan comptable', transfer: ACCOUNT_TRANSFER },
+        canActivate: [permissionGuard('imports_exports.create', 'accounting.manage_accounts')],
+        loadComponent: () =>
+          import('../transfers/import-page/import-page').then((m) => m.ImportPage),
+      },
+    ],
   ),
   // Lettering (V2.1 A4): lines, proposals, letterings; a lettering's record.
   {

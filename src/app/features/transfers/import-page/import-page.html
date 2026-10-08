@@ -63,7 +63,7 @@
               type="button"
               variant="primary"
               trailingIcon="chevron-right"
-              [disabled]="!file() || fields() === null"
+              [disabled]="!file() || fields() === null || fields()?.length === 0"
               [loading]="busy() === 'upload'"
               loadingLabel="Envoi et lecture…"
               (click)="send()"

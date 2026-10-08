@@ -37,6 +37,11 @@ import {
   TransfersApi,
 } from '../transfers-api';
 
+const IMPORT_UNAVAILABLE = {
+  title: 'Cet import n’est pas disponible.',
+  message: 'Le serveur ne le propose pas : rien ne peut être importé ici pour le moment.',
+};
+
 type Phase = 'file' | 'mapping' | 'checks' | 'preview' | 'done';
 
 const STEPS = [
@@ -127,10 +132,14 @@ export class ImportPage {
 
   constructor() {
     this.api.importTypes().subscribe({
-      next: (types) =>
-        this.fields.set(
-          types.find((type) => type.import_type === this.transfer.importType)?.fields ?? [],
-        ),
+      next: (types) => {
+        const offered = types.find((type) => type.import_type === this.transfer.importType);
+        this.fields.set(offered?.fields ?? []);
+        if (!offered) {
+          // The server does not offer this import (yet): no file is sent.
+          this.error.set({ ...IMPORT_UNAVAILABLE, code: 'import_type_unavailable' });
+        }
+      },
       error: (failure: unknown) => {
         this.fields.set([]);
         this.error.set(toUserError(failure, TRANSFER_ERRORS));

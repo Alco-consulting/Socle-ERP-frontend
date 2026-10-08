@@ -1,5 +1,6 @@
 import { Page, Request, test as base } from '@playwright/test';
 
+import { FakeAccountImport } from './fake-account-import';
 import { FakeAccounting } from './fake-accounting';
 import { FakeAccountingEntries } from './fake-accounting-entries';
 import { FakeDashboards } from './fake-dashboards';
@@ -182,6 +183,8 @@ export class FakeApi {
   readonly dues: FakeDues;
   /** Bank reconciliation: accounts, statement lines, proposals, reconciliations (fixtures). */
   readonly treasury: FakeTreasury;
+  /** Import of a chart of accounts (`accounting.accounts`, explicit scenarios). */
+  readonly accountImport: FakeAccountImport;
 
   constructor(private readonly page: Page) {
     const context: PartnersContext = {
@@ -208,6 +211,7 @@ export class FakeApi {
     this.lettering = new FakeLettering(context, this.accounting, this.partners, this.entries);
     this.dues = new FakeDues(context, this.accounting, this.partners, this.entries, this.lettering);
     this.treasury = new FakeTreasury(context, this.lettering);
+    this.accountImport = new FakeAccountImport(context, this.accounting);
   }
 
   /** No session open at start (the login screen). */
@@ -287,6 +291,7 @@ export class FakeApi {
     await this.lettering.install();
     await this.dues.install();
     await this.treasury.install();
+    await this.accountImport.install();
     await page.route('**/api/v1/auth/me/', (route) => {
       this.calls.push(route.request());
       if (this.down) {

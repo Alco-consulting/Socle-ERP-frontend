@@ -1,6 +1,7 @@
 import { Injectable, inject } from '@angular/core';
 import { Observable } from 'rxjs';
 
+import { APP_CONFIG } from '../../core/config/app-config';
 import { ApiClient, ApiFile, Paginated } from '../../core/http/api-client';
 
 /**
@@ -130,6 +131,8 @@ const imports = 'imports-exports/imports/';
 @Injectable({ providedIn: 'root' })
 export class TransfersApi {
   private readonly api = inject(ApiClient);
+  /** Checking or importing a large file (a chart of 1 245 accounts) takes longer than a read. */
+  private readonly longCommand = { timeoutMs: inject(APP_CONFIG).uploadTimeoutMs };
 
   importTypes(): Observable<readonly ImportTypeDto[]> {
     return this.api.get<readonly ImportTypeDto[]>('imports-exports/import-types/');
@@ -159,7 +162,7 @@ export class TransfersApi {
   }
 
   validate(runId: string): Observable<ImportRunDto> {
-    return this.api.post<ImportRunDto>(`${imports}${runId}/validate/`);
+    return this.api.post<ImportRunDto>(`${imports}${runId}/validate/`, null, this.longCommand);
   }
 
   preview(runId: string): Observable<ImportRunDto> {
@@ -168,7 +171,11 @@ export class TransfersApi {
 
   /** Synchronous: the answer is the finished run (completed or failed). */
   execute(runId: string): Observable<ImportRunDto> {
-    return this.api.post<ImportRunDto>(`${imports}${runId}/execute/`, { asynchronous: false });
+    return this.api.post<ImportRunDto>(
+      `${imports}${runId}/execute/`,
+      { asynchronous: false },
+      this.longCommand,
+    );
   }
 
   cancel(runId: string, reason: string): Observable<ImportRunDto> {

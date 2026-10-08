@@ -1,5 +1,6 @@
 import { Route } from '@playwright/test';
 
+import { ACCOUNT_IMPORT_FIELDS } from './fake-account-import';
 import { FakeLettering } from './fake-lettering';
 import { IMPORT_FIELDS, PartnersContext } from './fake-partners';
 import {
@@ -1159,6 +1160,7 @@ export class FakeTreasury {
         json: [
           { import_type: 'partners', fields: IMPORT_FIELDS },
           { import_type: 'treasury.statements', fields: STATEMENT_IMPORT_FIELDS },
+          { import_type: 'accounting.accounts', fields: ACCOUNT_IMPORT_FIELDS },
         ],
       });
     }

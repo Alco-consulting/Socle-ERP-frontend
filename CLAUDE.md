@@ -339,6 +339,10 @@ supprime ce qui ne sert plus.
   bancaire est annulé (A6.1) — opération, écriture, lettrage et échéances inchangés, délettrage
   dans Lettrage. Faux serveur `e2e/support/fake-treasury.ts` : fixtures explicites, aucune
   correspondance jouée.
+- **Import du plan comptable** : Plan comptable › Actions ▾ › Importer des comptes
+  (`ACCOUNT_TRANSFER`, type `accounting.accounts`, route `plan-comptable/import`), écran
+  d'import générique ; plan à plat (aucun parent), type traduit par le serveur. Validation et
+  import : délai `uploadTimeoutMs`. Faux serveur : `e2e/support/fake-account-import.ts`.
 - **Trésorerie (Module 6)** : `features/treasury` (ux-guidelines § 5 decies,
   technical-architecture § 7 octies), routes `tresorerie/…` de `treasury.routes.ts` servies
   parmi celles de la section (`placeholder-routes.ts` : accueil et fil d'Ariane de la section).

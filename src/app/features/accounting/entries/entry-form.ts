@@ -209,14 +209,19 @@ export class EntryFormPage {
   protected readonly journals = signal<readonly Pick<Journal, 'public_id' | 'code' | 'name'>[]>([]);
   protected readonly currencies = signal<readonly CurrencyOption[]>([]);
   protected readonly taxes = signal<readonly TaxOption[]>([]);
+  /** The default taxes of the accounts the search showed (proposed on a line, never imposed). */
+  private readonly defaultTaxes = new Map<string, readonly string[]>();
   protected readonly searchAccounts: AutocompleteSearch = (term) =>
     this.api.postableAccounts(term).pipe(
       map((accounts) =>
-        accounts.map((account) => ({
-          id: account.public_id,
-          label: account.code,
-          detail: account.name,
-        })),
+        accounts.map((account) => {
+          this.defaultTaxes.set(account.public_id, account.default_taxes ?? []);
+          return {
+            id: account.public_id,
+            label: account.code,
+            detail: account.name,
+          };
+        }),
       ),
     );
   protected readonly searchPartners: AutocompleteSearch = (term) =>
@@ -506,6 +511,22 @@ export class EntryFormPage {
   }
 
   private lineForm(line?: EntryLine): LineForm {
+    const group = this.lineGroup(line);
+    // Odoo's « Taxes par défaut »: an account chosen on a line without a tax proposes its first
+    // active default tax; the user may change it, the server checks it.
+    group.controls.account.valueChanges.subscribe((option) => {
+      const tax = group.controls.tax;
+      const proposed = option ? (this.defaultTaxes.get(option.id) ?? []) : [];
+      const usable = proposed.find((id) => this.taxes().some((item) => item.public_id === id));
+      if (usable && !tax.value) {
+        tax.setValue(usable);
+        tax.markAsDirty();
+      }
+    });
+    return group;
+  }
+
+  private lineGroup(line?: EntryLine): LineForm {
     const decimal = decimalFormat(AMOUNT_DECIMALS);
     return new FormGroup({
       account: new FormControl<AutocompleteOption | null>(

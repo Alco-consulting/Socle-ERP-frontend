@@ -193,25 +193,28 @@ test.describe('Comptabilité — plan comptable', () => {
     expect(await axe(page)).toEqual([]);
   });
 
-  test('type détaillé et devise : choisis dans le formulaire, montrés dans la liste', async ({
+  test('formulaire comme Odoo : type groupé, journaux autorisés, devise ; fiche et liste', async ({
     page,
   }) => {
     await page.goto('/app/comptabilite/plan-comptable/nouveau');
+    await expect(page.getByRole('heading', { level: 1 })).toHaveText('Nouveau compte');
+    // Only Odoo's fields: no class, description, parent nor « saisie autorisée ».
+    for (const gone of ['Classe', 'Description', 'Compte parent', 'Saisie d’écritures']) {
+      await expect(page.locator('form')).not.toContainText(gone);
+    }
     await page.getByLabel('Code').fill('401100');
-    await page.getByLabel('Intitulé').fill('Fournisseurs locaux');
-    await page.locator('select[formcontrolname="account_type"]').selectOption('liability');
-    // Only the detailed types of the nature chosen are offered.
-    const detailed = page.locator('select[formcontrolname="detailed_type"]');
-    await expect(detailed.locator('option')).toHaveText([
-      'Aucun',
-      'Dettes à court terme',
-      'Fournisseur',
-    ]);
-    await detailed.selectOption({ label: 'Fournisseur' });
+    await page.getByLabel('Nom du compte').fill('Fournisseurs locaux');
+    const type = page.locator('select[formcontrolname="detailed_type"]');
+    await expect(type.locator('optgroup')).toHaveCount(8);
+    await type.selectOption({ label: 'Fournisseur' });
     await page.locator('select[formcontrolname="currency"]').selectOption('GNF');
+    await page.getByRole('checkbox', { name: /^VTE/ }).check();
     await page.getByRole('button', { name: 'Enregistrer' }).click();
     await expect(page.getByRole('heading', { level: 1 })).toContainText('401100');
     await expect(page.getByText('Fournisseur', { exact: true }).first()).toBeVisible();
+    const facts = page.locator('dl.facts').first();
+    await expect(facts).toContainText('VTE');
+    await expect(facts).toContainText(COMPANY_A.trade_name);
     await page.goto('/app/comptabilite/plan-comptable?prefixe=4011');
     await expect(page.locator('tbody tr').first()).toContainText('Fournisseur');
     await expect(page.locator('tbody tr').first()).toContainText('GNF');

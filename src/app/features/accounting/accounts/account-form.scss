@@ -1,0 +1,53 @@
+@use 'breakpoints' as bp;
+
+// Odoo's account form: the code and the name first, large; then « Comptabilité » on two
+// columns (one on a phone).
+.identity {
+  display: grid;
+  gap: var(--space-4);
+  margin-bottom: var(--space-5);
+}
+
+.big {
+  font-size: var(--font-size-section-title);
+}
+
+.tab {
+  display: inline-block;
+  padding-bottom: var(--space-2);
+  border-bottom: 2px solid var(--color-primary);
+}
+
+.columns {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-5) var(--space-6);
+
+  @include bp.below-tablet {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+.column {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  min-width: 0;
+}
+
+.choices {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  max-height: 14rem;
+  margin: 0;
+  padding: var(--space-3);
+  overflow-y: auto;
+  border: var(--border-width) solid var(--color-border);
+  border-radius: var(--radius-md);
+
+  legend {
+    padding: 0 var(--space-1);
+    font-weight: var(--font-weight-medium);
+  }
+}

@@ -10,13 +10,14 @@ import {
 } from '@angular/core';
 import { FormControl, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
-import { catchError, firstValueFrom, of } from 'rxjs';
+import { catchError, firstValueFrom, map, of } from 'rxjs';
 
 import { serverFieldErrors } from '../../../core/errors/field-errors';
 import { UserError, toUserError } from '../../../core/errors/user-error';
 import { ApiError, toApiError } from '../../../core/http/api-error';
 import { BreadcrumbService } from '../../../core/navigation/route-trail';
 import { UnsavedChangesService } from '../../../core/navigation/unsaved-changes';
+import { SessionStore } from '../../../core/session/session.store';
 import { AlcoFormField } from '../../../shared/forms/form-field';
 import { AlcoInput } from '../../../shared/forms/input';
 import { AlcoButton } from '../../../shared/ui/button/button';
@@ -29,30 +30,27 @@ import { PartnersApi } from '../../partners/data-access/partners-api';
 import {
   ACCOUNTING_FIELD_MESSAGES,
   ACCOUNTING_REFERENTIAL_ERRORS,
-  ACCOUNT_TYPES,
-  DETAILED_TYPES,
+  TYPE_SECTIONS,
 } from '../accounting-presentation';
-import { Account, AccountType, AccountWrite, DetailedType } from '../data-access/accounting-models';
+import { Account, AccountWrite, DetailedType, Journal } from '../data-access/accounting-models';
 import { AccountingApi } from '../data-access/accounting-api';
+import { EntriesApi } from '../data-access/entries-api';
+import { TaxOption } from '../data-access/entry-models';
 
 /** Business refusals that belong to one field (by their stable code). */
 const FIELD_OF_CODE: Readonly<Record<string, [string, string]>> = {
   accounting_account_code_exists: ['code', 'Ce code est déjà utilisé par un autre compte.'],
-  accounting_account_cycle: [
-    'parent',
-    'Un compte ne peut pas être placé sous l’un de ses propres sous-comptes.',
+  accounting_account_currency_mismatch: [
+    'currency',
+    'Ce compte a déjà des écritures dans une autre devise.',
   ],
-  accounting_account_inactive: ['parent', 'Ce compte parent est inactif.'],
 };
 
-/** Raised when the parent code is not an account of the company (said under the field). */
-class UnknownParentError extends Error {}
-
 /**
- * Creation (`…/plan-comptable/nouveau`) and modification (`…/:id/modifier`) of an account
- * with exactly the fields of `AccountingAccountWriteRequest`. The parent is given by its
- * code and found by the server (`?code=`); the class is what the user types (never derived
- * from the code here); « saisie autorisée » starts as the server's default (yes). A
+ * Creation (`…/plan-comptable/nouveau`) and modification (`…/:id/modifier`) of an account,
+ * with the fields of Odoo's account form: code, name; « Comptabilité »: type (Odoo's list,
+ * its nature following on the server), default taxes, allowed journals, currency, lettering,
+ * obsolete (the account's state, through its commands), group and company (shown only). A
  * modification sends only the fields changed, never the code.
  */
 @Component({
@@ -68,7 +66,7 @@ class UnknownParentError extends Error {}
     AlcoPageHeader,
   ],
   templateUrl: './account-form.html',
-  styleUrl: '../accounting-sheet.scss',
+  styleUrls: ['../accounting-sheet.scss', './account-form.scss'],
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class AccountFormPage {
@@ -79,10 +77,14 @@ export class AccountFormPage {
   private readonly breadcrumbs = inject(BreadcrumbService);
   private readonly host = inject<ElementRef<HTMLElement>>(ElementRef);
   private readonly injector = inject(Injector);
+  private readonly session = inject(SessionStore);
 
   protected readonly id = this.route.snapshot.paramMap.get('id');
   protected readonly isNew = this.id === null;
-  protected readonly types = ACCOUNT_TYPES;
+  protected readonly sections = TYPE_SECTIONS;
+  protected readonly canSeeTaxes = this.session.can('taxes.read');
+  /** Every account belongs to the active company (the API is company scoped). */
+  protected readonly companyName = computed(() => this.session.activeCompany()?.name ?? '');
 
   protected readonly form = new FormGroup({
     code: new FormControl('', {
@@ -93,31 +95,23 @@ export class AccountFormPage {
       nonNullable: true,
       validators: [Validators.required, Validators.maxLength(255)],
     }),
-    description: new FormControl('', { nonNullable: true }),
-    parent: new FormControl('', { nonNullable: true, validators: [Validators.maxLength(32)] }),
-    account_type: new FormControl<string>('', {
+    detailed_type: new FormControl<string>('', {
       nonNullable: true,
       validators: [Validators.required],
     }),
-    /** A finer type of the nature (empty: none); the server checks they agree. */
-    detailed_type: new FormControl<string>('', { nonNullable: true }),
+    default_taxes: new FormControl<readonly string[]>([], { nonNullable: true }),
+    allowed_journals: new FormControl<readonly string[]>([], { nonNullable: true }),
     /** Empty: entries in any currency; set: only in this one (the server's rule). */
     currency: new FormControl<string>('', { nonNullable: true }),
-    account_class: new FormControl('', {
-      nonNullable: true,
-      validators: [Validators.maxLength(16)],
-    }),
-    allow_entries: new FormControl(true, { nonNullable: true }),
     letterable: new FormControl(false, { nonNullable: true }),
+    /** Odoo's « Obsolète »: the account inactive (its deactivate / reactivate commands). */
+    obsolete: new FormControl(false, { nonNullable: true }),
   });
 
-  /** Active currencies of the API (`currencies/`). */
+  /** Options of the API: active currencies, journals and taxes of the company. */
   protected readonly currencies = signal<readonly CurrencyOption[]>([]);
-
-  /** The detailed types of the nature chosen (none before a nature is chosen). */
-  protected detailedTypes(nature: string) {
-    return DETAILED_TYPES.filter((item) => item.nature === nature);
-  }
+  protected readonly journals = signal<readonly Pick<Journal, 'public_id' | 'code' | 'name'>[]>([]);
+  protected readonly taxes = signal<readonly TaxOption[]>([]);
 
   protected readonly account = signal<Account | null>(null);
   protected readonly loadError = signal<UserError | null>(null);
@@ -134,17 +128,19 @@ export class AccountFormPage {
       .subscribe((page) =>
         this.currencies.set((page?.results ?? []).filter((item) => item.status === 'active')),
       );
-    // A detailed type of another nature no longer applies once the nature changes.
-    this.form.controls.account_type.valueChanges.subscribe((nature) => {
-      const detailed = this.form.controls.detailed_type;
-      if (
-        detailed.value &&
-        !this.detailedTypes(nature).some((item) => item.id === detailed.value)
-      ) {
-        detailed.setValue('');
-        detailed.markAsDirty();
-      }
-    });
+    this.api
+      .journals({ status: 'active' })
+      .pipe(
+        map((page) => page.results),
+        catchError(() => of([] as Journal[])),
+      )
+      .subscribe((list) => this.journals.set(list));
+    if (this.canSeeTaxes) {
+      inject(EntriesApi)
+        .taxes()
+        .pipe(catchError(() => of([] as TaxOption[])))
+        .subscribe((list) => this.taxes.set(list));
+    }
     if (this.id) {
       this.api.account(this.id).subscribe({
         next: (account) => this.fill(account),
@@ -154,6 +150,20 @@ export class AccountFormPage {
     } else {
       afterNextRender(() => this.focus('code'), { injector: this.injector });
     }
+  }
+
+  /** A box of a multiple choice (taxes, journals) checked or not. */
+  protected isChosen(name: 'default_taxes' | 'allowed_journals', id: string): boolean {
+    return this.form.controls[name].value.includes(id);
+  }
+
+  protected toggle(name: 'default_taxes' | 'allowed_journals', id: string): void {
+    const control = this.form.controls[name];
+    const chosen = control.value.includes(id)
+      ? control.value.filter((item) => item !== id)
+      : [...control.value, id];
+    control.setValue(chosen);
+    control.markAsDirty();
   }
 
   protected async save(): Promise<void> {
@@ -176,12 +186,19 @@ export class AccountFormPage {
     }
     this.saving.set(true);
     try {
-      const parent = await this.parentId();
-      const saved = await firstValueFrom(
-        account
-          ? this.api.updateAccount(account.public_id, this.changes(parent))
-          : this.api.createAccount(this.creation(parent)),
-      );
+      const changes = this.changes();
+      let saved =
+        account && Object.keys(changes).length === 0
+          ? account
+          : await firstValueFrom(
+              account
+                ? this.api.updateAccount(account.public_id, changes)
+                : this.api.createAccount(this.creation()),
+            );
+      const obsolete = this.form.controls.obsolete.value;
+      if (obsolete !== (saved.status === 'inactive')) {
+        saved = await firstValueFrom(this.api.setAccountActive(saved.public_id, !obsolete));
+      }
       this.form.markAsPristine();
       if (account) {
         this.toast.success('Modifications enregistrées.');
@@ -191,11 +208,7 @@ export class AccountFormPage {
         await this.router.navigate(['/app/comptabilite/plan-comptable', saved.public_id]);
       }
     } catch (failure) {
-      if (failure instanceof UnknownParentError) {
-        this.showFields({ parent: 'Aucun compte de cette société n’a ce code.' });
-      } else {
-        this.showFailure(toApiError(failure));
-      }
+      this.showFailure(toApiError(failure));
     } finally {
       this.saving.set(false);
     }
@@ -207,42 +220,25 @@ export class AccountFormPage {
     });
   }
 
-  /** The parent's `public_id` from its code, asked to the server; `null` for none. */
-  private async parentId(): Promise<string | null> {
-    const code = this.form.controls.parent.value.trim();
-    if (!code) {
-      return null;
-    }
-    const found = await firstValueFrom(
-      this.api.accountByCode(code).pipe(catchError(() => of(null))),
-    );
-    if (!found) {
-      throw new UnknownParentError();
-    }
-    return found.public_id;
-  }
-
-  private creation(parent: string | null): AccountWrite {
+  private creation(): AccountWrite {
     const value = this.form.getRawValue();
     return {
       code: value.code.trim(),
       name: value.name.trim(),
-      description: value.description.trim(),
-      parent,
-      account_type: value.account_type as AccountType,
-      detailed_type: value.detailed_type as DetailedType | '',
+      detailed_type: value.detailed_type as DetailedType,
       currency: value.currency || null,
-      account_class: value.account_class.trim(),
-      allow_entries: value.allow_entries,
       letterable: value.letterable,
+      allowed_journals: value.allowed_journals,
+      default_taxes: value.default_taxes,
     };
   }
 
-  private changes(parent: string | null): Partial<Omit<AccountWrite, 'code'>> {
-    const creation = this.creation(parent) as unknown as Record<string, unknown>;
+  /** The fields changed (the state goes through its commands, never in the PATCH). */
+  private changes(): Partial<Omit<AccountWrite, 'code'>> {
+    const creation = this.creation() as unknown as Record<string, unknown>;
     const changes: Record<string, unknown> = {};
     for (const [name, control] of Object.entries(this.form.controls)) {
-      if (name !== 'code' && control.dirty) {
+      if (name !== 'code' && name !== 'obsolete' && control.dirty) {
         changes[name] = creation[name];
       }
     }
@@ -255,26 +251,13 @@ export class AccountFormPage {
     this.form.setValue({
       code: account.code,
       name: account.name,
-      description: account.description,
-      parent: '',
-      account_type: account.account_type,
       detailed_type: account.detailed_type,
+      default_taxes: account.default_taxes,
+      allowed_journals: account.allowed_journals,
       currency: account.currency ?? '',
-      account_class: account.account_class,
-      allow_entries: account.allow_entries,
       letterable: account.letterable,
+      obsolete: account.status === 'inactive',
     });
-    if (account.parent) {
-      this.api
-        .account(account.parent)
-        .pipe(catchError(() => of(null)))
-        .subscribe((parent) => {
-          // Shown, not sent: only a changed parent goes in the PATCH.
-          if (!this.form.controls.parent.dirty) {
-            this.form.controls.parent.setValue(parent?.code ?? '');
-          }
-        });
-    }
     this.form.markAsPristine();
     afterNextRender(() => this.focus('name'), { injector: this.injector });
   }

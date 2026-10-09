@@ -53,6 +53,9 @@ export interface AccountJson {
   account_type: string;
   detailed_type: string;
   currency: string | null;
+  allowed_journals: string[];
+  default_taxes: string[];
+  code_group: string;
   account_class: string;
   allow_entries: boolean;
   letterable: boolean;
@@ -137,6 +140,9 @@ function chart(
     account_type: type,
     detailed_type: '',
     currency: null,
+    allowed_journals: [],
+    default_taxes: [],
+    code_group: code.slice(0, 2),
     account_class: code.charAt(0),
     allow_entries: true,
     letterable: false,
@@ -216,11 +222,19 @@ const ACCOUNT_FIELDS = [
   'account_type',
   'detailed_type',
   'currency',
+  'allowed_journals',
+  'default_taxes',
   'account_class',
   'allow_entries',
   'letterable',
   'parent',
 ];
+
+/** The nature of a type, as the server knows it (`DETAILED_NATURE`). */
+function natureOf(detailed: unknown): string {
+  const prefix = String(detailed ?? '').split('_')[0];
+  return prefix === 'off' ? 'other' : prefix;
+}
 
 /** Accounts per first character and first two of their code (counts of the server). */
 function prefixesOf(accounts: readonly AccountJson[], url: URL) {
@@ -416,7 +430,16 @@ export class FakeAccounting {
         }
         const parent = books.accounts.find((item) => item.public_id === body['parent']);
         const created: AccountJson = {
-          ...chart([[code, String(body['name']), String(body['account_type']), null]])[0],
+          ...chart([
+            [
+              code,
+              String(body['name']),
+              String(body['account_type'] ?? natureOf(body['detailed_type'])),
+              null,
+            ],
+          ])[0],
+          allowed_journals: (body['allowed_journals'] as string[] | undefined) ?? [],
+          default_taxes: (body['default_taxes'] as string[] | undefined) ?? [],
           description: String(body['description'] ?? ''),
           detailed_type: String(body['detailed_type'] ?? ''),
           currency: (body['currency'] as string | null) ?? null,
@@ -487,6 +510,9 @@ export class FakeAccounting {
         if (name in body) {
           (found as unknown as Record<string, unknown>)[name] = body[name];
         }
+      }
+      if (body['detailed_type'] && !('account_type' in body)) {
+        found.account_type = natureOf(body['detailed_type']);
       }
       return this.answer(route, 200, found);
     }

@@ -34,7 +34,9 @@ import {
   accountTypeLabel,
   accountTypeText,
 } from '../accounting-presentation';
-import { Account } from '../data-access/accounting-models';
+import { Account, Journal } from '../data-access/accounting-models';
+import { EntriesApi } from '../data-access/entries-api';
+import { TaxOption } from '../data-access/entry-models';
 import { ACCOUNT_PAGE_SIZE, AccountingApi } from '../data-access/accounting-api';
 import { APP_ROOT } from '../../../core/navigation/applications';
 import { NavigationService } from '../../../core/navigation/navigation.service';
@@ -152,7 +154,32 @@ export class AccountDetailPage {
   ];
   protected readonly childId = (row: Account) => row.public_id;
 
+  /** Journals and taxes of the company, to name the account's by their codes. */
+  private readonly journalList = signal<readonly Pick<Journal, 'public_id' | 'code'>[]>([]);
+  private readonly taxList = signal<readonly TaxOption[]>([]);
+  protected readonly companyName = computed(() => this.session.activeCompany()?.name ?? '');
+  /** « Journaux autorisés »: their codes; none: every journal. */
+  protected readonly allowedJournals = computed(() =>
+    this.codes(this.account()?.allowed_journals ?? [], this.journalList(), 'Tous les journaux'),
+  );
+  protected readonly defaultTaxes = computed(() =>
+    this.codes(this.account()?.default_taxes ?? [], this.taxList(), 'Aucune'),
+  );
+
   constructor() {
+    this.api
+      .journals()
+      .pipe(
+        map((page) => page.results),
+        catchError(() => of([] as Journal[])),
+      )
+      .subscribe((list) => this.journalList.set(list));
+    if (this.session.can('taxes.read')) {
+      inject(EntriesApi)
+        .taxes()
+        .pipe(catchError(() => of([] as TaxOption[])))
+        .subscribe((list) => this.taxList.set(list));
+    }
     effect(() => {
       this.id();
       untracked(() => {
@@ -169,6 +196,17 @@ export class AccountDetailPage {
         untracked(() => this.show(loaded, true));
       }
     });
+  }
+
+  private codes(
+    ids: readonly string[],
+    known: readonly { public_id: string; code: string }[],
+    none: string,
+  ): string {
+    if (ids.length === 0) {
+      return none;
+    }
+    return ids.map((id) => known.find((item) => item.public_id === id)?.code ?? '…').join(', ');
   }
 
   /** The application and the screen are both open to the user (never one alone). */

@@ -90,108 +90,114 @@
 
   <div class="sheet">
     <section class="section" aria-labelledby="general-title">
-      <h2 id="general-title" class="alco-section-title">Informations générales</h2>
+      <h2 id="general-title" class="alco-section-title">Comptabilité</h2>
       <dl class="facts">
         <div>
           <dt>Code</dt>
           <dd>{{ account.code }}</dd>
         </div>
         <div>
-          <dt>Intitulé</dt>
+          <dt>Nom du compte</dt>
           <dd>{{ account.name }}</dd>
-        </div>
-        <div>
-          <dt>Classe</dt>
-          <dd>{{ account.account_class || '—' }}</dd>
         </div>
         <div>
           <dt>Type</dt>
           <dd>{{ typeText(account) }}</dd>
         </div>
         <div>
-          <dt>Nature</dt>
-          <dd>{{ typeLabel(account.account_type) }}</dd>
+          <dt>Taxes par défaut</dt>
+          <dd>{{ defaultTaxes() }}</dd>
+        </div>
+        <div>
+          <dt>Journaux autorisés</dt>
+          <dd>{{ allowedJournals() }}</dd>
         </div>
         <div>
           <dt>Devise du compte</dt>
           <dd>{{ account.currency ?? 'Toutes les devises' }}</dd>
         </div>
         <div>
-          <dt>Saisie d’écritures</dt>
-          <dd>{{ account.allow_entries ? 'Autorisée' : 'Non autorisée' }}</dd>
+          <dt>Autoriser le lettrage</dt>
+          <dd>{{ account.letterable ? 'Oui' : 'Non' }}</dd>
         </div>
         <div>
-          <dt>Lettrage</dt>
-          <dd>{{ account.letterable ? 'Compte lettrable' : 'Non lettrable' }}</dd>
+          <dt>Obsolète</dt>
+          <dd>{{ account.status === 'inactive' ? 'Oui' : 'Non' }}</dd>
         </div>
-        <div class="wide">
-          <dt>Description</dt>
-          <dd class="address">{{ account.description || '—' }}</dd>
+        <div>
+          <dt>Groupe</dt>
+          <dd>{{ account.code_group || '—' }}</dd>
+        </div>
+        <div>
+          <dt>Société</dt>
+          <dd>{{ companyName() }}</dd>
         </div>
       </dl>
     </section>
 
-    <section id="sous-comptes" class="section" aria-labelledby="hierarchy-title">
-      <h2 id="hierarchy-title" class="alco-section-title">Hiérarchie</h2>
-      <dl class="facts">
-        <div class="wide">
-          <dt>Compte parent</dt>
-          <dd>
-            @switch (parent()) {
-              @case (undefined) {
-                <span class="alco-caption">Chargement…</span>
-              }
-              @case (null) {
-                {{ account.parent ? 'Compte parent non disponible' : 'Aucun (premier niveau)' }}
-              }
-              @default {
-                @if (parent(); as up) {
-                  <a [routerLink]="['..', up.public_id]">{{ up.code }} — {{ up.name }}</a>
+    @if (account.parent || account.has_children) {
+      <section id="sous-comptes" class="section" aria-labelledby="hierarchy-title">
+        <h2 id="hierarchy-title" class="alco-section-title">Hiérarchie</h2>
+        <dl class="facts">
+          <div class="wide">
+            <dt>Compte parent</dt>
+            <dd>
+              @switch (parent()) {
+                @case (undefined) {
+                  <span class="alco-caption">Chargement…</span>
+                }
+                @case (null) {
+                  {{ account.parent ? 'Compte parent non disponible' : 'Aucun (premier niveau)' }}
+                }
+                @default {
+                  @if (parent(); as up) {
+                    <a [routerLink]="['..', up.public_id]">{{ up.code }} — {{ up.name }}</a>
+                  }
                 }
               }
+            </dd>
+          </div>
+        </dl>
+        @if (account.has_children) {
+          @if (children.value(); as page) {
+            <alco-table
+              [caption]="'Sous-comptes de ' + account.code"
+              [columns]="childColumns"
+              [rows]="page.results"
+              [rowId]="childId"
+              [class.reloading]="children.loading()"
+            >
+              <ng-template alcoCell="code" let-child>
+                <a class="code" [routerLink]="['..', child.public_id]">{{ child.code }}</a>
+              </ng-template>
+              <ng-template alcoCell="status" let-child>
+                @let look = statusLook(child);
+                <alco-badge [tone]="look.tone" [icon]="look.icon">{{ look.label }}</alco-badge>
+              </ng-template>
+            </alco-table>
+            @if (page.count > pageSize) {
+              <alco-pagination
+                [page]="childPage()"
+                [pageSize]="pageSize"
+                [total]="page.count"
+                (pageChange)="setChildPage($event)"
+              />
             }
-          </dd>
-        </div>
-      </dl>
-      @if (account.has_children) {
-        @if (children.value(); as page) {
-          <alco-table
-            [caption]="'Sous-comptes de ' + account.code"
-            [columns]="childColumns"
-            [rows]="page.results"
-            [rowId]="childId"
-            [class.reloading]="children.loading()"
-          >
-            <ng-template alcoCell="code" let-child>
-              <a class="code" [routerLink]="['..', child.public_id]">{{ child.code }}</a>
-            </ng-template>
-            <ng-template alcoCell="status" let-child>
-              @let look = statusLook(child);
-              <alco-badge [tone]="look.tone" [icon]="look.icon">{{ look.label }}</alco-badge>
-            </ng-template>
-          </alco-table>
-          @if (page.count > pageSize) {
-            <alco-pagination
-              [page]="childPage()"
-              [pageSize]="pageSize"
-              [total]="page.count"
-              (pageChange)="setChildPage($event)"
+          } @else if (children.error()) {
+            <p class="alco-caption">Les sous-comptes n’ont pas pu être chargés.</p>
+          } @else {
+            <alco-loading
+              variant="table"
+              [rows]="3"
+              [columns]="3"
+              label="Chargement des sous-comptes…"
             />
           }
-        } @else if (children.error()) {
-          <p class="alco-caption">Les sous-comptes n’ont pas pu être chargés.</p>
         } @else {
-          <alco-loading
-            variant="table"
-            [rows]="3"
-            [columns]="3"
-            label="Chargement des sous-comptes…"
-          />
+          <p class="alco-caption">Aucun sous-compte.</p>
         }
-      } @else {
-        <p class="alco-caption">Aucun sous-compte.</p>
-      }
-    </section>
+      </section>
+    }
 
     @if (canSeeHistory()) {
       <section id="historique" class="section" aria-labelledby="history-title">

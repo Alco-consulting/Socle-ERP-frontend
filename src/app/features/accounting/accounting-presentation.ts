@@ -57,21 +57,79 @@ export const ACCOUNT_TYPES: readonly { id: AccountType; label: string }[] = [
   { id: 'other', label: 'Autre' },
 ];
 
-/** `detailed_type` of the API, the source chart's words, with the nature it belongs to. */
-export const DETAILED_TYPES: readonly { id: DetailedType; label: string; nature: AccountType }[] = [
-  { id: 'equity', label: 'Capitaux propres', nature: 'equity' },
-  { id: 'equity_unaffected', label: 'Bénéfices de l’exercice en cours', nature: 'equity' },
-  { id: 'liability_current', label: 'Dettes à court terme', nature: 'liability' },
-  { id: 'liability_payable', label: 'Fournisseur', nature: 'liability' },
-  { id: 'asset_fixed', label: 'Actifs immobilisés', nature: 'asset' },
-  { id: 'asset_current', label: 'Actifs circulants', nature: 'asset' },
-  { id: 'asset_cash', label: 'Banque et espèces', nature: 'asset' },
-  { id: 'asset_receivable', label: 'Client', nature: 'asset' },
-  { id: 'expense', label: 'Charges', nature: 'expense' },
-  { id: 'income', label: 'Revenus', nature: 'income' },
-  { id: 'income_other', label: 'Autres produits', nature: 'income' },
-  { id: 'off_balance', label: 'Hors bilan', nature: 'other' },
+/**
+ * The account's type as Odoo lists it: its sections (Bilan, Pertes & Profits), its groups
+ * and its words, in that order. The nature of each type is the server's (\`DETAILED_NATURE\`).
+ */
+export const TYPE_SECTIONS: readonly {
+  readonly label: string | null;
+  readonly groups: readonly {
+    readonly label: string;
+    readonly types: readonly { readonly id: DetailedType; readonly label: string }[];
+  }[];
+}[] = [
+  {
+    label: 'Bilan',
+    groups: [
+      {
+        label: 'Immobilisations',
+        types: [
+          { id: 'asset_receivable', label: 'Client' },
+          { id: 'asset_cash', label: 'Banque et espèces' },
+          { id: 'asset_current', label: 'Actifs circulants' },
+          { id: 'asset_non_current', label: 'Actif immobilisé' },
+          { id: 'asset_prepayments', label: 'Acomptes' },
+          { id: 'asset_fixed', label: 'Immobilisations' },
+        ],
+      },
+      {
+        label: 'Passifs',
+        types: [
+          { id: 'liability_payable', label: 'Fournisseur' },
+          { id: 'liability_credit_card', label: 'Carte de crédit' },
+          { id: 'liability_current', label: 'Dettes à court terme' },
+          { id: 'liability_non_current', label: 'Passif immobilisé' },
+        ],
+      },
+      {
+        label: 'Fonds propres',
+        types: [
+          { id: 'equity', label: 'Fonds propres' },
+          { id: 'equity_unaffected', label: 'Bénéfices de l’exercice en cours' },
+        ],
+      },
+    ],
+  },
+  {
+    label: 'Pertes & Profits',
+    groups: [
+      {
+        label: 'Produits',
+        types: [
+          { id: 'income', label: 'Produits' },
+          { id: 'income_other', label: 'Autres produits' },
+        ],
+      },
+      {
+        label: 'Charge',
+        types: [
+          { id: 'expense', label: 'Charges' },
+          { id: 'expense_depreciation', label: 'Amortissement' },
+          { id: 'expense_direct_cost', label: 'Coût des produits' },
+        ],
+      },
+    ],
+  },
+  {
+    label: null,
+    groups: [{ label: 'Autre', types: [{ id: 'off_balance', label: 'Hors bilan' }] }],
+  },
 ];
+
+/** Every type, flat, in Odoo's order. */
+export const DETAILED_TYPES: readonly { id: DetailedType; label: string }[] = TYPE_SECTIONS.flatMap(
+  (section) => section.groups.flatMap((group) => group.types),
+);
 
 /** The account's type in words: its detailed type when it has one, else its nature. */
 export function accountTypeText(account: {

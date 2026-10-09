@@ -61,19 +61,25 @@ export interface JournalWrite {
 export type AccountType = 'asset' | 'liability' | 'equity' | 'income' | 'expense' | 'other';
 
 /** `AccountingAccount`: `parent` and `has_children` are the hierarchy the server keeps. */
-/** `detailed_type` of the API: a finer type of the nature (empty: none). */
+/** `detailed_type` of the API: the account's type, Odoo's list (its nature follows). */
 export type DetailedType =
+  | 'asset_receivable'
+  | 'asset_cash'
+  | 'asset_current'
+  | 'asset_non_current'
+  | 'asset_prepayments'
+  | 'asset_fixed'
+  | 'liability_payable'
+  | 'liability_credit_card'
+  | 'liability_current'
+  | 'liability_non_current'
   | 'equity'
   | 'equity_unaffected'
-  | 'liability_current'
-  | 'liability_payable'
-  | 'asset_fixed'
-  | 'asset_current'
-  | 'asset_cash'
-  | 'asset_receivable'
-  | 'expense'
   | 'income'
   | 'income_other'
+  | 'expense'
+  | 'expense_depreciation'
+  | 'expense_direct_cost'
   | 'off_balance';
 
 export interface Account {
@@ -86,6 +92,12 @@ export interface Account {
   readonly detailed_type: DetailedType | '';
   /** ISO code; `null`: entries in any currency. */
   readonly currency: string | null;
+  /** Journals the account takes entries in (`public_id`s); empty: any journal. */
+  readonly allowed_journals: readonly string[];
+  /** Taxes proposed on an entry line using the account (`public_id`s). */
+  readonly default_taxes: readonly string[];
+  /** The code's first two characters, from the server (Odoo's « Groupe »). */
+  readonly code_group: string;
   readonly account_class: string;
   readonly allow_entries: boolean;
   /** Its posted lines may be lettered (V2.1 A4). */
@@ -96,18 +108,19 @@ export interface Account {
   readonly updated_at: string;
 }
 
-/** `AccountingAccountWriteRequest` (the code is ignored by a PATCH). */
+/**
+ * `AccountingAccountWriteRequest` as the form sends it (the code is ignored by a PATCH):
+ * the type, its nature following on the server. The other fields of the API (description,
+ * parent, class, entries allowed) are no longer on the form and keep their values.
+ */
 export interface AccountWrite {
   readonly code: string;
   readonly name: string;
-  readonly description: string;
-  readonly parent: string | null;
-  readonly account_type: AccountType;
-  readonly detailed_type: DetailedType | '';
+  readonly detailed_type: DetailedType;
   readonly currency: string | null;
-  readonly account_class: string;
-  readonly allow_entries: boolean;
   readonly letterable: boolean;
+  readonly allowed_journals: readonly string[];
+  readonly default_taxes: readonly string[];
 }
 
 /** `GET accounting/accounts/prefixes/`: accounts per first character, then first two. */

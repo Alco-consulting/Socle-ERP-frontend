@@ -25,6 +25,9 @@ const account = (code: string, name: string, extra: Partial<Account> = {}): Acco
   account_type: 'liability',
   detailed_type: '',
   currency: null,
+  allowed_journals: [],
+  default_taxes: [],
+  code_group: code.slice(0, 2),
   account_class: code.charAt(0),
   allow_entries: true,
   letterable: false,
@@ -48,7 +51,12 @@ function answerSideRequests(): void {
   for (const request of httpMock().match((req) => req.url.endsWith('/accounts/prefixes/'))) {
     request.flush([]);
   }
-  for (const request of httpMock().match((req) => req.url.endsWith('/currencies/'))) {
+  for (const request of httpMock().match(
+    (req) =>
+      req.url.endsWith('/currencies/') ||
+      req.url.endsWith('/accounting/journals/') ||
+      req.url.endsWith('/taxes/'),
+  )) {
     request.flush({ count: 0, next: null, previous: null, results: [] });
   }
 }
@@ -227,7 +235,9 @@ describe('Plan comptable (accounting/accounts/)', () => {
       .expectOne((req) => req.url === '/api/v1/audit/objects/accounting.account/a-40/')
       .flush(page([{}, {}, {}], 3));
     await stable();
-    // Bounded: the record, one count, the children page already shown, the history.
+    // Bounded: the record, one count, the children page already shown, the history (and
+    // the journals and taxes naming the account's own).
+    answerSideRequests();
     httpMock().verify();
 
     const buttons = Array.from(element.querySelectorAll<HTMLAnchorElement>('a.smart'));
@@ -263,9 +273,62 @@ describe('Plan comptable (accounting/accounts/)', () => {
     expect(element.querySelector('#historique')).toBeNull();
   });
 
-  it('form: the parent code is found by the server; an unknown one is said under the field', async () => {
+  it('form: Odoo’s fields — the type in its groups, taxes, journals, obsolete; nothing else', async () => {
     const { element, stable } = await open('/plan-comptable/nouveau');
     const navigate = vi.spyOn(TestBed.inject(Router), 'navigate').mockResolvedValue(true);
+    httpMock()
+      .expectOne((req) => req.url === '/api/v1/accounting/journals/')
+      .flush(
+        page([
+          { public_id: 'j-vte', code: 'VTE', name: 'Ventes' },
+          { public_id: 'j-bq', code: 'BQ1', name: 'Banque' },
+        ]),
+      );
+    await stable();
+
+    // The fields of Odoo's form only.
+    const names = Array.from(element.querySelectorAll('[formControlName]')).map((field) =>
+      field.getAttribute('formControlName'),
+    );
+    expect(names).toEqual(['code', 'name', 'detailed_type', 'currency', 'letterable', 'obsolete']);
+    for (const gone of ['Classe', 'Description', 'Compte parent', 'Saisie d’écritures']) {
+      expect(element.textContent).not.toContain(gone);
+    }
+    // The type exactly as Odoo lists it: sections, groups, words, in that order.
+    const select = element.querySelector<HTMLSelectElement>('[formControlName="detailed_type"]')!;
+    expect(Array.from(select.querySelectorAll('optgroup')).map((group) => group.label)).toEqual([
+      'Bilan',
+      'Immobilisations',
+      'Passifs',
+      'Fonds propres',
+      'Pertes & Profits',
+      'Produits',
+      'Charge',
+      'Autre',
+    ]);
+    expect(
+      Array.from(select.querySelectorAll('optgroup option')).map((option) => option.textContent),
+    ).toEqual([
+      'Client',
+      'Banque et espèces',
+      'Actifs circulants',
+      'Actif immobilisé',
+      'Acomptes',
+      'Immobilisations',
+      'Fournisseur',
+      'Carte de crédit',
+      'Dettes à court terme',
+      'Passif immobilisé',
+      'Fonds propres',
+      'Bénéfices de l’exercice en cours',
+      'Produits',
+      'Autres produits',
+      'Charges',
+      'Amortissement',
+      'Coût des produits',
+      'Hors bilan',
+    ]);
+
     const fill = (name: string, value: string) => {
       const field = element.querySelector<HTMLInputElement | HTMLSelectElement>(
         `[formControlName="${name}"]`,
@@ -273,63 +336,45 @@ describe('Plan comptable (accounting/accounts/)', () => {
       field.value = value;
       field.dispatchEvent(new Event(field instanceof HTMLSelectElement ? 'change' : 'input'));
     };
-    const submit = () => element.querySelector('form')!.dispatchEvent(new Event('submit'));
-    fill('code', '4011');
+    fill('code', '401100');
     fill('name', 'Fournisseurs locaux');
-    fill('account_type', 'liability');
-    fill('parent', '999');
-    submit();
-    await stable();
-    const lookup = httpMock().expectOne((req) => req.url === '/api/v1/accounting/accounts/');
-    expect(lookup.request.params.get('code')).toBe('999');
-    lookup.flush(page([], 0));
-    await stable();
-    httpMock().expectNone((req) => req.method === 'POST');
-    expect(element.textContent).toContain('Aucun compte de cette société n’a ce code.');
-
-    fill('parent', '401');
-    fill('account_class', '4');
-    submit();
-    await stable();
-    httpMock()
-      .expectOne((req) => req.url === '/api/v1/accounting/accounts/' && req.method === 'GET')
-      .flush(page([account('401', 'Fournisseurs, dettes')]));
-    await stable();
-    const create = httpMock().expectOne((req) => req.method === 'POST');
-    expect(create.request.body).toEqual({
-      code: '4011',
-      name: 'Fournisseurs locaux',
-      description: '',
-      parent: 'a-401',
-      account_type: 'liability',
-      detailed_type: '',
-      currency: null,
-      account_class: '4',
-      allow_entries: true,
-      letterable: false,
-    });
-    create.flush(account('4011', 'Fournisseurs locaux'));
-    await stable();
-    expect(navigate).toHaveBeenCalledWith(['/app/comptabilite/plan-comptable', 'a-4011']);
-  });
-
-  it('form: a cycle refused by the server is said under the parent', async () => {
-    const { element, stable } = await open('/plan-comptable/a-40/modifier');
-    httpMock().expectOne('/api/v1/accounting/accounts/a-40/').flush(account('40', 'Fournisseurs'));
-    await stable();
-    const parent = element.querySelector<HTMLInputElement>('[formControlName="parent"]')!;
-    parent.value = '401';
-    parent.dispatchEvent(new Event('input'));
+    fill('detailed_type', 'liability_payable');
+    const journal = Array.from(element.querySelectorAll<HTMLLabelElement>('.choices label')).find(
+      (label) => label.textContent?.includes('VTE'),
+    )!;
+    journal.querySelector('input')!.click();
     element.querySelector('form')!.dispatchEvent(new Event('submit'));
     await stable();
+    const create = httpMock().expectOne((req) => req.method === 'POST');
+    // The type only: its nature follows on the server.
+    expect(create.request.body).toEqual({
+      code: '401100',
+      name: 'Fournisseurs locaux',
+      detailed_type: 'liability_payable',
+      currency: null,
+      letterable: false,
+      allowed_journals: ['j-vte'],
+      default_taxes: [],
+    });
+    create.flush(account('401100', 'Fournisseurs locaux'));
+    await stable();
+    expect(navigate).toHaveBeenCalledWith(['/app/comptabilite/plan-comptable', 'a-401100']);
+  });
+
+  it('form: « Obsolète » goes through the account’s command, never the PATCH', async () => {
+    const { element, stable } = await open('/plan-comptable/a-401/modifier');
+    const navigate = vi.spyOn(TestBed.inject(Router), 'navigate').mockResolvedValue(true);
     httpMock()
-      .expectOne((req) => req.url === '/api/v1/accounting/accounts/')
-      .flush(page([account('401', 'Fournisseurs, dettes')]));
+      .expectOne('/api/v1/accounting/accounts/a-401/')
+      .flush(account('401', 'Fournisseurs', { detailed_type: 'liability_payable' }));
     await stable();
-    const patch = httpMock().expectOne('/api/v1/accounting/accounts/a-40/');
-    expect(patch.request.body).toEqual({ parent: 'a-401' });
-    patch.flush(envelope('accounting_account_cycle'), { status: 400, statusText: 'x' });
+    element.querySelector<HTMLInputElement>('[formControlName="obsolete"]')!.click();
+    element.querySelector('form')!.dispatchEvent(new Event('submit'));
     await stable();
-    expect(element.textContent).toContain('l’un de ses propres sous-comptes');
+    httpMock().expectNone((req) => req.method === 'PATCH');
+    const command = httpMock().expectOne('/api/v1/accounting/accounts/a-401/deactivate/');
+    command.flush(account('401', 'Fournisseurs', { status: 'inactive' }));
+    await stable();
+    expect(navigate).toHaveBeenCalled();
   });
 });

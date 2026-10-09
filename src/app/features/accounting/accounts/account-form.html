@@ -50,91 +50,133 @@
   }
 
   <form id="account-form" class="sheet" [formGroup]="form" (ngSubmit)="save()" novalidate>
-    <section class="section" aria-labelledby="general-title">
-      <h2 id="general-title" class="alco-section-title">Informations générales</h2>
-      <div class="alco-form-grid">
-        @if (isNew) {
-          <alco-form-field
-            label="Code"
-            [required]="true"
-            hint="Unique dans la société ; il ne pourra plus être modifié."
-          >
-            <input alcoInput formControlName="code" maxlength="32" autocomplete="off" />
-          </alco-form-field>
-        } @else {
-          <div class="fixed">
-            <span class="fixed-label">Code</span>
-            <span class="fixed-value">{{ account()?.code }}</span>
-            <span class="alco-caption">Fixé à la création.</span>
-          </div>
-        }
-        <alco-form-field label="Intitulé" [required]="true">
-          <input alcoInput formControlName="name" maxlength="255" />
-        </alco-form-field>
-        <alco-form-field label="Type" [required]="true">
-          <select alcoSelect formControlName="account_type">
-            <option value="" disabled>Choisir un type</option>
-            @for (type of types; track type.id) {
-              <option [value]="type.id">{{ type.label }}</option>
-            }
-          </select>
-        </alco-form-field>
-        <alco-form-field label="Type détaillé" hint="Précise la nature du compte (facultatif)">
-          <select alcoSelect formControlName="detailed_type">
-            <option value="">Aucun</option>
-            @for (detailed of detailedTypes(form.controls.account_type.value); track detailed.id) {
-              <option [value]="detailed.id">{{ detailed.label }}</option>
-            }
-          </select>
-        </alco-form-field>
+    <section class="identity" aria-label="Compte">
+      @if (isNew) {
         <alco-form-field
-          label="Devise du compte"
-          hint="Vide : écritures dans toutes les devises ; sinon dans celle-ci seulement"
+          label="Code"
+          [required]="true"
+          hint="Unique dans la société ; il ne pourra plus être modifié."
         >
-          <select alcoSelect formControlName="currency">
-            <option value="">Toutes les devises</option>
-            @for (currency of currencies(); track currency.code) {
-              <option [value]="currency.code">{{ currency.code }} — {{ currency.name }}</option>
-            }
-          </select>
+          <input
+            alcoInput
+            class="big"
+            formControlName="code"
+            maxlength="32"
+            autocomplete="off"
+            placeholder="par ex. 101000"
+          />
         </alco-form-field>
-        <alco-form-field
-          label="Classe"
-          hint="Classe du plan (ex. 4) ; elle n’est pas déduite du code"
-        >
-          <input alcoInput formControlName="account_class" maxlength="16" autocomplete="off" />
-        </alco-form-field>
-        <div class="field-check">
-          <label class="check">
-            <input type="checkbox" formControlName="allow_entries" />
-            Saisie d’écritures autorisée
-          </label>
-          <span class="alco-caption"
-            >Le serveur décide si le compte est imputable, selon ses réglages.</span
-          >
+      } @else {
+        <div class="fixed">
+          <span class="fixed-label">Code</span>
+          <span class="fixed-value big">{{ account()?.code }}</span>
         </div>
-        <div class="field-check">
-          <label class="check">
-            <input type="checkbox" formControlName="letterable" />
-            Compte lettrable
-          </label>
-          <span class="alco-caption"
-            >Ses lignes validées pourront être lettrées. Le serveur refuse de retirer le lettrage
-            tant que des lettrages actifs existent.</span
-          >
-        </div>
-        <alco-form-field class="alco-form-grid__full" label="Description">
-          <textarea alcoInput formControlName="description" rows="3"></textarea>
-        </alco-form-field>
-      </div>
+      }
+      <alco-form-field label="Nom du compte" [required]="true">
+        <input
+          alcoInput
+          class="big"
+          formControlName="name"
+          maxlength="255"
+          placeholder="par ex. Actifs circulants"
+        />
+      </alco-form-field>
     </section>
 
-    <section class="section" aria-labelledby="hierarchy-title">
-      <h2 id="hierarchy-title" class="alco-section-title">Hiérarchie</h2>
-      <div class="alco-form-grid">
-        <alco-form-field label="Compte parent" hint="Code du compte parent ; vide : premier niveau">
-          <input alcoInput formControlName="parent" maxlength="32" autocomplete="off" />
-        </alco-form-field>
+    <section class="section" aria-labelledby="accounting-title">
+      <h2 id="accounting-title" class="alco-section-title tab">Comptabilité</h2>
+      <div class="columns">
+        <div class="column">
+          <alco-form-field label="Type" [required]="true">
+            <select alcoSelect formControlName="detailed_type">
+              <option value="" disabled>Choisir un type</option>
+              @for (section of sections; track $index) {
+                @if (section.label) {
+                  <optgroup [label]="section.label"></optgroup>
+                }
+                @for (group of section.groups; track group.label) {
+                  <optgroup [label]="group.label">
+                    @for (type of group.types; track type.id) {
+                      <option [value]="type.id">{{ type.label }}</option>
+                    }
+                  </optgroup>
+                }
+              }
+            </select>
+          </alco-form-field>
+          @if (canSeeTaxes) {
+            <fieldset class="choices">
+              <legend>Taxes par défaut</legend>
+              <span class="alco-caption">Proposées sur une ligne d’écriture de ce compte.</span>
+              @for (tax of taxes(); track tax.public_id) {
+                <label class="check">
+                  <input
+                    type="checkbox"
+                    [checked]="isChosen('default_taxes', tax.public_id)"
+                    (change)="toggle('default_taxes', tax.public_id)"
+                  />
+                  {{ tax.code }} — {{ tax.name }}
+                </label>
+              } @empty {
+                <span class="alco-caption">Aucune taxe active.</span>
+              }
+            </fieldset>
+          }
+          <fieldset class="choices">
+            <legend>Journaux autorisés</legend>
+            <span class="alco-caption">Aucun coché : écritures dans tous les journaux.</span>
+            @for (journal of journals(); track journal.public_id) {
+              <label class="check">
+                <input
+                  type="checkbox"
+                  [checked]="isChosen('allowed_journals', journal.public_id)"
+                  (change)="toggle('allowed_journals', journal.public_id)"
+                />
+                {{ journal.code }} — {{ journal.name }}
+              </label>
+            } @empty {
+              <span class="alco-caption">Aucun journal actif.</span>
+            }
+          </fieldset>
+        </div>
+        <div class="column">
+          <alco-form-field
+            label="Devise du compte"
+            hint="Vide : écritures dans toutes les devises ; sinon dans celle-ci seulement"
+          >
+            <select alcoSelect formControlName="currency">
+              <option value="">Toutes les devises</option>
+              @for (currency of currencies(); track currency.code) {
+                <option [value]="currency.code">{{ currency.code }} — {{ currency.name }}</option>
+              }
+            </select>
+          </alco-form-field>
+          <div class="field-check">
+            <label class="check">
+              <input type="checkbox" formControlName="letterable" />
+              Autoriser le lettrage
+            </label>
+            <span class="alco-caption"
+              >Ses lignes validées pourront être lettrées. Le serveur refuse de le retirer tant que
+              des lettrages actifs existent.</span
+            >
+          </div>
+          <div class="field-check">
+            <label class="check">
+              <input type="checkbox" formControlName="obsolete" />
+              Obsolète
+            </label>
+            <span class="alco-caption">Un compte obsolète n’accepte plus d’écritures.</span>
+          </div>
+          <div class="fixed">
+            <span class="fixed-label">Groupe</span>
+            <span class="fixed-value">{{ account()?.code_group || '—' }}</span>
+          </div>
+          <div class="fixed">
+            <span class="fixed-label">Société</span>
+            <span class="fixed-value">{{ companyName() }}</span>
+          </div>
+        </div>
       </div>
     </section>
   </form>

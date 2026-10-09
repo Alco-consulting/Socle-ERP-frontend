@@ -181,6 +181,12 @@ describe('Comptabilité › Lettrage (V2.1 A4)', () => {
   }
 
   afterEach(() => {
+    // Side requests of the account record (its journals and taxes named by their codes).
+    for (const request of httpMock().match(
+      (req) => req.url.endsWith('/accounting/journals/') || req.url.endsWith('/taxes/'),
+    )) {
+      request.flush({ count: 0, next: null, previous: null, results: [] });
+    }
     httpMock().verify();
     clearCookie('XSRF-TOKEN');
   });
@@ -697,6 +703,9 @@ describe('Comptabilité › Lettrage (V2.1 A4)', () => {
     account_type: 'asset',
     detailed_type: '',
     currency: null,
+    allowed_journals: [],
+    default_taxes: [],
+    code_group: '41',
     account_class: '4',
     allow_entries: true,
     letterable,
@@ -724,7 +733,7 @@ describe('Comptabilité › Lettrage (V2.1 A4)', () => {
     )!;
     expect(link.getAttribute('aria-label')).toBe('Lettrage : 4');
     expect(link.getAttribute('href')).toBe(`${BASE}?compte=411100`);
-    expect(text(element())).toContain('Compte lettrable');
+    expect(text(element())).toMatch(/Autoriser le lettrages*Oui/);
   });
 
   it('account record: no Lettrage for an account the server says is not letterable', async () => {
@@ -739,6 +748,6 @@ describe('Comptabilité › Lettrage (V2.1 A4)', () => {
       item.getAttribute('aria-label'),
     );
     expect(labels.some((label) => label?.startsWith('Lettrage'))).toBe(false);
-    expect(text(element())).toContain('Non lettrable');
+    expect(text(element())).toMatch(/Autoriser le lettrages*Non/);
   });
 });

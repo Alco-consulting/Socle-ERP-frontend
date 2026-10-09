@@ -364,3 +364,16 @@ test('chart of accounts: code groups panel, detailed type, currency, company', a
   await page.goto('/app/comptabilite/plan-comptable');
   await shoot(page, '104-phone-chart-code-groups', true);
 });
+
+test('account form as Odoo: code, name, Comptabilité', async ({ page }) => {
+  test.setTimeout(90_000);
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto('/app/comptabilite/plan-comptable/nouveau');
+  await page.getByLabel('Code').fill('401100');
+  await page.getByLabel('Nom du compte').fill('Fournisseurs locaux');
+  await page.locator('select[formcontrolname="detailed_type"]').selectOption('liability_payable');
+  await shoot(page, '105-account-form-odoo', true);
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto('/app/comptabilite/plan-comptable/nouveau');
+  await shoot(page, '106-phone-account-form-odoo', true);
+});

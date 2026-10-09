@@ -1,5 +1,17 @@
 <alco-page-header title="Taxes">
   <div alcoPageActions>
+    @if (canCreateDefaults() && rows().length > 0) {
+      <button
+        alcoButton
+        type="button"
+        icon="taxes"
+        [loading]="creatingDefaults()"
+        loadingLabel="Création…"
+        (click)="createDefaults()"
+      >
+        Créer les taxes de Guinée
+      </button>
+    }
     @if (canCreate()) {
       <a alcoButton variant="primary" icon="plus" routerLink="nouveau">Nouvelle taxe</a>
     }
@@ -10,7 +22,7 @@
   <alco-search-bar
     class="search"
     label="Rechercher une taxe"
-    placeholder="Rechercher…"
+    placeholder="Rechercher par nom…"
     [query]="searchText()"
     [facets]="facets()"
     (queryChange)="onSearch($event)"
@@ -19,16 +31,14 @@
   <div class="controls">
     <alco-filter-bar
       [activeFilterCount]="activeFilterCount()"
-      [groupOptions]="groupOptions"
-      [groupBy]="groupBy()"
       (applied)="applyFilters()"
       (cleared)="resetFilters()"
-      (groupByChange)="setGroupBy($event)"
     >
       <div alcoFilterFields class="filter-fields" [formGroup]="filterForm">
-        <alco-form-field label="Type de taxe">
-          <select alcoSelect formControlName="use">
-            @for (filter of useFilters; track filter.id) {
+        <alco-form-field label="S’applique à">
+          <select alcoSelect formControlName="usage">
+            <option value="">Ventes et achats</option>
+            @for (filter of usageFilters; track filter.id) {
               <option [value]="filter.id">{{ filter.label }}</option>
             }
           </select>
@@ -76,7 +86,7 @@
   }
   @default {
     @if (list.value() === null) {
-      <alco-loading variant="table" [rows]="7" [columns]="6" label="Chargement des taxes…" />
+      <alco-loading variant="table" [rows]="4" [columns]="6" label="Chargement des taxes…" />
     } @else if (rows().length === 0) {
       <div class="empty-frame">
         @if (hasCriteria()) {
@@ -90,9 +100,26 @@
             </button>
           </alco-empty-state>
         } @else {
-          <alco-empty-state icon="taxes" title="Cette société n’a pas encore de taxe.">
+          <alco-empty-state
+            icon="taxes"
+            title="Cette société n’a pas encore de taxe."
+            message="Créez en un clic les taxes usuelles de Guinée (TVA 18 %, export, import, exonération), avec les comptes de votre plan."
+          >
+            @if (canCreateDefaults()) {
+              <button
+                alcoButton
+                type="button"
+                variant="primary"
+                icon="taxes"
+                [loading]="creatingDefaults()"
+                loadingLabel="Création…"
+                (click)="createDefaults()"
+              >
+                Créer les taxes de Guinée
+              </button>
+            }
             @if (canCreate()) {
-              <a alcoButton variant="primary" icon="plus" routerLink="nouveau">Créer une taxe</a>
+              <a alcoButton icon="plus" routerLink="nouveau">Nouvelle taxe</a>
             }
           </alco-empty-state>
         }
@@ -101,10 +128,9 @@
       <alco-table
         [class.reloading]="list.loading()"
         [attr.aria-busy]="list.loading()"
-        caption="Taxes de la société, dans leur ordre de création"
+        caption="Taxes de la société, par nom"
         [columns]="columns"
         [rows]="rows()"
-        [groups]="groups()"
         [rowId]="rowId"
         [rowLabel]="rowLabel"
         [clickableRows]="true"
@@ -113,10 +139,17 @@
         <ng-template alcoCell="name" let-tax>
           <a class="code" [routerLink]="tax.public_id">{{ tax.name }}</a>
         </ng-template>
-        <ng-template alcoCell="description" let-tax>{{ tax.description }}</ng-template>
+        <ng-template alcoCell="rate" let-tax>
+          {{ rateText(tax.rate) }}
+          @if (tax.withholding) {
+            <span class="withheld alco-caption">retenue</span>
+          }
+        </ng-template>
         <ng-template alcoCell="use" let-tax>{{ useLabel(tax.type_tax_use) }}</ng-template>
-        <ng-template alcoCell="scope" let-tax>{{ scopeLabel(tax.tax_scope) }}</ng-template>
-        <ng-template alcoCell="invoice_label" let-tax>{{ tax.invoice_label }}</ng-template>
+        <ng-template alcoCell="sale_account" let-tax>{{ tax.sale_account_code }}</ng-template>
+        <ng-template alcoCell="purchase_account" let-tax>{{
+          tax.purchase_account_code
+        }}</ng-template>
         <ng-template alcoCell="active" let-tax>
           <label class="alco-switch">
             <input

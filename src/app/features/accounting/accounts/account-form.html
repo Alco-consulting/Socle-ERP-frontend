@@ -87,9 +87,21 @@
       <h2 id="accounting-title" class="alco-section-title tab">Comptabilité</h2>
       <div class="columns">
         <div class="column">
-          <alco-form-field label="Type" [required]="true">
+          <alco-form-field
+            label="Type"
+            [required]="!isNew"
+            [hint]="
+              isNew
+                ? 'Selon le code : le type du SYSCOHADA (401… Fournisseur, 411… Client, 521… Banque).'
+                : ''
+            "
+          >
             <select alcoSelect formControlName="detailed_type">
-              <option value="" disabled>Choisir un type</option>
+              @if (isNew) {
+                <option value="">Selon le code</option>
+              } @else {
+                <option value="" disabled>Choisir un type</option>
+              }
               @for (section of sections; track $index) {
                 @if (section.label) {
                   <optgroup [label]="section.label"></optgroup>
@@ -117,19 +129,22 @@
               />
             </alco-form-field>
           }
-          <alco-form-field
-            label="Journaux autorisés"
-            hint="Aucun : écritures dans tous les journaux."
-          >
-            <alco-tag-select
-              formControlName="allowed_journals"
-              label="Journaux autorisés choisis"
-              [options]="journalOptions()"
-              [placeholder]="
-                journalOptions().length ? 'Ajouter un journal…' : 'Aucun journal actif'
-              "
-            />
-          </alco-form-field>
+          <!-- Only on an account that has some, to remove them (none: any journal). -->
+          @if (account()?.allowed_journals?.length) {
+            <alco-form-field
+              label="Journaux autorisés"
+              hint="Retirez-les tous pour autoriser les écritures dans tous les journaux."
+            >
+              <alco-tag-select
+                formControlName="allowed_journals"
+                label="Journaux autorisés choisis"
+                [options]="journalOptions()"
+                [placeholder]="
+                  journalOptions().length ? 'Ajouter un journal…' : 'Aucun journal actif'
+                "
+              />
+            </alco-form-field>
+          }
         </div>
         <div class="column">
           <alco-form-field
@@ -148,10 +163,14 @@
               <input type="checkbox" formControlName="letterable" />
               Autoriser le lettrage
             </label>
-            <span class="alco-caption"
-              >Ses lignes validées pourront être lettrées. Le serveur refuse de le retirer tant que
-              des lettrages actifs existent.</span
-            >
+            <span class="alco-caption">
+              @if (isNew) {
+                Laissé tel quel : activé d’office pour un compte Client ou Fournisseur.
+              } @else {
+                Ses lignes validées pourront être lettrées. Le serveur refuse de le retirer tant que
+                des lettrages actifs existent.
+              }
+            </span>
           </div>
           <div class="field-check">
             <label class="check">
@@ -163,10 +182,6 @@
           <div class="fixed">
             <span class="fixed-label">Groupe</span>
             <span class="fixed-value">{{ account()?.code_group || '—' }}</span>
-          </div>
-          <div class="fixed">
-            <span class="fixed-label">Société</span>
-            <span class="fixed-value">{{ companyName() }}</span>
           </div>
         </div>
       </div>

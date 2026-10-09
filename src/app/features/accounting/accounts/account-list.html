@@ -43,13 +43,6 @@
             }
           </select>
         </alco-form-field>
-        <alco-form-field label="Imputable" hint="Utilisable dans une écriture, selon le serveur">
-          <select alcoSelect formControlName="postable">
-            <option value="">Tous les comptes</option>
-            <option value="oui">Imputables</option>
-            <option value="non">Non imputables</option>
-          </select>
-        </alco-form-field>
       </div>
     </alco-filter-bar>
     @if (list.value(); as page) {
@@ -244,9 +237,6 @@
               </label>
             </ng-template>
             <ng-template alcoCell="currency" let-account>{{ account.currency ?? '' }}</ng-template>
-            <ng-template alcoCell="company" let-account>
-              <span class="company">{{ companyName() }}</span>
-            </ng-template>
           </alco-table>
         }
       }

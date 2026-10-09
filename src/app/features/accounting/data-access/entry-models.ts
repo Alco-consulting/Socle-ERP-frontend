@@ -132,7 +132,7 @@ export interface TaxOption {
   readonly public_id: string;
   readonly code: string;
   readonly name: string;
-  /** Odoo's « Type de taxe » (sale, purchase, none): it names the tax in a list. */
+  /** Where the tax may be chosen (sale, purchase, both): a journal proposes its side's. */
   readonly type_tax_use: string;
   readonly category: string;
   readonly country: string;

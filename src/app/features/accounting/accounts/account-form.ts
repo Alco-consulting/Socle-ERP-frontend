@@ -49,11 +49,13 @@ const FIELD_OF_CODE: Readonly<Record<string, [string, string]>> = {
 };
 
 /**
- * Creation (`…/plan-comptable/nouveau`) and modification (`…/:id/modifier`) of an account,
- * with the fields of Odoo's account form: code, name; « Comptabilité »: type (Odoo's list,
- * its nature following on the server), default taxes, allowed journals, currency, lettering,
- * obsolete (the account's state, through its commands), group and company (shown only). A
- * modification sends only the fields changed, never the code.
+ * Creation (`…/plan-comptable/nouveau`) and modification (`…/:id/modifier`) of an account:
+ * code, name; « Comptabilité »: type (Odoo's list; created « selon le code », the server
+ * gives the SYSCOHADA type of the code, its nature following), default taxes, currency,
+ * lettering (left untouched at the creation, the server letters customers and suppliers),
+ * obsolete (the account's state, through its commands) and group (shown only). The allowed
+ * journals show only on an account that has some, to remove them. A modification sends
+ * only the fields changed, never the code.
  */
 @Component({
   selector: 'alco-account-form',
@@ -86,8 +88,6 @@ export class AccountFormPage {
   protected readonly isNew = this.id === null;
   protected readonly sections = TYPE_SECTIONS;
   protected readonly canSeeTaxes = this.session.can('taxes.read');
-  /** Every account belongs to the active company (the API is company scoped). */
-  protected readonly companyName = computed(() => this.session.activeCompany()?.name ?? '');
 
   protected readonly form = new FormGroup({
     code: new FormControl('', {
@@ -98,9 +98,10 @@ export class AccountFormPage {
       nonNullable: true,
       validators: [Validators.required, Validators.maxLength(255)],
     }),
+    /** Created blank: « selon le code », the server gives the type. */
     detailed_type: new FormControl<string>('', {
       nonNullable: true,
-      validators: [Validators.required],
+      validators: this.isNew ? [] : [Validators.required],
     }),
     default_taxes: new FormControl<readonly string[]>([], { nonNullable: true }),
     allowed_journals: new FormControl<readonly string[]>([], { nonNullable: true }),
@@ -218,14 +219,15 @@ export class AccountFormPage {
     });
   }
 
+  /** A type left « selon le code » and a lettering left untouched are the server's. */
   private creation(): AccountWrite {
     const value = this.form.getRawValue();
     return {
       code: value.code.trim(),
       name: value.name.trim(),
-      detailed_type: value.detailed_type as DetailedType,
+      ...(value.detailed_type ? { detailed_type: value.detailed_type as DetailedType } : {}),
       currency: value.currency || null,
-      letterable: value.letterable,
+      ...(this.form.controls.letterable.dirty ? { letterable: value.letterable } : {}),
       allowed_journals: value.allowed_journals,
       default_taxes: value.default_taxes,
     };

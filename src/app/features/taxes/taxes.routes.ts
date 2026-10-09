@@ -6,10 +6,11 @@ import { unsavedChangesGuard } from '../../core/navigation/unsaved-changes';
 const taxForm = () => import('./tax-form').then((m) => m.TaxFormPage);
 
 /**
- * Comptabilité › Taxes (Configuration › Taxes) on the API, as Odoo's screens: the list, a
- * tax and its form. Paths are relative to Comptabilité and start with the section's
- * (`taxes/…`): they are served among the section's routes (placeholder-routes.ts). The
- * section's guard checks `taxes.read`; the forms check their own permission.
+ * Comptabilité › Taxes (Configuration › Taxes) on the API: the list and one simple page per
+ * tax, to create it or change it. Paths are relative to Comptabilité and start with the
+ * section's (`taxes/…`): they are served among the section's routes (placeholder-routes.ts).
+ * The section's guard checks `taxes.read`; creating checks `taxes.create`; without
+ * `taxes.update` a tax's page is read only.
  */
 export const TAXES_ROUTES: Routes = [
   {
@@ -28,16 +29,8 @@ export const TAXES_ROUTES: Routes = [
         path: ':id',
         // Named after the tax once loaded (BreadcrumbService.nameCurrent).
         data: { breadcrumb: 'Taxe' },
-        children: [
-          { path: '', loadComponent: () => import('./tax-detail').then((m) => m.TaxDetailPage) },
-          {
-            path: 'modifier',
-            data: { breadcrumb: 'Modifier' },
-            canActivate: [permissionGuard('taxes.update')],
-            canDeactivate: [unsavedChangesGuard],
-            loadComponent: taxForm,
-          },
-        ],
+        canDeactivate: [unsavedChangesGuard],
+        loadComponent: taxForm,
       },
     ],
   },

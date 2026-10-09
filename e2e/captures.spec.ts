@@ -351,7 +351,7 @@ test('import: file analysed (CSV, Excel), sheet choice, phone', async ({ page })
   await shoot(page, '102-phone-import-analysed-xlsx', true);
 });
 
-test('chart of accounts: code groups panel, detailed type, currency, company', async ({ page }) => {
+test('chart of accounts: code groups panel, detailed type, currency', async ({ page }) => {
   test.setTimeout(90_000);
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.goto('/app/comptabilite/plan-comptable');
@@ -365,33 +365,29 @@ test('chart of accounts: code groups panel, detailed type, currency, company', a
   await shoot(page, '104-phone-chart-code-groups', true);
 });
 
-test('account form as Odoo: code, name, Comptabilité', async ({ page }) => {
+test('account form: code, name, type selon le code', async ({ page }) => {
   test.setTimeout(90_000);
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.goto('/app/comptabilite/plan-comptable/nouveau');
   await page.getByLabel('Code').fill('401100');
   await page.getByLabel('Nom du compte').fill('Fournisseurs locaux');
-  await page.locator('select[formcontrolname="detailed_type"]').selectOption('liability_payable');
-  await shoot(page, '105-account-form-odoo', true);
+  await shoot(page, '105-account-form-syscohada', true);
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto('/app/comptabilite/plan-comptable/nouveau');
-  await shoot(page, '106-phone-account-form-odoo', true);
+  await shoot(page, '106-phone-account-form-syscohada', true);
 });
 
-test('taxes as Odoo: list, record (Définition, Options avancées), form', async ({ page }) => {
+test('taxes, one simple screen: list, the taxes of Guinea, a tax', async ({ page }) => {
   test.setTimeout(120_000);
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.goto('/app/comptabilite/taxes/liste');
-  await shoot(page, '107-taxes-list-odoo', true);
-  await page.getByRole('link', { name: '18% G', exact: true }).click();
-  await expect(page.getByText('Répartition pour les factures')).toBeVisible();
-  await shoot(page, '108-tax-record-definition', true);
-  await page.getByRole('tab', { name: 'Options avancées' }).click();
-  await shoot(page, '109-tax-record-advanced', true);
-  await page.getByRole('link', { name: 'Modifier' }).click();
-  await expect(page.getByLabel('Nom de la taxe')).toHaveValue('18% G');
-  await shoot(page, '110-tax-form-odoo', true);
+  await page.getByRole('button', { name: 'Créer les taxes de Guinée' }).click();
+  await expect(page.locator('tbody tr')).toHaveCount(5);
+  await shoot(page, '107-taxes-list-simple', true);
+  await page.getByRole('link', { name: 'TVA 18 %', exact: true }).click();
+  await expect(page.getByLabel('Taux')).toHaveValue('18');
+  await shoot(page, '108-tax-form-simple', true);
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto('/app/comptabilite/taxes/liste/nouveau');
-  await shoot(page, '111-phone-tax-form-odoo', true);
+  await shoot(page, '109-phone-tax-form-simple', true);
 });

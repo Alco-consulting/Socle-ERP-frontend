@@ -44,7 +44,6 @@ const PARAM = {
   search: 'q',
   status: 'etat',
   type: 'type',
-  postable: 'imputable',
   group: 'groupe',
   prefix: 'prefixe',
   page: 'page',
@@ -58,9 +57,9 @@ const GROUP_OPTIONS: readonly GroupOption[] = [{ id: 'groupe', label: 'Groupe' }
 
 /**
  * Comptabilité › Plan comptable, on the API (`GET accounting/accounts/`): the server's
- * search (code, name), filters (state, type, postable — postable as the server decides,
- * settings included), pages (50) and order (by code). The hierarchy is the server's:
- * a row says whether it has sub-accounts; the record shows its parent and children.
+ * search (code, name), filters (state, type, code prefix), pages (50) and order (by code).
+ * The hierarchy is the server's: a row says whether it has sub-accounts; the record shows
+ * its parent and children. Every row is of the active company: no company column.
  */
 @Component({
   selector: 'alco-account-list',
@@ -98,8 +97,6 @@ export class AccountListPage {
   protected readonly groupOptions = GROUP_OPTIONS;
   protected readonly pageSize = ACCOUNT_PAGE_SIZE;
   protected readonly typeText = accountTypeText;
-  /** Every row belongs to the active company (the API is company scoped). */
-  protected readonly companyName = computed(() => this.session.activeCompany()?.name ?? '');
   protected readonly canManage = computed(() => this.session.can('accounting.manage_accounts'));
   /** « Actions ▾ › Importer des comptes » (`accounting.accounts`): flat, checked by the server. */
   protected readonly transfer = ACCOUNT_TRANSFER;
@@ -107,14 +104,13 @@ export class AccountListPage {
     () => this.canManage() && this.session.can('imports_exports.create'),
   );
 
-  /** Odoo's list: code, name, type, lettering (switched here), currency, company. */
+  /** Odoo's list: code, name, type, lettering (switched here), currency. */
   protected readonly columns: readonly TableColumn[] = [
     { key: 'code', label: 'Code', width: '9rem' },
     { key: 'name', label: 'Nom du compte' },
     { key: 'type', label: 'Type', hideBelow: 'tablet' },
     { key: 'letterable', label: 'Autoriser le lettrage', width: '11rem' },
     { key: 'currency', label: 'Devise du compte', width: '9rem', hideBelow: 'laptop' },
-    { key: 'company', label: 'Société', hideBelow: 'laptop' },
   ];
   /** « Autoriser le lettrage » switched from the list: the server's answer, by account. */
   private readonly letterableSaved = signal<ReadonlyMap<string, boolean>>(new Map());
@@ -134,10 +130,6 @@ export class AccountListPage {
     const value = this.params().get(PARAM.type);
     return ACCOUNT_TYPES.some((type) => type.id === value) ? (value as AccountType) : null;
   });
-  protected readonly postable = computed<boolean | null>(() => {
-    const value = this.params().get(PARAM.postable);
-    return value === 'oui' ? true : value === 'non' ? false : null;
-  });
   protected readonly groupBy = computed(() =>
     GROUP_OPTIONS.some((option) => option.id === this.params().get(PARAM.group))
       ? this.params().get(PARAM.group)
@@ -154,10 +146,7 @@ export class AccountListPage {
   private readonly searchTyped = new Subject<string>();
 
   protected readonly activeFilterCount = computed(
-    () =>
-      [this.status(), this.type(), this.postable() === null ? null : 1, this.prefix()].filter(
-        (v) => v !== null,
-      ).length,
+    () => [this.status(), this.type(), this.prefix()].filter((v) => v !== null).length,
   );
   protected readonly hasCriteria = computed(() => this.activeFilterCount() > 0 || !!this.search());
 
@@ -176,15 +165,6 @@ export class AccountListPage {
     if (type) {
       facets.push({ id: 'type', kind: 'filter', label: 'Type', value: accountTypeLabel(type) });
     }
-    const postable = this.postable();
-    if (postable !== null) {
-      facets.push({
-        id: 'postable',
-        kind: 'filter',
-        label: 'Imputable',
-        value: postable ? 'Oui' : 'Non',
-      });
-    }
     const prefix = this.prefix();
     if (prefix) {
       facets.push({ id: 'prefix', kind: 'filter', label: 'Code commençant par', value: prefix });
@@ -199,7 +179,6 @@ export class AccountListPage {
     search: this.search(),
     status: this.status(),
     accountType: this.type(),
-    postable: this.postable(),
     codePrefix: this.prefix(),
     page: this.page(),
   }));
@@ -249,7 +228,6 @@ export class AccountListPage {
   protected readonly filterForm = new FormGroup({
     status: new FormControl('', { nonNullable: true }),
     type: new FormControl('', { nonNullable: true }),
-    postable: new FormControl('', { nonNullable: true }),
   });
 
   constructor() {
@@ -267,12 +245,7 @@ export class AccountListPage {
       }
     });
     effect(() => {
-      const postable = this.postable();
-      this.filterForm.setValue({
-        status: this.status() ?? '',
-        type: this.type() ?? '',
-        postable: postable === null ? '' : postable ? 'oui' : 'non',
-      });
+      this.filterForm.setValue({ status: this.status() ?? '', type: this.type() ?? '' });
     });
     this.searchTyped
       .pipe(
@@ -339,7 +312,6 @@ export class AccountListPage {
     this.navigate({
       [PARAM.status]: value.status || null,
       [PARAM.type]: value.type || null,
-      [PARAM.postable]: value.postable || null,
       [PARAM.page]: null,
     });
   }
@@ -350,7 +322,6 @@ export class AccountListPage {
       [PARAM.search]: null,
       [PARAM.status]: null,
       [PARAM.type]: null,
-      [PARAM.postable]: null,
       [PARAM.prefix]: null,
       [PARAM.page]: null,
     });
@@ -360,7 +331,6 @@ export class AccountListPage {
     const param = {
       status: PARAM.status,
       type: PARAM.type,
-      postable: PARAM.postable,
       prefix: PARAM.prefix,
       group: PARAM.group,
     }[facet.id];

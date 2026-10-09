@@ -152,15 +152,16 @@ test.describe('Comptabilité — plan comptable', () => {
     ).toBe('fournisseurs');
   });
 
-  test('Scénario 6 : filtres État et Imputable, regroupement par classe', async ({ page }) => {
+  test('Scénario 6 : filtre État (plus d’« Imputable »), regroupement par groupe', async ({
+    page,
+  }) => {
     await page.goto('/app/comptabilite/plan-comptable');
     await page.getByRole('button', { name: 'Filtres' }).click();
     const panel = page.getByRole('dialog', { name: 'Filtres' });
-    await panel.getByLabel('Imputable').selectOption({ label: 'Imputables' });
+    await expect(panel.getByLabel('Imputable')).toHaveCount(0);
+    await panel.getByLabel('État').selectOption({ label: 'Actif' });
     await panel.getByRole('button', { name: 'Appliquer' }).click();
-    await expect(page).toHaveURL(/imputable=oui/);
-    // Postable as the server decides: active, entries allowed, no sub-account.
-    await expect(codes(page)).toHaveText(['401', '404', '411', '601']);
+    await expect(page).toHaveURL(/etat=active/);
 
     await page.getByRole('button', { name: 'Regrouper' }).click();
     await page.getByRole('menuitemradio', { name: 'Groupe', exact: true }).click();
@@ -183,46 +184,50 @@ test.describe('Comptabilité — plan comptable', () => {
     await panel.getByRole('button', { name: /^41\s*2$/ }).click();
     await expect(page).toHaveURL(/prefixe=41/);
     await expect(codes(page)).toHaveText(['41', '411']);
-    // The new columns: the currency (empty: any) and the active company.
+    // The currency (empty: any); no company column (always the active company).
     const header = page.locator('thead');
     await expect(header).toContainText('Devise');
-    await expect(header).toContainText('Société');
-    await expect(page.locator('tbody tr').first()).toContainText(COMPANY_A.trade_name);
+    await expect(header).not.toContainText('Société');
     await panel.getByRole('button', { name: /^Tous/ }).click();
     await expect(page).not.toHaveURL(/prefixe=/);
     expect(await axe(page)).toEqual([]);
   });
 
-  test('formulaire comme Odoo : type groupé, journaux autorisés, devise ; fiche et liste', async ({
+  test('formulaire : le type selon le code (SYSCOHADA), le lettrage d’office ; fiche et liste', async ({
     page,
   }) => {
     await page.goto('/app/comptabilite/plan-comptable/nouveau');
     await expect(page.getByRole('heading', { level: 1 })).toHaveText('Nouveau compte');
-    // Only Odoo's fields: no class, description, parent nor « saisie autorisée ».
-    for (const gone of ['Classe', 'Description', 'Compte parent', 'Saisie d’écritures']) {
+    // The fields kept for Guinea: no class, description, parent, company nor journals.
+    for (const gone of [
+      'Classe',
+      'Description',
+      'Compte parent',
+      'Saisie d’écritures',
+      'Société',
+      'Journaux autorisés',
+    ]) {
       await expect(page.locator('form')).not.toContainText(gone);
     }
     await page.getByLabel('Code').fill('401100');
     await page.getByLabel('Nom du compte').fill('Fournisseurs locaux');
     const type = page.locator('select[formcontrolname="detailed_type"]');
     await expect(type.locator('optgroup')).toHaveCount(8);
-    await type.selectOption({ label: 'Fournisseur' });
+    // Left « Selon le code »: the server gives « Fournisseur » and letters the account.
+    await expect(type).toHaveValue('');
     await page.locator('select[formcontrolname="currency"]').selectOption('GNF');
-    await page
-      .locator('[formcontrolname="allowed_journals"] select')
-      .selectOption({ label: 'VTE — Ventes' });
-    await expect(page.locator('[formcontrolname="allowed_journals"] .tag')).toHaveText([
-      'VTE — Ventes',
-    ]);
     await page.getByRole('button', { name: 'Enregistrer' }).click();
     await expect(page.getByRole('heading', { level: 1 })).toContainText('401100');
     await expect(page.getByText('Fournisseur', { exact: true }).first()).toBeVisible();
     const facts = page.locator('dl.facts').first();
-    await expect(facts).toContainText('VTE');
-    await expect(facts).toContainText(COMPANY_A.trade_name);
+    await expect(facts).toContainText(/Autoriser le lettrage\s*Oui/);
+    await expect(facts).not.toContainText('Société');
     await page.goto('/app/comptabilite/plan-comptable?prefixe=4011');
     await expect(page.locator('tbody tr').first()).toContainText('Fournisseur');
     await expect(page.locator('tbody tr').first()).toContainText('GNF');
+    await expect(
+      page.getByRole('switch', { name: 'Autoriser le lettrage du compte 401100' }),
+    ).toBeChecked();
   });
 });
 

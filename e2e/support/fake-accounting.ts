@@ -236,6 +236,20 @@ function natureOf(detailed: unknown): string {
   return prefix === 'off' ? 'other' : prefix;
 }
 
+/** A few SYSCOHADA prefixes of the server's standard (`data/syscohada.json`): what tests use. */
+const SYSCOHADA: readonly [string, string][] = [
+  ['40', 'liability_payable'],
+  ['41', 'asset_receivable'],
+  ['52', 'asset_cash'],
+  ['57', 'asset_cash'],
+  ['6', 'expense'],
+  ['7', 'income'],
+];
+
+function syscohadaTypeOf(code: string): string {
+  return SYSCOHADA.find(([prefix]) => code.startsWith(prefix))?.[1] ?? 'liability_current';
+}
+
 /** Accounts per first character and first two of their code (counts of the server). */
 function prefixesOf(accounts: readonly AccountJson[], url: URL) {
   const q = (name: string) => url.searchParams.get(name);
@@ -429,23 +443,26 @@ export class FakeAccounting {
           return this.answer(route, 400, error('accounting_account_code_exists'));
         }
         const parent = books.accounts.find((item) => item.public_id === body['parent']);
+        // Neither type nor nature: the SYSCOHADA type of the code (only what the tests use).
+        const detailed = String(
+          body['detailed_type'] ?? (body['account_type'] ? '' : syscohadaTypeOf(code)),
+        );
         const created: AccountJson = {
           ...chart([
-            [
-              code,
-              String(body['name']),
-              String(body['account_type'] ?? natureOf(body['detailed_type'])),
-              null,
-            ],
+            [code, String(body['name']), String(body['account_type'] ?? natureOf(detailed)), null],
           ])[0],
           allowed_journals: (body['allowed_journals'] as string[] | undefined) ?? [],
           default_taxes: (body['default_taxes'] as string[] | undefined) ?? [],
           description: String(body['description'] ?? ''),
-          detailed_type: String(body['detailed_type'] ?? ''),
+          detailed_type: detailed,
           currency: (body['currency'] as string | null) ?? null,
           account_class: String(body['account_class'] ?? ''),
           allow_entries: body['allow_entries'] !== false,
-          letterable: body['letterable'] === true,
+          // Unless said, customers and suppliers are lettered.
+          letterable:
+            typeof body['letterable'] === 'boolean'
+              ? body['letterable']
+              : detailed === 'asset_receivable' || detailed === 'liability_payable',
           parent: parent?.public_id ?? null,
         };
         if (parent) {

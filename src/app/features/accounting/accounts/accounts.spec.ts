@@ -61,6 +61,15 @@ function answerSideRequests(): void {
   }
 }
 
+/** Types a value in a field of the form (an input or a selection list). */
+function fill(element: HTMLElement, name: string, value: string): void {
+  const field = element.querySelector<HTMLInputElement | HTMLSelectElement>(
+    `[formControlName="${name}"]`,
+  )!;
+  field.value = value;
+  field.dispatchEvent(new Event(field instanceof HTMLSelectElement ? 'change' : 'input'));
+}
+
 describe('Plan comptable (accounting/accounts/)', () => {
   async function open(url: string, permissions = MANAGE) {
     TestBed.configureTestingModule({
@@ -156,7 +165,7 @@ describe('Plan comptable (accounting/accounts/)', () => {
     expect(harness.routeNativeElement?.textContent).toContain('Code commençant par');
   });
 
-  it('list: search, state, type and « imputable » go to the server', async () => {
+  it('list: search, state and type go to the server (no « imputable » filter)', async () => {
     const { accounts } = await open(
       '/plan-comptable?q=fourn&etat=active&type=liability&imputable=oui&page=3',
     );
@@ -165,7 +174,7 @@ describe('Plan comptable (accounting/accounts/)', () => {
     expect(params.get('search')).toBe('fourn');
     expect(params.get('status')).toBe('active');
     expect(params.get('account_type')).toBe('liability');
-    expect(params.get('postable')).toBe('true');
+    expect(params.has('postable')).toBe(false);
     expect(params.get('page')).toBe('3');
     expect(params.get('page_size')).toBe('50');
     request.flush(page([], 0));
@@ -190,7 +199,6 @@ describe('Plan comptable (accounting/accounts/)', () => {
       'Type',
       'Autoriser le lettrage',
       'Devise du compte',
-      'Société',
     ]);
     const text = element.textContent ?? '';
     expect(text).toContain('sous-comptes');
@@ -312,37 +320,29 @@ describe('Plan comptable (accounting/accounts/)', () => {
     expect(element.querySelector('#historique')).toBeNull();
   });
 
-  it('form: Odoo’s fields — the type in its groups, taxes, journals, obsolete; nothing else', async () => {
+  it('form: the fields kept for Guinea — the type in Odoo’s groups, obsolete; nothing else', async () => {
     const { element, stable } = await open('/plan-comptable/nouveau');
     const navigate = vi.spyOn(TestBed.inject(Router), 'navigate').mockResolvedValue(true);
-    httpMock()
-      .expectOne((req) => req.url === '/api/v1/accounting/journals/')
-      .flush(
-        page([
-          { public_id: 'j-vte', code: 'VTE', name: 'Ventes' },
-          { public_id: 'j-bq', code: 'BQ1', name: 'Banque' },
-        ]),
-      );
     await stable();
 
-    // The fields of Odoo's form only.
+    // No company (always the active one), no allowed journals on a new account.
     const names = Array.from(element.querySelectorAll('[formControlName]')).map((field) =>
       field.getAttribute('formControlName'),
     );
-    expect(names).toEqual([
-      'code',
-      'name',
-      'detailed_type',
-      'allowed_journals',
-      'currency',
-      'letterable',
-      'obsolete',
-    ]);
-    for (const gone of ['Classe', 'Description', 'Compte parent', 'Saisie d’écritures']) {
+    expect(names).toEqual(['code', 'name', 'detailed_type', 'currency', 'letterable', 'obsolete']);
+    for (const gone of [
+      'Classe',
+      'Description',
+      'Compte parent',
+      'Société',
+      'Journaux autorisés',
+    ]) {
       expect(element.textContent).not.toContain(gone);
     }
-    // The type exactly as Odoo lists it: sections, groups, words, in that order.
+    // « Selon le code » first, then the type exactly as Odoo lists it, in its groups.
     const select = element.querySelector<HTMLSelectElement>('[formControlName="detailed_type"]')!;
+    expect(select.options[0].textContent?.trim()).toBe('Selon le code');
+    expect(select.value).toBe('');
     expect(Array.from(select.querySelectorAll('optgroup')).map((group) => group.label)).toEqual([
       'Bilan',
       'Immobilisations',
@@ -376,47 +376,72 @@ describe('Plan comptable (accounting/accounts/)', () => {
       'Hors bilan',
     ]);
 
-    const fill = (name: string, value: string) => {
-      const field = element.querySelector<HTMLInputElement | HTMLSelectElement>(
-        `[formControlName="${name}"]`,
-      )!;
-      field.value = value;
-      field.dispatchEvent(new Event(field instanceof HTMLSelectElement ? 'change' : 'input'));
-    };
-    fill('code', '401100');
-    fill('name', 'Fournisseurs locaux');
-    fill('detailed_type', 'liability_payable');
-    // Journals are chosen in a selection list, then shown as tags.
-    const journals = element.querySelector<HTMLSelectElement>(
-      '[formControlName="allowed_journals"] select',
-    )!;
-    expect(Array.from(journals.options).map((option) => option.textContent?.trim())).toEqual([
-      'Ajouter un journal…',
-      'VTE — Ventes',
-      'BQ1 — Banque',
-    ]);
-    journals.value = 'j-vte';
-    journals.dispatchEvent(new Event('change'));
-    await stable();
-    expect(
-      element.querySelector('[formControlName="allowed_journals"] .tag')?.textContent,
-    ).toContain('VTE — Ventes');
+    fill(element, 'code', '471000');
+    fill(element, 'name', 'Débiteurs divers');
+    fill(element, 'detailed_type', 'asset_current');
+    element.querySelector<HTMLInputElement>('[formControlName="letterable"]')!.click();
     element.querySelector('form')!.dispatchEvent(new Event('submit'));
     await stable();
     const create = httpMock().expectOne((req) => req.method === 'POST');
-    // The type only: its nature follows on the server.
+    // The type only: its nature follows on the server; the lettering chosen is sent.
+    expect(create.request.body).toEqual({
+      code: '471000',
+      name: 'Débiteurs divers',
+      detailed_type: 'asset_current',
+      currency: null,
+      letterable: true,
+      allowed_journals: [],
+      default_taxes: [],
+    });
+    create.flush(account('471000', 'Débiteurs divers'));
+    await stable();
+    expect(navigate).toHaveBeenCalledWith(['/app/comptabilite/plan-comptable', 'a-471000']);
+  });
+
+  it('form: « Selon le code » and an untouched lettering are left to the server', async () => {
+    const { element, stable } = await open('/plan-comptable/nouveau');
+    vi.spyOn(TestBed.inject(Router), 'navigate').mockResolvedValue(true);
+    await stable();
+    fill(element, 'code', '401100');
+    fill(element, 'name', 'Fournisseurs locaux');
+    element.querySelector('form')!.dispatchEvent(new Event('submit'));
+    await stable();
+    const create = httpMock().expectOne((req) => req.method === 'POST');
+    // SYSCOHADA: the server gives « Fournisseur » and letters the account.
     expect(create.request.body).toEqual({
       code: '401100',
       name: 'Fournisseurs locaux',
-      detailed_type: 'liability_payable',
       currency: null,
-      letterable: false,
-      allowed_journals: ['j-vte'],
+      allowed_journals: [],
       default_taxes: [],
     });
-    create.flush(account('401100', 'Fournisseurs locaux'));
+    create.flush(
+      account('401100', 'Fournisseurs locaux', {
+        detailed_type: 'liability_payable',
+        letterable: true,
+      }),
+    );
     await stable();
-    expect(navigate).toHaveBeenCalledWith(['/app/comptabilite/plan-comptable', 'a-401100']);
+  });
+
+  it('form: the allowed journals show only on an account that has some', async () => {
+    const { element, stable } = await open('/plan-comptable/a-401/modifier');
+    httpMock()
+      .expectOne((req) => req.url === '/api/v1/accounting/journals/')
+      .flush(page([{ public_id: 'j-vte', code: 'VTE', name: 'Ventes' }]));
+    httpMock()
+      .expectOne('/api/v1/accounting/accounts/a-401/')
+      .flush(
+        account('401', 'Fournisseurs', {
+          detailed_type: 'liability_payable',
+          allowed_journals: ['j-vte'],
+        }),
+      );
+    await stable();
+    expect(element.textContent).toContain('Journaux autorisés');
+    expect(
+      element.querySelector('[formControlName="allowed_journals"] .tag')?.textContent,
+    ).toContain('VTE — Ventes');
   });
 
   it('form: « Obsolète » goes through the account’s command, never the PATCH', async () => {

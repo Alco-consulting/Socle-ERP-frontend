@@ -43,7 +43,7 @@ import {
 import { localToday } from '../../../shared/utils/dates';
 import { CurrencyOption } from '../../partners/data-access/partner-models';
 import { PartnersApi } from '../../partners/data-access/partners-api';
-import { Journal } from '../data-access/accounting-models';
+import { Journal, JournalType } from '../data-access/accounting-models';
 import { AccountingApi } from '../data-access/accounting-api';
 import { EntriesApi } from '../data-access/entries-api';
 import {
@@ -60,6 +60,15 @@ import { ENTRY_ERRORS, ENTRY_FIELD_MESSAGES, ROUNDING_MODES, isoDay } from './en
 
 /** The API keeps 6 decimals for an amount; the currency's precision is the server's rule. */
 const AMOUNT_DECIMALS = 6;
+
+type JournalOption = Pick<Journal, 'public_id' | 'code' | 'name'> & {
+  readonly journal_type?: JournalType;
+};
+/** The side whose taxes a journal proposes (a tax of both sides is proposed by both). */
+const SIDE_OF_JOURNAL: Partial<Record<JournalType, 'sale' | 'purchase'>> = {
+  sales: 'sale',
+  purchase: 'purchase',
+};
 
 type LineForm = FormGroup<{
   account: FormControl<AutocompleteOption | null>;
@@ -207,7 +216,8 @@ export class EntryFormPage {
 
   // ---- Options from the API ---------------------------------------------------------------
   private readonly accounting = inject(AccountingApi);
-  protected readonly journals = signal<readonly Pick<Journal, 'public_id' | 'code' | 'name'>[]>([]);
+  /** The type is known for the journals the API listed (not for an entry's own reference). */
+  protected readonly journals = signal<readonly JournalOption[]>([]);
   protected readonly currencies = signal<readonly CurrencyOption[]>([]);
   protected readonly taxes = signal<readonly TaxOption[]>([]);
   /** The default taxes of the accounts the search showed (proposed on a line, never imposed). */
@@ -260,6 +270,19 @@ export class EntryFormPage {
   protected readonly decimals = computed(
     () => this.currencies().find((item) => item.code === this.currencyShown())?.decimal_places ?? 0,
   );
+  /**
+   * The taxes of the journal's side: a sales journal proposes the taxes of sales, a purchase
+   * journal those of purchases (a tax of both sides is in both); any other journal, all.
+   */
+  protected readonly usableTaxes = computed(() => {
+    this.value();
+    const chosen = this.form.controls.journal.value;
+    const journal = this.journals().find((item) => item.public_id === chosen);
+    const side = journal?.journal_type ? SIDE_OF_JOURNAL[journal.journal_type] : undefined;
+    return side
+      ? this.taxes().filter((tax) => tax.type_tax_use === side || tax.type_tax_use === 'both')
+      : this.taxes();
+  });
 
   constructor() {
     inject(UnsavedChangesService).track(() => this.form.dirty);
@@ -501,7 +524,16 @@ export class EntryFormPage {
     afterNextRender(() => this.focus('description'), { injector: this.injector });
   }
 
-  private addJournals(list: readonly Pick<Journal, 'public_id' | 'code' | 'name'>[]): void {
+  /** The usable taxes, and the line's own tax when another side's (it stays shown). */
+  protected taxesFor(current: string): readonly TaxOption[] {
+    const usable = this.usableTaxes();
+    const own = usable.some((tax) => tax.public_id === current)
+      ? undefined
+      : this.taxes().find((tax) => tax.public_id === current);
+    return own ? [...usable, own] : usable;
+  }
+
+  private addJournals(list: readonly JournalOption[]): void {
     const known = new Map(this.journals().map((journal) => [journal.public_id, journal]));
     for (const journal of list) {
       if (!known.has(journal.public_id) || !known.get(journal.public_id)?.name) {
@@ -518,7 +550,9 @@ export class EntryFormPage {
     group.controls.account.valueChanges.subscribe((option) => {
       const tax = group.controls.tax;
       const proposed = option ? (this.defaultTaxes.get(option.id) ?? []) : [];
-      const usable = proposed.find((id) => this.taxes().some((item) => item.public_id === id));
+      const usable = proposed.find((id) =>
+        this.usableTaxes().some((item) => item.public_id === id),
+      );
       if (usable && !tax.value) {
         tax.setValue(usable);
         tax.markAsDirty();

@@ -158,8 +158,7 @@ export class AccountDetailPage {
   /** Journals and taxes of the company, to name the account's (journals by their codes). */
   private readonly journalList = signal<readonly Pick<Journal, 'public_id' | 'code'>[]>([]);
   private readonly taxList = signal<readonly TaxOption[]>([]);
-  protected readonly companyName = computed(() => this.session.activeCompany()?.name ?? '');
-  /** « Journaux autorisés »: their codes; none: every journal. */
+  /** « Journaux autorisés » (shown only when the account has some): their codes. */
   protected readonly allowedJournals = computed(() =>
     this.codes(this.account()?.allowed_journals ?? [], this.journalList(), 'Tous les journaux'),
   );

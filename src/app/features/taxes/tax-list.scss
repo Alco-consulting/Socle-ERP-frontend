@@ -1,0 +1,5 @@
+// A withheld tax (« retenue à la source ») says so next to its rate.
+.withheld {
+  display: block;
+  color: var(--color-text-muted);
+}

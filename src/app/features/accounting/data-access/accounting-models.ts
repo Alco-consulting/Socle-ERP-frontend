@@ -116,9 +116,11 @@ export interface Account {
 export interface AccountWrite {
   readonly code: string;
   readonly name: string;
-  readonly detailed_type: DetailedType;
+  /** Omitted at the creation: the type the code takes under the chart standard (SYSCOHADA). */
+  readonly detailed_type?: DetailedType;
   readonly currency: string | null;
-  readonly letterable: boolean;
+  /** Omitted at the creation: lettered when the type is a customer or a supplier. */
+  readonly letterable?: boolean;
   readonly allowed_journals: readonly string[];
   readonly default_taxes: readonly string[];
 }

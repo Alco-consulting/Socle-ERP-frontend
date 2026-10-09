@@ -6,27 +6,28 @@
     [correlationId]="failure.correlationId ?? ''"
   />
   <div class="center">
-    <a alcoButton icon="arrow-left" routerLink="/app/comptabilite/taxes/liste">Retour aux taxes</a>
+    <a alcoButton icon="arrow-left" [routerLink]="list">Retour aux taxes</a>
   </div>
 } @else if (!ready()) {
-  <alco-loading [rows]="6" label="Chargement de la taxe…" />
+  <alco-loading [rows]="5" label="Chargement de la taxe…" />
 } @else {
-  <alco-page-header
-    [title]="isNew ? 'Nouvelle taxe' : 'Modifier ' + (tax()?.name ?? '')"
-    [subtitle]="isNew ? 'Taxe de la société' : ''"
-  >
+  <alco-page-header [title]="title()" [subtitle]="isNew ? 'Taxe de la société' : ''">
     <div alcoPageActions>
-      <button alcoButton type="button" variant="ghost" (click)="cancel()">Annuler</button>
-      <button
-        alcoButton
-        type="submit"
-        form="tax-form"
-        variant="primary"
-        [loading]="saving()"
-        loadingLabel="Enregistrement…"
-      >
-        Enregistrer
+      <button alcoButton type="button" variant="ghost" (click)="cancel()">
+        {{ canSave ? 'Annuler' : 'Retour aux taxes' }}
       </button>
+      @if (canSave) {
+        <button
+          alcoButton
+          type="submit"
+          form="tax-form"
+          variant="primary"
+          [loading]="saving()"
+          loadingLabel="Enregistrement…"
+        >
+          Enregistrer
+        </button>
+      }
     </div>
   </alco-page-header>
 
@@ -48,18 +49,67 @@
   }
 
   <form id="tax-form" class="sheet" [formGroup]="form" (ngSubmit)="save()" novalidate>
-    <div class="odoo-header">
+    <div class="columns">
       <div class="column">
-        <alco-form-field label="Nom de la taxe" [required]="true">
+        <alco-form-field
+          label="Nom"
+          [required]="true"
+          hint="Ex. « TVA 18 % » : unique dans la société."
+        >
           <input alcoInput formControlName="name" maxlength="100" autocomplete="off" />
         </alco-form-field>
-        <alco-form-field label="Calcul de la taxe">
-          <select alcoSelect formControlName="amount_type">
-            @for (type of amountTypes; track type.id) {
-              <option [value]="type.id">{{ type.label }}</option>
+        <alco-form-field label="Taux" [required]="true">
+          <div class="with-unit">
+            <input alcoInput [numeric]="true" inputmode="decimal" formControlName="rate" />
+            <span class="unit" aria-hidden="true">%</span>
+          </div>
+        </alco-form-field>
+        <alco-form-field label="S’applique à" [required]="true">
+          <select alcoSelect formControlName="type_tax_use">
+            @for (use of uses; track use.id) {
+              <option [value]="use.id">{{ use.label }}</option>
             }
           </select>
         </alco-form-field>
+      </div>
+      <div class="column">
+        @if (onSales()) {
+          <alco-form-field
+            label="Compte des ventes"
+            [optional]="true"
+            hint="Où va la taxe d’une vente (ex. 443100 TVA facturée sur ventes)."
+          >
+            <alco-autocomplete
+              formControlName="sale_account"
+              [search]="searchAccounts"
+              placeholder="Code ou nom du compte"
+              emptyText="Aucun compte ne correspond."
+            />
+          </alco-form-field>
+        }
+        @if (onPurchases()) {
+          <alco-form-field
+            label="Compte des achats"
+            [optional]="true"
+            hint="Où va la taxe d’un achat (ex. 445200 TVA récupérable sur achats)."
+          >
+            <alco-autocomplete
+              formControlName="purchase_account"
+              [search]="searchAccounts"
+              placeholder="Code ou nom du compte"
+              emptyText="Aucun compte ne correspond."
+            />
+          </alco-form-field>
+        }
+        <div class="field-check">
+          <label class="check">
+            <input type="checkbox" formControlName="withholding" />
+            Retenue à la source
+          </label>
+          <span class="alco-caption"
+            >Le montant de la taxe est déduit du total à payer au lieu d’y être ajouté.</span
+          >
+        </div>
         <div class="field-check">
           <span class="fixed-label" id="active-label">Actif</span>
           <label class="alco-switch">
@@ -71,203 +121,17 @@
             />
             <span class="track" aria-hidden="true"></span>
           </label>
+          <span class="alco-caption">Une taxe inactive n’est plus proposée à la saisie.</span>
         </div>
-      </div>
-      <div class="column">
-        <alco-form-field label="Type de taxe" hint="Où la taxe peut être choisie.">
-          <select alcoSelect formControlName="type_tax_use">
-            @for (use of uses; track use.id) {
-              <option [value]="use.id">{{ use.label }}</option>
-            }
-          </select>
-        </alco-form-field>
-        <alco-form-field label="Portée de la taxe" [optional]="true">
-          <select alcoSelect formControlName="tax_scope">
-            <option value=""></option>
-            @for (scope of scopes; track scope.id) {
-              <option [value]="scope.id">{{ scope.label }}</option>
-            }
-          </select>
-        </alco-form-field>
-        <alco-form-field label="Montant" [required]="true">
-          <div class="with-unit">
-            <input alcoInput [numeric]="true" inputmode="decimal" formControlName="amount" />
-            <span class="unit" aria-hidden="true">%</span>
-          </div>
-        </alco-form-field>
-        <alco-form-field label="Position fiscale" [optional]="true">
-          <alco-tag-input
-            formControlName="fiscal_positions"
-            placeholder="National…"
-            [suggestions]="positions()"
-          />
-        </alco-form-field>
       </div>
     </div>
 
-    <alco-tabs label="Taxe" [tabs]="tabs" [(selected)]="tab">
-      <ng-template alcoTabPanel="definition">
-        <div class="repartitions">
-          @for (side of sides; track side.id) {
-            <section class="repartition" [attr.aria-labelledby]="side.id + '-title'">
-              <h3 class="repartition-title" [id]="side.id + '-title'">{{ side.title }}</h3>
-              <div class="scroll">
-                <table class="lines" [formArrayName]="side.id">
-                  <thead>
-                    <tr>
-                      <th scope="col" class="factor">%</th>
-                      <th scope="col" class="type">Basé sur</th>
-                      <th scope="col" class="account">Compte</th>
-                      <th scope="col">Grilles de taxes</th>
-                      <th scope="col"><span class="alco-sr-only">Retirer</span></th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    @for (line of lines(side.id).controls; track line; let i = $index) {
-                      <tr [formGroupName]="i">
-                        <td class="factor">
-                          @if (line.controls.repartition_type.value === 'tax') {
-                            <input
-                              alcoInput
-                              [numeric]="true"
-                              inputmode="decimal"
-                              formControlName="factor_percent"
-                              [attr.aria-label]="'% de la ligne ' + (i + 1)"
-                            />
-                          }
-                        </td>
-                        <td>
-                          <select
-                            alcoSelect
-                            formControlName="repartition_type"
-                            [attr.aria-label]="'Basé sur, ligne ' + (i + 1)"
-                          >
-                            @for (type of repartitionTypes; track type.id) {
-                              <option [value]="type.id">{{ type.label }}</option>
-                            }
-                          </select>
-                        </td>
-                        <td class="account">
-                          @if (line.controls.repartition_type.value === 'tax') {
-                            <alco-autocomplete
-                              formControlName="account"
-                              [search]="searchAccounts"
-                              [label]="'Compte, ligne ' + (i + 1)"
-                              placeholder="Code ou nom"
-                              emptyText="Aucun compte ne correspond."
-                            />
-                          }
-                        </td>
-                        <td class="grids">
-                          <alco-tag-input
-                            formControlName="grids"
-                            [label]="'Grilles de taxes, ligne ' + (i + 1)"
-                            [suggestions]="gridSuggestions()"
-                          />
-                        </td>
-                        <td class="remove">
-                          <button
-                            alcoButton
-                            type="button"
-                            variant="ghost"
-                            size="sm"
-                            icon="trash"
-                            [iconOnly]="true"
-                            [attr.aria-label]="'Retirer la ligne ' + (i + 1)"
-                            (click)="removeLine(side.id, i)"
-                          >
-                            Retirer
-                          </button>
-                        </td>
-                      </tr>
-                    }
-                  </tbody>
-                </table>
-              </div>
-              <button
-                alcoButton
-                type="button"
-                variant="ghost"
-                size="sm"
-                icon="plus"
-                class="add-line"
-                (click)="addLine(side.id)"
-              >
-                Ajouter une ligne
-              </button>
-            </section>
-          }
-        </div>
-      </ng-template>
-      <ng-template alcoTabPanel="advanced">
-        <div class="odoo-header panel">
-          <div class="column">
-            <alco-form-field label="Libellé sur les factures" [optional]="true">
-              <input alcoInput formControlName="invoice_label" maxlength="100" />
-            </alco-form-field>
-            <alco-form-field label="Description" [optional]="true">
-              <input alcoInput formControlName="description" maxlength="255" />
-            </alco-form-field>
-            <alco-form-field
-              label="Groupe de taxes"
-              [optional]="true"
-              hint="Un nom nouveau crée le groupe."
-            >
-              <input
-                alcoInput
-                formControlName="heading"
-                maxlength="100"
-                list="tax-headings"
-                autocomplete="off"
-              />
-              <datalist id="tax-headings">
-                @for (heading of headings(); track heading) {
-                  <option [value]="heading"></option>
-                }
-              </datalist>
-            </alco-form-field>
-            <alco-form-field label="Pays" [required]="true" hint="Code à 2 lettres (ex. GN)">
-              <input
-                alcoInput
-                formControlName="country"
-                maxlength="2"
-                autocomplete="off"
-                autocapitalize="characters"
-              />
-            </alco-form-field>
-            <alco-form-field label="Code de catégorie fiscale" [optional]="true">
-              <select alcoSelect formControlName="tax_category_code">
-                <option value=""></option>
-                @for (code of categoryCodes; track code.id) {
-                  <option [value]="code.id">{{ code.label }}</option>
-                }
-              </select>
-            </alco-form-field>
-            <alco-form-field label="Mentions légales" [optional]="true">
-              <textarea alcoInput formControlName="legal_notes" rows="3"></textarea>
-            </alco-form-field>
-          </div>
-          <div class="column">
-            <alco-form-field label="Inclus dans le prix">
-              <select alcoSelect formControlName="price_include_override">
-                <option value="">Par défaut</option>
-                @for (inclusion of inclusions; track inclusion.id) {
-                  <option [value]="inclusion.id">{{ inclusion.label }}</option>
-                }
-              </select>
-            </alco-form-field>
-            <div class="field-check">
-              <label class="check">
-                <input type="checkbox" formControlName="include_base_amount" />
-                Impacter la base des taxes ultérieures
-              </label>
-              <span class="alco-caption"
-                >Le montant de cette taxe s’ajoute à la base des taxes suivantes.</span
-              >
-            </div>
-          </div>
-        </div>
-      </ng-template>
-    </alco-tabs>
+    @if (tax(); as tax) {
+      @if (canSeeHistory) {
+        <section class="section" aria-labelledby="history-title">
+          <alco-object-history [objectType]="auditType" [objectId]="tax.public_id" />
+        </section>
+      }
+    }
   </form>
 }

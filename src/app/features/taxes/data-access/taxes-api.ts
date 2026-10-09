@@ -1,19 +1,19 @@
 import { Injectable, inject } from '@angular/core';
-import { Observable, map } from 'rxjs';
+import { Observable } from 'rxjs';
 
 import { ApiClient, Paginated } from '../../../core/http/api-client';
-import { NamedRecord, Tax, TaxQuery, TaxWrite } from './taxes-models';
+import { DefaultTaxes, Tax, TaxQuery, TaxWrite } from './taxes-models';
 
-/** A company has a few taxes: one page shows them all, as Odoo's list. */
+/** A company has a few taxes: one page shows them all. */
 export const TAX_PAGE_SIZE = 80;
-const NAMES_PAGE_SIZE = 100;
 
 const base = 'taxes/';
 const id = (value: string) => encodeURIComponent(value);
 
 /**
  * The company's taxes on the API (`X-Company-ID` by the interceptor). The server makes the
- * code, checks the repartition lines and writes the rules: the screens only send the form.
+ * code, keeps only the accounts of the sides a tax applies to and writes its rule: the
+ * screens only send the form.
  */
 @Injectable({ providedIn: 'root' })
 export class TaxesApi {
@@ -43,25 +43,17 @@ export class TaxesApi {
     return this.api.patch<Tax>(`${base}${id(taxId)}/`, changes);
   }
 
-  /** Odoo's « Actif »: a command, never the form. */
+  /** « Actif »: a command, never the form. */
   setTaxActive(taxId: string, active: boolean): Observable<Tax> {
     const command = active ? 'activate' : 'deactivate';
     return this.api.post<Tax>(`${base}${id(taxId)}/${command}/`);
   }
 
-  /** The « Groupes de taxes » proposed by the form (a new name creates one). */
-  headings(): Observable<readonly NamedRecord[]> {
-    return this.names(`${base}headings/`);
-  }
-
-  /** The « Positions fiscales » proposed by the form (a new name creates one). */
-  fiscalPositions(): Observable<readonly NamedRecord[]> {
-    return this.names(`${base}fiscal-positions/`);
-  }
-
-  private names(path: string): Observable<readonly NamedRecord[]> {
-    return this.api
-      .get<Paginated<NamedRecord>>(path, { params: { page_size: NAMES_PAGE_SIZE } })
-      .pipe(map((page) => page.results));
+  /**
+   * « Créer les taxes de Guinée »: the usual taxes of the company's country not yet
+   * present, with the accounts of its chart (served by Accounting, which owns the chart).
+   */
+  createDefaultTaxes(): Observable<DefaultTaxes> {
+    return this.api.post<DefaultTaxes>('accounting/default-taxes/');
   }
 }

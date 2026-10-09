@@ -1,51 +1,24 @@
-/** Odoo's « Type de taxe ». */
-export type TaxUse = 'sale' | 'purchase' | 'none';
-/** Odoo's « Portée de la taxe »; empty: goods and services. */
-export type TaxScope = '' | 'consu' | 'service';
-/** Odoo's « Calcul de la taxe » (only the percentage is computed by the server). */
-export type AmountType = 'percent';
-/** Odoo's « Inclus dans le prix »; empty: « Par défaut ». */
-export type PriceInclusion = '' | 'tax_included' | 'tax_excluded';
-/** Odoo's « Basé sur » of a repartition line. */
-export type RepartitionType = 'base' | 'tax';
+/** Where a tax may be chosen: on sales, on purchases, or on both. */
+export type TaxUse = 'sale' | 'purchase' | 'both';
 export type RecordStatus = 'active' | 'inactive';
 
-/** A line of « Répartition pour les factures » or « … pour les notes de crédit ». */
-export interface RepartitionLine {
-  readonly repartition_type: RepartitionType;
-  /** Decimal string, signed; 100 for the base line. */
-  readonly factor_percent: string;
-  /** A code of the chart (logical reference), or empty. */
-  readonly account_code: string;
-  /** Odoo's « Grilles de taxes ». */
-  readonly grids: readonly string[];
-}
-
-/** A tax of the API (`GET taxes/`), as Odoo's form shows it. */
+/** A tax of the API (`GET taxes/`): its simple form. */
 export interface Tax {
   readonly public_id: string;
-  /** Made by the server from the name; never shown (Odoo names a tax). */
+  /** Made by the server from the name; never shown (a tax is chosen by its name). */
   readonly code: string;
   readonly name: string;
+  /** Decimal string, 4 decimals, in percent (« 18.0000 »). */
+  readonly rate: string;
+  readonly type_tax_use: TaxUse;
+  /** Codes of the chart (logical references), blank when none or not this side. */
+  readonly sale_account_code: string;
+  readonly purchase_account_code: string;
+  /** Withheld from the amount due (« retenue à la source ») instead of added. */
+  readonly withholding: boolean;
   readonly category: string;
   readonly country: string;
   readonly status: RecordStatus;
-  readonly type_tax_use: TaxUse;
-  readonly tax_scope: TaxScope;
-  readonly amount_type: AmountType;
-  /** Decimal string, 4 decimals. */
-  readonly amount: string;
-  readonly price_include_override: PriceInclusion;
-  readonly include_base_amount: boolean;
-  readonly description: string;
-  readonly invoice_label: string;
-  /** Odoo's « Groupe de taxes », by its name ('' : none). */
-  readonly heading: string;
-  readonly fiscal_positions: readonly string[];
-  readonly tax_category_code: string;
-  readonly legal_notes: string;
-  readonly invoice_lines: readonly RepartitionLine[];
-  readonly refund_lines: readonly RepartitionLine[];
   readonly created_at: string;
   readonly updated_at: string;
 }
@@ -53,33 +26,23 @@ export interface Tax {
 /** What the form sends (`POST taxes/`, `PATCH taxes/<id>/`); the server makes the code. */
 export interface TaxWrite {
   readonly name: string;
-  readonly country: string;
+  readonly rate: string;
   readonly type_tax_use: TaxUse;
-  readonly tax_scope: TaxScope;
-  readonly amount_type: AmountType;
-  readonly amount: string;
-  readonly price_include_override: PriceInclusion;
-  readonly include_base_amount: boolean;
-  readonly description: string;
-  readonly invoice_label: string;
-  readonly heading: string;
-  readonly fiscal_positions: readonly string[];
-  readonly tax_category_code: string;
-  readonly legal_notes: string;
-  readonly invoice_lines: readonly RepartitionLine[];
-  readonly refund_lines: readonly RepartitionLine[];
+  readonly sale_account_code: string;
+  readonly purchase_account_code: string;
+  readonly withholding: boolean;
 }
 
 export interface TaxQuery {
   readonly search?: string;
   readonly status?: RecordStatus | null;
-  /** Several: Odoo's « Ventes ou Achats » is both. */
+  /** Several: the taxes usable on a sale are « sale » and « both ». */
   readonly uses?: readonly TaxUse[];
   readonly page?: number;
 }
 
-/** A « Groupe de taxes » or a « Position fiscale » of the company. */
-export interface NamedRecord {
-  readonly public_id: string;
-  readonly name: string;
+/** « Créer les taxes de Guinée »: the taxes created, the names already taken (kept). */
+export interface DefaultTaxes {
+  readonly created: readonly Tax[];
+  readonly existing: readonly string[];
 }

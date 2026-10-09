@@ -347,21 +347,22 @@ supprime ce qui ne sert plus.
   `TransfersApi.firstRows`), puis « Continuer vers la correspondance des colonnes ». Indécis ou
   refusé : bloqué avec le motif. Forcer (CSV) : « Options avancées », fermées par défaut.
   `.xls`, `.xlsm` refusés. Captures : `docs/frontend/captures/97…102`.
-- **Taxes comme Odoo** (`features/taxes/`, note backend 0030) :
-  - liste : Nom de la taxe, Description, Type de taxe, Portée, Libellé sur les factures,
-    Actif (interrupteur, commande) ; « Ventes ou Achats » par défaut ;
-  - fiche et formulaire : en-tête d'Odoo, onglets « Définition » (répartitions factures et
-    notes de crédit : %, Basé sur, Compte, Grilles de taxes) et « Options avancées » ;
-  - le serveur fait le code et la règle ; la raison d'un refus de répartition est dite ;
-  - faux serveur : `fake-accounting-entries.ts` (les 7 taxes d'Odoo de la société A) ;
-  - e2e : `e2e/taxes.spec.ts` ;
-  - captures : `docs/frontend/captures/107…111`.
-- **Formulaire de compte comme Odoo** : Code, Nom du compte ; Type groupé comme Odoo
-  (`TYPE_SECTIONS`, 18 types), Taxes par défaut et Journaux autorisés (champs de sélection,
-  `shared/forms/tag-select.ts`), Devise, Autoriser le
-  lettrage, Obsolète (commandes), Groupe et Société en lecture ; la fiche montre les mêmes
-  champs. Taxe par défaut proposée sur une ligne d'écriture. Liste : Code, Nom du compte, Type,
-  Autoriser le lettrage (interrupteur dans la ligne), Devise du compte, Société.
+- **Taxes, un seul écran simple** (`features/taxes/`, note backend 0031) :
+  - liste : Nom, Taux, S'applique à, Compte des ventes, Compte des achats, Actif
+    (interrupteur, commande) ; « Créer les taxes de Guinée » (`accounting/default-taxes/`) ;
+  - une page par taxe, pour la créer ou la modifier : nom, taux, côtés (ventes, achats, les
+    deux), le compte de chaque côté choisi dans le plan, retenue à la source, actif ;
+  - à la saisie d'une écriture, un journal de ventes ne propose que les taxes de ventes (et
+    des deux côtés), un journal d'achats celles d'achats ;
+  - faux serveur : `fake-accounting-entries.ts` ; e2e : `e2e/taxes.spec.ts` ;
+    captures `107…109`.
+- **Formulaire de compte** : Code, Nom du compte ; Type groupé comme Odoo (`TYPE_SECTIONS`,
+  18 types) avec « Selon le code » à la création (le serveur donne le type SYSCOHADA du
+  code), Taxes par défaut, Devise, Autoriser le lettrage (laissé au serveur s'il n'est pas
+  touché : clients et fournisseurs lettrés), Obsolète (commandes), Groupe en lecture ;
+  Journaux autorisés seulement sur un compte qui en a ; plus de Société. Liste : Code, Nom
+  du compte, Type, Autoriser le lettrage (interrupteur), Devise ; plus de filtre
+  « Imputable ».
 - **Plan comptable comme Odoo** : panneau « Groupes de comptes » (préfixes du serveur,
   `?prefixe=`, un filtre jamais une hiérarchie), colonnes Type détaillé, Devise, Société ;
   formulaire avec type détaillé (de la nature) et devise. Faux serveur :

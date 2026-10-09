@@ -73,35 +73,19 @@ export interface EntryJson {
   lines: LineJson[];
 }
 
-interface RepartitionJson {
-  repartition_type: 'base' | 'tax';
-  factor_percent: string;
-  account_code: string;
-  grids: string[];
-}
-
-/** A tax as Odoo's form defines it (`TaxesTax`). */
+/** A tax in its simple form (`TaxesTax`). */
 interface TaxJson {
   public_id: string;
   code: string;
   name: string;
+  rate: string;
+  type_tax_use: 'sale' | 'purchase' | 'both';
+  sale_account_code: string;
+  purchase_account_code: string;
+  withholding: boolean;
   category: string;
   country: string;
   status: 'active' | 'inactive';
-  type_tax_use: 'sale' | 'purchase' | 'none';
-  tax_scope: '' | 'consu' | 'service';
-  amount_type: 'percent';
-  amount: string;
-  price_include_override: '' | 'tax_included' | 'tax_excluded';
-  include_base_amount: boolean;
-  description: string;
-  invoice_label: string;
-  heading: string;
-  fiscal_positions: string[];
-  tax_category_code: string;
-  legal_notes: string;
-  invoice_lines: RepartitionJson[];
-  refund_lines: RepartitionJson[];
   created_at: string;
   updated_at: string;
 }
@@ -112,23 +96,13 @@ function four(value: string): string {
   return `${integer || '0'}.${fraction.padEnd(4, '0').slice(0, 4)}`;
 }
 
-/** Odoo's lines: the base, then 100 % of the tax to an account. */
-function odooLines(account: string, grid: string): RepartitionJson[] {
-  return [
-    {
-      repartition_type: 'base',
-      factor_percent: '100.0000',
-      account_code: '',
-      grids: [`${grid}_base`],
-    },
-    {
-      repartition_type: 'tax',
-      factor_percent: '100.0000',
-      account_code: account,
-      grids: [`${grid}_tax`],
-    },
-  ];
-}
+/** The usual taxes of Guinea, as `accounting/default-taxes/` creates them. */
+const GUINEA: readonly [string, string, TaxJson['type_tax_use'], string, string][] = [
+  ['TVA 18 %', '18', 'both', '443100', '445200'],
+  ['TVA 0 % export', '0', 'sale', '', ''],
+  ['TVA 0 % import', '0', 'purchase', '', ''],
+  ['Exonéré de TVA', '0', 'both', '', ''],
+];
 
 interface DocumentJson {
   public_id: string;
@@ -232,6 +206,7 @@ export class FakeAccountingEntries {
     await page.route('**/api/v1/accounting/entries/**', (route) => this.handle(route));
     await page.route('**/api/v1/accounting/settings/', (route) => this.settings(route));
     await page.route('**/api/v1/taxes/**', (route) => this.taxes(route));
+    await page.route('**/api/v1/accounting/default-taxes/', (route) => this.defaultTaxes(route));
     await page.route('**/api/v1/documents/**', (route) => this.documents(route));
     await page.route('**/api/v1/audit/**', (route) => this.audit(route));
   }
@@ -245,18 +220,11 @@ export class FakeAccountingEntries {
       reversed: new Set(),
       numbers: {},
       settings: { submission_required: company === 'A', parent_accounts_postable: false },
-      // Odoo's taxes of the screenshots (Guinée), in their order.
+      // Company A (Guinea): the VAT and a withholding; « Créer les taxes de Guinée » adds the
+      // others. The other companies have none.
       taxes:
         company === 'A'
-          ? [
-              this.tax('18%', 'sale', '18', '', '443100'),
-              this.tax('18% G', 'purchase', '18', '18% Produits', '445200', 'goods'),
-              this.tax('18% S', 'purchase', '18', '18% services', '445200', 'services'),
-              this.tax('0% EX', 'sale', '0', '0% (exportation)', '443100'),
-              this.tax('0% EX', 'purchase', '0', '0% (importation)', '445200'),
-              this.tax('0%', 'sale', '0', '0% (exonéré)', '443100'),
-              this.tax('0%', 'purchase', '0', '0% (exonéré)', '445200'),
-            ]
+          ? [this.tax(...GUINEA[0]), this.tax('Retenue 10 %', '10', 'purchase', '', '444131', true)]
           : [],
       documents: [],
       events: [],
@@ -338,34 +306,24 @@ export class FakeAccountingEntries {
 
   private tax(
     name: string,
+    rate: string,
     use: TaxJson['type_tax_use'],
-    amount: string,
-    description: string,
-    account: string,
-    grid = 'goods',
+    sale: string,
+    purchase: string,
+    withholding = false,
   ): TaxJson {
-    const sale = use === 'sale';
     return {
       public_id: uuid(),
-      code: `${name.toUpperCase()}${use === 'purchase' ? '-2' : ''}`,
+      code: name.toUpperCase(),
       name,
-      category: sale ? 'vat_collected' : 'vat_deductible',
+      rate: four(rate),
+      type_tax_use: use,
+      sale_account_code: use === 'purchase' ? '' : sale,
+      purchase_account_code: use === 'sale' ? '' : purchase,
+      withholding,
+      category: withholding ? 'withholding' : 'vat',
       country: 'GN',
       status: 'active',
-      type_tax_use: use,
-      tax_scope: '',
-      amount_type: 'percent',
-      amount: four(amount),
-      price_include_override: '',
-      include_base_amount: false,
-      description,
-      invoice_label: '',
-      heading: amount === '18' ? 'T.V.A. 18%' : 'T.V.A. 0%',
-      fiscal_positions: ['National'],
-      tax_category_code: '',
-      legal_notes: '',
-      invoice_lines: odooLines(account, grid),
-      refund_lines: odooLines(account, grid),
       created_at: STAMP,
       updated_at: STAMP,
     };
@@ -533,10 +491,9 @@ export class FakeAccountingEntries {
   }
 
   /**
-   * `taxes/` as Odoo's screens use it: the list (`status`, repeated `type_tax_use`,
-   * `search`), a tax, its creation and modification (the name unique per use, one base
-   * line per side: `tax_repartition_invalid`), its commands, the « Groupes de taxes » and
-   * « Positions fiscales » proposed by the form.
+   * `taxes/` as the simple screens use it: the list (`status`, repeated `type_tax_use`,
+   * `search` in the name, by name), a tax, its creation and modification (one name per
+   * company; only the accounts of the sides it applies to are kept) and its commands.
    */
   private async taxes(route: Route): Promise<void> {
     const request = route.request();
@@ -554,40 +511,32 @@ export class FakeAccountingEntries {
       return;
     }
     const taxes = this.ledger(gate.company).taxes;
-    if (path === 'headings/' || path === 'fiscal-positions/') {
-      const names = taxes.flatMap((tax) =>
-        path === 'headings/' ? [tax.heading] : tax.fiscal_positions,
-      );
-      const unique = [...new Set(names.filter(Boolean))].sort();
-      return this.paged(
-        route,
-        unique.map((name, index) => ({ public_id: `n-${index}`, name })),
-      );
-    }
     if (!path && method === 'GET') {
       const status = url.searchParams.get('status');
       const uses = url.searchParams.getAll('type_tax_use');
       const search = (url.searchParams.get('search') ?? '').toLowerCase();
       return this.paged(
         route,
-        taxes.filter(
-          (tax) =>
-            (!status || tax.status === status) &&
-            (uses.length === 0 || uses.includes(tax.type_tax_use)) &&
-            (!search ||
-              [tax.name, tax.description, tax.invoice_label].some((text) =>
-                text.toLowerCase().includes(search),
-              )),
-        ),
+        taxes
+          .filter(
+            (tax) =>
+              (!status || tax.status === status) &&
+              (uses.length === 0 || uses.includes(tax.type_tax_use)) &&
+              (!search || tax.name.toLowerCase().includes(search)),
+          )
+          .sort((a, b) => a.name.localeCompare(b.name)),
       );
     }
     if (!path && method === 'POST') {
       const body = request.postDataJSON() as Partial<TaxJson>;
-      const tax: TaxJson = {
-        ...this.tax('', 'sale', '0', '', ''),
-        ...body,
-        status: 'active',
-      } as TaxJson;
+      const tax = this.tax(
+        String(body.name ?? ''),
+        String(body.rate ?? '0'),
+        body.type_tax_use ?? 'both',
+        String(body.sale_account_code ?? ''),
+        String(body.purchase_account_code ?? ''),
+        body.withholding === true,
+      );
       return this.saveTax(route, taxes, tax, 201);
     }
     const [id, command] = path.split('/');
@@ -602,53 +551,32 @@ export class FakeAccountingEntries {
       tax.status = command === 'activate' ? 'active' : 'inactive';
       return this.answer(route, 200, tax);
     }
-    const changed = { ...tax, ...(request.postDataJSON() as Partial<TaxJson>) } as TaxJson;
-    return this.saveTax(route, taxes, changed, 200);
+    const body = request.postDataJSON() as Partial<TaxJson>;
+    const changed = { ...tax, ...body };
+    return this.saveTax(
+      route,
+      taxes,
+      {
+        ...changed,
+        sale_account_code: changed.type_tax_use === 'purchase' ? '' : changed.sale_account_code,
+        purchase_account_code: changed.type_tax_use === 'sale' ? '' : changed.purchase_account_code,
+      },
+      200,
+    );
   }
 
   private saveTax(route: Route, taxes: TaxJson[], tax: TaxJson, status: number): Promise<void> {
-    if (!tax.name?.trim()) {
+    if (!tax.name.trim()) {
       return this.answer(
         route,
         400,
         error('validation_error', { name: [{ message: 'x', code: 'blank' }] }),
       );
     }
-    const taken = taxes.some(
-      (item) =>
-        item.public_id !== tax.public_id &&
-        item.name === tax.name &&
-        item.type_tax_use === tax.type_tax_use,
-    );
-    if (taken) {
+    if (taxes.some((item) => item.public_id !== tax.public_id && item.name === tax.name)) {
       return this.answer(route, 400, error('tax_name_exists'));
     }
-    for (const [side, lines] of [
-      ['invoice', tax.invoice_lines],
-      ['refund', tax.refund_lines],
-    ] as const) {
-      if (lines.filter((line) => line.repartition_type === 'base').length !== 1) {
-        return this.answer(
-          route,
-          400,
-          error('tax_repartition_invalid', { side, reason: 'one_base' }),
-        );
-      }
-    }
-    const saved: TaxJson = {
-      ...tax,
-      code: tax.code || tax.name.toUpperCase(),
-      amount: four(tax.amount),
-      invoice_lines: tax.invoice_lines.map((line) => ({
-        ...line,
-        factor_percent: four(line.factor_percent),
-      })),
-      refund_lines: tax.refund_lines.map((line) => ({
-        ...line,
-        factor_percent: four(line.factor_percent),
-      })),
-      updated_at: new Date().toISOString(),
-    };
+    const saved: TaxJson = { ...tax, rate: four(tax.rate), updated_at: new Date().toISOString() };
     const index = taxes.findIndex((item) => item.public_id === saved.public_id);
     if (index >= 0) {
       taxes[index] = saved;
@@ -656,6 +584,29 @@ export class FakeAccountingEntries {
       taxes.push(saved);
     }
     return this.answer(route, status, saved);
+  }
+
+  /**
+   * `accounting/default-taxes/`: Guinea's usual taxes not yet present (by name). Only Guinea
+   * has a template (company A); elsewhere `tax_template_not_found`.
+   */
+  private async defaultTaxes(route: Route): Promise<void> {
+    const gate = await this.gate(route, 'taxes.create');
+    if (!gate) {
+      return;
+    }
+    if (gate.company !== 'A') {
+      return this.answer(route, 400, error('tax_template_not_found'));
+    }
+    const taxes = this.ledger(gate.company).taxes;
+    const existing = GUINEA.map(([name]) => name).filter((name) =>
+      taxes.some((tax) => tax.name === name),
+    );
+    const created = GUINEA.filter(([name]) => !existing.includes(name)).map((row) =>
+      this.tax(...row),
+    );
+    taxes.push(...created);
+    return this.answer(route, 200, { created, existing });
   }
 
   private async documents(route: Route): Promise<void> {

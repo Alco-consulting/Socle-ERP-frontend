@@ -1,12 +1,22 @@
-// Odoo's tax form: the header on two columns (tax-sheet.scss), then the tabs; in
-// « Définition », the two repartition tables, editable line by line.
-.odoo-header {
-  margin-bottom: var(--space-4);
+@use 'breakpoints' as bp;
+
+// The tax on one page: name, rate and use on the left; the accounts, withholding and state
+// on the right (one column on a phone).
+.columns {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-4) var(--space-6);
+
+  @include bp.below-tablet {
+    grid-template-columns: minmax(0, 1fr);
+  }
 }
 
-// Editable, the two repartitions need the width: one under the other.
-.repartitions {
-  grid-template-columns: minmax(0, 1fr);
+.column {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  min-width: 0;
 }
 
 .with-unit {
@@ -17,67 +27,4 @@
 
 .unit {
   color: var(--color-text-muted);
-}
-
-.repartition {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: var(--space-2);
-  min-width: 0;
-}
-
-.repartition-title {
-  align-self: stretch;
-  margin: 0;
-  padding-bottom: var(--space-2);
-  border-bottom: var(--border-width) solid var(--color-border);
-  font-size: var(--font-size-caption);
-  font-weight: var(--font-weight-semibold);
-  letter-spacing: 0.02em;
-  text-transform: uppercase;
-}
-
-// Positioned: what is absolutely placed inside (texts for screen readers) scrolls with the
-// table instead of widening the page.
-.scroll {
-  position: relative;
-  align-self: stretch;
-  overflow-x: auto;
-}
-
-.lines {
-  width: 100%;
-  min-width: 46rem;
-  border-collapse: collapse;
-
-  th,
-  td {
-    padding: var(--space-1) var(--space-2);
-    border-bottom: var(--border-width) solid var(--color-border);
-    text-align: left;
-    vertical-align: middle;
-  }
-
-  th {
-    font-weight: var(--font-weight-semibold);
-    white-space: nowrap;
-  }
-
-  .factor {
-    width: 8rem;
-    text-align: right;
-  }
-
-  .type {
-    width: 10rem;
-  }
-
-  .account {
-    width: 16rem;
-  }
-
-  .remove {
-    width: 2.5rem;
-  }
 }

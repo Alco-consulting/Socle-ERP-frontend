@@ -108,10 +108,12 @@
           <dt>Taxes par défaut</dt>
           <dd>{{ defaultTaxes() }}</dd>
         </div>
-        <div>
-          <dt>Journaux autorisés</dt>
-          <dd>{{ allowedJournals() }}</dd>
-        </div>
+        @if (account.allowed_journals.length > 0) {
+          <div>
+            <dt>Journaux autorisés</dt>
+            <dd>{{ allowedJournals() }}</dd>
+          </div>
+        }
         <div>
           <dt>Devise du compte</dt>
           <dd>{{ account.currency ?? 'Toutes les devises' }}</dd>
@@ -127,10 +129,6 @@
         <div>
           <dt>Groupe</dt>
           <dd>{{ account.code_group || '—' }}</dd>
-        </div>
-        <div>
-          <dt>Société</dt>
-          <dd>{{ companyName() }}</dd>
         </div>
       </dl>
     </section>

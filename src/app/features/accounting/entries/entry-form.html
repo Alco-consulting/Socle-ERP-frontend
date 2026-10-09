@@ -166,7 +166,7 @@
                 <alco-form-field class="tax" label="Taxe" [optional]="true">
                   <select alcoSelect formControlName="tax">
                     <option value="">Aucune taxe</option>
-                    @for (tax of taxes(); track tax.public_id) {
+                    @for (tax of taxesFor(line.controls.tax.value); track tax.public_id) {
                       <option
                         [value]="tax.public_id"
                         [selected]="tax.public_id === line.controls.tax.value"

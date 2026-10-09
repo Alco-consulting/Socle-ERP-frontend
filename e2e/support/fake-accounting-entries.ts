@@ -73,6 +73,14 @@ export interface EntryJson {
   lines: LineJson[];
 }
 
+interface RepartitionJson {
+  repartition_type: 'base' | 'tax';
+  factor_percent: string;
+  account_code: string;
+  grids: string[];
+}
+
+/** A tax as Odoo's form defines it (`TaxesTax`). */
 interface TaxJson {
   public_id: string;
   code: string;
@@ -80,8 +88,46 @@ interface TaxJson {
   category: string;
   country: string;
   status: 'active' | 'inactive';
+  type_tax_use: 'sale' | 'purchase' | 'none';
+  tax_scope: '' | 'consu' | 'service';
+  amount_type: 'percent';
+  amount: string;
+  price_include_override: '' | 'tax_included' | 'tax_excluded';
+  include_base_amount: boolean;
+  description: string;
+  invoice_label: string;
+  heading: string;
+  fiscal_positions: string[];
+  tax_category_code: string;
+  legal_notes: string;
+  invoice_lines: RepartitionJson[];
+  refund_lines: RepartitionJson[];
   created_at: string;
   updated_at: string;
+}
+
+/** « 18 » → « 18.0000 »: the API's 4 decimals, exact (no floating point). */
+function four(value: string): string {
+  const [integer, fraction = ''] = String(value).trim().split('.');
+  return `${integer || '0'}.${fraction.padEnd(4, '0').slice(0, 4)}`;
+}
+
+/** Odoo's lines: the base, then 100 % of the tax to an account. */
+function odooLines(account: string, grid: string): RepartitionJson[] {
+  return [
+    {
+      repartition_type: 'base',
+      factor_percent: '100.0000',
+      account_code: '',
+      grids: [`${grid}_base`],
+    },
+    {
+      repartition_type: 'tax',
+      factor_percent: '100.0000',
+      account_code: account,
+      grids: [`${grid}_tax`],
+    },
+  ];
 }
 
 interface DocumentJson {
@@ -199,11 +245,17 @@ export class FakeAccountingEntries {
       reversed: new Set(),
       numbers: {},
       settings: { submission_required: company === 'A', parent_accounts_postable: false },
+      // Odoo's taxes of the screenshots (Guinée), in their order.
       taxes:
         company === 'A'
           ? [
-              this.tax('TVA18', 'TVA collectée 18 %', 'vat_collected'),
-              this.tax('TVA18D', 'TVA déductible 18 %', 'vat_deductible'),
+              this.tax('18%', 'sale', '18', '', '443100'),
+              this.tax('18% G', 'purchase', '18', '18% Produits', '445200', 'goods'),
+              this.tax('18% S', 'purchase', '18', '18% services', '445200', 'services'),
+              this.tax('0% EX', 'sale', '0', '0% (exportation)', '443100'),
+              this.tax('0% EX', 'purchase', '0', '0% (importation)', '445200'),
+              this.tax('0%', 'sale', '0', '0% (exonéré)', '443100'),
+              this.tax('0%', 'purchase', '0', '0% (exonéré)', '445200'),
             ]
           : [],
       documents: [],
@@ -284,14 +336,36 @@ export class FakeAccountingEntries {
     return ledger;
   }
 
-  private tax(code: string, name: string, category: string): TaxJson {
+  private tax(
+    name: string,
+    use: TaxJson['type_tax_use'],
+    amount: string,
+    description: string,
+    account: string,
+    grid = 'goods',
+  ): TaxJson {
+    const sale = use === 'sale';
     return {
       public_id: uuid(),
-      code,
+      code: `${name.toUpperCase()}${use === 'purchase' ? '-2' : ''}`,
       name,
-      category,
+      category: sale ? 'vat_collected' : 'vat_deductible',
       country: 'GN',
       status: 'active',
+      type_tax_use: use,
+      tax_scope: '',
+      amount_type: 'percent',
+      amount: four(amount),
+      price_include_override: '',
+      include_base_amount: false,
+      description,
+      invoice_label: '',
+      heading: amount === '18' ? 'T.V.A. 18%' : 'T.V.A. 0%',
+      fiscal_positions: ['National'],
+      tax_category_code: '',
+      legal_notes: '',
+      invoice_lines: odooLines(account, grid),
+      refund_lines: odooLines(account, grid),
       created_at: STAMP,
       updated_at: STAMP,
     };
@@ -458,15 +532,130 @@ export class FakeAccountingEntries {
     }
   }
 
+  /**
+   * `taxes/` as Odoo's screens use it: the list (`status`, repeated `type_tax_use`,
+   * `search`), a tax, its creation and modification (the name unique per use, one base
+   * line per side: `tax_repartition_invalid`), its commands, the « Groupes de taxes » and
+   * « Positions fiscales » proposed by the form.
+   */
   private async taxes(route: Route): Promise<void> {
-    const gate = await this.gate(route, 'taxes.read');
-    if (gate) {
-      const status = new URL(route.request().url()).searchParams.get('status');
-      await this.paged(
+    const request = route.request();
+    const url = new URL(request.url());
+    const path = url.pathname.replace(/^.*\/api\/v1\/taxes\//, '');
+    const method = request.method();
+    const write =
+      method === 'GET'
+        ? 'taxes.read'
+        : method === 'POST' && !path
+          ? 'taxes.create'
+          : 'taxes.update';
+    const gate = await this.gate(route, write);
+    if (!gate) {
+      return;
+    }
+    const taxes = this.ledger(gate.company).taxes;
+    if (path === 'headings/' || path === 'fiscal-positions/') {
+      const names = taxes.flatMap((tax) =>
+        path === 'headings/' ? [tax.heading] : tax.fiscal_positions,
+      );
+      const unique = [...new Set(names.filter(Boolean))].sort();
+      return this.paged(
         route,
-        this.ledger(gate.company).taxes.filter((item) => !status || item.status === status),
+        unique.map((name, index) => ({ public_id: `n-${index}`, name })),
       );
     }
+    if (!path && method === 'GET') {
+      const status = url.searchParams.get('status');
+      const uses = url.searchParams.getAll('type_tax_use');
+      const search = (url.searchParams.get('search') ?? '').toLowerCase();
+      return this.paged(
+        route,
+        taxes.filter(
+          (tax) =>
+            (!status || tax.status === status) &&
+            (uses.length === 0 || uses.includes(tax.type_tax_use)) &&
+            (!search ||
+              [tax.name, tax.description, tax.invoice_label].some((text) =>
+                text.toLowerCase().includes(search),
+              )),
+        ),
+      );
+    }
+    if (!path && method === 'POST') {
+      const body = request.postDataJSON() as Partial<TaxJson>;
+      const tax: TaxJson = {
+        ...this.tax('', 'sale', '0', '', ''),
+        ...body,
+        status: 'active',
+      } as TaxJson;
+      return this.saveTax(route, taxes, tax, 201);
+    }
+    const [id, command] = path.split('/');
+    const tax = taxes.find((item) => item.public_id === id);
+    if (!tax) {
+      return this.answer(route, 404, error('not_found'));
+    }
+    if (method === 'GET') {
+      return this.answer(route, 200, tax);
+    }
+    if (command === 'activate' || command === 'deactivate') {
+      tax.status = command === 'activate' ? 'active' : 'inactive';
+      return this.answer(route, 200, tax);
+    }
+    const changed = { ...tax, ...(request.postDataJSON() as Partial<TaxJson>) } as TaxJson;
+    return this.saveTax(route, taxes, changed, 200);
+  }
+
+  private saveTax(route: Route, taxes: TaxJson[], tax: TaxJson, status: number): Promise<void> {
+    if (!tax.name?.trim()) {
+      return this.answer(
+        route,
+        400,
+        error('validation_error', { name: [{ message: 'x', code: 'blank' }] }),
+      );
+    }
+    const taken = taxes.some(
+      (item) =>
+        item.public_id !== tax.public_id &&
+        item.name === tax.name &&
+        item.type_tax_use === tax.type_tax_use,
+    );
+    if (taken) {
+      return this.answer(route, 400, error('tax_name_exists'));
+    }
+    for (const [side, lines] of [
+      ['invoice', tax.invoice_lines],
+      ['refund', tax.refund_lines],
+    ] as const) {
+      if (lines.filter((line) => line.repartition_type === 'base').length !== 1) {
+        return this.answer(
+          route,
+          400,
+          error('tax_repartition_invalid', { side, reason: 'one_base' }),
+        );
+      }
+    }
+    const saved: TaxJson = {
+      ...tax,
+      code: tax.code || tax.name.toUpperCase(),
+      amount: four(tax.amount),
+      invoice_lines: tax.invoice_lines.map((line) => ({
+        ...line,
+        factor_percent: four(line.factor_percent),
+      })),
+      refund_lines: tax.refund_lines.map((line) => ({
+        ...line,
+        factor_percent: four(line.factor_percent),
+      })),
+      updated_at: new Date().toISOString(),
+    };
+    const index = taxes.findIndex((item) => item.public_id === saved.public_id);
+    if (index >= 0) {
+      taxes[index] = saved;
+    } else {
+      taxes.push(saved);
+    }
+    return this.answer(route, status, saved);
   }
 
   private async documents(route: Route): Promise<void> {

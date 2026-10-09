@@ -2,6 +2,7 @@ import { Route, Routes } from '@angular/router';
 
 import { permissionGuard } from '../../core/navigation/app-access.guard';
 import { unsavedChangesGuard } from '../../core/navigation/unsaved-changes';
+import { TAXES_ROUTES } from '../taxes/taxes.routes';
 import { TREASURY_ROUTES } from '../treasury/treasury.routes';
 import { ACCOUNT_TRANSFER } from './accounts/account-transfer';
 
@@ -161,6 +162,8 @@ export const ACCOUNTING_ROUTES: Routes = [
   },
   // Trésorerie (Module 6; reconciliation V2.1 A6): served among the section's routes.
   ...TREASURY_ROUTES,
+  // Taxes as Odoo's screens (Configuration › Taxes): served among the section's routes.
+  ...TAXES_ROUTES,
   // Analyse › Rapports de tiers: the aged balance (V2.1 A5), customers and suppliers.
   agedBalance('analyse/balance-clients', 'Balance clients', 'customer'),
   agedBalance('analyse/balance-fournisseurs', 'Balance fournisseurs', 'supplier'),

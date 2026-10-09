@@ -1,0 +1,136 @@
+<alco-page-header title="Taxes">
+  <div alcoPageActions>
+    @if (canCreate()) {
+      <a alcoButton variant="primary" icon="plus" routerLink="nouveau">Nouvelle taxe</a>
+    }
+  </div>
+</alco-page-header>
+
+<div class="control-panel">
+  <alco-search-bar
+    class="search"
+    label="Rechercher une taxe"
+    placeholder="Rechercher…"
+    [query]="searchText()"
+    [facets]="facets()"
+    (queryChange)="onSearch($event)"
+    (facetRemoved)="removeFacet($event)"
+  />
+  <div class="controls">
+    <alco-filter-bar
+      [activeFilterCount]="activeFilterCount()"
+      [groupOptions]="groupOptions"
+      [groupBy]="groupBy()"
+      (applied)="applyFilters()"
+      (cleared)="resetFilters()"
+      (groupByChange)="setGroupBy($event)"
+    >
+      <div alcoFilterFields class="filter-fields" [formGroup]="filterForm">
+        <alco-form-field label="Type de taxe">
+          <select alcoSelect formControlName="use">
+            @for (filter of useFilters; track filter.id) {
+              <option [value]="filter.id">{{ filter.label }}</option>
+            }
+          </select>
+        </alco-form-field>
+        <alco-form-field label="État">
+          <select alcoSelect formControlName="status">
+            <option value="">Toutes les taxes</option>
+            @for (status of statuses; track status.id) {
+              <option [value]="status.id">{{ status.label }}</option>
+            }
+          </select>
+        </alco-form-field>
+      </div>
+    </alco-filter-bar>
+    @if (list.value(); as page) {
+      <alco-pagination
+        class="pager"
+        [page]="page.count > 0 ? this.page() : 1"
+        [pageSize]="pageSize"
+        [total]="page.count"
+        (pageChange)="setPage($event)"
+      />
+    }
+  </div>
+</div>
+
+@switch (list.status()) {
+  @case ('forbidden') {
+    <alco-error-state
+      title="Vous n’avez pas accès aux taxes de cette société."
+      message="Demandez l’accès à un administrateur de la société si vous en avez besoin."
+    />
+  }
+  @case ('error') {
+    @if (failure(); as error) {
+      <alco-error-state
+        [title]="error.title"
+        [message]="error.message"
+        [code]="error.code"
+        [correlationId]="error.correlationId ?? ''"
+        retryLabel="Réessayer"
+        (retry)="list.reload()"
+      />
+    }
+  }
+  @default {
+    @if (list.value() === null) {
+      <alco-loading variant="table" [rows]="7" [columns]="6" label="Chargement des taxes…" />
+    } @else if (rows().length === 0) {
+      <div class="empty-frame">
+        @if (hasCriteria()) {
+          <alco-empty-state
+            icon="search"
+            title="Aucune taxe ne correspond à ces critères."
+            message="Modifiez la recherche ou retirez un filtre."
+          >
+            <button alcoButton type="button" icon="refresh" (click)="resetFilters()">
+              Réinitialiser les filtres
+            </button>
+          </alco-empty-state>
+        } @else {
+          <alco-empty-state icon="taxes" title="Cette société n’a pas encore de taxe.">
+            @if (canCreate()) {
+              <a alcoButton variant="primary" icon="plus" routerLink="nouveau">Créer une taxe</a>
+            }
+          </alco-empty-state>
+        }
+      </div>
+    } @else {
+      <alco-table
+        [class.reloading]="list.loading()"
+        [attr.aria-busy]="list.loading()"
+        caption="Taxes de la société, dans leur ordre de création"
+        [columns]="columns"
+        [rows]="rows()"
+        [groups]="groups()"
+        [rowId]="rowId"
+        [rowLabel]="rowLabel"
+        [clickableRows]="true"
+        (rowActivated)="open($event)"
+      >
+        <ng-template alcoCell="name" let-tax>
+          <a class="code" [routerLink]="tax.public_id">{{ tax.name }}</a>
+        </ng-template>
+        <ng-template alcoCell="description" let-tax>{{ tax.description }}</ng-template>
+        <ng-template alcoCell="use" let-tax>{{ useLabel(tax.type_tax_use) }}</ng-template>
+        <ng-template alcoCell="scope" let-tax>{{ scopeLabel(tax.tax_scope) }}</ng-template>
+        <ng-template alcoCell="invoice_label" let-tax>{{ tax.invoice_label }}</ng-template>
+        <ng-template alcoCell="active" let-tax>
+          <label class="alco-switch">
+            <input
+              type="checkbox"
+              role="switch"
+              [checked]="active(tax)"
+              [disabled]="!canUpdate() || switching() === tax.public_id"
+              [attr.aria-label]="'Taxe ' + tax.name + ' active'"
+              (change)="setActive(tax, $event)"
+            />
+            <span class="track" aria-hidden="true"></span>
+          </label>
+        </ng-template>
+      </alco-table>
+    }
+  }
+}

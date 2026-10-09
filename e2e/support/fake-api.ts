@@ -105,6 +105,9 @@ const WRITE = [
   'partners.create',
   'partners.update',
   'partners.disable',
+  // Taxes as Odoo's screens: granted explicitly, never implied.
+  'taxes.create',
+  'taxes.update',
   'imports_exports.create',
   'imports_exports.validate',
   'imports_exports.execute',

@@ -26,6 +26,7 @@ export const AUDIT_TYPES = {
   lettering: 'accounting.lettering',
   dueSchedule: 'accounting.dueschedule',
   reconciliation: 'treasury.reconciliation',
+  tax: 'taxes.tax',
 } as const;
 
 /** Actions of the backend's Audit (`AuditAction`), in words. */

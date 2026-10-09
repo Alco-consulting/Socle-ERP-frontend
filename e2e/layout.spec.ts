@@ -12,6 +12,8 @@ const SCREENS = [
   { name: 'Nouvelle écriture', url: '/app/comptabilite/ecritures/nouvelle' },
   { name: 'Trésorerie (domaine de Comptabilité)', url: '/app/comptabilite/tresorerie/operations' },
   { name: 'Import d’écritures', url: '/app/comptabilite/ecritures/import' },
+  { name: 'Taxes', url: '/app/comptabilite/taxes/liste' },
+  { name: 'Nouvelle taxe', url: '/app/comptabilite/taxes/liste/nouveau' },
   { name: 'Tiers', url: '/app/tiers/liste' },
   { name: 'Catalogue', url: '/design-system' },
 ];

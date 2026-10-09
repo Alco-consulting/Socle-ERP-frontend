@@ -270,7 +270,6 @@ export const APPLICATIONS: readonly AlcoApplication[] = [
         feature: 'taxes',
         nav: [
           { label: 'Taxes', path: 'liste' },
-          { label: 'Règles', path: 'regles' },
           { label: 'Déclarations', path: 'declarations' },
           { label: 'Plus', children: [{ label: 'Configuration', path: 'configuration' }] },
         ],

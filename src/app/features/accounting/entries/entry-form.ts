@@ -55,6 +55,7 @@ import {
   RoundingMode,
   TaxOption,
 } from '../data-access/entry-models';
+import { taxOptionLabel } from '../../taxes/taxes-presentation';
 import { ENTRY_ERRORS, ENTRY_FIELD_MESSAGES, ROUNDING_MODES, isoDay } from './entry-presentation';
 
 /** The API keeps 6 decimals for an amount; the currency's precision is the server's rule. */
@@ -323,7 +324,7 @@ export class EntryFormPage {
   }
 
   protected taxLabel(tax: TaxOption): string {
-    return `${tax.code} — ${tax.name}`;
+    return taxOptionLabel(tax);
   }
 
   protected onToggle(event: Event): void {

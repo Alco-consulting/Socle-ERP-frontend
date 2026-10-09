@@ -347,6 +347,15 @@ supprime ce qui ne sert plus.
   `TransfersApi.firstRows`), puis « Continuer vers la correspondance des colonnes ». Indécis ou
   refusé : bloqué avec le motif. Forcer (CSV) : « Options avancées », fermées par défaut.
   `.xls`, `.xlsm` refusés. Captures : `docs/frontend/captures/97…102`.
+- **Taxes comme Odoo** (`features/taxes/`, note backend 0030) :
+  - liste : Nom de la taxe, Description, Type de taxe, Portée, Libellé sur les factures,
+    Actif (interrupteur, commande) ; « Ventes ou Achats » par défaut ;
+  - fiche et formulaire : en-tête d'Odoo, onglets « Définition » (répartitions factures et
+    notes de crédit : %, Basé sur, Compte, Grilles de taxes) et « Options avancées » ;
+  - le serveur fait le code et la règle ; la raison d'un refus de répartition est dite ;
+  - faux serveur : `fake-accounting-entries.ts` (les 7 taxes d'Odoo de la société A) ;
+  - e2e : `e2e/taxes.spec.ts` ;
+  - captures : `docs/frontend/captures/107…111`.
 - **Formulaire de compte comme Odoo** : Code, Nom du compte ; Type groupé comme Odoo
   (`TYPE_SECTIONS`, 18 types), Taxes par défaut et Journaux autorisés (champs de sélection,
   `shared/forms/tag-select.ts`), Devise, Autoriser le

@@ -14,10 +14,11 @@ export function inputFormat(pattern: RegExp, message: string): ValidatorFn {
 }
 
 /**
- * Input format only (digits, one decimal mark, at most `maxDecimals` decimals).
+ * Input format only (digits, one decimal mark, at most `maxDecimals` decimals; a minus sign
+ * only when `signed`, as a tax rate or share).
  * Whether the amount is acceptable for accounting stays the server's decision.
  */
-export function decimalFormat(maxDecimals: number): ValidatorFn {
+export function decimalFormat(maxDecimals: number, { signed = false } = {}): ValidatorFn {
   return (control: AbstractControl<string | null>): ValidationErrors | null => {
     const raw = control.value;
     if (raw === null || raw.trim() === '') {
@@ -25,7 +26,7 @@ export function decimalFormat(maxDecimals: number): ValidatorFn {
     }
     const normalized = normalizeDecimalInput(raw);
     const decimals = normalized?.split('.')[1]?.length ?? 0;
-    if (normalized === null || normalized.startsWith('-') || decimals > maxDecimals) {
+    if (normalized === null || (!signed && normalized.startsWith('-')) || decimals > maxDecimals) {
       return { decimal: { maxDecimals } };
     }
     return null;

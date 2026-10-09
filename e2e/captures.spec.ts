@@ -377,3 +377,21 @@ test('account form as Odoo: code, name, Comptabilité', async ({ page }) => {
   await page.goto('/app/comptabilite/plan-comptable/nouveau');
   await shoot(page, '106-phone-account-form-odoo', true);
 });
+
+test('taxes as Odoo: list, record (Définition, Options avancées), form', async ({ page }) => {
+  test.setTimeout(120_000);
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto('/app/comptabilite/taxes/liste');
+  await shoot(page, '107-taxes-list-odoo', true);
+  await page.getByRole('link', { name: '18% G', exact: true }).click();
+  await expect(page.getByText('Répartition pour les factures')).toBeVisible();
+  await shoot(page, '108-tax-record-definition', true);
+  await page.getByRole('tab', { name: 'Options avancées' }).click();
+  await shoot(page, '109-tax-record-advanced', true);
+  await page.getByRole('link', { name: 'Modifier' }).click();
+  await expect(page.getByLabel('Nom de la taxe')).toHaveValue('18% G');
+  await shoot(page, '110-tax-form-odoo', true);
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto('/app/comptabilite/taxes/liste/nouveau');
+  await shoot(page, '111-phone-tax-form-odoo', true);
+});

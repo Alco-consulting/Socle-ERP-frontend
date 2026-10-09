@@ -37,6 +37,7 @@ import { Account, AccountWrite, DetailedType, Journal } from '../data-access/acc
 import { AccountingApi } from '../data-access/accounting-api';
 import { EntriesApi } from '../data-access/entries-api';
 import { TaxOption } from '../data-access/entry-models';
+import { taxOptionLabel } from '../../taxes/taxes-presentation';
 
 /** Business refusals that belong to one field (by their stable code). */
 const FIELD_OF_CODE: Readonly<Record<string, [string, string]>> = {
@@ -115,7 +116,7 @@ export class AccountFormPage {
   protected readonly journals = signal<readonly Pick<Journal, 'public_id' | 'code' | 'name'>[]>([]);
   protected readonly taxes = signal<readonly TaxOption[]>([]);
   protected readonly taxOptions = computed<readonly TagOption[]>(() =>
-    this.taxes().map((tax) => ({ id: tax.public_id, label: `${tax.code} — ${tax.name}` })),
+    this.taxes().map((tax) => ({ id: tax.public_id, label: taxOptionLabel(tax) })),
   );
   protected readonly journalOptions = computed<readonly TagOption[]>(() =>
     this.journals().map((journal) => ({

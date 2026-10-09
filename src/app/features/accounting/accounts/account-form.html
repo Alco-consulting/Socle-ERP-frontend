@@ -105,39 +105,31 @@
             </select>
           </alco-form-field>
           @if (canSeeTaxes) {
-            <fieldset class="choices">
-              <legend>Taxes par défaut</legend>
-              <span class="alco-caption">Proposées sur une ligne d’écriture de ce compte.</span>
-              @for (tax of taxes(); track tax.public_id) {
-                <label class="check">
-                  <input
-                    type="checkbox"
-                    [checked]="isChosen('default_taxes', tax.public_id)"
-                    (change)="toggle('default_taxes', tax.public_id)"
-                  />
-                  {{ tax.code }} — {{ tax.name }}
-                </label>
-              } @empty {
-                <span class="alco-caption">Aucune taxe active.</span>
-              }
-            </fieldset>
+            <alco-form-field
+              label="Taxes par défaut"
+              hint="Proposées sur une ligne d’écriture de ce compte."
+            >
+              <alco-tag-select
+                formControlName="default_taxes"
+                label="Taxes par défaut choisies"
+                [options]="taxOptions()"
+                [placeholder]="taxOptions().length ? 'Ajouter une taxe…' : 'Aucune taxe active'"
+              />
+            </alco-form-field>
           }
-          <fieldset class="choices">
-            <legend>Journaux autorisés</legend>
-            <span class="alco-caption">Aucun coché : écritures dans tous les journaux.</span>
-            @for (journal of journals(); track journal.public_id) {
-              <label class="check">
-                <input
-                  type="checkbox"
-                  [checked]="isChosen('allowed_journals', journal.public_id)"
-                  (change)="toggle('allowed_journals', journal.public_id)"
-                />
-                {{ journal.code }} — {{ journal.name }}
-              </label>
-            } @empty {
-              <span class="alco-caption">Aucun journal actif.</span>
-            }
-          </fieldset>
+          <alco-form-field
+            label="Journaux autorisés"
+            hint="Aucun : écritures dans tous les journaux."
+          >
+            <alco-tag-select
+              formControlName="allowed_journals"
+              label="Journaux autorisés choisis"
+              [options]="journalOptions()"
+              [placeholder]="
+                journalOptions().length ? 'Ajouter un journal…' : 'Aucun journal actif'
+              "
+            />
+          </alco-form-field>
         </div>
         <div class="column">
           <alco-form-field

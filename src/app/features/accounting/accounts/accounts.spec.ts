@@ -2,7 +2,13 @@ import { TestBed } from '@angular/core/testing';
 import { Router, provideRouter } from '@angular/router';
 import { RouterTestingHarness } from '@angular/router/testing';
 
-import { clearCookie, httpMock, provideHttpTesting, setCookie } from '../../../core/http/testing';
+import {
+  clearCookie,
+  envelope,
+  httpMock,
+  provideHttpTesting,
+  setCookie,
+} from '../../../core/http/testing';
 import { SessionStore } from '../../../core/session/session.store';
 import { openTestSession } from '../../../core/session/testing';
 import { Account } from '../data-access/accounting-models';
@@ -165,21 +171,60 @@ describe('Plan comptable (accounting/accounts/)', () => {
     request.flush(page([], 0));
   });
 
-  it('list: rows of the API, sub-accounts said, grouped by the class it gives', async () => {
-    const { accounts, element, stable } = await open('/plan-comptable?groupe=classe');
+  it('list: Odoo’s columns, sub-accounts said, grouped by the group the server gives', async () => {
+    const { accounts, element, stable } = await open('/plan-comptable?groupe=groupe');
     accounts().flush(
       page([
         account('40', 'Fournisseurs', { has_children: true, allow_entries: false }),
         account('401', 'Fournisseurs, dettes'),
-        account('601', 'Achats', { account_type: 'expense', account_class: '6' }),
+        account('601', 'Achats', { account_type: 'expense' }),
       ]),
     );
     await stable();
+    const headers = Array.from(element.querySelectorAll('thead th')).map((cell) =>
+      cell.textContent?.trim(),
+    );
+    expect(headers).toEqual([
+      'Code',
+      'Nom du compte',
+      'Type',
+      'Autoriser le lettrage',
+      'Devise du compte',
+      'Société',
+    ]);
     const text = element.textContent ?? '';
     expect(text).toContain('sous-comptes');
-    expect(text).toContain('Non autorisée');
-    expect(text).toContain('Classe 4');
-    expect(text).toContain('Classe 6');
+    expect(text).toContain('Groupe 40');
+    expect(text).toContain('Groupe 60');
+  });
+
+  it('list: « Autoriser le lettrage » switched from the row, the server decides', async () => {
+    const { accounts, element, stable } = await open('/plan-comptable');
+    accounts().flush(page([account('411', 'Clients'), account('401', 'Fournisseurs')]));
+    await stable();
+    const switches = () =>
+      Array.from(element.querySelectorAll<HTMLInputElement>('input[role="switch"]'));
+    expect(switches().map((box) => box.getAttribute('aria-label'))).toEqual([
+      'Autoriser le lettrage du compte 411',
+      'Autoriser le lettrage du compte 401',
+    ]);
+
+    switches()[0].click();
+    await stable();
+    const patch = httpMock().expectOne('/api/v1/accounting/accounts/a-411/');
+    expect([patch.request.method, patch.request.body]).toEqual(['PATCH', { letterable: true }]);
+    patch.flush(account('411', 'Clients', { letterable: true }));
+    await stable();
+    expect(switches()[0].checked).toBe(true);
+
+    // Refused by the server (active letterings): the switch goes back, the reason is said.
+    switches()[0].click();
+    await stable();
+    httpMock()
+      .expectOne('/api/v1/accounting/accounts/a-411/')
+      .flush(envelope('accounting_account_letterings_exist'), { status: 400, statusText: 'x' });
+    await stable();
+    expect(switches()[0].checked).toBe(true);
   });
 
   it('record: its parent and its sub-accounts, as the server keeps them', async () => {
@@ -284,7 +329,15 @@ describe('Plan comptable (accounting/accounts/)', () => {
     const names = Array.from(element.querySelectorAll('[formControlName]')).map((field) =>
       field.getAttribute('formControlName'),
     );
-    expect(names).toEqual(['code', 'name', 'detailed_type', 'currency', 'letterable', 'obsolete']);
+    expect(names).toEqual([
+      'code',
+      'name',
+      'detailed_type',
+      'allowed_journals',
+      'currency',
+      'letterable',
+      'obsolete',
+    ]);
     for (const gone of ['Classe', 'Description', 'Compte parent', 'Saisie d’écritures']) {
       expect(element.textContent).not.toContain(gone);
     }
@@ -333,10 +386,21 @@ describe('Plan comptable (accounting/accounts/)', () => {
     fill('code', '401100');
     fill('name', 'Fournisseurs locaux');
     fill('detailed_type', 'liability_payable');
-    const journal = Array.from(element.querySelectorAll<HTMLLabelElement>('.choices label')).find(
-      (label) => label.textContent?.includes('VTE'),
+    // Journals are chosen in a selection list, then shown as tags.
+    const journals = element.querySelector<HTMLSelectElement>(
+      '[formControlName="allowed_journals"] select',
     )!;
-    journal.querySelector('input')!.click();
+    expect(Array.from(journals.options).map((option) => option.textContent?.trim())).toEqual([
+      'Ajouter un journal…',
+      'VTE — Ventes',
+      'BQ1 — Banque',
+    ]);
+    journals.value = 'j-vte';
+    journals.dispatchEvent(new Event('change'));
+    await stable();
+    expect(
+      element.querySelector('[formControlName="allowed_journals"] .tag')?.textContent,
+    ).toContain('VTE — Ventes');
     element.querySelector('form')!.dispatchEvent(new Event('submit'));
     await stable();
     const create = httpMock().expectOne((req) => req.method === 'POST');

@@ -163,9 +163,9 @@ test.describe('Comptabilité — plan comptable', () => {
     await expect(codes(page)).toHaveText(['401', '404', '411', '601']);
 
     await page.getByRole('button', { name: 'Regrouper' }).click();
-    await page.getByRole('menuitemradio', { name: 'Classe' }).click();
-    await expect(page.getByRole('button', { name: /^Classe 4/ })).toBeVisible();
-    await expect(page.getByRole('button', { name: /^Classe 6/ })).toBeVisible();
+    await page.getByRole('menuitemradio', { name: 'Groupe', exact: true }).click();
+    await expect(page.getByRole('button', { name: /^Groupe 40/ })).toBeVisible();
+    await expect(page.getByRole('button', { name: /^Groupe 60/ })).toBeVisible();
     expect(await axe(page)).toEqual([]);
   });
 
@@ -208,7 +208,12 @@ test.describe('Comptabilité — plan comptable', () => {
     await expect(type.locator('optgroup')).toHaveCount(8);
     await type.selectOption({ label: 'Fournisseur' });
     await page.locator('select[formcontrolname="currency"]').selectOption('GNF');
-    await page.getByRole('checkbox', { name: /^VTE/ }).check();
+    await page
+      .locator('[formcontrolname="allowed_journals"] select')
+      .selectOption({ label: 'VTE — Ventes' });
+    await expect(page.locator('[formcontrolname="allowed_journals"] .tag')).toHaveText([
+      'VTE — Ventes',
+    ]);
     await page.getByRole('button', { name: 'Enregistrer' }).click();
     await expect(page.getByRole('heading', { level: 1 })).toContainText('401100');
     await expect(page.getByText('Fournisseur', { exact: true }).first()).toBeVisible();

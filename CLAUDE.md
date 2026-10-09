@@ -348,9 +348,11 @@ supprime ce qui ne sert plus.
   refusé : bloqué avec le motif. Forcer (CSV) : « Options avancées », fermées par défaut.
   `.xls`, `.xlsm` refusés. Captures : `docs/frontend/captures/97…102`.
 - **Formulaire de compte comme Odoo** : Code, Nom du compte ; Type groupé comme Odoo
-  (`TYPE_SECTIONS`, 18 types), Taxes par défaut, Journaux autorisés, Devise, Autoriser le
+  (`TYPE_SECTIONS`, 18 types), Taxes par défaut et Journaux autorisés (champs de sélection,
+  `shared/forms/tag-select.ts`), Devise, Autoriser le
   lettrage, Obsolète (commandes), Groupe et Société en lecture ; la fiche montre les mêmes
-  champs. Taxe par défaut proposée sur une ligne d'écriture.
+  champs. Taxe par défaut proposée sur une ligne d'écriture. Liste : Code, Nom du compte, Type,
+  Autoriser le lettrage (interrupteur dans la ligne), Devise du compte, Société.
 - **Plan comptable comme Odoo** : panneau « Groupes de comptes » (préfixes du serveur,
   `?prefixe=`, un filtre jamais une hiérarchie), colonnes Type détaillé, Devise, Société ;
   formulaire avec type détaillé (de la nature) et devise. Faux serveur :

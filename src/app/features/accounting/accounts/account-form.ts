@@ -20,6 +20,7 @@ import { UnsavedChangesService } from '../../../core/navigation/unsaved-changes'
 import { SessionStore } from '../../../core/session/session.store';
 import { AlcoFormField } from '../../../shared/forms/form-field';
 import { AlcoInput } from '../../../shared/forms/input';
+import { AlcoTagSelect, TagOption } from '../../../shared/forms/tag-select';
 import { AlcoButton } from '../../../shared/ui/button/button';
 import { AlcoErrorState } from '../../../shared/ui/error-state/error-state';
 import { AlcoLoading } from '../../../shared/ui/loading/loading';
@@ -63,6 +64,7 @@ const FIELD_OF_CODE: Readonly<Record<string, [string, string]>> = {
     AlcoFormField,
     AlcoInput,
     AlcoLoading,
+    AlcoTagSelect,
     AlcoPageHeader,
   ],
   templateUrl: './account-form.html',
@@ -112,6 +114,15 @@ export class AccountFormPage {
   protected readonly currencies = signal<readonly CurrencyOption[]>([]);
   protected readonly journals = signal<readonly Pick<Journal, 'public_id' | 'code' | 'name'>[]>([]);
   protected readonly taxes = signal<readonly TaxOption[]>([]);
+  protected readonly taxOptions = computed<readonly TagOption[]>(() =>
+    this.taxes().map((tax) => ({ id: tax.public_id, label: `${tax.code} — ${tax.name}` })),
+  );
+  protected readonly journalOptions = computed<readonly TagOption[]>(() =>
+    this.journals().map((journal) => ({
+      id: journal.public_id,
+      label: `${journal.code} — ${journal.name}`,
+    })),
+  );
 
   protected readonly account = signal<Account | null>(null);
   protected readonly loadError = signal<UserError | null>(null);
@@ -150,20 +161,6 @@ export class AccountFormPage {
     } else {
       afterNextRender(() => this.focus('code'), { injector: this.injector });
     }
-  }
-
-  /** A box of a multiple choice (taxes, journals) checked or not. */
-  protected isChosen(name: 'default_taxes' | 'allowed_journals', id: string): boolean {
-    return this.form.controls[name].value.includes(id);
-  }
-
-  protected toggle(name: 'default_taxes' | 'allowed_journals', id: string): void {
-    const control = this.form.controls[name];
-    const chosen = control.value.includes(id)
-      ? control.value.filter((item) => item !== id)
-      : [...control.value, id];
-    control.setValue(chosen);
-    control.markAsDirty();
   }
 
   protected async save(): Promise<void> {

@@ -10,7 +10,7 @@ import {
 import { takeUntilDestroyed, toSignal } from '@angular/core/rxjs-interop';
 import { FormControl, FormGroup, ReactiveFormsModule } from '@angular/forms';
 import { ActivatedRoute, Params, Router, RouterLink } from '@angular/router';
-import { Subject, debounceTime, map } from 'rxjs';
+import { Subject, debounceTime, firstValueFrom, map } from 'rxjs';
 
 import { toUserError } from '../../../core/errors/user-error';
 import { requestState } from '../../../core/http/request-state';
@@ -20,7 +20,6 @@ import { AlcoSearchBar, SearchFacet } from '../../../shared/filters/search-bar';
 import { AlcoFormField } from '../../../shared/forms/form-field';
 import { AlcoInput } from '../../../shared/forms/input';
 import { AlcoCell, AlcoTable, TableColumn, TableGroup } from '../../../shared/tables/table';
-import { AlcoBadge } from '../../../shared/ui/badge/badge';
 import { AlcoButton } from '../../../shared/ui/button/button';
 import { AlcoEmptyState } from '../../../shared/ui/empty-state/empty-state';
 import { AlcoErrorState } from '../../../shared/ui/error-state/error-state';
@@ -28,6 +27,7 @@ import { AlcoIcon } from '../../../shared/ui/icon/icon';
 import { AlcoLoading } from '../../../shared/ui/loading/loading';
 import { AlcoPageHeader } from '../../../shared/ui/page-header/page-header';
 import { AlcoPagination } from '../../../shared/ui/pagination/pagination';
+import { AlcoToastService } from '../../../shared/ui/toast/toast.service';
 import { AlcoDomainTransfers } from '../../transfers/domain-transfers';
 import {
   ACCOUNTING_REFERENTIAL_ERRORS,
@@ -54,7 +54,7 @@ const PREFIX = /^[A-Za-z0-9._-]{1,32}$/;
 const STATUSES: readonly ActiveInactive[] = ['active', 'inactive'];
 
 /** Grouping of the page shown (the API does not group): by the class it gives. */
-const GROUP_OPTIONS: readonly GroupOption[] = [{ id: 'classe', label: 'Classe' }];
+const GROUP_OPTIONS: readonly GroupOption[] = [{ id: 'groupe', label: 'Groupe' }];
 
 /**
  * Comptabilité › Plan comptable, on the API (`GET accounting/accounts/`): the server's
@@ -67,7 +67,6 @@ const GROUP_OPTIONS: readonly GroupOption[] = [{ id: 'classe', label: 'Classe' }
   imports: [
     ReactiveFormsModule,
     RouterLink,
-    AlcoBadge,
     AlcoButton,
     AlcoCell,
     AlcoDomainTransfers,
@@ -91,6 +90,7 @@ export class AccountListPage {
   private readonly api = inject(AccountingApi);
   private readonly router = inject(Router);
   private readonly route = inject(ActivatedRoute);
+  private readonly toast = inject(AlcoToastService);
   protected readonly session = inject(SessionStore);
 
   protected readonly types = ACCOUNT_TYPES;
@@ -107,16 +107,18 @@ export class AccountListPage {
     () => this.canManage() && this.session.can('imports_exports.create'),
   );
 
+  /** Odoo's list: code, name, type, lettering (switched here), currency, company. */
   protected readonly columns: readonly TableColumn[] = [
     { key: 'code', label: 'Code', width: '9rem' },
-    { key: 'name', label: 'Intitulé' },
-    { key: 'account_class', label: 'Classe', width: '6rem' },
+    { key: 'name', label: 'Nom du compte' },
     { key: 'type', label: 'Type', hideBelow: 'tablet' },
-    { key: 'currency', label: 'Devise', width: '6rem', hideBelow: 'laptop' },
+    { key: 'letterable', label: 'Autoriser le lettrage', width: '11rem' },
+    { key: 'currency', label: 'Devise du compte', width: '9rem', hideBelow: 'laptop' },
     { key: 'company', label: 'Société', hideBelow: 'laptop' },
-    { key: 'entries', label: 'Saisie', hideBelow: 'laptop' },
-    { key: 'status', label: 'État', width: '8rem' },
   ];
+  /** « Autoriser le lettrage » switched from the list: the server's answer, by account. */
+  private readonly letterableSaved = signal<ReadonlyMap<string, boolean>>(new Map());
+  protected readonly switching = signal<string | null>(null);
   protected readonly rowId = (row: Account) => row.public_id;
   protected readonly rowLabel = (row: Account) => `${row.code} ${row.name}`;
 
@@ -188,7 +190,7 @@ export class AccountListPage {
       facets.push({ id: 'prefix', kind: 'filter', label: 'Code commençant par', value: prefix });
     }
     if (this.groupBy()) {
-      facets.push({ id: 'group', kind: 'group', label: 'Regroupé par', value: 'Classe' });
+      facets.push({ id: 'group', kind: 'group', label: 'Regroupé par', value: 'Groupe' });
     }
     return facets;
   });
@@ -223,19 +225,19 @@ export class AccountListPage {
   /** On a phone the panel is folded until asked for. */
   protected readonly panelShown = signal(false);
   protected readonly rows = computed(() => this.list.value()?.results ?? []);
-  /** Rows of the page shown, grouped by the class the server gives (nothing is derived). */
+  /** Rows of the page shown, grouped by the group the server gives (`code_group`). */
   protected readonly groups = computed<readonly TableGroup<Account>[] | null>(() => {
     if (!this.groupBy()) {
       return null;
     }
     const groups = new Map<string, Account[]>();
     for (const account of this.rows()) {
-      const key = account.account_class || '';
+      const key = account.code_group || '';
       groups.set(key, [...(groups.get(key) ?? []), account]);
     }
     return [...groups].map(([key, rows]) => ({
       key,
-      label: key ? `Classe ${key}` : 'Sans classe',
+      label: key ? `Groupe ${key}` : 'Sans groupe',
       rows,
     }));
   });
@@ -283,8 +285,29 @@ export class AccountListPage {
       );
   }
 
-  protected statusLook(account: Account) {
-    return RECORD_STATUS[account.status];
+  protected letterable(account: Account): boolean {
+    return this.letterableSaved().get(account.public_id) ?? account.letterable;
+  }
+
+  /** The switch of a row: the server decides (it refuses while active letterings exist). */
+  protected async setLetterable(account: Account, event: Event): Promise<void> {
+    const box = event.target as HTMLInputElement;
+    const wanted = box.checked;
+    this.switching.set(account.public_id);
+    try {
+      const saved = await firstValueFrom(
+        this.api.updateAccount(account.public_id, { letterable: wanted }),
+      );
+      this.letterableSaved.update((map) => new Map(map).set(saved.public_id, saved.letterable));
+      this.toast.success(
+        `Lettrage ${saved.letterable ? 'autorisé' : 'retiré'} pour le compte ${saved.code}.`,
+      );
+    } catch (failure) {
+      box.checked = !wanted;
+      this.toast.error(toUserError(failure, ACCOUNTING_REFERENTIAL_ERRORS).title);
+    } finally {
+      this.switching.set(null);
+    }
   }
 
   protected isOpen(first: string): boolean {

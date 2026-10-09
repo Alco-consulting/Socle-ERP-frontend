@@ -27,14 +27,16 @@ test.describe('Vue liste : filtres, regroupement, recherche, état dans l’URL'
     await expect(page).not.toHaveURL(/etat=|du=/);
   });
 
-  test('groups by class with group headers and counts (chart of accounts)', async ({ page }) => {
+  test('groups by code group with group headers and counts (chart of accounts)', async ({
+    page,
+  }) => {
     await page.goto('/app/comptabilite/plan-comptable');
     await page.getByRole('button', { name: 'Regrouper' }).click();
-    await page.getByRole('menuitemradio', { name: 'Classe' }).click();
-    await expect(page).toHaveURL(/groupe=classe/);
-    await expect(page.getByRole('button', { name: /^Classe 4 \(\d+\)$/ })).toBeVisible();
+    await page.getByRole('menuitemradio', { name: 'Groupe', exact: true }).click();
+    await expect(page).toHaveURL(/groupe=groupe/);
+    await expect(page.getByRole('button', { name: /^Groupe 40 \(\d+\)$/ })).toBeVisible();
     await expect(
-      page.getByRole('button', { name: 'Retirer le critère Regroupé par : Classe' }),
+      page.getByRole('button', { name: 'Retirer le critère Regroupé par : Groupe' }),
     ).toBeVisible();
   });
 

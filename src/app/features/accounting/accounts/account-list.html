@@ -228,20 +228,24 @@
                 </span>
               }
             </ng-template>
-            <ng-template alcoCell="account_class" let-account>{{
-              account.account_class || '—'
-            }}</ng-template>
+
             <ng-template alcoCell="type" let-account>{{ typeText(account) }}</ng-template>
+            <ng-template alcoCell="letterable" let-account>
+              <label class="switch">
+                <input
+                  type="checkbox"
+                  role="switch"
+                  [checked]="letterable(account)"
+                  [disabled]="!canManage() || switching() === account.public_id"
+                  [attr.aria-label]="'Autoriser le lettrage du compte ' + account.code"
+                  (change)="setLetterable(account, $event)"
+                />
+                <span class="track" aria-hidden="true"></span>
+              </label>
+            </ng-template>
             <ng-template alcoCell="currency" let-account>{{ account.currency ?? '' }}</ng-template>
             <ng-template alcoCell="company" let-account>
               <span class="company">{{ companyName() }}</span>
-            </ng-template>
-            <ng-template alcoCell="entries" let-account>
-              {{ account.allow_entries ? 'Autorisée' : 'Non autorisée' }}
-            </ng-template>
-            <ng-template alcoCell="status" let-account>
-              @let look = statusLook(account);
-              <alco-badge [tone]="look.tone" [icon]="look.icon">{{ look.label }}</alco-badge>
             </ng-template>
           </alco-table>
         }

@@ -4,6 +4,7 @@ import { BadgeTone } from '../../shared/ui/badge/badge';
 import { IconName } from '../../shared/ui/icon/icons';
 import {
   AccountType,
+  DetailedType,
   ActiveInactive,
   JournalType,
   OpenClosed,
@@ -56,6 +57,31 @@ export const ACCOUNT_TYPES: readonly { id: AccountType; label: string }[] = [
   { id: 'other', label: 'Autre' },
 ];
 
+/** `detailed_type` of the API, the source chart's words, with the nature it belongs to. */
+export const DETAILED_TYPES: readonly { id: DetailedType; label: string; nature: AccountType }[] = [
+  { id: 'equity', label: 'Capitaux propres', nature: 'equity' },
+  { id: 'equity_unaffected', label: 'Bénéfices de l’exercice en cours', nature: 'equity' },
+  { id: 'liability_current', label: 'Dettes à court terme', nature: 'liability' },
+  { id: 'liability_payable', label: 'Fournisseur', nature: 'liability' },
+  { id: 'asset_fixed', label: 'Actifs immobilisés', nature: 'asset' },
+  { id: 'asset_current', label: 'Actifs circulants', nature: 'asset' },
+  { id: 'asset_cash', label: 'Banque et espèces', nature: 'asset' },
+  { id: 'asset_receivable', label: 'Client', nature: 'asset' },
+  { id: 'expense', label: 'Charges', nature: 'expense' },
+  { id: 'income', label: 'Revenus', nature: 'income' },
+  { id: 'income_other', label: 'Autres produits', nature: 'income' },
+  { id: 'off_balance', label: 'Hors bilan', nature: 'other' },
+];
+
+/** The account's type in words: its detailed type when it has one, else its nature. */
+export function accountTypeText(account: {
+  readonly account_type: AccountType;
+  readonly detailed_type: DetailedType | '';
+}): string {
+  const detailed = DETAILED_TYPES.find((item) => item.id === account.detailed_type);
+  return detailed?.label ?? accountTypeLabel(account.account_type);
+}
+
 export function journalTypeLabel(type: JournalType): string {
   return JOURNAL_TYPES.find((item) => item.id === type)?.label ?? type;
 }
@@ -72,6 +98,14 @@ export function dateRange(start: string, end: string): string {
 
 /** Errors of the accounting referential, by their stable code (backend contract.md). */
 export const ACCOUNTING_REFERENTIAL_ERRORS: ErrorCatalog = {
+  accounting_account_detailed_type_mismatch: {
+    title: 'Ce type détaillé ne correspond pas à la nature du compte.',
+    message: 'Choisissez un type détaillé de cette nature, ou changez la nature.',
+  },
+  accounting_account_currency_mismatch: {
+    title: 'Ce compte a déjà des écritures dans une autre devise.',
+    message: 'Laissez la devise vide (toutes devises) ou choisissez celle de ses écritures.',
+  },
   accounting_account_letterings_exist: {
     title: 'Ce compte a des lettrages actifs.',
     message: 'Délettrez-les (Comptabilité › Lettrage) avant de retirer le lettrage du compte.',

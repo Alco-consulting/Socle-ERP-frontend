@@ -24,12 +24,15 @@ import { AlcoErrorState } from '../../../shared/ui/error-state/error-state';
 import { AlcoLoading } from '../../../shared/ui/loading/loading';
 import { AlcoPageHeader } from '../../../shared/ui/page-header/page-header';
 import { AlcoToastService } from '../../../shared/ui/toast/toast.service';
+import { CurrencyOption } from '../../partners/data-access/partner-models';
+import { PartnersApi } from '../../partners/data-access/partners-api';
 import {
   ACCOUNTING_FIELD_MESSAGES,
   ACCOUNTING_REFERENTIAL_ERRORS,
   ACCOUNT_TYPES,
+  DETAILED_TYPES,
 } from '../accounting-presentation';
-import { Account, AccountType, AccountWrite } from '../data-access/accounting-models';
+import { Account, AccountType, AccountWrite, DetailedType } from '../data-access/accounting-models';
 import { AccountingApi } from '../data-access/accounting-api';
 
 /** Business refusals that belong to one field (by their stable code). */
@@ -96,6 +99,10 @@ export class AccountFormPage {
       nonNullable: true,
       validators: [Validators.required],
     }),
+    /** A finer type of the nature (empty: none); the server checks they agree. */
+    detailed_type: new FormControl<string>('', { nonNullable: true }),
+    /** Empty: entries in any currency; set: only in this one (the server's rule). */
+    currency: new FormControl<string>('', { nonNullable: true }),
     account_class: new FormControl('', {
       nonNullable: true,
       validators: [Validators.maxLength(16)],
@@ -103,6 +110,14 @@ export class AccountFormPage {
     allow_entries: new FormControl(true, { nonNullable: true }),
     letterable: new FormControl(false, { nonNullable: true }),
   });
+
+  /** Active currencies of the API (`currencies/`). */
+  protected readonly currencies = signal<readonly CurrencyOption[]>([]);
+
+  /** The detailed types of the nature chosen (none before a nature is chosen). */
+  protected detailedTypes(nature: string) {
+    return DETAILED_TYPES.filter((item) => item.nature === nature);
+  }
 
   protected readonly account = signal<Account | null>(null);
   protected readonly loadError = signal<UserError | null>(null);
@@ -113,6 +128,23 @@ export class AccountFormPage {
 
   constructor() {
     inject(UnsavedChangesService).track(() => this.form.dirty);
+    inject(PartnersApi)
+      .currencies()
+      .pipe(catchError(() => of(null)))
+      .subscribe((page) =>
+        this.currencies.set((page?.results ?? []).filter((item) => item.status === 'active')),
+      );
+    // A detailed type of another nature no longer applies once the nature changes.
+    this.form.controls.account_type.valueChanges.subscribe((nature) => {
+      const detailed = this.form.controls.detailed_type;
+      if (
+        detailed.value &&
+        !this.detailedTypes(nature).some((item) => item.id === detailed.value)
+      ) {
+        detailed.setValue('');
+        detailed.markAsDirty();
+      }
+    });
     if (this.id) {
       this.api.account(this.id).subscribe({
         next: (account) => this.fill(account),
@@ -198,6 +230,8 @@ export class AccountFormPage {
       description: value.description.trim(),
       parent,
       account_type: value.account_type as AccountType,
+      detailed_type: value.detailed_type as DetailedType | '',
+      currency: value.currency || null,
       account_class: value.account_class.trim(),
       allow_entries: value.allow_entries,
       letterable: value.letterable,
@@ -224,6 +258,8 @@ export class AccountFormPage {
       description: account.description,
       parent: '',
       account_type: account.account_type,
+      detailed_type: account.detailed_type,
+      currency: account.currency ?? '',
       account_class: account.account_class,
       allow_entries: account.allow_entries,
       letterable: account.letterable,

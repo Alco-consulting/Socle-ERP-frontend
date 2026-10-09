@@ -350,3 +350,17 @@ test('import: file analysed (CSV, Excel), sheet choice, phone', async ({ page })
   await expect(page.locator('.analysis')).toBeVisible();
   await shoot(page, '102-phone-import-analysed-xlsx', true);
 });
+
+test('chart of accounts: code groups panel, detailed type, currency, company', async ({ page }) => {
+  test.setTimeout(90_000);
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto('/app/comptabilite/plan-comptable');
+  await page
+    .getByRole('navigation', { name: 'Groupes de comptes par début de code' })
+    .getByRole('button', { name: 'Déplier 4' })
+    .click();
+  await shoot(page, '103-chart-code-groups', true);
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto('/app/comptabilite/plan-comptable');
+  await shoot(page, '104-phone-chart-code-groups', true);
+});

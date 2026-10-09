@@ -347,6 +347,10 @@ supprime ce qui ne sert plus.
   `TransfersApi.firstRows`), puis « Continuer vers la correspondance des colonnes ». Indécis ou
   refusé : bloqué avec le motif. Forcer (CSV) : « Options avancées », fermées par défaut.
   `.xls`, `.xlsm` refusés. Captures : `docs/frontend/captures/97…102`.
+- **Plan comptable comme Odoo** : panneau « Groupes de comptes » (préfixes du serveur,
+  `?prefixe=`, un filtre jamais une hiérarchie), colonnes Type détaillé, Devise, Société ;
+  formulaire avec type détaillé (de la nature) et devise. Faux serveur :
+  `fake-accounting.ts` (`prefixes`, `code_prefix`).
 - **Import du plan comptable** : Plan comptable › Actions ▾ › Importer des comptes
   (`ACCOUNT_TRANSFER`, type `accounting.accounts`, route `plan-comptable/import`), écran
   d'import générique ; plan à plat (aucun parent), type traduit par le serveur. Validation et

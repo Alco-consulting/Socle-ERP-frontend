@@ -32,6 +32,7 @@ import {
   ACCOUNTING_REFERENTIAL_ERRORS,
   RECORD_STATUS,
   accountTypeLabel,
+  accountTypeText,
 } from '../accounting-presentation';
 import { Account } from '../data-access/accounting-models';
 import { ACCOUNT_PAGE_SIZE, AccountingApi } from '../data-access/accounting-api';
@@ -123,6 +124,7 @@ export class AccountDetailPage {
   protected readonly historyCount = computed(() => this.history()?.total() ?? null);
 
   protected readonly typeLabel = accountTypeLabel;
+  protected readonly typeText = accountTypeText;
   protected readonly pageSize = ACCOUNT_PAGE_SIZE;
   protected readonly canManage = computed(() => this.session.can('accounting.manage_accounts'));
   protected readonly status = computed(() => {

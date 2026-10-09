@@ -1,0 +1,134 @@
+@use 'breakpoints' as bp;
+
+// The chart browsed by its codes: a panel of prefixes beside the list (a filter, never a
+// hierarchy); folded above the list on a phone.
+.chart-layout {
+  display: grid;
+  grid-template-columns: 11rem minmax(0, 1fr);
+  gap: var(--space-4);
+  align-items: start;
+
+  @include bp.below-tablet {
+    grid-template-columns: minmax(0, 1fr);
+    gap: var(--space-2);
+  }
+}
+
+.chart-main {
+  min-width: 0;
+}
+
+.panel-toggle {
+  display: none;
+
+  @include bp.below-tablet {
+    display: inline-flex;
+    justify-self: start;
+  }
+}
+
+.prefixes {
+  position: sticky;
+  top: var(--space-4);
+  max-height: calc(100vh - 8rem);
+  overflow-y: auto;
+  padding: var(--space-2);
+  border: var(--border-width) solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+
+  @include bp.below-tablet {
+    display: none;
+    position: static;
+    max-height: none;
+
+    &.shown {
+      display: block;
+    }
+  }
+
+  ul {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 1px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  li {
+    display: block;
+    width: 100%;
+  }
+
+  .children {
+    margin-left: var(--space-5);
+  }
+}
+
+.group {
+  display: flex;
+  align-items: center;
+}
+
+.fold {
+  display: inline-grid;
+  flex: none;
+  place-items: center;
+  width: 1.5rem;
+  height: 1.5rem;
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: none;
+  color: var(--color-text-muted);
+  cursor: pointer;
+}
+
+.prefix {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  width: 100%;
+  padding: var(--space-1) var(--space-2);
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: none;
+  color: var(--color-text);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+
+  &:hover {
+    background: var(--color-surface-muted);
+  }
+
+  &.current {
+    background: var(--color-primary-soft);
+    color: var(--color-primary-text);
+    font-weight: var(--font-weight-semibold);
+  }
+
+  &.all {
+    margin-bottom: var(--space-1);
+  }
+}
+
+.fold:focus-visible,
+.prefix:focus-visible {
+  outline: 2px solid var(--color-focus-ring);
+  outline-offset: 1px;
+}
+
+.count {
+  color: var(--color-text-muted);
+  font-size: var(--font-size-caption);
+  font-variant-numeric: tabular-nums;
+}
+
+.company {
+  color: var(--color-text-muted);
+}

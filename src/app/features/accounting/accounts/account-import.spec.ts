@@ -33,6 +33,9 @@ const emptyPage = { count: 0, next: null, previous: null, results: [] };
 
 /** Only for the tests that configure TestBed (the others must not instantiate it). */
 function cleanUp(): void {
+  for (const request of httpMock().match((req) => req.url.endsWith('/accounts/prefixes/'))) {
+    request.flush([]);
+  }
   httpMock().verify();
   clearCookie('XSRF-TOKEN');
   document.querySelectorAll('.cdk-overlay-container').forEach((node) => node.remove());

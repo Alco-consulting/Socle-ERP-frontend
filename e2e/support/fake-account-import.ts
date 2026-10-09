@@ -366,6 +366,8 @@ function account(code: string, name: string, type: string): AccountJson {
     description: '',
     parent: null,
     account_type: type,
+    detailed_type: '',
+    currency: null,
     account_class: '',
     allow_entries: true,
     letterable: false,

@@ -4,6 +4,7 @@ import { Observable, map } from 'rxjs';
 import { ApiClient, Paginated } from '../../../core/http/api-client';
 import {
   Account,
+  AccountPrefix,
   AccountQuery,
   AccountWrite,
   FiscalYear,
@@ -87,8 +88,22 @@ export class AccountingApi {
         status: query.status ?? null,
         account_type: query.accountType ?? null,
         postable: query.postable ?? null,
+        code_prefix: query.codePrefix || null,
         page: query.page && query.page > 1 ? query.page : null,
         page_size: ACCOUNT_PAGE_SIZE,
+      },
+    });
+  }
+
+  /** How many accounts start with each first character and first two (never a hierarchy). */
+  accountPrefixes(
+    query: Pick<AccountQuery, 'search' | 'status' | 'accountType'> = {},
+  ): Observable<readonly AccountPrefix[]> {
+    return this.api.get<readonly AccountPrefix[]>(`${base}accounts/prefixes/`, {
+      params: {
+        search: query.search || null,
+        status: query.status ?? null,
+        account_type: query.accountType ?? null,
       },
     });
   }

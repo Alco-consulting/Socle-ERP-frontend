@@ -168,6 +168,54 @@ test.describe('Comptabilité — plan comptable', () => {
     await expect(page.getByRole('button', { name: /^Classe 6/ })).toBeVisible();
     expect(await axe(page)).toEqual([]);
   });
+
+  test('groupes de comptes par début de code, comme Odoo : un filtre, jamais un parent', async ({
+    page,
+  }) => {
+    await page.goto('/app/comptabilite/plan-comptable');
+    const panel = page.getByRole('navigation', { name: 'Groupes de comptes par début de code' });
+    await expect(panel.getByRole('button', { name: /^Tous/ })).toHaveAttribute(
+      'aria-current',
+      'true',
+    );
+    await expect(panel.getByRole('button', { name: /^4\s*6$/ })).toBeVisible();
+    await panel.getByRole('button', { name: 'Déplier 4' }).click();
+    await panel.getByRole('button', { name: /^41\s*2$/ }).click();
+    await expect(page).toHaveURL(/prefixe=41/);
+    await expect(codes(page)).toHaveText(['41', '411']);
+    // The new columns: the currency (empty: any) and the active company.
+    const header = page.locator('thead');
+    await expect(header).toContainText('Devise');
+    await expect(header).toContainText('Société');
+    await expect(page.locator('tbody tr').first()).toContainText(COMPANY_A.trade_name);
+    await panel.getByRole('button', { name: /^Tous/ }).click();
+    await expect(page).not.toHaveURL(/prefixe=/);
+    expect(await axe(page)).toEqual([]);
+  });
+
+  test('type détaillé et devise : choisis dans le formulaire, montrés dans la liste', async ({
+    page,
+  }) => {
+    await page.goto('/app/comptabilite/plan-comptable/nouveau');
+    await page.getByLabel('Code').fill('401100');
+    await page.getByLabel('Intitulé').fill('Fournisseurs locaux');
+    await page.locator('select[formcontrolname="account_type"]').selectOption('liability');
+    // Only the detailed types of the nature chosen are offered.
+    const detailed = page.locator('select[formcontrolname="detailed_type"]');
+    await expect(detailed.locator('option')).toHaveText([
+      'Aucun',
+      'Dettes à court terme',
+      'Fournisseur',
+    ]);
+    await detailed.selectOption({ label: 'Fournisseur' });
+    await page.locator('select[formcontrolname="currency"]').selectOption('GNF');
+    await page.getByRole('button', { name: 'Enregistrer' }).click();
+    await expect(page.getByRole('heading', { level: 1 })).toContainText('401100');
+    await expect(page.getByText('Fournisseur', { exact: true }).first()).toBeVisible();
+    await page.goto('/app/comptabilite/plan-comptable?prefixe=4011');
+    await expect(page.locator('tbody tr').first()).toContainText('Fournisseur');
+    await expect(page.locator('tbody tr').first()).toContainText('GNF');
+  });
 });
 
 test.describe('Comptabilité — exercices, société, permissions, téléphone', () => {

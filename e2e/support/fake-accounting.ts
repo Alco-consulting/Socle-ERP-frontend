@@ -51,6 +51,8 @@ export interface AccountJson {
   description: string;
   parent: string | null;
   account_type: string;
+  detailed_type: string;
+  currency: string | null;
   account_class: string;
   allow_entries: boolean;
   letterable: boolean;
@@ -133,6 +135,8 @@ function chart(
     description: '',
     parent: null,
     account_type: type,
+    detailed_type: '',
+    currency: null,
     account_class: code.charAt(0),
     allow_entries: true,
     letterable: false,
@@ -210,11 +214,42 @@ const ACCOUNT_FIELDS = [
   'name',
   'description',
   'account_type',
+  'detailed_type',
+  'currency',
   'account_class',
   'allow_entries',
   'letterable',
   'parent',
 ];
+
+/** Accounts per first character and first two of their code (counts of the server). */
+function prefixesOf(accounts: readonly AccountJson[], url: URL) {
+  const q = (name: string) => url.searchParams.get(name);
+  const search = q('search')?.toLowerCase();
+  const chosen = accounts.filter(
+    (item) =>
+      (!search ||
+        item.code.toLowerCase().includes(search) ||
+        item.name.toLowerCase().includes(search)) &&
+      (!q('status') || item.status === q('status')) &&
+      (!q('account_type') || item.account_type === q('account_type')),
+  );
+  const firsts = [...new Set(chosen.map((item) => item.code.charAt(0)))].sort();
+  return firsts.map((first) => {
+    const group = chosen.filter((item) => item.code.startsWith(first));
+    const seconds = [
+      ...new Set(group.filter((item) => item.code.length > 1).map((item) => item.code.slice(0, 2))),
+    ].sort();
+    return {
+      prefix: first,
+      count: group.length,
+      children: seconds.map((prefix) => ({
+        prefix,
+        count: group.filter((item) => item.code.startsWith(prefix)).length,
+      })),
+    };
+  });
+}
 
 export class FakeAccounting {
   readonly byCompany: Record<string, Books> = seedAccounting();
@@ -383,6 +418,8 @@ export class FakeAccounting {
         const created: AccountJson = {
           ...chart([[code, String(body['name']), String(body['account_type']), null]])[0],
           description: String(body['description'] ?? ''),
+          detailed_type: String(body['detailed_type'] ?? ''),
+          currency: (body['currency'] as string | null) ?? null,
           account_class: String(body['account_class'] ?? ''),
           allow_entries: body['allow_entries'] !== false,
           letterable: body['letterable'] === true,
@@ -397,6 +434,7 @@ export class FakeAccounting {
       const url = new URL(request.url());
       const q = (name: string) => url.searchParams.get(name);
       const search = q('search')?.toLowerCase();
+      const prefix = q('code_prefix')?.toUpperCase();
       return this.paged(
         route,
         books.accounts
@@ -408,10 +446,14 @@ export class FakeAccounting {
                 item.name.toLowerCase().includes(search)) &&
               (!q('status') || item.status === q('status')) &&
               (!q('account_type') || item.account_type === q('account_type')) &&
+              (!prefix || item.code.startsWith(prefix)) &&
               (q('postable') === null || postable(item) === (q('postable') === 'true')),
           )
           .sort((a, b) => a.code.localeCompare(b.code)),
       );
+    }
+    if (id === 'prefixes') {
+      return this.answer(route, 200, prefixesOf(books.accounts, new URL(request.url())));
     }
     const found = books.accounts.find((item) => item.public_id === id);
     if (!found) {

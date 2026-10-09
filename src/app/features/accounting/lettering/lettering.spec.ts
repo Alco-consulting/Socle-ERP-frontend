@@ -695,6 +695,8 @@ describe('Comptabilité › Lettrage (V2.1 A4)', () => {
     description: '',
     parent: null,
     account_type: 'asset',
+    detailed_type: '',
+    currency: null,
     account_class: '4',
     allow_entries: true,
     letterable,

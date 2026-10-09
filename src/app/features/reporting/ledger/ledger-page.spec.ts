@@ -34,6 +34,8 @@ const ACCOUNT = {
   description: '',
   parent: null,
   account_type: 'liability',
+  detailed_type: '',
+  currency: null,
   account_class: '4',
   allow_entries: true,
   status: 'active',

@@ -64,92 +64,188 @@
   </div>
 </div>
 
-@switch (list.status()) {
-  @case ('forbidden') {
-    <alco-error-state
-      title="Vous n’avez pas accès à la comptabilité de cette société."
-      message="Demandez l’accès à un administrateur de la société si vous en avez besoin."
-    />
-  }
-  @case ('error') {
-    @if (failure(); as error) {
-      <alco-error-state
-        [title]="error.title"
-        [message]="error.message"
-        [code]="error.code"
-        [correlationId]="error.correlationId ?? ''"
-        retryLabel="Réessayer"
-        (retry)="list.reload()"
-      />
-    }
-  }
-  @default {
-    @if (list.value() === null) {
-      <alco-loading
-        variant="table"
-        [rows]="10"
-        [columns]="5"
-        label="Chargement du plan comptable…"
-      />
-    } @else if (rows().length === 0) {
-      <div class="empty-frame">
-        @if (hasCriteria()) {
-          <alco-empty-state
-            icon="search"
-            title="Aucun compte ne correspond à ces critères."
-            message="Modifiez la recherche ou retirez un filtre."
-          >
-            <button alcoButton type="button" icon="refresh" (click)="resetFilters()">
-              Réinitialiser les filtres
-            </button>
-          </alco-empty-state>
-        } @else {
-          <alco-empty-state icon="book" title="Le plan comptable de cette société est vide.">
-            @if (canImport()) {
-              <a alcoButton icon="upload" routerLink="import">Importer des comptes</a>
-            }
-            @if (canManage()) {
-              <a alcoButton variant="primary" icon="plus" routerLink="nouveau">Créer un compte</a>
-            }
-          </alco-empty-state>
-        }
-      </div>
-    } @else {
-      <alco-table
-        [class.reloading]="list.loading()"
-        [attr.aria-busy]="list.loading()"
-        caption="Plan comptable de la société, par code"
-        [columns]="columns"
-        [rows]="rows()"
-        [groups]="groups()"
-        [rowId]="rowId"
-        [rowLabel]="rowLabel"
-        [clickableRows]="true"
-        (rowActivated)="open($event)"
-      >
-        <ng-template alcoCell="code" let-account>
-          <a class="code" [routerLink]="account.public_id">{{ account.code }}</a>
-        </ng-template>
-        <ng-template alcoCell="name" let-account>
-          {{ account.name }}
-          @if (account.has_children) {
-            <span class="children alco-caption">
-              <alco-icon name="group" [size]="14" /> sous-comptes
-            </span>
+<div class="chart-layout">
+  <button
+    alcoButton
+    type="button"
+    variant="ghost"
+    size="sm"
+    icon="filter"
+    class="panel-toggle"
+    [attr.aria-expanded]="panelShown()"
+    aria-controls="account-prefixes"
+    (click)="panelShown.set(!panelShown())"
+  >
+    Groupes de comptes{{ prefix() ? ' : ' + prefix() : '' }}
+  </button>
+  <nav
+    id="account-prefixes"
+    class="prefixes"
+    [class.shown]="panelShown()"
+    aria-label="Groupes de comptes par début de code"
+  >
+    <ul>
+      <li>
+        <button
+          type="button"
+          class="prefix all"
+          [class.current]="!prefix()"
+          [attr.aria-current]="!prefix() ? 'true' : null"
+          (click)="choosePrefix(null)"
+        >
+          <span>Tous</span>
+          @if (prefixes.value()) {
+            <span class="count">{{ totalAccounts() }}</span>
           }
-        </ng-template>
-        <ng-template alcoCell="account_class" let-account>{{
-          account.account_class || '—'
-        }}</ng-template>
-        <ng-template alcoCell="type" let-account>{{ typeLabel(account.account_type) }}</ng-template>
-        <ng-template alcoCell="entries" let-account>
-          {{ account.allow_entries ? 'Autorisée' : 'Non autorisée' }}
-        </ng-template>
-        <ng-template alcoCell="status" let-account>
-          @let look = statusLook(account);
-          <alco-badge [tone]="look.tone" [icon]="look.icon">{{ look.label }}</alco-badge>
-        </ng-template>
-      </alco-table>
+        </button>
+      </li>
+      @for (group of prefixes.value() ?? []; track group.prefix) {
+        <li>
+          <div class="group">
+            @if (group.children.length > 0) {
+              <button
+                type="button"
+                class="fold"
+                [attr.aria-expanded]="isOpen(group.prefix)"
+                [attr.aria-label]="(isOpen(group.prefix) ? 'Replier ' : 'Déplier ') + group.prefix"
+                (click)="toggle(group.prefix)"
+              >
+                <alco-icon
+                  [name]="isOpen(group.prefix) ? 'chevron-down' : 'chevron-right'"
+                  [size]="14"
+                />
+              </button>
+            } @else {
+              <span class="fold" aria-hidden="true"></span>
+            }
+            <button
+              type="button"
+              class="prefix"
+              [class.current]="prefix() === group.prefix"
+              [attr.aria-current]="prefix() === group.prefix ? 'true' : null"
+              (click)="choosePrefix(group.prefix)"
+            >
+              <span>{{ group.prefix }}</span>
+              <span class="count">{{ group.count }}</span>
+            </button>
+          </div>
+          @if (isOpen(group.prefix) && group.children.length > 0) {
+            <ul class="children">
+              @for (child of group.children; track child.prefix) {
+                <li>
+                  <button
+                    type="button"
+                    class="prefix"
+                    [class.current]="prefix() === child.prefix"
+                    [attr.aria-current]="prefix() === child.prefix ? 'true' : null"
+                    (click)="choosePrefix(child.prefix)"
+                  >
+                    <span>{{ child.prefix }}</span>
+                    <span class="count">{{ child.count }}</span>
+                  </button>
+                </li>
+              }
+            </ul>
+          }
+        </li>
+      }
+    </ul>
+  </nav>
+  <div class="chart-main">
+    @switch (list.status()) {
+      @case ('forbidden') {
+        <alco-error-state
+          title="Vous n’avez pas accès à la comptabilité de cette société."
+          message="Demandez l’accès à un administrateur de la société si vous en avez besoin."
+        />
+      }
+      @case ('error') {
+        @if (failure(); as error) {
+          <alco-error-state
+            [title]="error.title"
+            [message]="error.message"
+            [code]="error.code"
+            [correlationId]="error.correlationId ?? ''"
+            retryLabel="Réessayer"
+            (retry)="list.reload()"
+          />
+        }
+      }
+      @default {
+        @if (list.value() === null) {
+          <alco-loading
+            variant="table"
+            [rows]="10"
+            [columns]="5"
+            label="Chargement du plan comptable…"
+          />
+        } @else if (rows().length === 0) {
+          <div class="empty-frame">
+            @if (hasCriteria()) {
+              <alco-empty-state
+                icon="search"
+                title="Aucun compte ne correspond à ces critères."
+                message="Modifiez la recherche ou retirez un filtre."
+              >
+                <button alcoButton type="button" icon="refresh" (click)="resetFilters()">
+                  Réinitialiser les filtres
+                </button>
+              </alco-empty-state>
+            } @else {
+              <alco-empty-state icon="book" title="Le plan comptable de cette société est vide.">
+                @if (canImport()) {
+                  <a alcoButton icon="upload" routerLink="import">Importer des comptes</a>
+                }
+                @if (canManage()) {
+                  <a alcoButton variant="primary" icon="plus" routerLink="nouveau"
+                    >Créer un compte</a
+                  >
+                }
+              </alco-empty-state>
+            }
+          </div>
+        } @else {
+          <alco-table
+            [class.reloading]="list.loading()"
+            [attr.aria-busy]="list.loading()"
+            caption="Plan comptable de la société, par code"
+            [columns]="columns"
+            [rows]="rows()"
+            [groups]="groups()"
+            [rowId]="rowId"
+            [rowLabel]="rowLabel"
+            [clickableRows]="true"
+            (rowActivated)="open($event)"
+          >
+            <ng-template alcoCell="code" let-account>
+              <a class="code" [routerLink]="account.public_id">{{ account.code }}</a>
+            </ng-template>
+            <ng-template alcoCell="name" let-account>
+              {{ account.name }}
+              @if (account.has_children) {
+                <span class="children alco-caption">
+                  <alco-icon name="group" [size]="14" /> sous-comptes
+                </span>
+              }
+            </ng-template>
+            <ng-template alcoCell="account_class" let-account>{{
+              account.account_class || '—'
+            }}</ng-template>
+            <ng-template alcoCell="type" let-account>{{ typeText(account) }}</ng-template>
+            <ng-template alcoCell="currency" let-account>{{ account.currency ?? '' }}</ng-template>
+            <ng-template alcoCell="company" let-account>
+              <span class="company">{{ companyName() }}</span>
+            </ng-template>
+            <ng-template alcoCell="entries" let-account>
+              {{ account.allow_entries ? 'Autorisée' : 'Non autorisée' }}
+            </ng-template>
+            <ng-template alcoCell="status" let-account>
+              @let look = statusLook(account);
+              <alco-badge [tone]="look.tone" [icon]="look.icon">{{ look.label }}</alco-badge>
+            </ng-template>
+          </alco-table>
+        }
+      }
     }
-  }
-}
+  </div>
+</div>

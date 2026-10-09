@@ -95,6 +95,10 @@ export const ENTRY_ERRORS: ErrorCatalog = {
     title: 'Un compte choisi est inactif.',
     message: 'Choisissez un compte actif sur la ligne signalée.',
   },
+  accounting_account_currency_mismatch: {
+    title: 'Un compte choisi n’accepte que sa propre devise.',
+    message: 'Saisissez l’écriture dans la devise du compte, ou choisissez un autre compte.',
+  },
   accounting_account_not_postable: {
     title: 'Un compte choisi n’accepte pas d’écritures.',
     message: 'Choisissez un compte imputable sur la ligne signalée.',

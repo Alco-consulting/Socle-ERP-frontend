@@ -23,6 +23,8 @@ const account = (code: string, name: string, extra: Partial<Account> = {}): Acco
   description: '',
   parent: null,
   account_type: 'liability',
+  detailed_type: '',
+  currency: null,
   account_class: code.charAt(0),
   allow_entries: true,
   letterable: false,
@@ -40,6 +42,16 @@ const page = (results: unknown[] = [], count = results.length) => ({
 });
 const settle = () => new Promise((resolve) => setTimeout(resolve, 0));
 const MANAGE = ['accounting.read', 'accounting.manage_accounts'];
+
+/** Side requests of the screens (the prefix panel, the currencies of the form): answered. */
+function answerSideRequests(): void {
+  for (const request of httpMock().match((req) => req.url.endsWith('/accounts/prefixes/'))) {
+    request.flush([]);
+  }
+  for (const request of httpMock().match((req) => req.url.endsWith('/currencies/'))) {
+    request.flush({ count: 0, next: null, previous: null, results: [] });
+  }
+}
 
 describe('Plan comptable (accounting/accounts/)', () => {
   async function open(url: string, permissions = MANAGE) {
@@ -77,12 +89,63 @@ describe('Plan comptable (accounting/accounts/)', () => {
     };
     const accounts = () =>
       httpMock().expectOne((req) => req.url === '/api/v1/accounting/accounts/');
-    return { element, stable, accounts };
+    return { element, stable, accounts, harness };
   }
 
   afterEach(() => {
+    answerSideRequests();
     httpMock().verify();
     clearCookie('XSRF-TOKEN');
+  });
+
+  it('list: the panel of code prefixes from the server, a prefix filters, never a parent', async () => {
+    const { accounts, element, stable, harness } = await open('/plan-comptable');
+    const prefixes = httpMock().expectOne((req) => req.url.endsWith('/accounts/prefixes/'));
+    prefixes.flush([
+      {
+        prefix: '1',
+        count: 3,
+        children: [
+          { prefix: '10', count: 2 },
+          { prefix: '16', count: 1 },
+        ],
+      },
+      { prefix: '6', count: 1, children: [{ prefix: '60', count: 1 }] },
+    ]);
+    accounts().flush(
+      page([
+        account('161100', 'Emissions d’obligations', {
+          detailed_type: 'liability_current',
+          currency: 'GNF',
+        }),
+      ]),
+    );
+    await stable();
+    const panel = element.querySelector('nav.prefixes')!;
+    const labels = () =>
+      Array.from(panel.querySelectorAll('button.prefix')).map((button) =>
+        Array.from(button.querySelectorAll('span'))
+          .map((part) => part.textContent?.trim())
+          .join(' '),
+      );
+    expect(labels()).toEqual(['Tous 4', '1 3', '6 1']);
+    const row = element.querySelector('alco-table tbody tr')!.textContent ?? '';
+    expect(row).toContain('Dettes à court terme');
+    expect(row).toContain('GNF');
+
+    // Unfold « 1 », then choose « 16 »: the list asks the server for the codes starting with it.
+    panel.querySelector<HTMLButtonElement>('button.fold')!.click();
+    await stable();
+    expect(labels()).toEqual(['Tous 4', '1 3', '10 2', '16 1', '6 1']);
+    Array.from(panel.querySelectorAll<HTMLButtonElement>('button.prefix'))
+      .find((button) => button.textContent?.includes('16'))!
+      .click();
+    await stable();
+    const filtered = accounts();
+    expect(filtered.request.params.get('code_prefix')).toBe('16');
+    filtered.flush(page([]));
+    await stable();
+    expect(harness.routeNativeElement?.textContent).toContain('Code commençant par');
   });
 
   it('list: search, state, type and « imputable » go to the server', async () => {
@@ -239,6 +302,8 @@ describe('Plan comptable (accounting/accounts/)', () => {
       description: '',
       parent: 'a-401',
       account_type: 'liability',
+      detailed_type: '',
+      currency: null,
       account_class: '4',
       allow_entries: true,
       letterable: false,

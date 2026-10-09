@@ -34,6 +34,7 @@ import {
   ACCOUNT_TYPES,
   RECORD_STATUS,
   accountTypeLabel,
+  accountTypeText,
 } from '../accounting-presentation';
 import { Account, AccountType, ActiveInactive } from '../data-access/accounting-models';
 import { ACCOUNT_PAGE_SIZE, AccountingApi } from '../data-access/accounting-api';
@@ -45,8 +46,11 @@ const PARAM = {
   type: 'type',
   postable: 'imputable',
   group: 'groupe',
+  prefix: 'prefixe',
   page: 'page',
 } as const;
+/** A code prefix of the URL: the characters a code may hold. */
+const PREFIX = /^[A-Za-z0-9._-]{1,32}$/;
 const STATUSES: readonly ActiveInactive[] = ['active', 'inactive'];
 
 /** Grouping of the page shown (the API does not group): by the class it gives. */
@@ -80,7 +84,7 @@ const GROUP_OPTIONS: readonly GroupOption[] = [{ id: 'classe', label: 'Classe' }
     AlcoTable,
   ],
   templateUrl: './account-list.html',
-  styleUrl: '../accounting-list.scss',
+  styleUrls: ['../accounting-list.scss', './account-list.scss'],
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class AccountListPage {
@@ -93,7 +97,9 @@ export class AccountListPage {
   protected readonly statuses = STATUSES.map((id) => ({ id, label: RECORD_STATUS[id].label }));
   protected readonly groupOptions = GROUP_OPTIONS;
   protected readonly pageSize = ACCOUNT_PAGE_SIZE;
-  protected readonly typeLabel = accountTypeLabel;
+  protected readonly typeText = accountTypeText;
+  /** Every row belongs to the active company (the API is company scoped). */
+  protected readonly companyName = computed(() => this.session.activeCompany()?.name ?? '');
   protected readonly canManage = computed(() => this.session.can('accounting.manage_accounts'));
   /** « Actions ▾ › Importer des comptes » (`accounting.accounts`): flat, checked by the server. */
   protected readonly transfer = ACCOUNT_TRANSFER;
@@ -106,6 +112,8 @@ export class AccountListPage {
     { key: 'name', label: 'Intitulé' },
     { key: 'account_class', label: 'Classe', width: '6rem' },
     { key: 'type', label: 'Type', hideBelow: 'tablet' },
+    { key: 'currency', label: 'Devise', width: '6rem', hideBelow: 'laptop' },
+    { key: 'company', label: 'Société', hideBelow: 'laptop' },
     { key: 'entries', label: 'Saisie', hideBelow: 'laptop' },
     { key: 'status', label: 'État', width: '8rem' },
   ];
@@ -134,14 +142,20 @@ export class AccountListPage {
       : null,
   );
   protected readonly page = computed(() => Math.max(1, Number(this.params().get(PARAM.page)) || 1));
+  /** The code prefix chosen in the panel (`?prefixe=16`): a filter, never a hierarchy. */
+  protected readonly prefix = computed(() => {
+    const value = this.params().get(PARAM.prefix)?.trim() ?? '';
+    return PREFIX.test(value) ? value.toUpperCase() : null;
+  });
 
   protected readonly searchText = signal(this.route.snapshot.queryParamMap.get(PARAM.search) ?? '');
   private readonly searchTyped = new Subject<string>();
 
   protected readonly activeFilterCount = computed(
     () =>
-      [this.status(), this.type(), this.postable() === null ? null : 1].filter((v) => v !== null)
-        .length,
+      [this.status(), this.type(), this.postable() === null ? null : 1, this.prefix()].filter(
+        (v) => v !== null,
+      ).length,
   );
   protected readonly hasCriteria = computed(() => this.activeFilterCount() > 0 || !!this.search());
 
@@ -169,6 +183,10 @@ export class AccountListPage {
         value: postable ? 'Oui' : 'Non',
       });
     }
+    const prefix = this.prefix();
+    if (prefix) {
+      facets.push({ id: 'prefix', kind: 'filter', label: 'Code commençant par', value: prefix });
+    }
     if (this.groupBy()) {
       facets.push({ id: 'group', kind: 'group', label: 'Regroupé par', value: 'Classe' });
     }
@@ -180,11 +198,30 @@ export class AccountListPage {
     status: this.status(),
     accountType: this.type(),
     postable: this.postable(),
+    codePrefix: this.prefix(),
     page: this.page(),
   }));
   protected readonly list = requestState(() => this.api.accounts(untracked(this.query)), {
     immediate: false,
   });
+
+  /** The panel « Tous / 1 › 10…19 / 2… »: counts of the server for the same criteria. */
+  private readonly prefixQuery = computed(() => ({
+    search: this.search(),
+    status: this.status(),
+    accountType: this.type(),
+  }));
+  protected readonly prefixes = requestState(
+    () => this.api.accountPrefixes(untracked(this.prefixQuery)),
+    { immediate: false },
+  );
+  protected readonly totalAccounts = computed(() =>
+    (this.prefixes.value() ?? []).reduce((total, group) => total + group.count, 0),
+  );
+  /** First characters opened in the panel (the chosen prefix's is always open). */
+  protected readonly opened = signal<ReadonlySet<string>>(new Set());
+  /** On a phone the panel is folded until asked for. */
+  protected readonly panelShown = signal(false);
   protected readonly rows = computed(() => this.list.value()?.results ?? []);
   /** Rows of the page shown, grouped by the class the server gives (nothing is derived). */
   protected readonly groups = computed<readonly TableGroup<Account>[] | null>(() => {
@@ -219,6 +256,10 @@ export class AccountListPage {
       untracked(() => this.list.reload());
     });
     effect(() => {
+      this.prefixQuery();
+      untracked(() => this.prefixes.reload());
+    });
+    effect(() => {
       if (this.list.error()?.kind === 'not-found' && untracked(this.page) > 1) {
         untracked(() => this.navigate({ [PARAM.page]: null }, true));
       }
@@ -246,6 +287,25 @@ export class AccountListPage {
     return RECORD_STATUS[account.status];
   }
 
+  protected isOpen(first: string): boolean {
+    return this.opened().has(first) || (this.prefix() ?? '').startsWith(first);
+  }
+
+  protected toggle(first: string): void {
+    const next = new Set(this.opened());
+    if (this.isOpen(first)) {
+      next.delete(first);
+    } else {
+      next.add(first);
+    }
+    this.opened.set(next);
+  }
+
+  /** A prefix of the panel, or all accounts (`null`). */
+  protected choosePrefix(prefix: string | null): void {
+    this.navigate({ [PARAM.prefix]: prefix, [PARAM.page]: null });
+  }
+
   protected onSearch(text: string): void {
     this.searchText.set(text);
     this.searchTyped.next(text);
@@ -268,6 +328,7 @@ export class AccountListPage {
       [PARAM.status]: null,
       [PARAM.type]: null,
       [PARAM.postable]: null,
+      [PARAM.prefix]: null,
       [PARAM.page]: null,
     });
   }
@@ -277,6 +338,7 @@ export class AccountListPage {
       status: PARAM.status,
       type: PARAM.type,
       postable: PARAM.postable,
+      prefix: PARAM.prefix,
       group: PARAM.group,
     }[facet.id];
     if (param) {

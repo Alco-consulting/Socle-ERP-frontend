@@ -61,6 +61,21 @@ export interface JournalWrite {
 export type AccountType = 'asset' | 'liability' | 'equity' | 'income' | 'expense' | 'other';
 
 /** `AccountingAccount`: `parent` and `has_children` are the hierarchy the server keeps. */
+/** `detailed_type` of the API: a finer type of the nature (empty: none). */
+export type DetailedType =
+  | 'equity'
+  | 'equity_unaffected'
+  | 'liability_current'
+  | 'liability_payable'
+  | 'asset_fixed'
+  | 'asset_current'
+  | 'asset_cash'
+  | 'asset_receivable'
+  | 'expense'
+  | 'income'
+  | 'income_other'
+  | 'off_balance';
+
 export interface Account {
   readonly public_id: string;
   readonly code: string;
@@ -68,6 +83,9 @@ export interface Account {
   readonly description: string;
   readonly parent: string | null;
   readonly account_type: AccountType;
+  readonly detailed_type: DetailedType | '';
+  /** ISO code; `null`: entries in any currency. */
+  readonly currency: string | null;
   readonly account_class: string;
   readonly allow_entries: boolean;
   /** Its posted lines may be lettered (V2.1 A4). */
@@ -85,9 +103,18 @@ export interface AccountWrite {
   readonly description: string;
   readonly parent: string | null;
   readonly account_type: AccountType;
+  readonly detailed_type: DetailedType | '';
+  readonly currency: string | null;
   readonly account_class: string;
   readonly allow_entries: boolean;
   readonly letterable: boolean;
+}
+
+/** `GET accounting/accounts/prefixes/`: accounts per first character, then first two. */
+export interface AccountPrefix {
+  readonly prefix: string;
+  readonly count: number;
+  readonly children: readonly { readonly prefix: string; readonly count: number }[];
 }
 
 /** Server-side filters of `GET accounting/accounts/`. */
@@ -97,6 +124,8 @@ export interface AccountQuery {
   readonly accountType?: AccountType | null;
   /** Accounts an entry may use, as the server decides (settings included). */
   readonly postable?: boolean | null;
+  /** The code starts with these characters (the chart browsed by its codes). */
+  readonly codePrefix?: string | null;
   readonly page?: number;
 }
 

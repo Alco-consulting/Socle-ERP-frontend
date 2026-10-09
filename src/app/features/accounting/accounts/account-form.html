@@ -79,6 +79,25 @@
             }
           </select>
         </alco-form-field>
+        <alco-form-field label="Type détaillé" hint="Précise la nature du compte (facultatif)">
+          <select alcoSelect formControlName="detailed_type">
+            <option value="">Aucun</option>
+            @for (detailed of detailedTypes(form.controls.account_type.value); track detailed.id) {
+              <option [value]="detailed.id">{{ detailed.label }}</option>
+            }
+          </select>
+        </alco-form-field>
+        <alco-form-field
+          label="Devise du compte"
+          hint="Vide : écritures dans toutes les devises ; sinon dans celle-ci seulement"
+        >
+          <select alcoSelect formControlName="currency">
+            <option value="">Toutes les devises</option>
+            @for (currency of currencies(); track currency.code) {
+              <option [value]="currency.code">{{ currency.code }} — {{ currency.name }}</option>
+            }
+          </select>
+        </alco-form-field>
         <alco-form-field
           label="Classe"
           hint="Classe du plan (ex. 4) ; elle n’est pas déduite du code"

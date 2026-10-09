@@ -1,0 +1,67 @@
+@use 'breakpoints' as bp;
+
+// The currency as Odoo shows it: code, name, decimals and state on the left; the symbol, the
+// unit labels and the symbol's position on the right (one column on a phone).
+.columns {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-4) var(--space-6);
+
+  @include bp.below-tablet {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+.column {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  min-width: 0;
+}
+
+.code-input {
+  text-transform: uppercase;
+}
+
+.server-error {
+  color: var(--color-danger-text);
+  font-size: var(--font-size-caption);
+}
+
+// « Taux »: the company's rates under the currency, then the new rate's line.
+.rates-hint {
+  margin: 0 0 var(--space-3);
+}
+
+.rates-pager {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: var(--space-3);
+}
+
+.new-rate {
+  display: grid;
+  grid-template-columns: minmax(0, 10rem) minmax(0, 14rem) minmax(0, 1fr);
+  align-items: start;
+  gap: var(--space-3) var(--space-4);
+  margin-top: var(--space-4);
+  padding: var(--space-4);
+  border: var(--border-width) solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+
+  @include bp.below-tablet {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+.new-rate-error,
+.new-rate-actions {
+  grid-column: 1 / -1;
+}
+
+.new-rate-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--space-2);
+}

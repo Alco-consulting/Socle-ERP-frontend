@@ -56,14 +56,18 @@ export interface SessionSnapshot {
   readonly globalPermissions: readonly string[];
 }
 
+/** The global permissions besides `users.*`. */
+const GLOBAL_PERMISSIONS = new Set(['companies.create', 'currencies.create', 'currencies.update']);
+
 /**
- * Whether a permission holds outside any company. Backend rule (companies/policies.py): the
- * `users.*` permissions and `companies.create` are global and never granted in a company;
- * every other one is read in the membership of the active company ONLY — a global grant of
- * it (a platform administrator holds them all) never applies there.
+ * Whether a permission holds outside any company. Backend rule (companies/policies.py,
+ * currencies/policies.py): the `users.*` permissions, `companies.create` and the catalogue's
+ * `currencies.create` / `currencies.update` are global and never granted in a company; every
+ * other one is read in the membership of the active company ONLY — a global grant of it (a
+ * platform administrator holds them all) never applies there.
  */
 export function isGlobalPermission(code: string): boolean {
-  return code.startsWith('users.') || code === 'companies.create';
+  return code.startsWith('users.') || GLOBAL_PERMISSIONS.has(code);
 }
 
 const NO_COMPANY: CompanyContext = {

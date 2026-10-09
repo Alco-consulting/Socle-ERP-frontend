@@ -155,7 +155,16 @@ describe('SessionService (Django session)', () => {
       // A platform administrator: Django lists every permission for it.
       httpMock()
         .expectOne('/api/v1/auth/login/')
-        .flush({ ...USER, permissions: ['accounting.read', 'companies.create', 'users.read'] });
+        .flush({
+          ...USER,
+          permissions: [
+            'accounting.read',
+            'companies.create',
+            'currencies.manage_rates',
+            'currencies.update',
+            'users.read',
+          ],
+        });
       await settle();
       httpMock()
         .expectOne('/api/v1/company-context/')
@@ -165,6 +174,8 @@ describe('SessionService (Django session)', () => {
       expect(store.can('companies.read')).toBe(true);
       expect(store.can('users.read')).toBe(true);
       expect(store.can('companies.create')).toBe(true);
+      expect(store.can('currencies.update')).toBe(true); // the shared catalogue
+      expect(store.can('currencies.manage_rates')).toBe(false); // rates belong to a company
     });
 
     it('several companies and no default one: open session, no company chosen yet', async () => {

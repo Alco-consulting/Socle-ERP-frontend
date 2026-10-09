@@ -3,6 +3,7 @@ import { Page, Request, test as base } from '@playwright/test';
 import { FakeAccountImport } from './fake-account-import';
 import { FakeAccounting } from './fake-accounting';
 import { FakeAccountingEntries } from './fake-accounting-entries';
+import { FakeCurrencies } from './fake-currencies';
 import { FakeDashboards } from './fake-dashboards';
 import { FakeDues } from './fake-dues';
 import { FakeLettering } from './fake-lettering';
@@ -67,6 +68,7 @@ const READ = [
   'assets.read',
   'loans.read',
   'taxes.read',
+  'currencies.read',
   'analytics.read',
   'reporting.read',
   'reporting.read_auxiliary',
@@ -108,6 +110,8 @@ const WRITE = [
   // Taxes as Odoo's screens: granted explicitly, never implied.
   'taxes.create',
   'taxes.update',
+  // The rates of the company (the catalogue's own permissions are global).
+  'currencies.manage_rates',
   'imports_exports.create',
   'imports_exports.validate',
   'imports_exports.execute',
@@ -188,6 +192,8 @@ export class FakeApi {
   readonly treasury: FakeTreasury;
   /** Import of a chart of accounts (`accounting.accounts`, explicit scenarios). */
   readonly accountImport: FakeAccountImport;
+  /** The shared currency catalogue and each company's exchange rates. */
+  readonly currencies: FakeCurrencies;
 
   constructor(private readonly page: Page) {
     const context: PartnersContext = {
@@ -215,6 +221,7 @@ export class FakeApi {
     this.dues = new FakeDues(context, this.accounting, this.partners, this.entries, this.lettering);
     this.treasury = new FakeTreasury(context, this.lettering);
     this.accountImport = new FakeAccountImport(context, this.accounting);
+    this.currencies = new FakeCurrencies(context, () => this.globalPermissions);
   }
 
   /** No session open at start (the login screen). */
@@ -287,6 +294,7 @@ export class FakeApi {
       return route.fulfill({ status: 404, json: error('not_found') });
     });
     await this.partners.install();
+    await this.currencies.install();
     await this.accounting.install();
     await this.entries.install();
     await this.dashboards.install();

@@ -1,0 +1,130 @@
+<alco-page-header title="Devises">
+  <div alcoPageActions>
+    @if (canCreate()) {
+      <a alcoButton variant="primary" icon="plus" routerLink="nouvelle">Nouvelle devise</a>
+    }
+  </div>
+</alco-page-header>
+
+<div class="control-panel">
+  <alco-search-bar
+    class="search"
+    label="Rechercher une devise"
+    placeholder="Rechercher par code ou nom…"
+    [query]="searchText()"
+    [facets]="facets()"
+    (queryChange)="onSearch($event)"
+    (facetRemoved)="removeFacet($event)"
+  />
+  <div class="controls">
+    <alco-filter-bar
+      [activeFilterCount]="activeFilterCount()"
+      (applied)="applyFilters()"
+      (cleared)="resetFilters()"
+    >
+      <div alcoFilterFields class="filter-fields" [formGroup]="filterForm">
+        <alco-form-field label="État">
+          <select alcoSelect formControlName="status">
+            <option value="">Toutes les devises</option>
+            @for (status of statuses; track status.id) {
+              <option [value]="status.id">{{ status.label }}</option>
+            }
+          </select>
+        </alco-form-field>
+      </div>
+    </alco-filter-bar>
+    @if (list.value(); as page) {
+      <alco-pagination
+        class="pager"
+        [page]="page.count > 0 ? this.page() : 1"
+        [pageSize]="pageSize"
+        [total]="page.count"
+        (pageChange)="setPage($event)"
+      />
+    }
+  </div>
+</div>
+
+@switch (list.status()) {
+  @case ('error') {
+    @if (failure(); as error) {
+      <alco-error-state
+        [title]="error.title"
+        [message]="error.message"
+        [code]="error.code"
+        [correlationId]="error.correlationId ?? ''"
+        retryLabel="Réessayer"
+        (retry)="list.reload()"
+      />
+    }
+  }
+  @default {
+    @if (list.value() === null) {
+      <alco-loading variant="table" [rows]="6" [columns]="7" label="Chargement des devises…" />
+    } @else if (rows().length === 0) {
+      <div class="empty-frame">
+        @if (hasCriteria()) {
+          <alco-empty-state
+            icon="search"
+            title="Aucune devise ne correspond à ces critères."
+            message="Modifiez la recherche ou retirez un filtre."
+          >
+            <button alcoButton type="button" icon="refresh" (click)="resetFilters()">
+              Réinitialiser les filtres
+            </button>
+          </alco-empty-state>
+        } @else {
+          <alco-empty-state
+            icon="search"
+            title="Aucune devise."
+            message="Le catalogue des devises est vide."
+          />
+        }
+      </div>
+    } @else {
+      <alco-table
+        [class.reloading]="list.loading()"
+        [attr.aria-busy]="list.loading()"
+        caption="Devises, les actives d’abord, puis par code"
+        [columns]="columns()"
+        [rows]="rows()"
+        [rowId]="rowId"
+        [rowLabel]="rowLabel"
+        [clickableRows]="true"
+        (rowActivated)="open($event)"
+      >
+        <ng-template alcoCell="code" let-currency>
+          <a class="code" [routerLink]="currency.public_id">{{ currency.code }}</a>
+        </ng-template>
+        <ng-template alcoCell="name" let-currency>
+          {{ currency.name }}
+          @if (isReference(currency)) {
+            <span class="reference alco-caption">Devise de la société</span>
+          }
+        </ng-template>
+        <ng-template alcoCell="rate_date" let-currency>
+          @if (rateOf(currency); as rate) {
+            {{ dayText(rate.rate_date) }}
+          }
+        </ng-template>
+        <ng-template alcoCell="inverse" let-currency>{{ inverseOf(currency) }}</ng-template>
+        <ng-template alcoCell="rate" let-currency>{{ rateTextOf(currency) }}</ng-template>
+        <ng-template alcoCell="active" let-currency>
+          <label class="alco-switch">
+            <input
+              type="checkbox"
+              role="switch"
+              [checked]="active(currency)"
+              [disabled]="
+                !canUpdate() || isReference(currency) || switching() === currency.public_id
+              "
+              [attr.aria-label]="'Devise ' + currency.code + ' active'"
+              (change)="setActive(currency, $event)"
+            />
+            <span class="track" aria-hidden="true"></span>
+          </label>
+        </ng-template>
+      </alco-table>
+    }
+  }
+}

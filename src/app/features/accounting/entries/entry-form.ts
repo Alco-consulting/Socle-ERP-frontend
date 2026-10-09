@@ -270,6 +270,11 @@ export class EntryFormPage {
   protected readonly decimals = computed(
     () => this.currencies().find((item) => item.code === this.currencyShown())?.decimal_places ?? 0,
   );
+  /** The active currencies of the catalogue, and the entry's own if it is no longer active. */
+  protected readonly currencyOptions = computed(() => {
+    const current = this.entry()?.currency;
+    return this.currencies().filter((item) => item.status === 'active' || item.code === current);
+  });
   /**
    * The taxes of the journal's side: a sales journal proposes the taxes of sales, a purchase
    * journal those of purchases (a tax of both sides is in both); any other journal, all.

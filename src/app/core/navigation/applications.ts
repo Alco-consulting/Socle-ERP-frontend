@@ -108,6 +108,8 @@ export const APPLICATIONS: readonly AlcoApplication[] = [
       'emprunt',
       'taxe',
       'tva',
+      'devise',
+      'taux de change',
       'analytique',
       'audit',
     ],
@@ -187,6 +189,11 @@ export const APPLICATIONS: readonly AlcoApplication[] = [
           ...group('Comptabilité', [
             { label: 'Journaux', path: 'journaux' },
             { label: 'Plan comptable', path: 'plan-comptable' },
+            {
+              label: 'Devises',
+              path: 'configuration/devises',
+              permission: 'currencies.read',
+            },
           ]),
           ...group('Banques', [
             { label: 'Comptes de trésorerie', path: 'tresorerie/comptes' },
@@ -339,14 +346,13 @@ export const APPLICATIONS: readonly AlcoApplication[] = [
     icon: 'settings',
     family: 'control',
     path: 'parametres',
-    keywords: ['utilisateur', 'rôle', 'droit', 'société', 'devise'],
+    keywords: ['utilisateur', 'rôle', 'droit', 'société'],
     // Each screen needs the permission of its API (OpenAPI x-permissions): a company
     // administrator without the global `users.read` still reaches its company and members.
     nav: [
       { label: 'Société', path: 'societe', permission: 'companies.read' },
       { label: 'Utilisateurs', path: 'utilisateurs', permission: 'users.read' },
       { label: 'Rôles et droits', path: 'roles', permission: 'companies.manage_members' },
-      { label: 'Devises', path: 'devises', permission: 'currencies.read' },
     ],
   },
 ];

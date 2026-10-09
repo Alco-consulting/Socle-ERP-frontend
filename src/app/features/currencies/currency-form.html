@@ -1,0 +1,303 @@
+@if (loadError(); as failure) {
+  <alco-error-state
+    [title]="failure.title"
+    [message]="failure.message"
+    [code]="failure.code"
+    [correlationId]="failure.correlationId ?? ''"
+  />
+  <div class="center">
+    <a alcoButton icon="arrow-left" [routerLink]="list">Retour aux devises</a>
+  </div>
+} @else if (!ready()) {
+  <alco-loading [rows]="5" label="Chargement de la devise…" />
+} @else {
+  <alco-page-header [title]="title()" [subtitle]="currency()?.name ?? 'Devise du catalogue'">
+    <div alcoPageActions>
+      <button alcoButton type="button" variant="ghost" (click)="cancel()">
+        {{ canSave && form.dirty ? 'Annuler' : 'Retour aux devises' }}
+      </button>
+      @if (canSave) {
+        <button
+          alcoButton
+          type="submit"
+          form="currency-form"
+          variant="primary"
+          [loading]="saving()"
+          loadingLabel="Enregistrement…"
+        >
+          Enregistrer
+        </button>
+      }
+    </div>
+  </alco-page-header>
+
+  @if (error(); as failure) {
+    <alco-error-state
+      [inline]="true"
+      [title]="failure.title"
+      [message]="failure.message"
+      [code]="failure.code"
+      [correlationId]="failure.correlationId ?? ''"
+    />
+  }
+  @if (invalidSubmit() && form.invalid) {
+    <alco-error-state
+      [inline]="true"
+      title="Certaines informations sont manquantes ou incorrectes."
+      message="Corrigez les champs signalés, puis enregistrez à nouveau."
+    />
+  }
+
+  <form id="currency-form" class="sheet" [formGroup]="form" (ngSubmit)="save()" novalidate>
+    <div class="columns">
+      <div class="column">
+        <alco-form-field
+          label="Devise"
+          [required]="isNew"
+          [hint]="isNew ? 'Le code ISO 4217, ex. USD : il ne change plus ensuite.' : ''"
+        >
+          <input
+            alcoInput
+            class="code-input"
+            formControlName="code"
+            maxlength="3"
+            autocomplete="off"
+            autocapitalize="characters"
+          />
+        </alco-form-field>
+        <alco-form-field label="Nom" [required]="true">
+          <input alcoInput formControlName="name" maxlength="100" autocomplete="off" />
+        </alco-form-field>
+        <alco-form-field
+          label="Décimales"
+          [hint]="isNew ? 'Les chiffres après la virgule (0 pour le GNF, 2 pour l’USD).' : ''"
+        >
+          <select alcoSelect formControlName="decimal_places">
+            @for (places of decimalPlaces; track places) {
+              <option [ngValue]="places">{{ places }}</option>
+            }
+          </select>
+        </alco-form-field>
+        <div class="field-check">
+          <span class="fixed-label" id="active-label">Actif</span>
+          <label class="alco-switch">
+            <input
+              type="checkbox"
+              role="switch"
+              formControlName="active"
+              aria-labelledby="active-label"
+              aria-describedby="active-hint"
+            />
+            <span class="track" aria-hidden="true"></span>
+          </label>
+          <span class="alco-caption" id="active-hint">
+            @if (isReference()) {
+              C’est la devise de la société : elle reste active.
+            } @else {
+              Seules les devises actives sont proposées à la saisie.
+            }
+          </span>
+          @if (form.controls.active.errors?.['server']; as message) {
+            <span class="server-error" role="alert">{{ message }}</span>
+          }
+        </div>
+      </div>
+      <div class="column">
+        <alco-form-field label="Symbole" [optional]="true" hint="Ex. $, €, GNF.">
+          <input alcoInput formControlName="symbol" maxlength="8" autocomplete="off" />
+        </alco-form-field>
+        <alco-form-field
+          label="Unité monétaire"
+          [optional]="true"
+          hint="Pour les montants en lettres, ex. « Dollars »."
+        >
+          <input alcoInput formControlName="unit_label" maxlength="50" autocomplete="off" />
+        </alco-form-field>
+        <alco-form-field label="Sous-unité monétaire" [optional]="true" hint="Ex. « Cents ».">
+          <input alcoInput formControlName="subunit_label" maxlength="50" autocomplete="off" />
+        </alco-form-field>
+        <alco-form-field label="Position du symbole">
+          <select alcoSelect formControlName="position">
+            @for (position of positions; track position.id) {
+              <option [value]="position.id">{{ position.label }}</option>
+            }
+          </select>
+        </alco-form-field>
+      </div>
+    </div>
+  </form>
+
+  <alco-tabs class="rates" label="Taux de la devise" [tabs]="tabs()" [(selected)]="tab">
+    <ng-template alcoTabPanel="rates">
+      @if (currency(); as currency) {
+        @if (isReference()) {
+          <p class="note">
+            {{ currency.code }} est la devise de la société : 1 {{ currency.code }} = 1
+            {{ reference }}, elle n’a pas de taux.
+          </p>
+        } @else {
+          <p class="alco-caption rates-hint">
+            Les taux de la société : combien de {{ reference }} pour 1 {{ currency.code }}. Un taux
+            n’est jamais modifié : retirez un taux faux, puis saisissez le bon.
+          </p>
+          @switch (rates.status()) {
+            @case ('forbidden') {
+              <alco-error-state
+                [inline]="true"
+                title="Vous n’avez pas accès aux taux de change de cette société."
+                message="Demandez l’accès à un administrateur de la société si vous en avez besoin."
+              />
+            }
+            @case ('error') {
+              @if (ratesFailure(); as failure) {
+                <alco-error-state
+                  [inline]="true"
+                  [title]="failure.title"
+                  [message]="failure.message"
+                  [code]="failure.code"
+                  [correlationId]="failure.correlationId ?? ''"
+                  retryLabel="Réessayer"
+                  (retry)="rates.reload()"
+                />
+              }
+            }
+            @default {
+              @if (rates.value() === null) {
+                <alco-loading
+                  variant="table"
+                  [rows]="3"
+                  [columns]="4"
+                  label="Chargement des taux…"
+                />
+              } @else if (rateRows().length === 0) {
+                <alco-empty-state
+                  icon="search"
+                  title="Aucun taux pour cette devise."
+                  [message]="
+                    'Ajoutez son taux du jour : combien de ' +
+                    reference +
+                    ' pour 1 ' +
+                    currency.code +
+                    '.'
+                  "
+                />
+              } @else {
+                <alco-table
+                  [class.reloading]="rates.loading()"
+                  [attr.aria-busy]="rates.loading()"
+                  caption="Taux de la devise, le plus récent d’abord"
+                  [columns]="rateColumns"
+                  [rows]="rateRows()"
+                  [rowId]="rateId"
+                  [rowLabel]="rateLabel"
+                >
+                  <ng-template alcoCell="rate_date" let-rate>{{
+                    dayText(rate.rate_date)
+                  }}</ng-template>
+                  <ng-template alcoCell="inverse" let-rate>{{
+                    inverseText(rate.rate)
+                  }}</ng-template>
+                  <ng-template alcoCell="rate" let-rate>{{ rateText(rate.rate) }}</ng-template>
+                  <ng-template alcoCell="actions" let-rate>
+                    @if (canManageRates) {
+                      <button
+                        alcoButton
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        [loading]="withdrawing() === rate.public_id"
+                        loadingLabel="Retrait…"
+                        [attr.aria-label]="'Retirer le taux du ' + dayText(rate.rate_date)"
+                        (click)="withdraw(rate)"
+                      >
+                        Retirer
+                      </button>
+                    }
+                  </ng-template>
+                </alco-table>
+                @if (rates.value(); as page) {
+                  @if (page.count > ratePageSize) {
+                    <alco-pagination
+                      class="rates-pager"
+                      [page]="ratePage()"
+                      [pageSize]="ratePageSize"
+                      [total]="page.count"
+                      (pageChange)="setRatePage($event)"
+                    />
+                  }
+                }
+              }
+            }
+          }
+
+          @if (canManageRates) {
+            @if (currency.status !== 'active') {
+              <p class="alco-caption">Activez la devise pour saisir ses taux.</p>
+            } @else if (adding()) {
+              <form
+                class="new-rate"
+                [formGroup]="rateForm"
+                (ngSubmit)="recordRate()"
+                novalidate
+                aria-label="Nouveau taux"
+              >
+                @if (rateError(); as failure) {
+                  <alco-error-state
+                    class="new-rate-error"
+                    [inline]="true"
+                    [title]="failure.title"
+                    [message]="failure.message"
+                    [code]="failure.code"
+                    [correlationId]="failure.correlationId ?? ''"
+                  />
+                }
+                <alco-form-field label="Date" [required]="true">
+                  <input alcoDatePicker type="date" formControlName="rate_date" />
+                </alco-form-field>
+                <alco-form-field
+                  [label]="reference + ' par unité'"
+                  [required]="true"
+                  [hint]="typedInverse() ? 'Unité par ' + reference + ' : ' + typedInverse() : ''"
+                >
+                  <input
+                    alcoInput
+                    id="new-rate-value"
+                    [numeric]="true"
+                    inputmode="decimal"
+                    formControlName="rate"
+                    autocomplete="off"
+                  />
+                </alco-form-field>
+                <alco-form-field label="Source" [optional]="true" hint="Ex. BCRG.">
+                  <input alcoInput formControlName="source" maxlength="100" autocomplete="off" />
+                </alco-form-field>
+                <div class="new-rate-actions">
+                  <button alcoButton type="button" variant="ghost" (click)="cancelLine()">
+                    Annuler
+                  </button>
+                  <button
+                    alcoButton
+                    type="submit"
+                    variant="primary"
+                    [loading]="recording()"
+                    loadingLabel="Enregistrement…"
+                  >
+                    Enregistrer le taux
+                  </button>
+                </div>
+              </form>
+            } @else {
+              <div>
+                <button alcoButton type="button" variant="ghost" icon="plus" (click)="addLine()">
+                  Ajouter une ligne
+                </button>
+              </div>
+            }
+          }
+        }
+      } @else {
+        <p class="note">Enregistrez d’abord la devise, puis saisissez ses taux ici.</p>
+      }
+    </ng-template>
+  </alco-tabs>
+}

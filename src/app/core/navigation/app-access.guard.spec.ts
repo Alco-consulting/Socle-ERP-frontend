@@ -30,7 +30,7 @@ describe('Application access guards (UX only: the API checks every call)', () =>
     expect(String(run(appHome('accounting'), ['accounting.read']))).toBe(
       '/app/comptabilite/ecritures',
     );
-    expect(String(run(appHome('settings'), ['currencies.read']))).toBe('/app/parametres/devises');
+    expect(String(run(appHome('settings'), ['companies.read']))).toBe('/app/parametres/societe');
   });
 
   it('the home of a section: its first screen open', () => {

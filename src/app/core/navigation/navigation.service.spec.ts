@@ -306,8 +306,17 @@ describe('NavigationService', () => {
     ]);
   });
 
+  it('Devises is Comptabilité › Configuration, with the rates’ permission', () => {
+    const url = '/app/comptabilite/configuration/devises';
+    expect(signIn(['accounting.read', 'currencies.read']).canOpenUrl(url)).toBe(true);
+    expect(signIn(['accounting.read', 'currencies.read']).canOpenUrl(`${url}/cur-USD`)).toBe(true);
+    expect(signIn(['accounting.read']).canOpenUrl(url)).toBe(false);
+    // Paramètres has no Devises any more.
+    expect(labels(signIn(['currencies.read']).applications())).toEqual([]);
+  });
+
   it('opens Paramètres as soon as one of its screens is permitted', () => {
-    expect(labels(signIn(['currencies.read']).applications())).toEqual(['Paramètres']);
+    expect(labels(signIn(['companies.read']).applications())).toEqual(['Paramètres']);
     expect(
       signIn(['accounting.read'])
         .applications()

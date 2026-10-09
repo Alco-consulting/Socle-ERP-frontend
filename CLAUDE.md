@@ -178,7 +178,8 @@ supprime ce qui ne sert plus.
   Tableau de bord, Clients, Fournisseurs, puis Comptabilité ▾ (Écritures, Journaux, Plan
   comptable, Tiers, Trésorerie, Lettrage, Échéances, Rapprochement, Clôture), Analyse ▾
   (Rapports financiers, comptables, de tiers, Analyses) et Configuration ▾ (Général,
-  Comptabilité, Banques, Paiements, Taxes, Immobilisations, Analytique, Emprunts). Les
+  Comptabilité (dont Devises), Banques, Paiements, Taxes, Immobilisations, Analytique,
+  Emprunts). Les
   sections (Trésorerie, Immobilisations, Emprunts, Taxes, Analytique, Audit) gardent leur
   navigation ; leurs écrans de configuration sont aussi dans Configuration ▾.
 - **Menus groupés** : `AppNavLink.group` (helper `group()` du catalogue) → `NavLink.group` →
@@ -357,6 +358,25 @@ supprime ce qui ne sert plus.
     des deux côtés), un journal d'achats celles d'achats ;
   - faux serveur : `fake-accounting-entries.ts` ; e2e : `e2e/taxes.spec.ts` ;
     captures `107…109`.
+- **Devises comme Odoo** (`features/currencies/`, Configuration › Comptabilité › Devises,
+  `configuration/devises`, note backend 0032) :
+  - liste du catalogue partagé (`GET currencies/`, sans société, les actives d'abord) :
+    Devise, Symbole, Nom, Dernière mise à jour, Unité par GNF, GNF par unité, Actif ;
+    l'interrupteur demande la permission globale `currencies.update` ; la devise de la
+    société reste active (`reference_currency_in_use`) ; le taux en vigueur vient de
+    `GET currencies/rates/current/` ;
+  - une page par devise : Devise et Décimales (fixées à la création), Nom, Actif | Symbole,
+    Unité et Sous-unité monétaires, Position du symbole ; onglet « Taux » de la société
+    (Date, Unité par GNF, GNF par unité, Source) : « Ajouter une ligne » enregistre le taux
+    tout de suite (`currencies.manage_rates`), « Retirer » après confirmation ; aucun taux
+    pour la devise de la société ni pour une devise inactive ;
+  - « Unité par GNF » = 1 ÷ le taux, calcul exact à six chiffres significatifs
+    (`inverseRate`, affichage seulement) ;
+  - `currencies.create` / `currencies.update` sont globales (`isGlobalPermission`) ; les
+    listes de devises des formulaires (écriture, compte, journal, tiers, trésorerie) ne
+    proposent que les devises actives (et celle déjà choisie) ;
+  - faux serveur : `fake-currencies.ts` ; e2e : `e2e/currencies.spec.ts` ;
+    captures `110…112`. Paramètres › Devises (page vide) mène ici.
 - **Formulaire de compte** : Code, Nom du compte ; Type groupé comme Odoo (`TYPE_SECTIONS`,
   18 types) avec « Selon le code » à la création (le serveur donne le type SYSCOHADA du
   code), Taxes par défaut, Devise, Autoriser le lettrage (laissé au serveur s'il n'est pas

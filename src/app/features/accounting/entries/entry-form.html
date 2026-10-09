@@ -110,7 +110,7 @@
             @if (isNew) {
               <option value="">Devise par défaut</option>
             }
-            @for (currency of currencies(); track currency.code) {
+            @for (currency of currencyOptions(); track currency.code) {
               <option
                 [value]="currency.code"
                 [selected]="currency.code === form.controls.currency.value"

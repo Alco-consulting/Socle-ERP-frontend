@@ -391,3 +391,22 @@ test('taxes, one simple screen: list, the taxes of Guinea, a tax', async ({ page
   await page.goto('/app/comptabilite/taxes/liste/nouveau');
   await shoot(page, '109-phone-tax-form-simple', true);
 });
+
+test('currencies as Odoo: the catalogue, a currency and its rates', async ({ page, api }) => {
+  test.setTimeout(120_000);
+  api.withGlobalPermissions('currencies.create', 'currencies.update');
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto('/app/comptabilite/configuration/devises');
+  await expect(page.locator('tbody tr')).toHaveCount(7);
+  await shoot(page, '110-currencies-list', true);
+  await page.getByRole('link', { name: 'USD', exact: true }).click();
+  await page.getByRole('button', { name: 'Ajouter une ligne' }).click();
+  await page.getByLabel('GNF par unité').fill('8 700');
+  await page.evaluate(() => window.scrollTo(0, 0));
+  await shoot(page, '111-currency-form-rates', true);
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto('/app/comptabilite/configuration/devises');
+  await page.getByRole('link', { name: 'EUR', exact: true }).click();
+  await expect(page.locator('.rates tbody tr')).toHaveCount(1);
+  await shoot(page, '112-phone-currency-form', true);
+});

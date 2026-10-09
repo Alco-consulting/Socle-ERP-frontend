@@ -25,7 +25,7 @@ const SCREENS: Readonly<Record<string, Routes>> = {
 /**
  * Former URLs (bookmarks, shared links) of screens that moved (V2.1): Reporting is
  * Comptabilité › Analyse, Comptabilité › Tiers › Clients is Comptabilité › Clients, payment
- * terms are Comptabilité › Configuration. Plain redirects to a screen whose own guards then
+ * terms and currencies are Comptabilité › Configuration. Plain redirects to a screen whose own guards then
  * apply (no permission is decided here). A function without API (journal centralisateur)
  * leads to the application's home; the former lettering and due dates URLs lead to
  * Comptabilité › Lettrage and › Échéances.
@@ -69,6 +69,12 @@ export const LEGACY_REDIRECTS: Routes = [
     path: 'tiers/configuration/conditions',
     pathMatch: 'full',
     redirectTo: `${ACCOUNTING}/configuration/conditions-paiement`,
+  },
+  // Paramètres › Devises (placeholder) became Comptabilité › Configuration › Devises.
+  {
+    path: 'parametres/devises',
+    pathMatch: 'full',
+    redirectTo: `${ACCOUNTING}/configuration/devises`,
   },
 ];
 

@@ -1,8 +1,7 @@
 import { Page, Request, Route } from '@playwright/test';
 
 /**
- * The partners part of the fake API (`partners/`, `currencies/`, `imports-exports/` for
- * partners), company scoped by `X-Company-ID` like the server: a partner of another company
+ * The partners part of the fake API (`partners/`, `imports-exports/` for partners), company scoped by `X-Company-ID` like the server: a partner of another company
  * is a 404. Only the rules the tests need are played: required fields, unique code,
  * permissions, search / filters / pages, all-or-nothing import.
  */
@@ -168,18 +167,6 @@ export class FakePartners {
 
   async install(): Promise<void> {
     const { page } = this.context;
-    await page.route('**/api/v1/currencies/**', (route) =>
-      this.answer(route, 200, {
-        count: 3,
-        next: null,
-        previous: null,
-        results: [
-          { code: 'GNF', name: 'Franc guinéen', decimal_places: 0, status: 'active' },
-          { code: 'XOF', name: 'Franc CFA (BCEAO)', decimal_places: 0, status: 'active' },
-          { code: 'EUR', name: 'Euro', decimal_places: 2, status: 'active' },
-        ],
-      }),
-    );
     await page.route('**/api/v1/partners/**', (route) => this.partners(route));
     await page.route('**/api/v1/imports-exports/**', (route) => this.transfers(route));
   }

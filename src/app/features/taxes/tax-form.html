@@ -79,12 +79,15 @@
             [optional]="true"
             hint="Où va la taxe d’une vente (ex. 443100 TVA facturée sur ventes)."
           >
-            <alco-autocomplete
-              formControlName="sale_account"
-              [search]="searchAccounts"
-              placeholder="Code ou nom du compte"
-              emptyText="Aucun compte ne correspond."
-            />
+            <select alcoSelect formControlName="sale_account_code">
+              <option value="">Aucun compte</option>
+              @for (
+                choice of choicesFor(form.controls.sale_account_code.value);
+                track choice.code
+              ) {
+                <option [value]="choice.code">{{ choice.label }}</option>
+              }
+            </select>
           </alco-form-field>
         }
         @if (onPurchases()) {
@@ -93,12 +96,15 @@
             [optional]="true"
             hint="Où va la taxe d’un achat (ex. 445200 TVA récupérable sur achats)."
           >
-            <alco-autocomplete
-              formControlName="purchase_account"
-              [search]="searchAccounts"
-              placeholder="Code ou nom du compte"
-              emptyText="Aucun compte ne correspond."
-            />
+            <select alcoSelect formControlName="purchase_account_code">
+              <option value="">Aucun compte</option>
+              @for (
+                choice of choicesFor(form.controls.purchase_account_code.value);
+                track choice.code
+              ) {
+                <option [value]="choice.code">{{ choice.label }}</option>
+              }
+            </select>
           </alco-form-field>
         }
         <div class="field-check">

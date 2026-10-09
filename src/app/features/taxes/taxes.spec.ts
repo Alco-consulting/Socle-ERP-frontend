@@ -40,6 +40,21 @@ const page = (results: unknown[] = [], count = results.length) => ({
 const settle = () => new Promise((resolve) => setTimeout(resolve, 0));
 const MANAGE = ['accounting.read', 'taxes.read', 'taxes.create', 'taxes.update'];
 
+/** The chart's accounts of the State (44…), proposed by the two selection lists. */
+const STATE_ACCOUNTS = [
+  { code: '443100', name: 'T.V.A. facturée sur ventes' },
+  { code: '444131', name: 'Retenue à la source 10 %' },
+  { code: '445200', name: 'T.V.A. récupérable sur achats' },
+];
+
+/** The accounts of the State asked by a tax's page: one request, `code_prefix=44`. */
+function answerStateAccounts(accounts: readonly object[] = STATE_ACCOUNTS): void {
+  const request = httpMock().expectOne((req) => req.url === '/api/v1/accounting/accounts/');
+  expect(request.request.params.get('code_prefix')).toBe('44');
+  expect(request.request.params.get('status')).toBe('active');
+  request.flush(page([...accounts]));
+}
+
 /** Side requests (the history of a tax): answered empty. */
 function answerSideRequests(): void {
   for (const request of httpMock().match((req) => req.url.includes('/audit/'))) {
@@ -184,6 +199,7 @@ describe('Taxes (taxes/): one simple screen', () => {
   it('form: a new tax — name, rate, use, the accounts of its sides, withholding', async () => {
     const { element, stable } = await open('/taxes/nouveau');
     const navigate = vi.spyOn(TestBed.inject(Router), 'navigateByUrl').mockResolvedValue(true);
+    answerStateAccounts();
     await stable();
     const names = () =>
       Array.from(element.querySelectorAll('[formControlName]')).map((field) =>
@@ -193,8 +209,8 @@ describe('Taxes (taxes/): one simple screen', () => {
       'name',
       'rate',
       'type_tax_use',
-      'sale_account',
-      'purchase_account',
+      'sale_account_code',
+      'purchase_account_code',
       'withholding',
       'active',
     ]);
@@ -205,12 +221,24 @@ describe('Taxes (taxes/): one simple screen', () => {
       'Achats',
     ]);
 
+    // The accounts are chosen in a selection list: the chart's accounts of the State.
+    const sales = element.querySelector<HTMLSelectElement>(
+      '[formControlName="sale_account_code"]',
+    )!;
+    expect(Array.from(sales.options).map((option) => option.textContent?.trim())).toEqual([
+      'Aucun compte',
+      '443100 — T.V.A. facturée sur ventes',
+      '444131 — Retenue à la source 10 %',
+      '445200 — T.V.A. récupérable sur achats',
+    ]);
+
     fill(element, 'name', 'Retenue 10 %');
     fill(element, 'rate', '10');
     fill(element, 'type_tax_use', 'purchase');
     await stable();
     // A purchase tax has no account of sales.
-    expect(names()).not.toContain('sale_account');
+    expect(names()).not.toContain('sale_account_code');
+    fill(element, 'purchase_account_code', '444131');
     element.querySelector<HTMLInputElement>('[formControlName="withholding"]')!.click();
     element.querySelector('form')!.dispatchEvent(new Event('submit'));
     await stable();
@@ -220,7 +248,7 @@ describe('Taxes (taxes/): one simple screen', () => {
       rate: '10',
       type_tax_use: 'purchase',
       sale_account_code: '',
-      purchase_account_code: '',
+      purchase_account_code: '444131',
       withholding: true,
     });
     create.flush(tax('Retenue 10 %', { type_tax_use: 'purchase', withholding: true }));
@@ -232,8 +260,12 @@ describe('Taxes (taxes/): one simple screen', () => {
     const { element, stable } = await open('/taxes/t-TVA18');
     vi.spyOn(TestBed.inject(Router), 'navigateByUrl').mockResolvedValue(true);
     httpMock().expectOne('/api/v1/taxes/t-TVA18/').flush(tax('TVA 18 %'));
+    answerStateAccounts();
     await stable();
     expect(element.querySelector('h1')?.textContent).toContain('TVA 18 % · 18 %');
+    const chosen = (side: string) =>
+      element.querySelector<HTMLSelectElement>(`[formControlName="${side}_account_code"]`)!.value;
+    expect([chosen('sale'), chosen('purchase')]).toEqual(['443100', '445200']);
     expect(element.querySelector<HTMLInputElement>('[formControlName="rate"]')!.value).toBe('18');
 
     fill(element, 'rate', '20');
@@ -261,7 +293,14 @@ describe('Taxes (taxes/): one simple screen', () => {
   it('form: without taxes.update the page is read only', async () => {
     const { element, stable } = await open('/taxes/t-TVA18', ['taxes.read']);
     httpMock().expectOne('/api/v1/taxes/t-TVA18/').flush(tax('TVA 18 %'));
+    // An account the chart no longer lists stays shown, by its code.
+    answerStateAccounts([]);
     await stable();
+    const sales = element.querySelector<HTMLSelectElement>(
+      '[formControlName="sale_account_code"]',
+    )!;
+    expect(sales.value).toBe('443100');
+    expect(sales.disabled).toBe(true);
     expect(element.querySelector<HTMLInputElement>('[formControlName="name"]')!.disabled).toBe(
       true,
     );

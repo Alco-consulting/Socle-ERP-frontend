@@ -95,6 +95,15 @@ export class AccountingApi {
     });
   }
 
+  /** The active accounts whose code starts with `codePrefix`, by code: a selection list. */
+  accountOptions(codePrefix: string): Observable<readonly Account[]> {
+    return this.api
+      .get<Paginated<Account>>(`${base}accounts/`, {
+        params: { code_prefix: codePrefix, status: 'active', page_size: REFERENCE_PAGE_SIZE },
+      })
+      .pipe(map((page) => page.results));
+  }
+
   /** How many accounts start with each first character and first two (never a hierarchy). */
   accountPrefixes(
     query: Pick<AccountQuery, 'search' | 'status' | 'accountType'> = {},

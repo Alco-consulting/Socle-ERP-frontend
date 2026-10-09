@@ -351,7 +351,8 @@ supprime ce qui ne sert plus.
   - liste : Nom, Taux, S'applique à, Compte des ventes, Compte des achats, Actif
     (interrupteur, commande) ; « Créer les taxes de Guinée » (`accounting/default-taxes/`) ;
   - une page par taxe, pour la créer ou la modifier : nom, taux, côtés (ventes, achats, les
-    deux), le compte de chaque côté choisi dans le plan, retenue à la source, actif ;
+    deux), le compte de chaque côté choisi dans une liste (les comptes de l'État, 44…, du
+    plan), retenue à la source, actif ;
   - à la saisie d'une écriture, un journal de ventes ne propose que les taxes de ventes (et
     des deux côtés), un journal d'achats celles d'achats ;
   - faux serveur : `fake-accounting-entries.ts` ; e2e : `e2e/taxes.spec.ts` ;

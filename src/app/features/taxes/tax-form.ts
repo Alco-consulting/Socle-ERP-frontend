@@ -11,7 +11,7 @@ import {
 import { toSignal } from '@angular/core/rxjs-interop';
 import { FormControl, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
-import { firstValueFrom, map, startWith } from 'rxjs';
+import { catchError, firstValueFrom, of, startWith } from 'rxjs';
 
 import { serverFieldErrors } from '../../core/errors/field-errors';
 import { UserError, toUserError } from '../../core/errors/user-error';
@@ -19,11 +19,6 @@ import { ApiError, toApiError } from '../../core/http/api-error';
 import { BreadcrumbService } from '../../core/navigation/route-trail';
 import { UnsavedChangesService } from '../../core/navigation/unsaved-changes';
 import { SessionStore } from '../../core/session/session.store';
-import {
-  AlcoAutocomplete,
-  AutocompleteOption,
-  AutocompleteSearch,
-} from '../../shared/forms/autocomplete';
 import { AlcoFormField } from '../../shared/forms/form-field';
 import { AlcoInput } from '../../shared/forms/input';
 import { decimalFormat } from '../../shared/forms/validators';
@@ -33,6 +28,7 @@ import { AlcoLoading } from '../../shared/ui/loading/loading';
 import { AlcoPageHeader } from '../../shared/ui/page-header/page-header';
 import { AlcoToastService } from '../../shared/ui/toast/toast.service';
 import { normalizeDecimalInput } from '../../shared/utils/decimal';
+import { Account } from '../accounting/data-access/accounting-models';
 import { AccountingApi } from '../accounting/data-access/accounting-api';
 import { AUDIT_TYPES, AlcoObjectHistory } from '../audit/object-history';
 import { TaxesApi } from './data-access/taxes-api';
@@ -53,14 +49,20 @@ const FIELD_OF_CODE: Readonly<Record<string, [string, string]>> = {
   tax_code_exists: ['name', 'Une taxe porte déjà ce nom.'],
 };
 
-/** A chosen account of the chart: the form keeps its code. */
-const accountOption = (code: string): AutocompleteOption | null =>
-  code ? { id: code, label: code } : null;
+/** SYSCOHADA: the accounts of the State (44…: TVA facturée, récupérable, retenues). */
+const STATE_ACCOUNTS = '44';
+
+/** An account of a selection list: its code (what the form keeps) and its words. */
+interface AccountChoice {
+  readonly code: string;
+  readonly label: string;
+}
 
 /**
  * A tax on one simple page, to create it (`…/taxes/liste/nouveau`) or change it
  * (`…/taxes/liste/:id`): Nom, Taux, S'applique à (ventes, achats, les deux), the account of
- * each side it applies to (from the chart), « Retenue à la source » and « Actif » (its
+ * each side it applies to (chosen among the chart's accounts of the State, 44…), « Retenue
+ * à la source » and « Actif » (its
  * commands, never the form). The server makes the code and writes the tax's rule; entries
  * already recorded keep the rule they used.
  */
@@ -69,7 +71,6 @@ const accountOption = (code: string): AutocompleteOption | null =>
   imports: [
     ReactiveFormsModule,
     RouterLink,
-    AlcoAutocomplete,
     AlcoButton,
     AlcoErrorState,
     AlcoFormField,
@@ -112,8 +113,9 @@ export class TaxFormPage {
       validators: [Validators.required, decimalFormat(4)],
     }),
     type_tax_use: new FormControl<TaxUse>('both', { nonNullable: true }),
-    sale_account: new FormControl<AutocompleteOption | null>(null),
-    purchase_account: new FormControl<AutocompleteOption | null>(null),
+    /** A code of the chart, '' : none. */
+    sale_account_code: new FormControl('', { nonNullable: true }),
+    purchase_account_code: new FormControl('', { nonNullable: true }),
     withholding: new FormControl(false, { nonNullable: true }),
     /** « Actif »: the tax's state, through its commands (never in the form sent). */
     active: new FormControl(true, { nonNullable: true }),
@@ -140,20 +142,21 @@ export class TaxFormPage {
     return tax ? `${tax.name} · ${rateText(tax.rate)}` : 'Nouvelle taxe';
   });
 
-  /** Any active account of the chart (the server's search: code or name). */
-  protected readonly searchAccounts: AutocompleteSearch = (term) =>
-    this.accounting.accounts({ search: term, status: 'active' }).pipe(
-      map((page) =>
-        page.results.map((account) => ({
-          id: account.code,
-          label: account.code,
-          detail: account.name,
-        })),
-      ),
-    );
+  /** The chart's active accounts of the State (44…), by code: the two selection lists. */
+  private readonly stateAccounts = signal<readonly Pick<Account, 'code' | 'name'>[]>([]);
+  protected readonly accountChoices = computed<readonly AccountChoice[]>(() =>
+    this.stateAccounts().map((account) => ({
+      code: account.code,
+      label: `${account.code} — ${account.name}`,
+    })),
+  );
 
   constructor() {
     inject(UnsavedChangesService).track(() => this.form.dirty);
+    this.accounting
+      .accountOptions(STATE_ACCOUNTS)
+      .pipe(catchError(() => of([] as Account[])))
+      .subscribe((list) => this.stateAccounts.set(list));
     if (!this.canSave) {
       this.form.disable();
     }
@@ -204,6 +207,14 @@ export class TaxFormPage {
     }
   }
 
+  /** The choices of a list, with the tax's own account when the chart no longer lists it. */
+  protected choicesFor(current: string): readonly AccountChoice[] {
+    const choices = this.accountChoices();
+    return current && !choices.some((choice) => choice.code === current)
+      ? [...choices, { code: current, label: current }]
+      : choices;
+  }
+
   protected cancel(): void {
     void this.router.navigateByUrl(LIST);
   }
@@ -215,9 +226,9 @@ export class TaxFormPage {
       name: value.name.trim(),
       rate: normalizeDecimalInput(value.rate) ?? value.rate,
       type_tax_use: value.type_tax_use,
-      sale_account_code: appliesToSales(value.type_tax_use) ? (value.sale_account?.id ?? '') : '',
+      sale_account_code: appliesToSales(value.type_tax_use) ? value.sale_account_code : '',
       purchase_account_code: appliesToPurchases(value.type_tax_use)
-        ? (value.purchase_account?.id ?? '')
+        ? value.purchase_account_code
         : '',
       withholding: value.withholding,
     };
@@ -230,8 +241,8 @@ export class TaxFormPage {
       name: tax.name,
       rate: rateText(tax.rate).replace(' %', ''),
       type_tax_use: tax.type_tax_use,
-      sale_account: accountOption(tax.sale_account_code),
-      purchase_account: accountOption(tax.purchase_account_code),
+      sale_account_code: tax.sale_account_code,
+      purchase_account_code: tax.purchase_account_code,
       withholding: tax.withholding,
       active: tax.status === 'active',
     });
@@ -246,16 +257,6 @@ export class TaxFormPage {
       return;
     }
     const fields: Record<string, string> = { ...serverFieldErrors(error) };
-    const accountField = {
-      sale_account_code: 'sale_account',
-      purchase_account_code: 'purchase_account',
-    };
-    for (const [server, local] of Object.entries(accountField)) {
-      if (fields[server]) {
-        fields[local] = fields[server];
-        delete fields[server];
-      }
-    }
     const business = error.code ? FIELD_OF_CODE[error.code] : undefined;
     if (business) {
       fields[business[0]] = business[1];
@@ -285,7 +286,6 @@ export class TaxFormPage {
   }
 
   private focus(name: string): void {
-    const field = this.host.nativeElement.querySelector<HTMLElement>(`[formControlName="${name}"]`);
-    (field?.querySelector<HTMLElement>('input') ?? field)?.focus();
+    this.host.nativeElement.querySelector<HTMLElement>(`[formControlName="${name}"]`)?.focus();
   }
 }

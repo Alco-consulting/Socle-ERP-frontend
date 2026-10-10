@@ -94,7 +94,7 @@
             @if (isReference()) {
               C’est la devise de la société : elle reste active.
             } @else {
-              Seules les devises actives sont proposées à la saisie.
+              Seules les devises actives sont proposées à la saisie et reçoivent des taux.
             }
           </span>
           @if (form.controls.active.errors?.['server']; as message) {
@@ -136,6 +136,30 @@
             {{ reference }}, elle n’a pas de taux.
           </p>
         } @else {
+          @if (currency.status !== 'active') {
+            <div class="note inactive-note">
+              <p>
+                {{ currency.code }} est inactive : elle n’est pas proposée à la saisie et ne reçoit
+                pas de taux.
+                @if (!canSave) {
+                  Demandez à un administrateur du catalogue de l’activer.
+                }
+              </p>
+              @if (canSave) {
+                <button
+                  alcoButton
+                  type="button"
+                  variant="primary"
+                  icon="check"
+                  [loading]="activating()"
+                  loadingLabel="Activation…"
+                  (click)="activate()"
+                >
+                  Activer la devise
+                </button>
+              }
+            </div>
+          }
           <p class="alco-caption rates-hint">
             Les taux de la société : combien de {{ reference }} pour 1 {{ currency.code }}. Un taux
             n’est jamais modifié : retirez un taux faux, puis saisissez le bon.
@@ -174,11 +198,13 @@
                   icon="search"
                   title="Aucun taux pour cette devise."
                   [message]="
-                    'Ajoutez son taux du jour : combien de ' +
-                    reference +
-                    ' pour 1 ' +
-                    currency.code +
-                    '.'
+                    canManageRates && currency.status === 'active'
+                      ? 'Ajoutez son taux du jour : combien de ' +
+                        reference +
+                        ' pour 1 ' +
+                        currency.code +
+                        '.'
+                      : ''
                   "
                 />
               } @else {
@@ -230,10 +256,8 @@
             }
           }
 
-          @if (canManageRates) {
-            @if (currency.status !== 'active') {
-              <p class="alco-caption">Activez la devise pour saisir ses taux.</p>
-            } @else if (adding()) {
+          @if (canManageRates && currency.status === 'active') {
+            @if (adding()) {
               <form
                 class="new-rate"
                 [formGroup]="rateForm"

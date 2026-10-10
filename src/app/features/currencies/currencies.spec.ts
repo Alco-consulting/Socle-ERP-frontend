@@ -308,8 +308,10 @@ describe('Devises (currencies/): as Odoo shows them', () => {
       status: 'inactive',
     });
     await stable();
-    // Inactive: no new rate.
-    expect(element.textContent).toContain('Activez la devise pour saisir ses taux.');
+    // Inactive: no new rate, and the way to activate it.
+    expect(element.textContent).toContain('USD est inactive');
+    expect(words(element)).toContain('Activer la devise');
+    expect(words(element)).not.toContain('Ajouter une ligne');
   });
 
   it('form: « Ajouter une ligne » records a rate at once, « Unité par GNF » shown as typed', async () => {
@@ -393,6 +395,50 @@ describe('Devises (currencies/): as Odoo shows them', () => {
     rates().flush(page());
     await stable();
     expect(element.textContent).toContain('Aucun taux pour cette devise.');
+  });
+
+  it('form: « Activer la devise » in « Taux », the fields typed kept, then a new rate', async () => {
+    const { element, stable } = await open('/devises/cur-CHF');
+    httpMock().expectOne('/api/v1/currencies/cur-CHF/').flush(CHF);
+    await stable();
+    rates().flush(page());
+    await stable();
+    expect(element.textContent).toContain('CHF est inactive');
+    // No invitation to add a rate it cannot receive.
+    expect(element.textContent).not.toContain('Ajoutez son taux du jour');
+    fill(element, 'unit_label', 'Francs');
+
+    Array.from(element.querySelectorAll<HTMLButtonElement>('button'))
+      .find((button) => button.textContent?.trim() === 'Activer la devise')!
+      .click();
+    await stable();
+    const activate = httpMock().expectOne('/api/v1/currencies/cur-CHF/');
+    expect(activate.request.method).toBe('PATCH');
+    expect(activate.request.body).toEqual({ status: 'active' });
+    activate.flush({ ...CHF, status: 'active' });
+    await stable();
+
+    expect(element.textContent).not.toContain('CHF est inactive');
+    expect(element.querySelector<HTMLInputElement>('[formControlName="active"]')!.checked).toBe(
+      true,
+    );
+    expect(element.querySelector<HTMLInputElement>('[formControlName="unit_label"]')!.value).toBe(
+      'Francs',
+    );
+    // The new rate's line is open, ready for « GNF par unité ».
+    expect(element.querySelector('.new-rate')).not.toBeNull();
+  });
+
+  it('form: without the global currencies.update, an inactive currency is only explained', async () => {
+    const { element, stable } = await open('/devises/cur-CHF', MANAGE, []);
+    httpMock().expectOne('/api/v1/currencies/cur-CHF/').flush(CHF);
+    await stable();
+    rates().flush(page());
+    await stable();
+    expect(element.textContent).toContain(
+      'Demandez à un administrateur du catalogue de l’activer.',
+    );
+    expect(words(element)).not.toContain('Activer la devise');
   });
 
   it('form: the company’s currency has no rate', async () => {

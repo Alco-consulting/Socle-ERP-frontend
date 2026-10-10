@@ -404,6 +404,10 @@ test('currencies as Odoo: the catalogue, a currency and its rates', async ({ pag
   await page.getByLabel('GNF par unité').fill('8 700');
   await page.evaluate(() => window.scrollTo(0, 0));
   await shoot(page, '111-currency-form-rates', true);
+  await page.goto('/app/comptabilite/configuration/devises');
+  await page.getByRole('link', { name: 'CHF', exact: true }).click();
+  await expect(page.getByRole('button', { name: 'Activer la devise' })).toBeVisible();
+  await shoot(page, '113-currency-inactive', true);
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto('/app/comptabilite/configuration/devises');
   await page.getByRole('link', { name: 'EUR', exact: true }).click();

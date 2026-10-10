@@ -116,6 +116,26 @@ test.describe('Devises : comme dans Odoo', () => {
     await expect(rates).toHaveCount(2);
   });
 
+  test('devise inactive : « Activer la devise » depuis Taux, puis son taux', async ({
+    page,
+    api,
+  }) => {
+    api.withGlobalPermissions('currencies.create', 'currencies.update');
+    await page.goto('/app/comptabilite/configuration/devises');
+    await page.getByRole('link', { name: 'CHF', exact: true }).click();
+    await expect(page.getByText('CHF est inactive')).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Ajouter une ligne' })).toHaveCount(0);
+    await page.getByRole('button', { name: 'Activer la devise' }).click();
+    await expect(page.getByText('Devise CHF activée.')).toBeVisible();
+    await expect(page.getByText('CHF est inactive')).toHaveCount(0);
+    // The new rate's line is already open.
+    await page.getByLabel('GNF par unité').fill('10 750');
+    expect(await axe(page)).toEqual([]);
+    await page.getByRole('button', { name: 'Enregistrer le taux' }).click();
+    await expect(page.getByText('Taux enregistré : 1 CHF = 10 750 GNF.')).toBeVisible();
+    await expect(page.locator('.rates tbody tr')).toHaveCount(1);
+  });
+
   test('la devise de la société n’a pas de taux', async ({ page }) => {
     await page.goto('/app/comptabilite/configuration/devises');
     await page.getByRole('link', { name: 'GNF', exact: true }).click();

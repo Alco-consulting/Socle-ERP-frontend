@@ -200,6 +200,8 @@ export class CurrencyFormPage {
   protected readonly adding = signal(false);
   protected readonly recording = signal(false);
   protected readonly withdrawing = signal<string | null>(null);
+  /** « Activer la devise », offered in « Taux » to the holders of `currencies.update`. */
+  protected readonly activating = signal(false);
   protected readonly rateError = signal<UserError | null>(null);
   protected readonly rateForm = new FormGroup({
     rate_date: new FormControl(localToday(), {
@@ -296,6 +298,32 @@ export class CurrencyFormPage {
   }
 
   // ---- « Taux » ---------------------------------------------------------------------------
+
+  /**
+   * « Activer la devise »: an inactive currency receives no rate. The catalogue's status
+   * changes at once, the fields being typed are kept; then the new rate's line opens.
+   */
+  protected async activate(): Promise<void> {
+    const currency = this.currency();
+    if (!currency || this.activating() || !this.canSave) {
+      return;
+    }
+    this.activating.set(true);
+    try {
+      const saved = await firstValueFrom(this.api.setCurrencyActive(currency.public_id, true));
+      this.currency.set(saved);
+      this.form.controls.active.setValue(saved.status === 'active');
+      this.form.controls.active.markAsPristine();
+      this.toast.success(`Devise ${saved.code} activée.`);
+      if (this.canManageRates && saved.status === 'active') {
+        this.addLine();
+      }
+    } catch (failure) {
+      this.toast.error(toUserError(failure, CURRENCY_ERRORS).title);
+    } finally {
+      this.activating.set(false);
+    }
+  }
 
   protected setRatePage(page: number): void {
     this.ratePage.set(page);

@@ -369,14 +369,18 @@ supprime ce qui ne sert plus.
     Unité et Sous-unité monétaires, Position du symbole ; onglet « Taux » de la société
     (Date, Unité par GNF, GNF par unité, Source) : « Ajouter une ligne » enregistre le taux
     tout de suite (`currencies.manage_rates`), « Retirer » après confirmation ; aucun taux
-    pour la devise de la société ni pour une devise inactive ;
+    pour la devise de la société ni pour une devise inactive : celle-ci le dit en tête de
+    l'onglet, avec « Activer la devise » (`currencies.update`) qui l'active tout de suite et
+    ouvre la ligne du nouveau taux ;
   - « Unité par GNF » = 1 ÷ le taux, calcul exact à six chiffres significatifs
     (`inverseRate`, affichage seulement) ;
   - `currencies.create` / `currencies.update` sont globales (`isGlobalPermission`) ; les
     listes de devises des formulaires (écriture, compte, journal, tiers, trésorerie) ne
     proposent que les devises actives (et celle déjà choisie) ;
   - faux serveur : `fake-currencies.ts` ; e2e : `e2e/currencies.spec.ts` ;
-    captures `110…112`. Paramètres › Devises (page vide) mène ici.
+    captures `110…113`. Paramètres › Devises (page vide) mène ici.
+- **Onglets** (`AlcoTabs`) : la ligne sous les onglets est une ombre intérieure, sans marge
+  négative : plus de barre de défilement verticale parasite (barres classiques de Windows).
 - **Formulaire de compte** : Code, Nom du compte ; Type groupé comme Odoo (`TYPE_SECTIONS`,
   18 types) avec « Selon le code » à la création (le serveur donne le type SYSCOHADA du
   code), Taxes par défaut, Devise, Autoriser le lettrage (laissé au serveur s'il n'est pas

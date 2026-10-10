@@ -123,7 +123,7 @@ test.describe('Comptabilité — journaux', () => {
       'Nom du journal',
       'Type',
       'Code court',
-      'Compte par défaut',
+      'Compte',
       'Devise',
       'Actif',
     ]);
@@ -177,7 +177,7 @@ test.describe('Comptabilité — journaux', () => {
     await page.getByRole('combobox', { name: 'Type' }).selectOption({ label: 'Achats' });
     await page.getByRole('textbox', { name: 'Code court', exact: true }).fill('ACI');
     // A selection list of the expense accounts, « Aucun compte » first (the field is optional).
-    const account = page.getByRole('combobox', { name: 'Compte de charges par défaut' });
+    const account = page.getByRole('combobox', { name: /^Compte/ });
     await expect(account.locator('option')).toHaveText([
       'Aucun compte',
       '601 — Achats de marchandises',
@@ -194,6 +194,17 @@ test.describe('Comptabilité — journaux', () => {
       label: 'Opérations diverses',
     });
     await expect(page.locator('alco-autocomplete')).toHaveCount(0);
+  });
+
+  test('le code court se modifie sur la page du journal', async ({ page, api }) => {
+    const purchases = api.accounting.books('A').journals.find((item) => item.code === 'ACH')!;
+    await page.goto(`/app/comptabilite/journaux/${purchases.public_id}/modifier`);
+    const code = page.getByRole('textbox', { name: 'Code court', exact: true });
+    await expect(code).toHaveValue('ACH');
+    await code.fill('achl');
+    await page.getByRole('button', { name: 'Enregistrer' }).click();
+    await expect(page.getByText('Modifications enregistrées.')).toBeVisible();
+    await expect(page.locator('.facts')).toContainText('ACHL');
   });
 
   test('le compte de trésorerie choisit son journal parmi la banque et la caisse', async ({

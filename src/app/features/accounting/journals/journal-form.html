@@ -61,27 +61,19 @@
             }
           </select>
         </alco-form-field>
-        @if (isNew) {
-          <alco-form-field
-            label="Code court"
-            [required]="true"
-            hint="Ex. VTE : il commence le numéro des écritures et ne change plus ensuite."
-          >
-            <input
-              alcoInput
-              class="code-input"
-              formControlName="code"
-              maxlength="32"
-              autocomplete="off"
-            />
-          </alco-form-field>
-        } @else {
-          <div class="fixed">
-            <span class="fixed-label">Code court</span>
-            <span class="fixed-value">{{ journal()?.code }}</span>
-            <span class="alco-caption">Fixé à la création.</span>
-          </div>
-        }
+        <alco-form-field
+          label="Code court"
+          [required]="true"
+          hint="Ex. VTE : il commence le numéro des écritures ; il ne change plus une fois une écriture validée."
+        >
+          <input
+            alcoInput
+            class="code-input"
+            formControlName="code"
+            maxlength="32"
+            autocomplete="off"
+          />
+        </alco-form-field>
       </div>
       <div class="column">
         @if (accountField(); as field) {

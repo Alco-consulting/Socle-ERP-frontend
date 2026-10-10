@@ -47,22 +47,16 @@ export const JOURNAL_TYPES: readonly { id: JournalType; label: string }[] = [
 ];
 
 /**
- * Odoo's « Compte par défaut » of a journal type, in its words; a journal of miscellaneous
- * operations has none.
+ * The « Compte » of a journal (Odoo's « Compte par défaut »), said simply, with what it is for
+ * each type; a journal of miscellaneous operations has none.
  */
 export const JOURNAL_ACCOUNT_FIELDS: Readonly<
   Partial<Record<JournalType, { label: string; hint: string }>>
 > = {
-  sales: {
-    label: 'Compte de revenus par défaut',
-    hint: 'Un compte de produits, ex. 701100 Ventes de marchandises.',
-  },
-  purchase: {
-    label: 'Compte de charges par défaut',
-    hint: 'Un compte de charges, ex. 601100 Achats de marchandises.',
-  },
-  bank: { label: 'Compte bancaire', hint: 'Le compte de la banque dans le plan, ex. 521100.' },
-  cash: { label: 'Compte de caisse', hint: 'Le compte de la caisse dans le plan, ex. 571100.' },
+  sales: { label: 'Compte', hint: 'Un compte de produits, ex. 701100 Ventes de marchandises.' },
+  purchase: { label: 'Compte', hint: 'Un compte de charges, ex. 601100 Achats de marchandises.' },
+  bank: { label: 'Compte', hint: 'Le compte de la banque dans le plan, ex. 521100.' },
+  cash: { label: 'Compte', hint: 'Le compte de la caisse dans le plan, ex. 571100.' },
 };
 
 /** `account_type` of the API. */
@@ -193,6 +187,10 @@ export const ACCOUNTING_REFERENTIAL_ERRORS: ErrorCatalog = {
   accounting_journal_numbering_in_use: {
     title: 'La numérotation de ce journal ne peut plus changer.',
     message: 'Des écritures ont déjà été numérotées dans ce journal.',
+  },
+  accounting_journal_code_in_use: {
+    title: 'Le code court de ce journal ne peut plus changer.',
+    message: 'Des écritures validées portent déjà un numéro qui commence par ce code.',
   },
   accounting_journal_template_not_found: {
     title: 'Aucun journal usuel n’est connu pour le plan comptable de la société.',

@@ -83,10 +83,8 @@ export class AccountingApi {
     return this.api.post<Journal>(`${base}journals/`, journal);
   }
 
-  updateJournal(
-    journalId: string,
-    changes: Partial<Omit<JournalWrite, 'code'>>,
-  ): Observable<Journal> {
+  /** The changes only; the code too, until an entry of the journal is numbered. */
+  updateJournal(journalId: string, changes: Partial<JournalWrite>): Observable<Journal> {
     return this.api.patch<Journal>(`${base}journals/${id(journalId)}/`, changes);
   }
 

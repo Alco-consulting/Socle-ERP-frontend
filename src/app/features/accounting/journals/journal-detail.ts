@@ -100,9 +100,9 @@ export class JournalDetailPage {
   protected readonly historyCount = computed(() => this.history()?.total() ?? null);
 
   protected readonly typeLabel = journalTypeLabel;
-  /** The default account's words for the journal's type (« Compte bancaire »…). */
+  /** « Compte »: the journal's account (Odoo's « Compte par défaut »). */
   protected readonly accountLabel = (journal: Journal) =>
-    JOURNAL_ACCOUNT_FIELDS[journal.journal_type]?.label ?? 'Compte par défaut';
+    JOURNAL_ACCOUNT_FIELDS[journal.journal_type]?.label ?? 'Compte';
   protected readonly canManage = computed(() => this.session.can('accounting.manage_journals'));
   protected readonly status = computed(() => {
     const journal = this.journal();

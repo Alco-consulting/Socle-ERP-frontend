@@ -438,6 +438,16 @@ export class FakeAccounting {
     }
     if (method === 'PATCH') {
       const body = request.postDataJSON() as Record<string, unknown>;
+      if ('code' in body) {
+        // The short code changes (the server refuses it once an entry is numbered).
+        const code = String(body['code'] ?? '')
+          .trim()
+          .toUpperCase();
+        if (code !== found.code && books.journals.some((item) => item.code === code)) {
+          return this.answer(route, 400, error('accounting_journal_code_exists'));
+        }
+        found.code = code;
+      }
       for (const name of JOURNAL_FIELDS) {
         if (name in body) {
           (found as unknown as Record<string, unknown>)[name] = body[name];

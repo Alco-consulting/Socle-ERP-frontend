@@ -426,14 +426,14 @@ test('journals as Odoo: the list, the usual journals, a journal', async ({ page,
   await page.getByRole('combobox', { name: 'Type' }).selectOption({ label: 'Achats' });
   await page.getByRole('textbox', { name: 'Code court', exact: true }).fill('ACI');
   await page
-    .getByRole('combobox', { name: 'Compte de charges par défaut' })
+    .getByRole('combobox', { name: /^Compte/ })
     .selectOption({ label: '601 — Achats de marchandises' });
   await shoot(page, '115-journal-form', true);
   await page.setViewportSize({ width: 390, height: 844 });
   const purchases = api.accounting.books('A').journals.find((item) => item.code === 'ACH')!;
   await page.goto(`/app/comptabilite/journaux/${purchases.public_id}/modifier`);
   await expect(
-    page.getByRole('combobox', { name: 'Compte de charges par défaut' }).locator('option:checked'),
+    page.getByRole('combobox', { name: /^Compte/ }).locator('option:checked'),
   ).toHaveText('601 — Achats de marchandises');
   await shoot(page, '116-phone-journal-form', true);
 });

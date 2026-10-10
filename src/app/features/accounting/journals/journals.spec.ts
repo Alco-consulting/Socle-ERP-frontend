@@ -113,7 +113,7 @@ describe('Journaux (accounting/journals/)', () => {
         'Nom du journal',
         'Type',
         'Code court',
-        'Compte par défaut',
+        'Compte',
         'Devise',
         'Actif',
       ]);
@@ -249,7 +249,7 @@ describe('Journaux (accounting/journals/)', () => {
       expect(element.querySelector('h1')?.textContent).toContain('Achats');
       expect(element.textContent).toContain('ACH · Achats');
       const facts = element.querySelector('.facts')?.textContent?.replace(/\s+/g, ' ');
-      for (const words of ['Compte de charges par défaut', '601100 Achats de marchandises']) {
+      for (const words of ['Compte', '601100 Achats de marchandises']) {
         expect(facts).toContain(words);
       }
       // Neither the numbering nor its digits are shown.
@@ -331,7 +331,9 @@ describe('Journaux (accounting/journals/)', () => {
       await stable();
       expect(accounts().get('account_type')).toBe('income');
       await stable();
-      expect(element.textContent).toContain('Compte de revenus par défaut');
+      // « Compte », simply (Odoo's « Compte de revenus par défaut »).
+      expect(options(element)).toEqual(['Aucun compte']);
+      expect(element.textContent).not.toContain('par défaut');
       expect(element.textContent).not.toContain('Numéro des écritures');
       expect(element.textContent).not.toContain('Nombre de chiffres');
       submit(element);
@@ -378,7 +380,7 @@ describe('Journaux (accounting/journals/)', () => {
       ]);
       expect(params.has('search')).toBe(false);
       await stable();
-      expect(element.textContent).toContain('Compte bancaire');
+      expect(element.textContent).toContain('Le compte de la banque dans le plan');
       expect(options(element)).toEqual(['Aucun compte', '521100 — Banque BICIGUI']);
       fill(element, 'default_account', 'a-521');
       submit(element);
@@ -427,14 +429,34 @@ describe('Journaux (accounting/journals/)', () => {
       ).toBe('a-601');
     });
 
-    it('modification: only the changes, never the code; a numbering in use is said', async () => {
+    it('the short code changes; once entries are numbered, the server says no', async () => {
       const { element, stable, currencies } = await open('/journaux/j-ach/modifier', MANAGE);
       currencies();
       httpMock().expectOne('/api/v1/accounting/journals/j-ach/').flush(JOURNAL);
       await stable();
       accounts([PURCHASES]);
       await stable();
-      expect(element.querySelector('[formControlName="code"]')).toBeNull();
+      const code = element.querySelector<HTMLInputElement>('[formControlName="code"]')!;
+      expect(code.value).toBe('ACH');
+      fill(element, 'code', 'ACHL');
+      submit(element);
+      await stable();
+      const patch = httpMock().expectOne('/api/v1/accounting/journals/j-ach/');
+      expect(patch.request.body).toEqual({ code: 'ACHL' });
+      patch.flush(envelope('accounting_journal_code_in_use'), { status: 400, statusText: 'x' });
+      await stable();
+      expect(element.textContent).toContain(
+        'Des écritures validées sont déjà numérotées avec ce code : il ne change plus.',
+      );
+    });
+
+    it('modification: only the changes; a numbering in use is said', async () => {
+      const { element, stable, currencies } = await open('/journaux/j-ach/modifier', MANAGE);
+      currencies();
+      httpMock().expectOne('/api/v1/accounting/journals/j-ach/').flush(JOURNAL);
+      await stable();
+      accounts([PURCHASES]);
+      await stable();
       fill(element, 'sequence_prefix', 'AC-');
       submit(element);
       await stable();

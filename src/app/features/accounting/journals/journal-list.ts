@@ -40,10 +40,10 @@ const STATUSES: readonly ActiveInactive[] = ['active', 'inactive'];
 
 /**
  * Comptabilité › Journaux as Odoo lists them (`GET accounting/journals/`, by code): Nom du
- * journal, Type, Code court, Compte par défaut, Devise and « Actif », switched from the row
- * (a command; the server decides). « Créer les journaux usuels » creates Ventes, Achats and
- * Opérations diverses with the chart's accounts. Filters of the API only (type, state, exact
- * code — no text search for journals); the list's state lives in the URL.
+ * journal, Type, Code court, Compte (Odoo's « Compte par défaut »), Devise and « Actif »,
+ * switched from the row (a command; the server decides). « Créer les journaux usuels »
+ * creates Ventes, Achats and Opérations diverses, without an account. Filters of the API only
+ * (type, state, exact code — no text search for journals); the list's state lives in the URL.
  */
 @Component({
   selector: 'alco-journal-list',
@@ -83,7 +83,7 @@ export class JournalListPage {
     { key: 'name', label: 'Nom du journal' },
     { key: 'type', label: 'Type', width: '11rem' },
     { key: 'code', label: 'Code court', width: '7rem' },
-    { key: 'account', label: 'Compte par défaut', hideBelow: 'laptop' },
+    { key: 'account', label: 'Compte', hideBelow: 'laptop' },
     { key: 'currency', label: 'Devise', width: '6rem', hideBelow: 'tablet' },
     { key: 'active', label: 'Actif', width: '5rem' },
   ];

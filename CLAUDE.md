@@ -382,10 +382,11 @@ supprime ce qui ne sert plus.
 - **Journaux comme Odoo** (`features/accounting/journals/`, note backend 0033) :
   - types : Ventes, Achats, Banque, Caisse, Opérations diverses (plus de « Général » ni
     d'« Autre ») ;
-  - liste : Nom du journal (le lien), Type, Code court, Compte par défaut, Devise, Actif
+  - liste : Nom du journal (le lien), Type, Code court, Compte, Devise, Actif
     (interrupteur, commandes) ; « Créer les journaux usuels » (`default-journals/` : Ventes,
     Achats, Opérations diverses, sans compte par défaut) ;
-  - formulaire : Nom du journal, Type, Code court (fixé à la création) | compte par défaut
+  - formulaire : Nom du journal, Type, Code court (modifiable : le serveur le refuse après
+    la première écriture numérotée, `accounting_journal_code_in_use` sous le champ) | Compte
     du type, facultatif (liste déroulante, « Aucun compte » d'abord ; `journalAccounts` lit
     toutes les pages, 200 à la fois : nature produits ou charges, type « Banque et caisse » ;
     aucun pour les opérations diverses, effacé quand le type change ; le compte du journal

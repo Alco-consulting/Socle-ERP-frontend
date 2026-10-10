@@ -57,6 +57,10 @@ interface AccountChoice {
 /** Business refusals that belong to one field (by their stable code). */
 const FIELD_OF_CODE: Readonly<Record<string, [string, string]>> = {
   accounting_journal_code_exists: ['code', 'Ce code est déjà utilisé par un autre journal.'],
+  accounting_journal_code_in_use: [
+    'code',
+    'Des écritures validées sont déjà numérotées avec ce code : il ne change plus.',
+  ],
   accounting_journal_numbering_in_use: [
     'sequence_prefix',
     'Des écritures sont déjà numérotées dans ce journal : sa numérotation ne change plus.',
@@ -72,9 +76,10 @@ const FIELD_OF_CODE: Readonly<Record<string, [string, string]>> = {
 /**
  * A journal as Odoo shows it, to create it (`…/journaux/nouveau`) or change it
  * (`…/journaux/:id/modifier`): Nom du journal, Type (Ventes, Achats, Banque, Caisse,
- * Opérations diverses), Code court (fixed at creation), Devise and the « Compte par défaut »
- * of the type (revenue, expense, bank or cash account; none for miscellaneous operations),
- * chosen in a selection list of the type's accounts, optional (« Aucun compte »). The
+ * Opérations diverses), Code court (it changes until an entry of the journal is numbered: the
+ * server decides), Devise and the « Compte » of the type (revenue, expense, bank or cash
+ * account; none for miscellaneous operations), chosen in a selection list of the type's
+ * accounts, optional (« Aucun compte »). The
  * numbering's prefix is an advanced option; its number of digits stays the server's. A
  * modification sends only the fields changed. The server decides; its errors go under their
  * field.
@@ -119,7 +124,7 @@ export class JournalFormPage {
     }),
     code: new FormControl('', {
       nonNullable: true,
-      validators: this.isNew ? [Validators.required, Validators.maxLength(32)] : [],
+      validators: [Validators.required, Validators.maxLength(32)],
     }),
     default_currency: new FormControl('', { nonNullable: true }),
     /** The public id of the chosen account, '' : none (the field is optional). */
@@ -264,11 +269,11 @@ export class JournalFormPage {
     };
   }
 
-  private changes(): Partial<Omit<JournalWrite, 'code'>> {
+  private changes(): Partial<JournalWrite> {
     const creation = this.creation() as unknown as Record<string, unknown>;
     const changes: Record<string, unknown> = {};
     for (const [name, control] of Object.entries(this.form.controls)) {
-      if (name !== 'code' && control.dirty && name in creation) {
+      if (control.dirty && name in creation) {
         changes[name] = creation[name];
       }
     }

@@ -25,6 +25,7 @@ import { AlcoLoading } from '../../../shared/ui/loading/loading';
 import { AlcoPageHeader } from '../../../shared/ui/page-header/page-header';
 import { AlcoToastService } from '../../../shared/ui/toast/toast.service';
 import { normalizeDecimalInput } from '../../../shared/utils/decimal';
+import { Journal } from '../../accounting/data-access/accounting-models';
 import { AccountingApi } from '../../accounting/data-access/accounting-api';
 import { CurrencyOption } from '../../partners/data-access/partner-models';
 import { PartnersApi } from '../../partners/data-access/partners-api';
@@ -51,9 +52,10 @@ const BANK_FIELDS = ['bank_name', 'bank_branch', 'account_number', 'iban', 'bic'
  * Creation (`…/comptes/nouveau`) and modification (`…/comptes/:id/modifier`) of a treasury
  * account with the fields of `TreasuryTreasuryAccountWriteRequest`
  * (`treasury.manage_accounts`). The ledger account and the journal are given by their code
- * and found by the server (`accounting/accounts/?code=`, `accounting/journals/?code=`). A
- * modification sends only the fields changed; the server decides (code unique, opening
- * balance locked once operations are booked) and its errors go under their field.
+ * and found by the server (`accounting/accounts/?code=`, `accounting/journals/?code=`); the
+ * journal is chosen among the bank and cash journals. A modification sends only the fields
+ * changed; the server decides (code unique, opening balance locked once operations are
+ * booked) and its errors go under their field.
  */
 @Component({
   selector: 'alco-treasury-account-form',
@@ -123,6 +125,21 @@ export class TreasuryAccountFormPage {
     const current = this.account()?.currency;
     return this.currencies().filter((item) => item.status === 'active' || item.code === current);
   });
+  /** The active bank and cash journals, and the account's own if it is no longer one. */
+  private readonly journals = signal<readonly Journal[]>([]);
+  protected readonly journalOptions = computed(() => {
+    const current = this.account()?.journal?.code ?? '';
+    const options = this.journals()
+      .filter(
+        (journal) =>
+          journal.code === current ||
+          (journal.status === 'active' && ['bank', 'cash'].includes(journal.journal_type)),
+      )
+      .map((journal) => ({ code: journal.code, label: `${journal.code} — ${journal.name}` }));
+    return current && !options.some((option) => option.code === current)
+      ? [...options, { code: current, label: current }]
+      : options;
+  });
 
   constructor() {
     inject(UnsavedChangesService).track(() => this.form.dirty);
@@ -133,6 +150,13 @@ export class TreasuryAccountFormPage {
         catchError(() => of([])),
       )
       .subscribe((list) => this.currencies.set(list));
+    this.accounting
+      .journals()
+      .pipe(
+        map((page) => page.results),
+        catchError(() => of([] as Journal[])),
+      )
+      .subscribe((list) => this.journals.set(list));
     if (this.id) {
       this.api.account(this.id).subscribe({
         next: (account) => this.fill(account),

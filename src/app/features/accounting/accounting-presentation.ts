@@ -37,15 +37,33 @@ export const PERIOD_STATUS: Readonly<Record<OpenClosed, StatusLook>> = {
   closed: { label: 'Clôturée', tone: 'primary', icon: 'lock' },
 };
 
-/** `journal_type` of the API. */
+/** `journal_type` of the API, in Odoo's order (no « Général » nor « Autre »: note 0033). */
 export const JOURNAL_TYPES: readonly { id: JournalType; label: string }[] = [
-  { id: 'general', label: 'Opérations diverses' },
   { id: 'sales', label: 'Ventes' },
   { id: 'purchase', label: 'Achats' },
   { id: 'bank', label: 'Banque' },
   { id: 'cash', label: 'Caisse' },
-  { id: 'other', label: 'Autre' },
+  { id: 'general', label: 'Opérations diverses' },
 ];
+
+/**
+ * Odoo's « Compte par défaut » of a journal type, in its words; a journal of miscellaneous
+ * operations has none.
+ */
+export const JOURNAL_ACCOUNT_FIELDS: Readonly<
+  Partial<Record<JournalType, { label: string; hint: string }>>
+> = {
+  sales: {
+    label: 'Compte de revenus par défaut',
+    hint: 'Un compte de produits, ex. 701100 Ventes de marchandises.',
+  },
+  purchase: {
+    label: 'Compte de charges par défaut',
+    hint: 'Un compte de charges, ex. 601100 Achats de marchandises.',
+  },
+  bank: { label: 'Compte bancaire', hint: 'Le compte de la banque dans le plan, ex. 521100.' },
+  cash: { label: 'Compte de caisse', hint: 'Le compte de la caisse dans le plan, ex. 571100.' },
+};
 
 /** `account_type` of the API. */
 export const ACCOUNT_TYPES: readonly { id: AccountType; label: string }[] = [
@@ -175,6 +193,14 @@ export const ACCOUNTING_REFERENTIAL_ERRORS: ErrorCatalog = {
   accounting_journal_numbering_in_use: {
     title: 'La numérotation de ce journal ne peut plus changer.',
     message: 'Des écritures ont déjà été numérotées dans ce journal.',
+  },
+  accounting_journal_template_not_found: {
+    title: 'Aucun journal usuel n’est connu pour le plan comptable de la société.',
+    message: 'Créez les journaux un par un avec « Nouveau journal ».',
+  },
+  accounting_account_not_postable: {
+    title: 'Ce compte ne reçoit pas d’écritures.',
+    message: 'Choisissez un compte imputable (sans sous-compte).',
   },
   accounting_account_code_exists: {
     title: 'Ce code est déjà utilisé par un autre compte.',

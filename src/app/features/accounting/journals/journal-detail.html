@@ -81,11 +81,7 @@
       <h2 id="general-title" class="alco-section-title">Informations générales</h2>
       <dl class="facts">
         <div>
-          <dt>Code</dt>
-          <dd>{{ journal.code }}</dd>
-        </div>
-        <div>
-          <dt>Nom</dt>
+          <dt>Nom du journal</dt>
           <dd>{{ journal.name }}</dd>
         </div>
         <div>
@@ -93,22 +89,24 @@
           <dd>{{ typeLabel(journal.journal_type) }}</dd>
         </div>
         <div>
-          <dt>Devise par défaut</dt>
+          <dt>Code court</dt>
+          <dd class="mono">{{ journal.code }}</dd>
+        </div>
+        @if (journal.journal_type !== 'general') {
+          <div>
+            <dt>{{ accountLabel(journal) }}</dt>
+            <dd>
+              @if (journal.default_account; as account) {
+                <span class="mono">{{ account.code }}</span> {{ account.name }}
+              } @else {
+                Aucun
+              }
+            </dd>
+          </div>
+        }
+        <div>
+          <dt>Devise</dt>
           <dd>{{ journal.default_currency ?? 'Devise de la société' }}</dd>
-        </div>
-      </dl>
-    </section>
-
-    <section class="section" aria-labelledby="numbering-title">
-      <h2 id="numbering-title" class="alco-section-title">Numérotation des écritures</h2>
-      <dl class="facts">
-        <div>
-          <dt>Préfixe</dt>
-          <dd class="mono">{{ journal.sequence_prefix || '—' }}</dd>
-        </div>
-        <div>
-          <dt>Nombre de chiffres</dt>
-          <dd>{{ journal.sequence_padding }}</dd>
         </div>
       </dl>
     </section>

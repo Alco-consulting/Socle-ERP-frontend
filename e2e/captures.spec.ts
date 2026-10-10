@@ -414,3 +414,26 @@ test('currencies as Odoo: the catalogue, a currency and its rates', async ({ pag
   await expect(page.locator('.rates tbody tr')).toHaveCount(1);
   await shoot(page, '112-phone-currency-form', true);
 });
+
+test('journals as Odoo: the list, the usual journals, a journal', async ({ page, api }) => {
+  test.setTimeout(120_000);
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto('/app/comptabilite/journaux');
+  await expect(page.locator('tbody tr')).toHaveCount(6);
+  await shoot(page, '114-journals-list', true);
+  await page.goto('/app/comptabilite/journaux/nouveau');
+  await page.getByRole('textbox', { name: 'Nom du journal', exact: true }).fill('Achats importés');
+  await page.getByRole('combobox', { name: 'Type' }).selectOption({ label: 'Achats' });
+  await page.getByRole('textbox', { name: 'Code court', exact: true }).fill('ACI');
+  await page
+    .getByRole('combobox', { name: 'Compte de charges par défaut' })
+    .selectOption({ label: '601 — Achats de marchandises' });
+  await shoot(page, '115-journal-form', true);
+  await page.setViewportSize({ width: 390, height: 844 });
+  const purchases = api.accounting.books('A').journals.find((item) => item.code === 'ACH')!;
+  await page.goto(`/app/comptabilite/journaux/${purchases.public_id}/modifier`);
+  await expect(
+    page.getByRole('combobox', { name: 'Compte de charges par défaut' }).locator('option:checked'),
+  ).toHaveText('601 — Achats de marchandises');
+  await shoot(page, '116-phone-journal-form', true);
+});

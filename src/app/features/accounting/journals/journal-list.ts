@@ -4,11 +4,13 @@ import {
   computed,
   effect,
   inject,
+  signal,
   untracked,
 } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { FormControl, FormGroup, ReactiveFormsModule } from '@angular/forms';
 import { ActivatedRoute, Params, Router, RouterLink } from '@angular/router';
+import { firstValueFrom } from 'rxjs';
 
 import { toUserError } from '../../../core/errors/user-error';
 import { requestState } from '../../../core/http/request-state';
@@ -17,13 +19,13 @@ import { AlcoFilterBar } from '../../../shared/filters/filter-bar';
 import { AlcoFormField } from '../../../shared/forms/form-field';
 import { AlcoInput } from '../../../shared/forms/input';
 import { AlcoCell, AlcoTable, TableColumn } from '../../../shared/tables/table';
-import { AlcoBadge } from '../../../shared/ui/badge/badge';
 import { AlcoButton } from '../../../shared/ui/button/button';
 import { AlcoEmptyState } from '../../../shared/ui/empty-state/empty-state';
 import { AlcoErrorState } from '../../../shared/ui/error-state/error-state';
 import { AlcoLoading } from '../../../shared/ui/loading/loading';
 import { AlcoPageHeader } from '../../../shared/ui/page-header/page-header';
 import { AlcoPagination } from '../../../shared/ui/pagination/pagination';
+import { AlcoToastService } from '../../../shared/ui/toast/toast.service';
 import {
   ACCOUNTING_REFERENTIAL_ERRORS,
   JOURNAL_TYPES,
@@ -37,16 +39,17 @@ const PARAM = { type: 'type', status: 'etat', code: 'code', page: 'page' } as co
 const STATUSES: readonly ActiveInactive[] = ['active', 'inactive'];
 
 /**
- * Comptabilité › Journaux, on the API (`GET accounting/journals/`): filters of the API only
- * (type, state, exact code — the API has no text search for journals), its pages and its
- * order. The list's state lives in the URL.
+ * Comptabilité › Journaux as Odoo lists them (`GET accounting/journals/`, by code): Nom du
+ * journal, Type, Code court, Compte par défaut, Devise and « Actif », switched from the row
+ * (a command; the server decides). « Créer les journaux usuels » creates Ventes, Achats and
+ * Opérations diverses with the chart's accounts. Filters of the API only (type, state, exact
+ * code — no text search for journals); the list's state lives in the URL.
  */
 @Component({
   selector: 'alco-journal-list',
   imports: [
     ReactiveFormsModule,
     RouterLink,
-    AlcoBadge,
     AlcoButton,
     AlcoCell,
     AlcoEmptyState,
@@ -60,13 +63,14 @@ const STATUSES: readonly ActiveInactive[] = ['active', 'inactive'];
     AlcoTable,
   ],
   templateUrl: './journal-list.html',
-  styleUrl: '../accounting-list.scss',
+  styleUrls: ['../accounting-list.scss', './journal-list.scss'],
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class JournalListPage {
   private readonly api = inject(AccountingApi);
   private readonly router = inject(Router);
   private readonly route = inject(ActivatedRoute);
+  private readonly toast = inject(AlcoToastService);
   protected readonly session = inject(SessionStore);
 
   protected readonly types = JOURNAL_TYPES;
@@ -76,13 +80,17 @@ export class JournalListPage {
   protected readonly canManage = computed(() => this.session.can('accounting.manage_journals'));
 
   protected readonly columns: readonly TableColumn[] = [
-    { key: 'code', label: 'Code', width: '8rem' },
-    { key: 'name', label: 'Nom' },
-    { key: 'type', label: 'Type' },
-    { key: 'currency', label: 'Devise', hideBelow: 'tablet' },
-    { key: 'numbering', label: 'Numérotation', hideBelow: 'laptop' },
-    { key: 'status', label: 'État', width: '8rem' },
+    { key: 'name', label: 'Nom du journal' },
+    { key: 'type', label: 'Type', width: '11rem' },
+    { key: 'code', label: 'Code court', width: '7rem' },
+    { key: 'account', label: 'Compte par défaut', hideBelow: 'laptop' },
+    { key: 'currency', label: 'Devise', width: '6rem', hideBelow: 'tablet' },
+    { key: 'active', label: 'Actif', width: '5rem' },
   ];
+  /** « Actif » switched from the list: the server's answer, by journal. */
+  private readonly activeSaved = signal<ReadonlyMap<string, boolean>>(new Map());
+  protected readonly switching = signal<string | null>(null);
+  protected readonly creatingUsual = signal(false);
   protected readonly rowId = (row: Journal) => row.public_id;
   protected readonly rowLabel = (row: Journal) => `${row.code} ${row.name}`;
 
@@ -143,8 +151,51 @@ export class JournalListPage {
     });
   }
 
-  protected statusLook(journal: Journal) {
-    return RECORD_STATUS[journal.status];
+  protected active(journal: Journal): boolean {
+    return this.activeSaved().get(journal.public_id) ?? journal.status === 'active';
+  }
+
+  /** « Actif » of a row: the deactivate / reactivate command, the server decides. */
+  protected async setActive(journal: Journal, event: Event): Promise<void> {
+    const box = event.target as HTMLInputElement;
+    const wanted = box.checked;
+    this.switching.set(journal.public_id);
+    try {
+      const saved = await firstValueFrom(this.api.setJournalActive(journal.public_id, wanted));
+      const active = saved.status === 'active';
+      this.activeSaved.update((states) => new Map(states).set(saved.public_id, active));
+      this.toast.success(`Journal ${saved.code} ${active ? 'réactivé' : 'désactivé'}.`);
+    } catch (failure) {
+      box.checked = !wanted;
+      this.toast.error(toUserError(failure, ACCOUNTING_REFERENTIAL_ERRORS).title);
+    } finally {
+      this.switching.set(null);
+    }
+  }
+
+  /** « Créer les journaux usuels »: the server creates those whose code is free. */
+  protected async createUsual(): Promise<void> {
+    if (this.creatingUsual()) {
+      return;
+    }
+    this.creatingUsual.set(true);
+    try {
+      const result = await firstValueFrom(this.api.createUsualJournals());
+      const count = result.created.length;
+      if (count > 0) {
+        const codes = result.created.map((journal) => journal.code).join(', ');
+        this.toast.success(
+          `${count} journa${count > 1 ? 'ux usuels créés' : 'l usuel créé'} : ${codes}.`,
+        );
+      } else {
+        this.toast.info('Les journaux usuels existent déjà.');
+      }
+      this.list.reload();
+    } catch (failure) {
+      this.toast.error(toUserError(failure, ACCOUNTING_REFERENTIAL_ERRORS).title);
+    } finally {
+      this.creatingUsual.set(false);
+    }
   }
 
   protected applyFilters(): void {

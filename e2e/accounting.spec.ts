@@ -1,7 +1,7 @@
 import AxeBuilder from '@axe-core/playwright';
 import { Page } from '@playwright/test';
 
-import { COMPANY_A, COMPANY_B, expect, test } from './support/fake-api';
+import { COMPANY_A, COMPANY_B, PROFILES, expect, test } from './support/fake-api';
 import { fixToday, openMenuItem } from './support/navigation';
 
 /**
@@ -72,20 +72,28 @@ test.describe('Comptabilité — journaux', () => {
     await page.goto('/app/comptabilite/tableau-de-bord');
     await openMenuItem(page, 'Comptabilité', 'Journaux');
     await expect(page.getByRole('heading', { level: 1 })).toHaveText('Journaux');
-    await expect(codes(page)).toHaveText(['ACH', 'ANC', 'BQ1', 'CAI', 'OD', 'VTE']);
-    await expect(page.getByRole('row', { name: /ANC/ })).toContainText('Inactif');
+    // By code (ACH, ANC, BQ1, CAI, OD, VTE): each row links its journal by its name.
+    await expect(codes(page)).toHaveText([
+      'Achats',
+      'Ancien journal',
+      'Banque principale',
+      'Caisse',
+      'Opérations diverses',
+      'Ventes',
+    ]);
+    await expect(page.getByRole('switch', { name: 'Journal ANC actif' })).not.toBeChecked();
 
     await page.getByRole('button', { name: 'Filtres' }).click();
     const panel = page.getByRole('dialog', { name: 'Filtres' });
     await panel.getByLabel('Type').selectOption({ label: 'Banque' });
     await panel.getByRole('button', { name: 'Appliquer' }).click();
     await expect(page).toHaveURL(/type=bank/);
-    await expect(codes(page)).toHaveText(['BQ1']);
+    await expect(codes(page)).toHaveText(['Banque principale']);
     expect(
       new URL(api.callsTo('accounting/journals/').at(-1)!.url()).searchParams.get('journal_type'),
     ).toBe('bank');
 
-    await page.getByRole('link', { name: 'BQ1' }).click();
+    await page.getByRole('link', { name: 'Banque principale' }).click();
     await expect(page.getByRole('heading', { level: 1 })).toHaveText('Banque principale');
     await expect(page.getByRole('navigation', { name: 'Fil d’Ariane' })).toContainText(
       'BQ1 — Banque principale',
@@ -93,9 +101,11 @@ test.describe('Comptabilité — journaux', () => {
     expect(await axe(page)).toEqual([]);
 
     await page.goto('/app/comptabilite/journaux/nouveau');
-    await page.getByRole('textbox', { name: 'Code', exact: true }).fill('BQ2');
-    await page.getByRole('textbox', { name: 'Nom', exact: true }).fill('Banque secondaire');
+    await page
+      .getByRole('textbox', { name: 'Nom du journal', exact: true })
+      .fill('Banque secondaire');
     await page.getByRole('combobox', { name: 'Type' }).selectOption({ label: 'Banque' });
+    await page.getByRole('textbox', { name: 'Code court', exact: true }).fill('BQ2');
     await page.getByRole('button', { name: 'Enregistrer' }).click();
     await expect(page.getByText('Journal « BQ2 » créé.')).toBeVisible();
     await expect(page.getByRole('heading', { level: 1 })).toHaveText('Banque secondaire');
@@ -105,6 +115,97 @@ test.describe('Comptabilité — journaux', () => {
     await page.getByRole('alertdialog').getByRole('button', { name: 'Désactiver' }).click();
     await expect(page.getByText('Journal désactivé.')).toBeVisible();
     await expect(page.locator('alco-page-header')).toContainText('Inactif');
+  });
+
+  test('comme Odoo : colonnes, compte par défaut, « Actif » depuis la ligne', async ({ page }) => {
+    await page.goto('/app/comptabilite/journaux');
+    await expect(page.locator('thead th')).toHaveText([
+      'Nom du journal',
+      'Type',
+      'Code court',
+      'Compte par défaut',
+      'Devise',
+      'Actif',
+    ]);
+    const purchases = page.locator('tbody tr').filter({
+      has: page.getByRole('link', { name: 'Achats', exact: true }),
+    });
+    await expect(purchases).toContainText('ACH');
+    await expect(purchases).toContainText('601 Achats de marchandises');
+    const sales = page.getByRole('switch', { name: 'Journal VTE actif' });
+    await sales.click();
+    await expect(page.getByText('Journal VTE désactivé.')).toBeVisible();
+    await expect(sales).not.toBeChecked();
+    expect(await axe(page)).toEqual([]);
+  });
+
+  test('journaux usuels en un clic : Ventes, Achats, Opérations diverses', async ({
+    page,
+    api,
+  }) => {
+    api.withCompanies(
+      [{ company: COMPANY_B, permissions: PROFILES.accountant }],
+      COMPANY_B.public_id,
+    );
+    await page.goto('/app/comptabilite/journaux');
+    await page.getByRole('button', { name: 'Créer les journaux usuels' }).click();
+    await expect(page.getByText('3 journaux usuels créés : VTE, ACH, OD.')).toBeVisible();
+    // By code: ACH, OD, SN-VTE, VTE.
+    await expect(codes(page)).toHaveText([
+      'Achats',
+      'Opérations diverses',
+      'Ventes Dakar',
+      'Ventes',
+    ]);
+    // No default account is chosen for the company.
+    const sales = page.locator('tbody tr').filter({
+      has: page.getByRole('link', { name: 'Ventes', exact: true }),
+    });
+    await expect(sales).not.toContainText('701');
+
+    await page.getByRole('button', { name: 'Créer les journaux usuels' }).click();
+    await expect(page.getByText('Les journaux usuels existent déjà.')).toBeVisible();
+  });
+
+  test('nouveau journal : son compte par défaut parmi les comptes de son type', async ({
+    page,
+  }) => {
+    await page.goto('/app/comptabilite/journaux/nouveau');
+    await page
+      .getByRole('textbox', { name: 'Nom du journal', exact: true })
+      .fill('Achats importés');
+    await page.getByRole('combobox', { name: 'Type' }).selectOption({ label: 'Achats' });
+    await page.getByRole('textbox', { name: 'Code court', exact: true }).fill('ACI');
+    // A selection list of the expense accounts, « Aucun compte » first (the field is optional).
+    const account = page.getByRole('combobox', { name: 'Compte de charges par défaut' });
+    await expect(account.locator('option')).toHaveText([
+      'Aucun compte',
+      '601 — Achats de marchandises',
+    ]);
+    await account.selectOption({ label: '601 — Achats de marchandises' });
+    expect(await axe(page)).toEqual([]);
+    await page.getByRole('button', { name: 'Enregistrer' }).click();
+    await expect(page.getByText('Journal « ACI » créé.')).toBeVisible();
+    await expect(page.locator('.facts')).toContainText('601 Achats de marchandises');
+
+    // Miscellaneous operations: no default account.
+    await page.goto('/app/comptabilite/journaux/nouveau');
+    await page.getByRole('combobox', { name: 'Type' }).selectOption({
+      label: 'Opérations diverses',
+    });
+    await expect(page.locator('alco-autocomplete')).toHaveCount(0);
+  });
+
+  test('le compte de trésorerie choisit son journal parmi la banque et la caisse', async ({
+    page,
+  }) => {
+    await page.goto('/app/comptabilite/tresorerie/comptes/nouveau');
+    const journals = page.getByRole('combobox', { name: 'Journal par défaut' });
+    await expect(journals.locator('option')).toHaveText([
+      'Aucun journal',
+      'BQ1 — Banque principale',
+      'CAI — Caisse',
+    ]);
   });
 });
 
@@ -260,7 +361,7 @@ test.describe('Comptabilité — exercices, société, permissions, téléphone'
     await expect(page.getByRole('table').getByText('Fournisseurs')).toHaveCount(0);
 
     await openMenuItem(page, 'Comptabilité', 'Journaux');
-    await expect(codes(page)).toHaveText(['SN-VTE']);
+    await expect(codes(page)).toHaveText(['Ventes Dakar']);
     await moduleNav(page).getByRole('link', { name: 'Tableau de bord' }).click();
     await expect(page.getByText('FILIALE SÉNÉGAL (test) · Exercice : Exercice 2026')).toBeVisible();
     await expect(page.locator('.journal-code')).toHaveText(['SN-VTE']);
@@ -285,7 +386,7 @@ test.describe('Comptabilité — exercices, société, permissions, téléphone'
     await page.goto('/app/comptabilite/journaux');
     await expect(codes(page)).toHaveCount(6);
     await expect(page.getByRole('link', { name: 'Nouveau journal' })).toHaveCount(0);
-    await page.getByRole('link', { name: 'ACH' }).click();
+    await page.getByRole('link', { name: 'Achats', exact: true }).click();
     await expect(page.getByRole('link', { name: 'Modifier' })).toHaveCount(0);
     await page.goto('/app/comptabilite/plan-comptable/nouveau');
     await expect(page.getByText('Votre profil ne permet pas d’ouvrir cet écran.')).toBeVisible();

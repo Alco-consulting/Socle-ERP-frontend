@@ -32,7 +32,15 @@ export interface Period {
   readonly updated_at: string;
 }
 
-export type JournalType = 'general' | 'sales' | 'purchase' | 'bank' | 'cash' | 'other';
+/** Odoo's five types; « general » is shown « Opérations diverses » (note backend 0033). */
+export type JournalType = 'sales' | 'purchase' | 'bank' | 'cash' | 'general';
+
+/** An account named by a record (`AccountingAccountReference`). */
+export interface AccountReference {
+  readonly public_id: string;
+  readonly code: string;
+  readonly name: string;
+}
 
 /** `AccountingJournal`. */
 export interface Journal {
@@ -41,6 +49,8 @@ export interface Journal {
   readonly name: string;
   readonly journal_type: JournalType;
   readonly default_currency: string | null;
+  /** Odoo's « Compte par défaut »; none for miscellaneous operations. */
+  readonly default_account: AccountReference | null;
   readonly sequence_prefix: string;
   readonly sequence_padding: number;
   readonly status: ActiveInactive;
@@ -54,8 +64,17 @@ export interface JournalWrite {
   readonly name: string;
   readonly journal_type: JournalType;
   readonly default_currency: string | null;
+  /** Public id of an account that takes entries; ignored for miscellaneous operations. */
+  readonly default_account: string | null;
   readonly sequence_prefix: string;
-  readonly sequence_padding: number;
+  /** Digits of the number; left out, the server's (6). */
+  readonly sequence_padding?: number;
+}
+
+/** `POST accounting/default-journals/`: the journals created, the codes already taken. */
+export interface UsualJournals {
+  readonly created: readonly Journal[];
+  readonly existing: readonly string[];
 }
 
 export type AccountType = 'asset' | 'liability' | 'equity' | 'income' | 'expense' | 'other';

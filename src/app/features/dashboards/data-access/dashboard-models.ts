@@ -43,7 +43,7 @@ export interface JournalSummary {
   readonly public_id: string;
   readonly code: string;
   readonly name: string;
-  readonly journal_type: 'general' | 'sales' | 'purchase' | 'bank' | 'cash' | 'other';
+  readonly journal_type: 'sales' | 'purchase' | 'bank' | 'cash' | 'general';
   readonly default_currency: string | null;
   readonly entries: JournalEntryCounts;
   /** `null`: the treasury is not readable (`restricted` has `cash`); `[]`: none linked. */

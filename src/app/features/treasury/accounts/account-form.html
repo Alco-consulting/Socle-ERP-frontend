@@ -98,8 +98,17 @@
         >
           <input alcoInput formControlName="ledger_account" maxlength="32" autocomplete="off" />
         </alco-form-field>
-        <alco-form-field label="Journal par défaut" hint="Code exact du journal (ex. BQ1)">
-          <input alcoInput formControlName="journal" maxlength="32" autocomplete="off" />
+        <alco-form-field
+          label="Journal par défaut"
+          [optional]="true"
+          hint="Un journal de banque ou de caisse de la société."
+        >
+          <select alcoSelect formControlName="journal">
+            <option value="">Aucun journal</option>
+            @for (journal of journalOptions(); track journal.code) {
+              <option [value]="journal.code">{{ journal.label }}</option>
+            }
+          </select>
         </alco-form-field>
       </div>
     </section>

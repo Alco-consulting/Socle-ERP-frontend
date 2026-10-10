@@ -1,0 +1,24 @@
+@use 'breakpoints' as bp;
+
+// The journal as Odoo shows it: name, type and short code on the left; the default account,
+// the currency and the numbering on the right (one column on a phone).
+.columns {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-4) var(--space-6);
+
+  @include bp.below-tablet {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+.column {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  min-width: 0;
+}
+
+.code-input {
+  text-transform: uppercase;
+}

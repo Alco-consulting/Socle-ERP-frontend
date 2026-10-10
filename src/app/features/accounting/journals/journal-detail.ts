@@ -28,6 +28,7 @@ import { AlcoPageHeader } from '../../../shared/ui/page-header/page-header';
 import { AlcoToastService } from '../../../shared/ui/toast/toast.service';
 import {
   ACCOUNTING_REFERENTIAL_ERRORS,
+  JOURNAL_ACCOUNT_FIELDS,
   RECORD_STATUS,
   journalTypeLabel,
 } from '../accounting-presentation';
@@ -99,6 +100,9 @@ export class JournalDetailPage {
   protected readonly historyCount = computed(() => this.history()?.total() ?? null);
 
   protected readonly typeLabel = journalTypeLabel;
+  /** The default account's words for the journal's type (« Compte bancaire »…). */
+  protected readonly accountLabel = (journal: Journal) =>
+    JOURNAL_ACCOUNT_FIELDS[journal.journal_type]?.label ?? 'Compte par défaut';
   protected readonly canManage = computed(() => this.session.can('accounting.manage_journals'));
   protected readonly status = computed(() => {
     const journal = this.journal();

@@ -1,6 +1,18 @@
 <alco-page-header title="Journaux">
   @if (canManage()) {
     <div alcoPageActions>
+      @if (rows().length > 0) {
+        <button
+          alcoButton
+          type="button"
+          icon="book"
+          [loading]="creatingUsual()"
+          loadingLabel="Création…"
+          (click)="createUsual()"
+        >
+          Créer les journaux usuels
+        </button>
+      }
       <a alcoButton variant="primary" icon="plus" routerLink="nouveau">Nouveau journal</a>
     </div>
   }
@@ -30,7 +42,7 @@
             }
           </select>
         </alco-form-field>
-        <alco-form-field label="Code" hint="Code exact du journal (ex. ACH)">
+        <alco-form-field label="Code court" hint="Code exact du journal (ex. VTE)">
           <input alcoInput formControlName="code" maxlength="32" autocomplete="off" />
         </alco-form-field>
       </div>
@@ -68,7 +80,7 @@
   }
   @default {
     @if (list.value() === null) {
-      <alco-loading variant="table" [rows]="6" [columns]="5" label="Chargement des journaux…" />
+      <alco-loading variant="table" [rows]="6" [columns]="6" label="Chargement des journaux…" />
     } @else if (rows().length === 0) {
       <div class="empty-frame">
         @if (activeFilterCount() > 0) {
@@ -82,9 +94,24 @@
             </button>
           </alco-empty-state>
         } @else {
-          <alco-empty-state icon="book" title="Aucun journal dans cette société.">
+          <alco-empty-state
+            icon="book"
+            title="Aucun journal dans cette société."
+            message="Créez en un clic les journaux usuels : Ventes, Achats et Opérations diverses."
+          >
             @if (canManage()) {
-              <a alcoButton variant="primary" icon="plus" routerLink="nouveau">Créer un journal</a>
+              <button
+                alcoButton
+                type="button"
+                variant="primary"
+                icon="book"
+                [loading]="creatingUsual()"
+                loadingLabel="Création…"
+                (click)="createUsual()"
+              >
+                Créer les journaux usuels
+              </button>
+              <a alcoButton icon="plus" routerLink="nouveau">Nouveau journal</a>
             }
           </alco-empty-state>
         }
@@ -93,7 +120,7 @@
       <alco-table
         [class.reloading]="list.loading()"
         [attr.aria-busy]="list.loading()"
-        caption="Journaux comptables de la société"
+        caption="Journaux comptables de la société, par code"
         [columns]="columns"
         [rows]="rows()"
         [rowId]="rowId"
@@ -101,20 +128,34 @@
         [clickableRows]="true"
         (rowActivated)="open($event)"
       >
-        <ng-template alcoCell="code" let-journal>
-          <a class="code" [routerLink]="journal.public_id">{{ journal.code }}</a>
+        <ng-template alcoCell="name" let-journal>
+          <a class="code" [routerLink]="journal.public_id">{{ journal.name }}</a>
         </ng-template>
         <ng-template alcoCell="type" let-journal>{{ typeLabel(journal.journal_type) }}</ng-template>
+        <ng-template alcoCell="code" let-journal>
+          <span class="mono">{{ journal.code }}</span>
+        </ng-template>
+        <ng-template alcoCell="account" let-journal>
+          @if (journal.default_account; as account) {
+            <span class="mono">{{ account.code }}</span
+            >&ngsp;<span class="account-name alco-caption">{{ account.name }}</span>
+          }
+        </ng-template>
         <ng-template alcoCell="currency" let-journal>
-          {{ journal.default_currency ?? 'Devise de la société' }}
+          {{ journal.default_currency ?? '' }}
         </ng-template>
-        <ng-template alcoCell="numbering" let-journal>
-          <span class="mono">{{ journal.sequence_prefix || '—' }}</span>
-          <span class="alco-caption"> · {{ journal.sequence_padding }} chiffres</span>
-        </ng-template>
-        <ng-template alcoCell="status" let-journal>
-          @let look = statusLook(journal);
-          <alco-badge [tone]="look.tone" [icon]="look.icon">{{ look.label }}</alco-badge>
+        <ng-template alcoCell="active" let-journal>
+          <label class="alco-switch">
+            <input
+              type="checkbox"
+              role="switch"
+              [checked]="active(journal)"
+              [disabled]="!canManage() || switching() === journal.public_id"
+              [attr.aria-label]="'Journal ' + journal.code + ' actif'"
+              (change)="setActive(journal, $event)"
+            />
+            <span class="track" aria-hidden="true"></span>
+          </label>
         </ng-template>
       </alco-table>
     }

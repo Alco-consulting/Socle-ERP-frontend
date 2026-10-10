@@ -379,6 +379,22 @@ supprime ce qui ne sert plus.
     proposent que les devises actives (et celle déjà choisie) ;
   - faux serveur : `fake-currencies.ts` ; e2e : `e2e/currencies.spec.ts` ;
     captures `110…113`. Paramètres › Devises (page vide) mène ici.
+- **Journaux comme Odoo** (`features/accounting/journals/`, note backend 0033) :
+  - types : Ventes, Achats, Banque, Caisse, Opérations diverses (plus de « Général » ni
+    d'« Autre ») ;
+  - liste : Nom du journal (le lien), Type, Code court, Compte par défaut, Devise, Actif
+    (interrupteur, commandes) ; « Créer les journaux usuels » (`default-journals/` : Ventes,
+    Achats, Opérations diverses, sans compte par défaut) ;
+  - formulaire : Nom du journal, Type, Code court (fixé à la création) | compte par défaut
+    du type, facultatif (liste déroulante, « Aucun compte » d'abord ; `journalAccounts` lit
+    toutes les pages, 200 à la fois : nature produits ou charges, type « Banque et caisse » ;
+    aucun pour les opérations diverses, effacé quand le type change ; le compte du journal
+    reste proposé si le plan ne le liste plus), Devise ;
+    le préfixe en options avancées ; ni aperçu du numéro, ni nombre de chiffres (le
+    serveur garde 6) ;
+  - le compte de trésorerie choisit son journal parmi les journaux de banque et de caisse ;
+  - faux serveur : `fake-accounting.ts` ; e2e : `e2e/accounting.spec.ts` ; captures
+    `114…116`.
 - **Onglets** (`AlcoTabs`) : la ligne sous les onglets est une ombre intérieure, sans marge
   négative : plus de barre de défilement verticale parasite (barres classiques de Windows).
 - **Formulaire de compte** : Code, Nom du compte ; Type groupé comme Odoo (`TYPE_SECTIONS`,

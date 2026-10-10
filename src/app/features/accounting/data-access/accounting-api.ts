@@ -1,23 +1,39 @@
 import { Injectable, inject } from '@angular/core';
-import { Observable, map } from 'rxjs';
+import { Observable, forkJoin, map, of, switchMap } from 'rxjs';
 
 import { ApiClient, Paginated } from '../../../core/http/api-client';
 import {
   Account,
   AccountPrefix,
   AccountQuery,
+  AccountType,
   AccountWrite,
+  DetailedType,
   FiscalYear,
   Journal,
   JournalQuery,
+  JournalType,
   JournalWrite,
   OpenClosed,
   Period,
+  UsualJournals,
 } from './accounting-models';
 
 /** Page sizes: the chart of accounts is long, journals and periods are few. */
 export const ACCOUNT_PAGE_SIZE = 50;
 export const JOURNAL_PAGE_SIZE = 50;
+/** A selection list reads every page: the server's largest (`API_MAX_PAGE_SIZE`). */
+const OPTIONS_PAGE_SIZE = 200;
+
+/** The accounts of a journal type (generic natures and types, no national code). */
+const JOURNAL_ACCOUNT_FILTERS: Readonly<
+  Partial<Record<JournalType, { accountType?: AccountType; detailedType?: DetailedType }>>
+> = {
+  sales: { accountType: 'income' },
+  purchase: { accountType: 'expense' },
+  bank: { detailedType: 'asset_cash' },
+  cash: { detailedType: 'asset_cash' },
+};
 const REFERENCE_PAGE_SIZE = 100;
 
 const base = 'accounting/';
@@ -77,6 +93,46 @@ export class AccountingApi {
   setJournalActive(journalId: string, active: boolean): Observable<Journal> {
     const command = active ? 'reactivate' : 'deactivate';
     return this.api.post<Journal>(`${base}journals/${id(journalId)}/${command}/`);
+  }
+
+  /** « Créer les journaux usuels »: Ventes, Achats, Opérations diverses (by code). */
+  createUsualJournals(): Observable<UsualJournals> {
+    return this.api.post<UsualJournals>(`${base}default-journals/`);
+  }
+
+  /**
+   * Every account a journal of `type` may take as default account, by code (a selection
+   * list: all the pages, 200 at a time): active, postable, of the nature (revenue, expense)
+   * or the type (bank and cash) it uses. None for miscellaneous operations.
+   */
+  journalAccounts(type: JournalType): Observable<readonly Account[]> {
+    const filter = JOURNAL_ACCOUNT_FILTERS[type];
+    if (!filter) {
+      return of([]);
+    }
+    const pageOf = (page: number) =>
+      this.api.get<Paginated<Account>>(`${base}accounts/`, {
+        params: {
+          status: 'active',
+          postable: true,
+          account_type: filter.accountType ?? null,
+          detailed_type: filter.detailedType ?? null,
+          page: page > 1 ? page : null,
+          page_size: OPTIONS_PAGE_SIZE,
+        },
+      });
+    return pageOf(1).pipe(
+      switchMap((first) => {
+        const pages = Math.ceil(first.count / OPTIONS_PAGE_SIZE);
+        if (pages <= 1) {
+          return of(first.results);
+        }
+        const rest = Array.from({ length: pages - 1 }, (_, index) => pageOf(index + 2));
+        return forkJoin(rest).pipe(
+          map((others) => [...first.results, ...others.flatMap((page) => page.results)]),
+        );
+      }),
+    );
   }
 
   // ---- Chart of accounts ----------------------------------------------------------------

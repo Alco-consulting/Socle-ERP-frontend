@@ -99,6 +99,43 @@ describe('AccountingApi (accounting/, company scoped)', () => {
     request.flush(page());
   });
 
+  it('journals: the usual ones in one call; the default accounts of a type', async () => {
+    void firstValueFrom(api.createUsualJournals());
+    const usual = expect1('default-journals/');
+    expect(usual.request.method).toBe('POST');
+    usual.flush({ created: [], existing: [] });
+
+    // A selection list: every page of the type's accounts (200 at a time), joined.
+    let revenue: readonly { code: string }[] = [];
+    void firstValueFrom(api.journalAccounts('sales')).then((list) => (revenue = list));
+    const first = expect1('accounts/');
+    const params = first.request.params;
+    expect([params.get('account_type'), params.get('detailed_type')]).toEqual(['income', null]);
+    expect([params.get('postable'), params.get('status'), params.get('page_size')]).toEqual([
+      'true',
+      'active',
+      '200',
+    ]);
+    expect(params.has('page')).toBe(false);
+    first.flush(page([{ code: '701100' }], 201));
+    const second = expect1('accounts/');
+    expect(second.request.params.get('page')).toBe('2');
+    second.flush(page([{ code: '706100' }], 201));
+    await Promise.resolve();
+    expect(revenue.map((account) => account.code)).toEqual(['701100', '706100']);
+
+    void firstValueFrom(api.journalAccounts('cash'));
+    const cash = expect1('accounts/');
+    expect([
+      cash.request.params.get('account_type'),
+      cash.request.params.get('detailed_type'),
+    ]).toEqual([null, 'asset_cash']);
+    cash.flush(page());
+
+    // Miscellaneous operations: no default account, no request.
+    expect(await firstValueFrom(api.journalAccounts('general'))).toEqual([]);
+  });
+
   it('writes: POST, PATCH of the changes, status commands, with CSRF', () => {
     void firstValueFrom(
       api.createJournal({
@@ -106,6 +143,7 @@ describe('AccountingApi (accounting/, company scoped)', () => {
         name: 'Achats',
         journal_type: 'purchase',
         default_currency: null,
+        default_account: null,
         sequence_prefix: 'ACH-',
         sequence_padding: 6,
       }),

@@ -48,26 +48,10 @@
   }
 
   <form id="journal-form" class="sheet" [formGroup]="form" (ngSubmit)="save()" novalidate>
-    <section class="section" aria-labelledby="general-title">
-      <h2 id="general-title" class="alco-section-title">Informations générales</h2>
-      <div class="alco-form-grid">
-        @if (isNew) {
-          <alco-form-field
-            label="Code"
-            [required]="true"
-            hint="Unique dans la société ; il ne pourra plus être modifié."
-          >
-            <input alcoInput formControlName="code" maxlength="32" autocomplete="off" />
-          </alco-form-field>
-        } @else {
-          <div class="fixed">
-            <span class="fixed-label">Code</span>
-            <span class="fixed-value">{{ journal()?.code }}</span>
-            <span class="alco-caption">Fixé à la création.</span>
-          </div>
-        }
-        <alco-form-field label="Nom" [required]="true">
-          <input alcoInput formControlName="name" maxlength="100" />
+    <div class="columns">
+      <div class="column">
+        <alco-form-field label="Nom du journal" [required]="true" hint="Ex. « Ventes ».">
+          <input alcoInput formControlName="name" maxlength="100" autocomplete="off" />
         </alco-form-field>
         <alco-form-field label="Type" [required]="true">
           <select alcoSelect formControlName="journal_type">
@@ -77,7 +61,40 @@
             }
           </select>
         </alco-form-field>
-        <alco-form-field label="Devise par défaut" hint="Vide : la devise de la société">
+        @if (isNew) {
+          <alco-form-field
+            label="Code court"
+            [required]="true"
+            hint="Ex. VTE : il commence le numéro des écritures et ne change plus ensuite."
+          >
+            <input
+              alcoInput
+              class="code-input"
+              formControlName="code"
+              maxlength="32"
+              autocomplete="off"
+            />
+          </alco-form-field>
+        } @else {
+          <div class="fixed">
+            <span class="fixed-label">Code court</span>
+            <span class="fixed-value">{{ journal()?.code }}</span>
+            <span class="alco-caption">Fixé à la création.</span>
+          </div>
+        }
+      </div>
+      <div class="column">
+        @if (accountField(); as field) {
+          <alco-form-field [label]="field.label" [optional]="true" [hint]="field.hint">
+            <select alcoSelect formControlName="default_account">
+              <option value="">Aucun compte</option>
+              @for (choice of accountChoices(); track choice.id) {
+                <option [value]="choice.id">{{ choice.label }}</option>
+              }
+            </select>
+          </alco-form-field>
+        }
+        <alco-form-field label="Devise" hint="Vide : la devise de la société.">
           <select alcoSelect formControlName="default_currency">
             <option value="">Devise de la société</option>
             @for (currency of currencyOptions(); track currency.code) {
@@ -86,21 +103,15 @@
           </select>
         </alco-form-field>
       </div>
-    </section>
+    </div>
 
-    <section class="section" aria-labelledby="numbering-title">
-      <h2 id="numbering-title" class="alco-section-title">Numérotation des écritures</h2>
+    <details class="more">
+      <summary>Numérotation : options avancées</summary>
       <div class="alco-form-grid">
-        <alco-form-field label="Préfixe" hint="Ex. ACH-">
+        <alco-form-field label="Préfixe" hint="Remplace « code-exercice- », ex. VTE/.">
           <input alcoInput formControlName="sequence_prefix" maxlength="32" autocomplete="off" />
         </alco-form-field>
-        <alco-form-field
-          label="Nombre de chiffres"
-          [hint]="isNew ? 'De 1 à 12 ; vide : la valeur du serveur' : 'De 1 à 12'"
-        >
-          <input alcoInput type="number" formControlName="sequence_padding" min="1" max="12" />
-        </alco-form-field>
       </div>
-    </section>
+    </details>
   </form>
 }

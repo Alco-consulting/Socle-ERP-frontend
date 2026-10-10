@@ -31,12 +31,19 @@ export interface PeriodJson extends Omit<FiscalYearJson, never> {
   fiscal_year: string;
 }
 
+export interface AccountReferenceJson {
+  public_id: string;
+  code: string;
+  name: string;
+}
+
 export interface JournalJson {
   public_id: string;
   code: string;
   name: string;
   journal_type: string;
   default_currency: string | null;
+  default_account: AccountReferenceJson | null;
   sequence_prefix: string;
   sequence_padding: number;
   status: 'active' | 'inactive';
@@ -119,6 +126,7 @@ function journal(
     name,
     journal_type: type,
     default_currency: null,
+    default_account: null,
     sequence_prefix: `${code}-`,
     sequence_padding: 6,
     status: 'active',
@@ -162,34 +170,41 @@ function chart(
   return accounts;
 }
 
+/** An account named by a record: its public id, code and name. */
+export function accountReference(account: AccountJson): AccountReferenceJson {
+  return { public_id: account.public_id, code: account.code, name: account.name };
+}
+
 export function seedAccounting(): Record<string, Books> {
   const a2026 = year('2026', 'open');
   const a2025 = year('2025', 'closed');
   const b2026 = year('2026', 'open');
+  const chartA = chart([
+    ['4', 'Comptes de tiers', 'liability', null, { allow_entries: false }],
+    ['40', 'Fournisseurs et comptes rattachés', 'liability', '4', { allow_entries: false }],
+    ['401', 'Fournisseurs', 'liability', '40', { letterable: true }],
+    ['404', 'Fournisseurs d’immobilisations', 'liability', '40'],
+    ['41', 'Clients et comptes rattachés', 'asset', '4', { allow_entries: false }],
+    ['411', 'Clients', 'asset', '41', { letterable: true }],
+    ['6', 'Comptes de charges', 'expense', null, { allow_entries: false }],
+    ['60', 'Achats', 'expense', '6', { allow_entries: false }],
+    ['601', 'Achats de marchandises', 'expense', '60'],
+    ['604', 'Achats stockés de matières', 'expense', '60', { status: 'inactive' }],
+  ]);
+  const purchases = chartA.find((account) => account.code === '601')!;
   return {
     A: {
       years: [a2026, a2025],
       periods: [...periods(a2026, 2), ...periods(a2025, 6)],
       journals: [
-        journal('ACH', 'Achats', 'purchase'),
+        journal('ACH', 'Achats', 'purchase', { default_account: accountReference(purchases) }),
         journal('VTE', 'Ventes', 'sales'),
         journal('BQ1', 'Banque principale', 'bank', { default_currency: 'GNF' }),
         journal('CAI', 'Caisse', 'cash'),
         journal('OD', 'Opérations diverses', 'general'),
-        journal('ANC', 'Ancien journal', 'other', { status: 'inactive' }),
+        journal('ANC', 'Ancien journal', 'general', { status: 'inactive' }),
       ],
-      accounts: chart([
-        ['4', 'Comptes de tiers', 'liability', null, { allow_entries: false }],
-        ['40', 'Fournisseurs et comptes rattachés', 'liability', '4', { allow_entries: false }],
-        ['401', 'Fournisseurs', 'liability', '40', { letterable: true }],
-        ['404', 'Fournisseurs d’immobilisations', 'liability', '40'],
-        ['41', 'Clients et comptes rattachés', 'asset', '4', { allow_entries: false }],
-        ['411', 'Clients', 'asset', '41', { letterable: true }],
-        ['6', 'Comptes de charges', 'expense', null, { allow_entries: false }],
-        ['60', 'Achats', 'expense', '6', { allow_entries: false }],
-        ['601', 'Achats de marchandises', 'expense', '60'],
-        ['604', 'Achats stockés de matières', 'expense', '60', { status: 'inactive' }],
-      ]),
+      accounts: chartA,
       entries: { draft: 12, submitted: 4, validated: 29, locked: 3 },
     },
     B: {
@@ -208,6 +223,7 @@ export function seedAccounting(): Record<string, Books> {
 const error = (code: string, details: unknown = null) => ({
   error: { code, message: code, details, correlation_id: 'e2e' },
 });
+const unknownAccount = error('validation_error', { default_account: ['Compte inconnu.'] });
 
 const JOURNAL_FIELDS = [
   'name',
@@ -215,6 +231,12 @@ const JOURNAL_FIELDS = [
   'default_currency',
   'sequence_prefix',
   'sequence_padding',
+];
+/** « Créer les journaux usuels » (SYSCOHADA, `data/syscohada.json` of the server). */
+const USUAL_JOURNALS = [
+  { code: 'VTE', name: 'Ventes', journal_type: 'sales' },
+  { code: 'ACH', name: 'Achats', journal_type: 'purchase' },
+  { code: 'OD', name: 'Opérations diverses', journal_type: 'general' },
 ];
 const ACCOUNT_FIELDS = [
   'name',
@@ -346,6 +368,8 @@ export class FakeAccounting {
         );
       case 'journals':
         return this.journals(route, request, books, permissions, id, command);
+      case 'default-journals':
+        return this.usualJournals(route, books, permissions);
       case 'accounts':
         return this.accounts(route, request, books, permissions, id, command);
       default:
@@ -374,8 +398,14 @@ export class FakeAccounting {
         if (books.journals.some((item) => item.code === code)) {
           return this.answer(route, 400, error('accounting_journal_code_exists'));
         }
-        const created = journal(code, String(body['name']), String(body['journal_type']), {
+        const type = String(body['journal_type']);
+        const account = this.defaultAccount(books, type, body['default_account']);
+        if (account === undefined) {
+          return this.answer(route, 400, unknownAccount);
+        }
+        const created = journal(code, String(body['name']), type, {
           default_currency: (body['default_currency'] as string | null) ?? null,
+          default_account: account,
           sequence_prefix: String(body['sequence_prefix'] ?? ''),
           sequence_padding: Number(body['sequence_padding'] ?? 6),
         });
@@ -413,10 +443,54 @@ export class FakeAccounting {
           (found as unknown as Record<string, unknown>)[name] = body[name];
         }
       }
+      if ('default_account' in body) {
+        const account = this.defaultAccount(books, found.journal_type, body['default_account']);
+        if (account === undefined) {
+          return this.answer(route, 400, unknownAccount);
+        }
+        found.default_account = account;
+      }
+      // Miscellaneous operations have no default account (the server's constraint).
+      if (found.journal_type === 'general') {
+        found.default_account = null;
+      }
       return this.answer(route, 200, found);
     }
     found.status = command === 'deactivate' ? 'inactive' : 'active';
     return this.answer(route, 200, found);
+  }
+
+  /** The account of the company a journal's default account names; `undefined`: unknown. */
+  private defaultAccount(
+    books: Books,
+    type: string,
+    publicId: unknown,
+  ): AccountReferenceJson | null | undefined {
+    if (!publicId || type === 'general') {
+      return null;
+    }
+    const account = books.accounts.find((item) => item.public_id === publicId);
+    return account ? accountReference(account) : undefined;
+  }
+
+  /** The usual journals whose code is free, without a default account. */
+  private async usualJournals(
+    route: Route,
+    books: Books,
+    permissions: readonly string[],
+  ): Promise<void> {
+    if (!permissions.includes('accounting.manage_journals')) {
+      return this.answer(route, 403, error('company_permission_denied'));
+    }
+    const taken = new Set(books.journals.map((item) => item.code));
+    const created = USUAL_JOURNALS.filter((usual) => !taken.has(usual.code)).map((usual) =>
+      journal(usual.code, usual.name, usual.journal_type),
+    );
+    books.journals.push(...created);
+    const existing = USUAL_JOURNALS.filter((usual) => taken.has(usual.code)).map(
+      (usual) => usual.code,
+    );
+    return this.answer(route, 200, { created, existing });
   }
 
   private async accounts(
@@ -486,6 +560,7 @@ export class FakeAccounting {
                 item.name.toLowerCase().includes(search)) &&
               (!q('status') || item.status === q('status')) &&
               (!q('account_type') || item.account_type === q('account_type')) &&
+              (!q('detailed_type') || item.detailed_type === q('detailed_type')) &&
               (!prefix || item.code.startsWith(prefix)) &&
               (q('postable') === null || postable(item) === (q('postable') === 'true')),
           )

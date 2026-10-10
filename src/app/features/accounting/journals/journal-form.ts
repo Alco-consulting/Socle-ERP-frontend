@@ -8,9 +8,18 @@ import {
   inject,
   signal,
 } from '@angular/core';
+import { toObservable, toSignal } from '@angular/core/rxjs-interop';
 import { FormControl, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
-import { catchError, firstValueFrom, map, of } from 'rxjs';
+import {
+  catchError,
+  distinctUntilChanged,
+  firstValueFrom,
+  map,
+  of,
+  startWith,
+  switchMap,
+} from 'rxjs';
 
 import { serverFieldErrors } from '../../../core/errors/field-errors';
 import { UserError, toUserError } from '../../../core/errors/user-error';
@@ -29,10 +38,21 @@ import { CurrencyOption } from '../../partners/data-access/partner-models';
 import {
   ACCOUNTING_FIELD_MESSAGES,
   ACCOUNTING_REFERENTIAL_ERRORS,
+  JOURNAL_ACCOUNT_FIELDS,
   JOURNAL_TYPES,
 } from '../accounting-presentation';
-import { Journal, JournalType, JournalWrite } from '../data-access/accounting-models';
+import { Account, Journal, JournalType, JournalWrite } from '../data-access/accounting-models';
 import { AccountingApi } from '../data-access/accounting-api';
+
+/** « 601100 — Achats de marchandises »: an account of the selection list. */
+const accountLabel = (account: { readonly code: string; readonly name: string }) =>
+  `${account.code} — ${account.name}`;
+
+/** An account of the selection list: its public id (what the form keeps) and its words. */
+interface AccountChoice {
+  readonly id: string;
+  readonly label: string;
+}
 
 /** Business refusals that belong to one field (by their stable code). */
 const FIELD_OF_CODE: Readonly<Record<string, [string, string]>> = {
@@ -41,14 +61,23 @@ const FIELD_OF_CODE: Readonly<Record<string, [string, string]>> = {
     'sequence_prefix',
     'Des écritures sont déjà numérotées dans ce journal : sa numérotation ne change plus.',
   ],
+  accounting_account_inactive: ['default_account', 'Ce compte est inactif.'],
+  accounting_account_not_postable: [
+    'default_account',
+    'Ce compte ne reçoit pas d’écritures : choisissez un compte sans sous-compte.',
+  ],
   currency_inactive: ['default_currency', 'Cette devise est inactive.'],
 };
 
 /**
- * Creation (`…/journaux/nouveau`) and modification (`…/journaux/:id/modifier`) of a
- * journal with exactly the fields of `AccountingJournalWriteRequest`. A modification sends
- * only the fields changed, never the code (fixed at creation). The server decides; its
- * errors go under their field.
+ * A journal as Odoo shows it, to create it (`…/journaux/nouveau`) or change it
+ * (`…/journaux/:id/modifier`): Nom du journal, Type (Ventes, Achats, Banque, Caisse,
+ * Opérations diverses), Code court (fixed at creation), Devise and the « Compte par défaut »
+ * of the type (revenue, expense, bank or cash account; none for miscellaneous operations),
+ * chosen in a selection list of the type's accounts, optional (« Aucun compte »). The
+ * numbering's prefix is an advanced option; its number of digits stays the server's. A
+ * modification sends only the fields changed. The server decides; its errors go under their
+ * field.
  */
 @Component({
   selector: 'alco-journal-form',
@@ -63,7 +92,7 @@ const FIELD_OF_CODE: Readonly<Record<string, [string, string]>> = {
     AlcoPageHeader,
   ],
   templateUrl: './journal-form.html',
-  styleUrl: '../accounting-sheet.scss',
+  styleUrls: ['../accounting-sheet.scss', './journal-form.scss'],
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class JournalFormPage {
@@ -80,10 +109,6 @@ export class JournalFormPage {
   protected readonly types = JOURNAL_TYPES;
 
   protected readonly form = new FormGroup({
-    code: new FormControl('', {
-      nonNullable: true,
-      validators: this.isNew ? [Validators.required, Validators.maxLength(32)] : [],
-    }),
     name: new FormControl('', {
       nonNullable: true,
       validators: [Validators.required, Validators.maxLength(100)],
@@ -92,13 +117,16 @@ export class JournalFormPage {
       nonNullable: true,
       validators: [Validators.required],
     }),
+    code: new FormControl('', {
+      nonNullable: true,
+      validators: this.isNew ? [Validators.required, Validators.maxLength(32)] : [],
+    }),
     default_currency: new FormControl('', { nonNullable: true }),
+    /** The public id of the chosen account, '' : none (the field is optional). */
+    default_account: new FormControl('', { nonNullable: true }),
     sequence_prefix: new FormControl('', {
       nonNullable: true,
       validators: [Validators.maxLength(32)],
-    }),
-    sequence_padding: new FormControl<number | null>(null, {
-      validators: [Validators.min(1), Validators.max(12)],
     }),
   });
 
@@ -115,6 +143,38 @@ export class JournalFormPage {
     return this.currencies().filter((item) => item.status === 'active' || item.code === current);
   });
 
+  private readonly value = toSignal(
+    this.form.valueChanges.pipe(
+      startWith(null),
+      map(() => this.form.getRawValue()),
+    ),
+    { requireSync: true },
+  );
+  private readonly type = computed(() => this.value().journal_type as JournalType);
+  /** The « Compte par défaut » of the chosen type, in Odoo's words; none for OD. */
+  protected readonly accountField = computed(() => JOURNAL_ACCOUNT_FIELDS[this.type()] ?? null);
+  /** Every account of the chosen type, by code; read again when the type changes. */
+  private readonly accounts = toSignal(
+    toObservable(this.type).pipe(
+      distinctUntilChanged(),
+      switchMap((type) =>
+        this.api.journalAccounts(type).pipe(catchError(() => of([] as readonly Account[]))),
+      ),
+    ),
+    { initialValue: [] as readonly Account[] },
+  );
+  /** The selection list, with the journal's own account if it is no longer one of them. */
+  protected readonly accountChoices = computed<readonly AccountChoice[]>(() => {
+    const choices = this.accounts().map((account) => ({
+      id: account.public_id,
+      label: accountLabel(account),
+    }));
+    const own = this.journal()?.default_account;
+    return own && !choices.some((choice) => choice.id === own.public_id)
+      ? [...choices, { id: own.public_id, label: accountLabel(own) }]
+      : choices;
+  });
+
   constructor() {
     inject(UnsavedChangesService).track(() => this.form.dirty);
     inject(PartnersApi)
@@ -124,6 +184,14 @@ export class JournalFormPage {
         catchError(() => of([])),
       )
       .subscribe((list) => this.currencies.set(list));
+    // Another type takes other accounts: the default account is chosen again.
+    this.form.controls.journal_type.valueChanges.subscribe(() => {
+      const account = this.form.controls.default_account;
+      if (account.value !== '') {
+        account.setValue('');
+        account.markAsDirty();
+      }
+    });
     if (this.id) {
       this.api.journal(this.id).subscribe({
         next: (journal) => this.fill(journal),
@@ -131,7 +199,7 @@ export class JournalFormPage {
           this.loadError.set(toUserError(failure, ACCOUNTING_REFERENTIAL_ERRORS)),
       });
     } else {
-      afterNextRender(() => this.focus('code'), { injector: this.injector });
+      afterNextRender(() => this.focus('name'), { injector: this.injector });
     }
   }
 
@@ -181,20 +249,19 @@ export class JournalFormPage {
     });
   }
 
-  /** Fields of the contract; the numbering is sent only when the user gave it. */
+  /** Fields of the contract; the number of digits is left to the server (6). */
   private creation(): JournalWrite {
     const value = this.form.getRawValue();
-    const write: Record<string, unknown> = {
+    const type = value.journal_type as JournalType;
+    return {
       code: value.code.trim(),
       name: value.name.trim(),
-      journal_type: value.journal_type as JournalType,
+      journal_type: type,
       default_currency: value.default_currency || null,
+      // Miscellaneous operations have no default account; « Aucun compte » is none.
+      default_account: JOURNAL_ACCOUNT_FIELDS[type] ? value.default_account || null : null,
       sequence_prefix: value.sequence_prefix.trim(),
     };
-    if (value.sequence_padding !== null) {
-      write['sequence_padding'] = value.sequence_padding;
-    }
-    return write as unknown as JournalWrite;
   }
 
   private changes(): Partial<Omit<JournalWrite, 'code'>> {
@@ -211,14 +278,18 @@ export class JournalFormPage {
   private fill(journal: Journal): void {
     this.journal.set(journal);
     this.breadcrumbs.nameCurrent(`${journal.code} — ${journal.name}`, 1);
-    this.form.setValue({
-      code: journal.code,
-      name: journal.name,
-      journal_type: journal.journal_type,
-      default_currency: journal.default_currency ?? '',
-      sequence_prefix: journal.sequence_prefix,
-      sequence_padding: journal.sequence_padding,
-    });
+    this.form.setValue(
+      {
+        name: journal.name,
+        journal_type: journal.journal_type,
+        code: journal.code,
+        default_currency: journal.default_currency ?? '',
+        default_account: journal.default_account?.public_id ?? '',
+        sequence_prefix: journal.sequence_prefix,
+      },
+      { emitEvent: false },
+    );
+    this.form.updateValueAndValidity();
     this.form.markAsPristine();
     afterNextRender(() => this.focus('name'), { injector: this.injector });
   }

@@ -10,6 +10,7 @@ import {
   AccountWrite,
   DetailedType,
   FiscalYear,
+  FiscalYearWrite,
   Journal,
   JournalQuery,
   JournalType,
@@ -59,6 +60,33 @@ export class AccountingApi {
     return this.api.get<Paginated<Period>>(`${base}periods/`, {
       params: { fiscal_year: fiscalYearId, status, page_size: REFERENCE_PAGE_SIZE },
     });
+  }
+
+  /** A fiscal year and, with `monthly_periods`, one period per calendar month. */
+  createFiscalYear(year: FiscalYearWrite): Observable<FiscalYear> {
+    return this.api.post<FiscalYear>(`${base}fiscal-years/`, year);
+  }
+
+  /** The monthly periods of a fiscal year that has none yet. */
+  createMonthlyPeriods(fiscalYearId: string): Observable<readonly Period[]> {
+    return this.api.post<readonly Period[]>(
+      `${base}fiscal-years/${id(fiscalYearId)}/monthly-periods/`,
+    );
+  }
+
+  /** « Clôturer » / « Rouvrir » a period: its commands, the server decides. */
+  setPeriodOpen(periodId: string, open: boolean): Observable<Period> {
+    const command = open ? 'reopen' : 'close';
+    return this.api.post<Period>(`${base}periods/${id(periodId)}/${command}/`);
+  }
+
+  /** How many drafts are dated in a period (the `count` of the entry list). */
+  draftCount(periodId: string): Observable<number> {
+    return this.api
+      .get<Paginated<unknown>>(`${base}entries/`, {
+        params: { period: periodId, status: 'draft', page_size: 1 },
+      })
+      .pipe(map((page) => page.count));
   }
 
   // ---- Journals -----------------------------------------------------------------------

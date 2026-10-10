@@ -192,6 +192,22 @@ export const ACCOUNTING_REFERENTIAL_ERRORS: ErrorCatalog = {
     title: 'Le code court de ce journal ne peut plus changer.',
     message: 'Des écritures validées portent déjà un numéro qui commence par ce code.',
   },
+  accounting_fiscal_year_overlap: {
+    title: 'Ces dates chevauchent un autre exercice de la société.',
+    message: 'Choisissez des dates après l’exercice précédent.',
+  },
+  accounting_fiscal_year_code_exists: {
+    title: 'Un exercice de la société porte déjà ce code.',
+    message: 'Choisissez un autre code.',
+  },
+  accounting_fiscal_year_has_periods: {
+    title: 'Cet exercice a déjà ses périodes.',
+    message: 'Rechargez la page pour les voir.',
+  },
+  accounting_period_overlap: {
+    title: 'Ces dates chevauchent une autre période.',
+    message: 'Les périodes d’un exercice ne se chevauchent pas.',
+  },
   accounting_journal_template_not_found: {
     title: 'Aucun journal usuel n’est connu pour le plan comptable de la société.',
     message: 'Créez les journaux un par un avec « Nouveau journal ».',

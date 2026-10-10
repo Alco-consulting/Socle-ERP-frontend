@@ -231,10 +231,13 @@ supprime ce qui ne sert plus.
 - **Comptabilité, socle (Module 4)** : `features/accounting` sur `accounting/` ; tableau de
   bord : blocs indépendants (V2.1 : journaux et alertes de `dashboards/`, voir plus bas ;
   exercices, périodes et plan comptable d'`accounting/`), aucun N+1, aucun calcul ;
-  exercice affiché = exercices `status=open` du serveur ; exercices et périodes en lecture
-  seule ; journaux sans recherche texte (l'API n'en a pas) ; hiérarchie des comptes par
-  `parent` / `children/` (pas d'arbre reconstruit : aucun filtre « racines ») ; parent saisi
-  par code et résolu par `?code=` ; classe saisie, jamais déduite.
+  exercice affiché = exercices `status=open` du serveur ; exercices et périodes : « Nouvel
+  exercice » (douze mois proposés, créé avec ses périodes mensuelles), « Créer les périodes
+  mensuelles » d'un exercice sans période, « Clôturer » (confirmation avec le nombre de
+  brouillons de la période) / « Rouvrir » une période (`manage_periods` ; la clôture de
+  l'exercice reste à la Clôture) ; journaux sans recherche texte (l'API n'en a pas) ;
+  hiérarchie des comptes par `parent` / `children/` (pas d'arbre reconstruit : aucun filtre
+  « racines ») ; parent saisi par code et résolu par `?code=` ; classe saisie, jamais déduite.
 - **Import/export réels** : `features/transfers` (API `imports-exports/`, écran d'import par
   étapes, « Actions ▾ » `AlcoDomainTransfers`). Un domaine décrit les siens
   (`ContextualTransfer`) ; aucun écran générique. Écritures : import `accounting.entries`
@@ -459,8 +462,8 @@ supprime ce qui ne sert plus.
 - Décider l'origine du frontend en production (technical-architecture.md § 12).
 - Exercice dans la barre supérieure et le lanceur (aujourd'hui sur le tableau de bord
   comptable seulement).
-- Comptabilité : créer, clôturer, rouvrir exercices et périodes (`manage_periods`, avec la
-  clôture) ; « Paramètres comptables » (`accounting/settings/`, lu par les écritures).
+- Comptabilité : clôturer, rouvrir un exercice entier (avec la Clôture) ; « Paramètres
+  comptables » (`accounting/settings/`, lu par les écritures).
 - Écritures : noms des comptes et tiers dans les lignes de la fiche (l'API ne donne que le
   code) ; saisie de la répartition analytique (module Analytique) ; remplacement et
   suppression d'une pièce (`documents/{id}/replace|delete`) ; export des écritures (absent de

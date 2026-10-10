@@ -19,6 +19,15 @@ export interface FiscalYear {
   readonly updated_at: string;
 }
 
+/** `AccountingFiscalYearCreateRequest`: with its monthly periods, all or nothing. */
+export interface FiscalYearWrite {
+  readonly code: string;
+  readonly label: string;
+  readonly start_date: string;
+  readonly end_date: string;
+  readonly monthly_periods: boolean;
+}
+
 /** `AccountingPeriod`. */
 export interface Period {
   readonly public_id: string;

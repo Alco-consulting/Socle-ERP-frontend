@@ -361,6 +361,40 @@ test.describe('Comptabilité — exercices, société, permissions, téléphone'
     expect(await axe(page)).toEqual([]);
   });
 
+  test('nouvel exercice : 2027 proposé, créé avec ses douze périodes', async ({ page }) => {
+    await page.goto('/app/comptabilite/configuration/exercices');
+    await page.getByRole('link', { name: 'Nouvel exercice' }).click();
+    await expect(page.getByRole('heading', { level: 1 })).toHaveText('Nouvel exercice');
+    // The twelve months after the last fiscal year (2026).
+    await expect(page.locator('input[formcontrolname="code"]')).toHaveValue('2027');
+    await expect(page.locator('input[formcontrolname="start_date"]')).toHaveValue('2027-01-01');
+    await expect(page.locator('input[formcontrolname="end_date"]')).toHaveValue('2027-12-31');
+    expect(await axe(page)).toEqual([]);
+    await page.getByRole('button', { name: 'Créer l’exercice' }).click();
+    await expect(page.getByText('Exercice 2027 créé, avec ses périodes mensuelles.')).toBeVisible();
+    await expect(page.getByRole('button', { name: /Exercice 2027/ })).toHaveAttribute(
+      'aria-pressed',
+      'true',
+    );
+    await expect(page.locator('tbody tr')).toHaveCount(12);
+    await expect(page.getByRole('row', { name: /Décembre 2027/ })).toContainText('Ouverte');
+  });
+
+  test('une période se clôture, puis se rouvre', async ({ page }) => {
+    await page.goto('/app/comptabilite/configuration/exercices');
+    await page.getByRole('button', { name: 'Clôturer Mars 2026' }).click();
+    const dialog = page.getByRole('alertdialog');
+    await expect(dialog).toContainText('Clôturer Mars 2026 ?');
+    await expect(dialog).toContainText('Plus aucune écriture ne pourra être validée');
+    await dialog.getByRole('button', { name: 'Clôturer la période' }).click();
+    await expect(page.getByText('Période Mars 2026 clôturée.')).toBeVisible();
+    await expect(page.getByRole('row', { name: /Mars 2026/ })).toContainText('Clôturée');
+
+    await page.getByRole('button', { name: 'Rouvrir Mars 2026' }).click();
+    await expect(page.getByText('Période Mars 2026 rouverte.')).toBeVisible();
+    await expect(page.getByRole('row', { name: /Mars 2026/ })).toContainText('Ouverte');
+  });
+
   test('Scénario 7 : changer de société — rien de l’ancienne ne reste', async ({ page, api }) => {
     await page.goto('/app/comptabilite/plan-comptable');
     await expect(codes(page)).toHaveCount(10);

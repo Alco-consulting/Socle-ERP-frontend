@@ -1,7 +1,13 @@
 <alco-page-header
   title="Exercices et périodes"
-  subtitle="États fixés par le serveur ; ouverture et clôture arriveront avec la clôture comptable."
-/>
+  subtitle="Une écriture se valide dans une période ouverte d’un exercice ouvert."
+>
+  @if (canManage()) {
+    <div alcoPageActions>
+      <a alcoButton variant="primary" icon="plus" routerLink="nouveau">Nouvel exercice</a>
+    </div>
+  }
+</alco-page-header>
 
 @if (years.status() === 'forbidden') {
   <alco-error-state
@@ -23,8 +29,12 @@
       <alco-empty-state
         icon="calendar"
         title="Aucun exercice dans cette société."
-        message="Les exercices sont créés par un utilisateur autorisé à gérer les périodes."
-      />
+        message="Sans exercice ni période, aucune écriture ne peut être saisie : créez l’exercice et ses périodes mensuelles."
+      >
+        @if (canManage()) {
+          <a alcoButton variant="primary" icon="plus" routerLink="nouveau">Nouvel exercice</a>
+        }
+      </alco-empty-state>
     </div>
   } @else {
     <ul class="years" role="list" aria-label="Exercices">
@@ -51,11 +61,31 @@
       <alco-card [title]="'Périodes — ' + year.label" [flush]="true">
         @if (periods.value(); as rows) {
           @if (rows.length === 0) {
-            <p class="none">Aucune période définie pour cet exercice.</p>
+            <div class="none">
+              <p>Cet exercice n’a pas de période : aucune écriture ne peut y être saisie.</p>
+              @if (canManage()) {
+                <button
+                  alcoButton
+                  type="button"
+                  variant="primary"
+                  icon="calendar"
+                  [loading]="creatingPeriods()"
+                  loadingLabel="Création…"
+                  (click)="createPeriods(year)"
+                >
+                  Créer les périodes mensuelles
+                </button>
+              }
+            </div>
           } @else {
+            @if (year.status === 'closed') {
+              <p class="closed-year alco-caption">
+                Exercice clôturé : ses périodes se rouvrent avec l’exercice, depuis la Clôture.
+              </p>
+            }
             <alco-table
               [caption]="'Périodes de l’exercice ' + year.label"
-              [columns]="periodColumns"
+              [columns]="periodColumns()"
               [rows]="rows"
               [rowId]="periodId"
               [class.reloading]="periods.loading()"
@@ -66,6 +96,35 @@
               <ng-template alcoCell="status" let-period>
                 @let look = periodLook(period);
                 <alco-badge [tone]="look.tone" [icon]="look.icon">{{ look.label }}</alco-badge>
+              </ng-template>
+              <ng-template alcoCell="actions" let-period>
+                @if (period.status === 'open') {
+                  <button
+                    alcoButton
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    [loading]="switching() === period.public_id"
+                    loadingLabel="Clôture…"
+                    [attr.aria-label]="'Clôturer ' + period.label"
+                    (click)="close(period)"
+                  >
+                    Clôturer
+                  </button>
+                } @else if (year.status === 'open') {
+                  <button
+                    alcoButton
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    [loading]="switching() === period.public_id"
+                    loadingLabel="Réouverture…"
+                    [attr.aria-label]="'Rouvrir ' + period.label"
+                    (click)="reopen(period)"
+                  >
+                    Rouvrir
+                  </button>
+                }
               </ng-template>
             </alco-table>
           }

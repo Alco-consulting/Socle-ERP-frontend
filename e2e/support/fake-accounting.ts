@@ -114,6 +114,48 @@ function periods(fiscal: FiscalYearJson, closed: number): PeriodJson[] {
   });
 }
 
+const MONTH_NAMES = [
+  'Janvier',
+  'Février',
+  'Mars',
+  'Avril',
+  'Mai',
+  'Juin',
+  'Juillet',
+  'Août',
+  'Septembre',
+  'Octobre',
+  'Novembre',
+  'Décembre',
+];
+
+const isoDay = (day: Date) =>
+  `${day.getFullYear()}-${String(day.getMonth() + 1).padStart(2, '0')}-${String(day.getDate()).padStart(2, '0')}`;
+
+/** One open period per calendar month of a fiscal year (the server's `calendar_months`). */
+function monthsOf(fiscal: FiscalYearJson): PeriodJson[] {
+  const result: PeriodJson[] = [];
+  const end = new Date(`${fiscal.end_date}T12:00:00`);
+  let cursor = new Date(`${fiscal.start_date}T12:00:00`);
+  while (cursor <= end) {
+    const monthEnd = new Date(cursor.getFullYear(), cursor.getMonth() + 1, 0, 12);
+    const stop = monthEnd < end ? monthEnd : end;
+    result.push({
+      public_id: uuid(),
+      fiscal_year: fiscal.public_id,
+      code: isoDay(cursor).slice(0, 7),
+      label: `${MONTH_NAMES[cursor.getMonth()]} ${cursor.getFullYear()}`,
+      start_date: isoDay(cursor),
+      end_date: isoDay(stop),
+      status: 'open',
+      created_at: STAMP,
+      updated_at: STAMP,
+    });
+    cursor = new Date(stop.getFullYear(), stop.getMonth(), stop.getDate() + 1, 12);
+  }
+  return result;
+}
+
 function journal(
   code: string,
   name: string,
@@ -353,19 +395,25 @@ export class FakeAccounting {
 
     switch (resource) {
       case 'fiscal-years':
-        return this.paged(
-          route,
-          books.years.filter((item) => !query('status') || item.status === query('status')),
-        );
+        if (method === 'GET' && !id) {
+          return this.paged(
+            route,
+            books.years.filter((item) => !query('status') || item.status === query('status')),
+          );
+        }
+        return this.fiscalYears(route, request, books, permissions, id, command);
       case 'periods':
-        return this.paged(
-          route,
-          books.periods.filter(
-            (item) =>
-              (!query('fiscal_year') || item.fiscal_year === query('fiscal_year')) &&
-              (!query('status') || item.status === query('status')),
-          ),
-        );
+        if (method === 'GET' && !id) {
+          return this.paged(
+            route,
+            books.periods.filter(
+              (item) =>
+                (!query('fiscal_year') || item.fiscal_year === query('fiscal_year')) &&
+                (!query('status') || item.status === query('status')),
+            ),
+          );
+        }
+        return this.periodCommand(route, books, permissions, id, command);
       case 'journals':
         return this.journals(route, request, books, permissions, id, command);
       case 'default-journals':
@@ -467,6 +515,78 @@ export class FakeAccounting {
       return this.answer(route, 200, found);
     }
     found.status = command === 'deactivate' ? 'inactive' : 'active';
+    return this.answer(route, 200, found);
+  }
+
+  /** « Nouvel exercice » (with its monthly periods) and the monthly periods of a year. */
+  private async fiscalYears(
+    route: Route,
+    request: Request,
+    books: Books,
+    permissions: readonly string[],
+    id: string,
+    command: string,
+  ): Promise<void> {
+    if (!permissions.includes('accounting.manage_periods')) {
+      return this.answer(route, 403, error('company_permission_denied'));
+    }
+    if (!id && request.method() === 'POST') {
+      const body = request.postDataJSON() as Record<string, unknown>;
+      const start = String(body['start_date']);
+      const end = String(body['end_date']);
+      if (books.years.some((item) => item.start_date <= end && item.end_date >= start)) {
+        return this.answer(route, 400, error('accounting_fiscal_year_overlap'));
+      }
+      const code = String(body['code'] ?? '')
+        .trim()
+        .toUpperCase();
+      if (books.years.some((item) => item.code === code)) {
+        return this.answer(route, 400, error('accounting_fiscal_year_code_exists'));
+      }
+      const created: FiscalYearJson = {
+        public_id: uuid(),
+        code,
+        label: String(body['label'] ?? ''),
+        start_date: start,
+        end_date: end,
+        status: 'open',
+        created_at: STAMP,
+        updated_at: STAMP,
+      };
+      books.years.unshift(created);
+      if (body['monthly_periods'] === true) {
+        books.periods.push(...monthsOf(created));
+      }
+      return this.answer(route, 201, created);
+    }
+    const found = books.years.find((item) => item.public_id === id);
+    if (!found || command !== 'monthly-periods' || request.method() !== 'POST') {
+      return this.answer(route, 404, error('not_found'));
+    }
+    if (books.periods.some((item) => item.fiscal_year === found.public_id)) {
+      return this.answer(route, 400, error('accounting_fiscal_year_has_periods'));
+    }
+    const created = monthsOf(found);
+    books.periods.push(...created);
+    return this.answer(route, 201, created);
+  }
+
+  /** « Clôturer » / « Rouvrir » a period: its commands. */
+  private async periodCommand(
+    route: Route,
+    books: Books,
+    permissions: readonly string[],
+    id: string,
+    command: string,
+  ): Promise<void> {
+    const found = books.periods.find((item) => item.public_id === id);
+    if (!found || !['close', 'reopen'].includes(command)) {
+      return this.answer(route, 404, error('not_found'));
+    }
+    if (!permissions.includes('accounting.manage_periods')) {
+      return this.answer(route, 403, error('company_permission_denied'));
+    }
+    found.status = command === 'close' ? 'closed' : 'open';
     return this.answer(route, 200, found);
   }
 

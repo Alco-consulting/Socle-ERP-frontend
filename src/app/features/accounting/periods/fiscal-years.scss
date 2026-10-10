@@ -42,10 +42,25 @@
   font-weight: var(--font-weight-semibold);
 }
 
+// A fiscal year without periods: said, with the way to create them.
 .none {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
   margin: 0;
   padding: var(--space-4);
   color: var(--color-text-muted);
+
+  p {
+    margin: 0;
+  }
+}
+
+.closed-year {
+  margin: 0;
+  padding: var(--space-3) var(--space-4) 0;
 }
 
 .empty-frame {

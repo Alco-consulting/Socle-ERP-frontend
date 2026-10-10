@@ -191,6 +191,16 @@ export const ACCOUNTING_ROUTES: Routes = [
   {
     path: 'configuration/exercices',
     data: { breadcrumb: 'Exercices et périodes' },
-    loadComponent: fiscalYears,
+    children: [
+      { path: '', loadComponent: fiscalYears },
+      {
+        // A fiscal year and its monthly periods (`accounting.manage_periods`).
+        path: 'nouveau',
+        data: { breadcrumb: 'Nouvel exercice' },
+        canActivate: [permissionGuard('accounting.manage_periods')],
+        canDeactivate: [unsavedChangesGuard],
+        loadComponent: () => import('./periods/fiscal-year-form').then((m) => m.FiscalYearFormPage),
+      },
+    ],
   },
 ];

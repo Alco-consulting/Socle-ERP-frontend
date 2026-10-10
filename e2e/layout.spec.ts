@@ -89,9 +89,9 @@ test.describe('Règles de mise en page', () => {
     expect(box && viewport && box.y + box.height <= viewport.height + 1).toBe(true);
     await page
       .getByRole('menu')
-      .getByRole('menuitemradio', { name: /Exercices et périodes/ })
+      .getByRole('menuitemradio', { name: 'Paramètres comptables' })
       .click();
-    await expect(page).toHaveURL(/\/app\/comptabilite\/configuration\/exercices$/);
+    await expect(page).toHaveURL(/\/app\/comptabilite\/configuration\/parametres$/);
   });
 
   test('the dashboard cards: counters reachable at every width', async ({ page }) => {

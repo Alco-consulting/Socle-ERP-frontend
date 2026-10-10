@@ -91,8 +91,6 @@ const WRITE = [
   'accounting.reverse',
   'accounting.manage_journals',
   'accounting.manage_accounts',
-  // Fiscal years and their periods: granted explicitly, never implied.
-  'accounting.manage_periods',
   // Lettering (V2.1 A4), due dates and aged buckets (A5): granted explicitly, never implied.
   'accounting.letter',
   'accounting.unletter',

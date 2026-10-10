@@ -8,7 +8,7 @@ import {
   untracked,
 } from '@angular/core';
 import { Params, RouterLink } from '@angular/router';
-import { catchError, forkJoin, map, of, switchMap } from 'rxjs';
+import { catchError, map, of } from 'rxjs';
 
 import { toUserError } from '../../../core/errors/user-error';
 import { ApiError } from '../../../core/http/api-error';
@@ -34,15 +34,8 @@ import {
 import { DashboardsApi } from '../../dashboards/data-access/dashboards-api';
 import { PartnersApi } from '../../partners/data-access/partners-api';
 import { CurrencyOption } from '../../partners/data-access/partner-models';
-import {
-  ACCOUNTING_REFERENTIAL_ERRORS,
-  FISCAL_YEAR_STATUS,
-  PERIOD_STATUS,
-  dateRange,
-  journalTypeLabel,
-} from '../accounting-presentation';
+import { ACCOUNTING_REFERENTIAL_ERRORS, journalTypeLabel } from '../accounting-presentation';
 import { AccountingApi } from '../data-access/accounting-api';
-import { FiscalYear, Period } from '../data-access/accounting-models';
 import {
   ALERT_LEVELS,
   ALERT_PATHS,
@@ -51,11 +44,6 @@ import {
   closingCheckLabel,
   indicatorLabel,
 } from './dashboard-presentation';
-
-interface OpenYear {
-  readonly year: FiscalYear;
-  readonly periods: readonly Period[];
-}
 
 /** A counter of a card: the server's count and the entry list it opens. */
 interface Counter {
@@ -89,7 +77,9 @@ const ACCOUNTING = `${APP_ROOT}/comptabilite`;
  *   counts by status; treasury accounts with Treasury's balance of the day and their lines
  *   to reconcile, only when the API gives them: `treasury_accounts: null` shows nothing).
  * - « À surveiller »: `GET dashboards/alerts/` from the start of the open fiscal year that
- *   holds today to today (the API never implies a date); without such a year, said.
+ *   holds today to today (the API never implies a date); without such a year (no entry yet
+ *   this year: the server opens it with the first one), said. The fiscal years themselves
+ *   are never shown (note backend 0035).
  * Nothing is computed here: counts, balances and alerts are the server's.
  */
 @Component({
@@ -118,9 +108,6 @@ export class AccountingDashboardPage {
   private readonly partners = inject(PartnersApi);
   protected readonly session = inject(SessionStore);
 
-  protected readonly yearStatus = FISCAL_YEAR_STATUS;
-  protected readonly periodStatus = PERIOD_STATUS;
-  protected readonly dateRange = dateRange;
   protected readonly journalTypeLabel = journalTypeLabel;
   protected readonly accounting = ACCOUNTING;
 
@@ -162,35 +149,21 @@ export class AccountingDashboardPage {
     ),
   );
 
-  // ---- Open fiscal years and their periods ----------------------------------------------
-  protected readonly years = requestState(() =>
-    this.api
-      .fiscalYears('open')
-      .pipe(
-        switchMap((page) =>
-          page.results.length === 0
-            ? of([] as OpenYear[])
-            : forkJoin(
-                page.results.map((year) =>
-                  this.api
-                    .periods(year.public_id)
-                    .pipe(map((periods): OpenYear => ({ year, periods: periods.results }))),
-                ),
-              ),
-        ),
-      ),
+  // ---- The open fiscal year that holds today: the scope of the alerts -------------------
+  private readonly years = requestState(() =>
+    this.api.fiscalYears('open').pipe(map((page) => page.results)),
   );
 
-  /** The open fiscal year that holds today: the alerts run from its start to today. */
+  /** The alerts run from its start to today. */
   protected readonly alertYear = computed(() => {
     const today = this.today;
     return (
-      this.years
-        .value()
-        ?.map((item) => item.year)
-        .find((year) => year.start_date <= today && today <= year.end_date) ?? null
+      this.years.value()?.find((year) => year.start_date <= today && today <= year.end_date) ?? null
     );
   });
+
+  /** Known once the open fiscal years are read: an alert scope, or none to say. */
+  protected readonly yearsRead = computed(() => this.years.value() !== null);
 
   // ---- Alerts and indicators ----------------------------------------------------------
   protected readonly alerts = requestState(
@@ -211,27 +184,7 @@ export class AccountingDashboardPage {
     ];
   });
 
-  protected readonly chart = requestState(() =>
-    forkJoin({ all: this.api.accountCount(), postable: this.api.accountCount(true) }),
-  );
-
-  /** « Exercice 2026 », « Aucun exercice ouvert » — the server's open fiscal years. */
-  protected readonly yearLabel = computed(() => {
-    const years = this.years.value();
-    if (!years) {
-      return '';
-    }
-    if (years.length === 0) {
-      return 'Aucun exercice ouvert';
-    }
-    return `${years.length > 1 ? 'Exercices ouverts' : 'Exercice'} : ${years
-      .map((item) => item.year.label)
-      .join(', ')}`;
-  });
-
-  protected readonly subtitle = computed(() =>
-    [this.session.activeCompany()?.name, this.yearLabel()].filter(Boolean).join(' · '),
-  );
+  protected readonly subtitle = computed(() => this.session.activeCompany()?.name ?? '');
 
   constructor() {
     // The alerts need a scope: asked once the open fiscal year holding today is known.

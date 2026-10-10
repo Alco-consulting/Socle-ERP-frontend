@@ -1,6 +1,7 @@
 import AxeBuilder from '@axe-core/playwright';
 import { Page } from '@playwright/test';
 
+import { createEntry } from './support/entries';
 import { COMPANY_A, COMPANY_B, PROFILES, expect, test } from './support/fake-api';
 import { fixToday, openMenuItem } from './support/navigation';
 
@@ -31,7 +32,9 @@ test.describe('Comptabilité — tableau de bord réel', () => {
     await page.getByRole('link', { name: /Comptabilité/ }).click();
     await expect(page).toHaveURL(/\/app\/comptabilite\/tableau-de-bord$/);
     await expect(page.getByRole('heading', { level: 1 })).toHaveText('Tableau de bord');
-    await expect(page.getByText('ALCO GUINÉE (test) · Exercice : Exercice 2026')).toBeVisible();
+    // The company only: the fiscal years are the server's business (note backend 0035).
+    await expect(page.locator('alco-page-header')).toContainText('ALCO GUINÉE (test)');
+    await expect(page.locator('alco-page-header')).not.toContainText('Exercice');
     await expect(page.getByRole('note', { name: 'Démonstration' })).toHaveCount(0);
 
     // Entries waiting, per journal, as dashboards/journals/ counts them (12 drafts, 4 submitted).
@@ -43,22 +46,19 @@ test.describe('Comptabilité — tableau de bord réel', () => {
     };
     expect(await total('Brouillons')).toBe(12);
     expect(await total('Soumises')).toBe(4);
-    await expect(page.getByRole('list', { name: 'Périodes de Exercice 2026' })).toContainText(
-      /Janvier 2026\s*Clôturée/,
-    );
+    // No fiscal year nor chart of accounts block: the menu opens the chart.
+    await expect(page.locator('alco-card', { hasText: 'Exercice et périodes' })).toHaveCount(0);
+    await expect(page.locator('alco-card', { hasText: 'Plan comptable' })).toHaveCount(0);
     const journals = page.locator('.journal-code');
     await expect(journals).toHaveText(['ACH', 'BQ1', 'CAI', 'OD', 'VTE']);
-    await expect(page.locator('alco-card', { hasText: 'Plan comptable' })).toContainText(
-      /Comptes\s*10.*Comptes imputables\s*4/s,
-    );
 
-    // A fixed number of requests: no request per journal or per period. Accounting: open
-    // fiscal years, their periods, the chart's two counts; the journals: one dashboards call.
+    // A fixed number of requests: no request per journal. Accounting: the open fiscal years
+    // only (the alerts' scope); the journals: one dashboards call.
     const accounting = () =>
       api.calls.filter((call) => new URL(call.url()).pathname.startsWith('/api/v1/accounting/'));
-    await expect.poll(() => accounting().length).toBe(4);
+    await expect.poll(() => accounting().length).toBe(1);
     await page.waitForLoadState('networkidle');
-    expect(accounting()).toHaveLength(4);
+    expect(accounting()).toHaveLength(1);
     expect(api.callsTo('dashboards/journals/')).toHaveLength(1);
     for (const call of accounting()) {
       expect(await call.headerValue('x-company-id')).toBe(COMPANY_A.public_id);
@@ -344,55 +344,30 @@ test.describe('Comptabilité — plan comptable', () => {
 });
 
 test.describe('Comptabilité — exercices, société, permissions, téléphone', () => {
-  test('exercices et périodes : les états du serveur', async ({ page }) => {
+  test('une écriture datée de 2027 s’enregistre : son exercice se crée tout seul', async ({
+    page,
+    api,
+  }) => {
+    // No fiscal year screen: nobody creates them, nobody sees them (note backend 0035).
     await page.goto('/app/comptabilite/tableau-de-bord');
     await moduleNav(page).getByRole('button', { name: 'Configuration' }).click();
-    await page.getByRole('menuitemradio', { name: 'Exercices et périodes' }).click();
-    await expect(page.getByRole('heading', { level: 1 })).toHaveText('Exercices et périodes');
-    await expect(page.getByRole('button', { name: /Exercice 2026/ })).toHaveAttribute(
-      'aria-pressed',
-      'true',
-    );
-    await expect(page.getByRole('row', { name: /Janvier 2026/ })).toContainText('Clôturée');
-    await expect(page.getByRole('row', { name: /Mars 2026/ })).toContainText('Ouverte');
-    await page.getByRole('button', { name: /Exercice 2025/ }).click();
-    await expect(page).toHaveURL(/exercice=/);
-    await expect(page.getByRole('row', { name: /Juin 2025/ })).toContainText('Clôturée');
-    expect(await axe(page)).toEqual([]);
-  });
+    await expect(page.getByRole('menuitemradio', { name: /Exercices/ })).toHaveCount(0);
+    await page.keyboard.press('Escape');
 
-  test('nouvel exercice : 2027 proposé, créé avec ses douze périodes', async ({ page }) => {
-    await page.goto('/app/comptabilite/configuration/exercices');
-    await page.getByRole('link', { name: 'Nouvel exercice' }).click();
-    await expect(page.getByRole('heading', { level: 1 })).toHaveText('Nouvel exercice');
-    // The twelve months after the last fiscal year (2026).
-    await expect(page.locator('input[formcontrolname="code"]')).toHaveValue('2027');
-    await expect(page.locator('input[formcontrolname="start_date"]')).toHaveValue('2027-01-01');
-    await expect(page.locator('input[formcontrolname="end_date"]')).toHaveValue('2027-12-31');
-    expect(await axe(page)).toEqual([]);
-    await page.getByRole('button', { name: 'Créer l’exercice' }).click();
-    await expect(page.getByText('Exercice 2027 créé, avec ses périodes mensuelles.')).toBeVisible();
-    await expect(page.getByRole('button', { name: /Exercice 2027/ })).toHaveAttribute(
-      'aria-pressed',
-      'true',
-    );
-    await expect(page.locator('tbody tr')).toHaveCount(12);
-    await expect(page.getByRole('row', { name: /Décembre 2027/ })).toContainText('Ouverte');
-  });
+    await createEntry(page, {
+      date: '2027-02-10',
+      description: 'Achat de février 2027',
+      lines: [
+        ['601', 'Débit', '500000'],
+        ['401', 'Crédit', '500000'],
+      ],
+    });
 
-  test('une période se clôture, puis se rouvre', async ({ page }) => {
-    await page.goto('/app/comptabilite/configuration/exercices');
-    await page.getByRole('button', { name: 'Clôturer Mars 2026' }).click();
-    const dialog = page.getByRole('alertdialog');
-    await expect(dialog).toContainText('Clôturer Mars 2026 ?');
-    await expect(dialog).toContainText('Plus aucune écriture ne pourra être validée');
-    await dialog.getByRole('button', { name: 'Clôturer la période' }).click();
-    await expect(page.getByText('Période Mars 2026 clôturée.')).toBeVisible();
-    await expect(page.getByRole('row', { name: /Mars 2026/ })).toContainText('Clôturée');
-
-    await page.getByRole('button', { name: 'Rouvrir Mars 2026' }).click();
-    await expect(page.getByText('Période Mars 2026 rouverte.')).toBeVisible();
-    await expect(page.getByRole('row', { name: /Mars 2026/ })).toContainText('Ouverte');
+    // Booked in the fiscal year the server opened for the date, with its twelve periods.
+    await expect(page.getByText('2027 · 2027-02')).toBeVisible();
+    const books = api.accounting.books('A');
+    const opened = books.years.find((year) => year.code === '2027');
+    expect(books.periods.filter((item) => item.fiscal_year === opened?.public_id)).toHaveLength(12);
   });
 
   test('Scénario 7 : changer de société — rien de l’ancienne ne reste', async ({ page, api }) => {
@@ -408,7 +383,7 @@ test.describe('Comptabilité — exercices, société, permissions, téléphone'
     await openMenuItem(page, 'Comptabilité', 'Journaux');
     await expect(codes(page)).toHaveText(['Ventes Dakar']);
     await moduleNav(page).getByRole('link', { name: 'Tableau de bord' }).click();
-    await expect(page.getByText('FILIALE SÉNÉGAL (test) · Exercice : Exercice 2026')).toBeVisible();
+    await expect(page.locator('alco-page-header')).toContainText('FILIALE SÉNÉGAL (test)');
     await expect(page.locator('.journal-code')).toHaveText(['SN-VTE']);
     const last = api.callsTo('accounting/journals/').at(-1)!;
     expect(await last.headerValue('x-company-id')).toBe(COMPANY_B.public_id);
@@ -447,7 +422,6 @@ test.describe('Comptabilité — exercices, société, permissions, téléphone'
       '/app/comptabilite/tableau-de-bord',
       '/app/comptabilite/journaux',
       '/app/comptabilite/plan-comptable',
-      '/app/comptabilite/configuration/exercices',
     ]) {
       await page.goto(url);
       await expect(page.getByRole('heading', { level: 1 })).toBeVisible();

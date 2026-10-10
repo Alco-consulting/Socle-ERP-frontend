@@ -2,10 +2,8 @@
 
 <!-- Alerts and indicators of dashboards/alerts/, over the open fiscal year up to today -->
 <alco-card title="À surveiller" icon="alert-triangle">
-  @if (years.value() && !alertYear()) {
-    <p class="empty">
-      Aucun exercice ouvert ne couvre la date du jour : les alertes ne peuvent pas être calculées.
-    </p>
+  @if (yearsRead() && !alertYear()) {
+    <p class="empty">Les alertes commencent avec la première écriture de l’année.</p>
   } @else if (alerts.error(); as error) {
     @let text = failure(error);
     <alco-error-state
@@ -43,7 +41,7 @@
     }
     <p class="alco-caption scope">
       Du {{ body.scope.date_from | date: 'dd/MM/yyyy' }} au
-      {{ body.scope.date_to | date: 'dd/MM/yyyy' }} ({{ body.scope.fiscal_year.code }})
+      {{ body.scope.date_to | date: 'dd/MM/yyyy' }}
     </p>
   } @else {
     <alco-loading [rows]="2" label="Chargement des alertes…" />
@@ -178,93 +176,3 @@
     <alco-loading variant="cards" [rows]="3" label="Chargement des journaux…" />
   }
 </section>
-
-<div class="grid grid--two">
-  <!-- Open fiscal years and their periods, as the server says -->
-  <alco-card title="Exercice et périodes" icon="calendar">
-    @if (years.error(); as error) {
-      @let text = failure(error);
-      <alco-error-state
-        [inline]="true"
-        [title]="text?.title ?? ''"
-        [message]="text?.message ?? ''"
-        [code]="text?.code ?? ''"
-        retryLabel="Réessayer"
-        (retry)="years.reload()"
-      />
-    } @else if (years.value(); as open) {
-      @if (open.length === 0) {
-        <p class="empty">Aucun exercice ouvert dans cette société.</p>
-      }
-      @for (item of open; track item.year.public_id) {
-        <div class="year">
-          <p class="year-head">
-            <strong>{{ item.year.label }}</strong>
-            <span class="alco-caption">{{
-              dateRange(item.year.start_date, item.year.end_date)
-            }}</span>
-            <alco-badge
-              [tone]="yearStatus[item.year.status].tone"
-              [icon]="yearStatus[item.year.status].icon"
-            >
-              {{ yearStatus[item.year.status].label }}
-            </alco-badge>
-          </p>
-          @if (item.periods.length === 0) {
-            <p class="alco-caption">Aucune période définie.</p>
-          } @else {
-            <ul class="periods" role="list" [attr.aria-label]="'Périodes de ' + item.year.label">
-              @for (period of item.periods; track period.public_id) {
-                <li>
-                  <span>{{ period.label }}</span>
-                  <alco-badge
-                    [tone]="periodStatus[period.status].tone"
-                    [icon]="periodStatus[period.status].icon"
-                  >
-                    {{ periodStatus[period.status].label }}
-                  </alco-badge>
-                </li>
-              }
-            </ul>
-          }
-        </div>
-      }
-    } @else {
-      <alco-loading [rows]="4" label="Chargement des exercices…" />
-    }
-    <div alcoCardFooter class="card-footer">
-      <a [routerLink]="accounting + '/configuration/exercices'">Exercices et périodes</a>
-    </div>
-  </alco-card>
-
-  <!-- Chart of accounts: counted by the server -->
-  <alco-card title="Plan comptable" icon="book">
-    @if (chart.error(); as error) {
-      @let text = failure(error);
-      <alco-error-state
-        [inline]="true"
-        [title]="text?.title ?? ''"
-        [message]="text?.message ?? ''"
-        [code]="text?.code ?? ''"
-        retryLabel="Réessayer"
-        (retry)="chart.reload()"
-      />
-    } @else if (chart.value(); as counts) {
-      <dl class="figures figures--inline">
-        <div>
-          <dt>Comptes</dt>
-          <dd class="figure">{{ counts.all }}</dd>
-        </div>
-        <div>
-          <dt>Comptes imputables</dt>
-          <dd class="figure">{{ counts.postable }}</dd>
-        </div>
-      </dl>
-    } @else {
-      <alco-loading [rows]="1" label="Chargement du plan comptable…" />
-    }
-    <div alcoCardFooter class="card-footer">
-      <a [routerLink]="accounting + '/plan-comptable'">Ouvrir le plan comptable</a>
-    </div>
-  </alco-card>
-</div>

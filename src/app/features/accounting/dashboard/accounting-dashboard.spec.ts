@@ -144,14 +144,10 @@ describe('AccountingDashboardPage (dashboards/journals/ and dashboards/alerts/)'
     mock
       .expectOne((req) => req.url === '/api/v1/currencies/')
       .flush(page([{ code: 'GNF', name: 'Franc guinéen', decimal_places: 0, status: 'active' }]));
-    mock
-      .match((req) => req.url === '/api/v1/accounting/accounts/')
-      .forEach((req) => req.flush(page([{}], req.request.params.get('postable') ? 610 : 812)));
     await stable();
-    mock
-      .match((req) => req.url === '/api/v1/accounting/periods/')
-      .forEach((req) => req.flush(page()));
-    await stable();
+    // The fiscal years are the alerts' scope only: no period, no chart of accounts is read.
+    mock.expectNone((req) => req.url === '/api/v1/accounting/periods/');
+    mock.expectNone((req) => req.url === '/api/v1/accounting/accounts/');
     const alertCalls = mock.match((req) => req.url === '/api/v1/dashboards/alerts/');
     alertCalls.forEach((req) => req.flush(alerts as object));
     await stable();
@@ -277,7 +273,8 @@ describe('AccountingDashboardPage (dashboards/journals/ and dashboards/alerts/)'
       '/app/comptabilite/cloture',
       '/app/comptabilite/tresorerie/rapprochements',
     ]);
-    expect(element.textContent).toContain('Du 01/01/2026 au 04/10/2026 (FY2026)');
+    expect(element.textContent).toContain('Du 01/01/2026 au 04/10/2026');
+    expect(element.textContent).not.toContain('FY2026');
   });
 
   it('no open fiscal year holding today: the alerts are not asked, and it is said', async () => {
@@ -286,7 +283,9 @@ describe('AccountingDashboardPage (dashboards/journals/ and dashboards/alerts/)'
     const { alertCalls } = await answer(stable, journals([BANK]), [closedYear]);
 
     expect(alertCalls.length).toBe(0);
-    expect(element.textContent).toContain('Aucun exercice ouvert ne couvre la date du jour');
+    expect(element.textContent).toContain(
+      'Les alertes commencent avec la première écriture de l’année.',
+    );
   });
 
   it('a failing journals block says so and offers a retry; the others are shown', async () => {
@@ -294,7 +293,6 @@ describe('AccountingDashboardPage (dashboards/journals/ and dashboards/alerts/)'
     await answer(stable, 'error', [YEAR], { ...ALERTS, alerts: [], indicators: [] });
 
     expect(element.textContent).toContain('Une erreur inattendue s’est produite.');
-    expect(element.textContent).toContain('Comptes812');
     expect(element.textContent).toContain('Rien à signaler.');
   });
 });

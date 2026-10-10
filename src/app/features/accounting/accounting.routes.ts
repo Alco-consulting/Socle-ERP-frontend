@@ -9,7 +9,6 @@ import { ACCOUNT_TRANSFER } from './accounts/account-transfer';
 
 const dashboard = () =>
   import('./dashboard/accounting-dashboard').then((m) => m.AccountingDashboardPage);
-const fiscalYears = () => import('./periods/fiscal-years').then((m) => m.FiscalYearsPage);
 const ledger = () => import('../reporting/ledger/ledger-page').then((m) => m.LedgerPage);
 
 /** An aged balance (`data.aging`: the role) and one partner of it. */
@@ -187,20 +186,5 @@ export const ACCOUNTING_ROUTES: Routes = [
     path: 'analyse/grand-livre-auxiliaire',
     data: { breadcrumb: 'Grand livre auxiliaire', ledger: 'partner' },
     loadComponent: ledger,
-  },
-  {
-    path: 'configuration/exercices',
-    data: { breadcrumb: 'Exercices et périodes' },
-    children: [
-      { path: '', loadComponent: fiscalYears },
-      {
-        // A fiscal year and its monthly periods (`accounting.manage_periods`).
-        path: 'nouveau',
-        data: { breadcrumb: 'Nouvel exercice' },
-        canActivate: [permissionGuard('accounting.manage_periods')],
-        canDeactivate: [unsavedChangesGuard],
-        loadComponent: () => import('./periods/fiscal-year-form').then((m) => m.FiscalYearFormPage),
-      },
-    ],
   },
 ];

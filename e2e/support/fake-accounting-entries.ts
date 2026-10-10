@@ -768,9 +768,9 @@ export class FakeAccountingEntries {
       return { status: 400, json: error('accounting_journal_inactive', { journal: journal.code }) };
     }
     const date = (body['entry_date'] as string | undefined) ?? current?.entry_date ?? '';
-    const period = books.periods.find((item) => item.start_date <= date && date <= item.end_date);
-    if (!period) {
-      return { status: 400, json: error('accounting_period_not_found') };
+    const period = this.accounting.periodFor(books, date);
+    if (typeof period === 'string') {
+      return { status: 400, json: error(period) };
     }
     if (period.status !== 'open') {
       return { status: 400, json: error('accounting_period_closed', { period: period.code }) };
@@ -983,11 +983,9 @@ export class FakeAccountingEntries {
         }
         const books = this.accounting.books(gate.company);
         const date = body['entry_date'];
-        const period = books.periods.find(
-          (item) => item.start_date <= date && date <= item.end_date,
-        );
-        if (!period) {
-          return this.answer(route, 400, error('accounting_period_not_found'));
+        const period = this.accounting.periodFor(books, date);
+        if (typeof period === 'string') {
+          return this.answer(route, 400, error(period));
         }
         if (period.status !== 'open') {
           return this.answer(

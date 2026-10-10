@@ -10,13 +10,11 @@ import {
   AccountWrite,
   DetailedType,
   FiscalYear,
-  FiscalYearWrite,
   Journal,
   JournalQuery,
   JournalType,
   JournalWrite,
   OpenClosed,
-  Period,
   UsualJournals,
 } from './accounting-models';
 
@@ -48,45 +46,12 @@ const id = (value: string) => encodeURIComponent(value);
 export class AccountingApi {
   private readonly api = inject(ApiClient);
 
-  // ---- Fiscal years and periods (read only in this module) ---------------------------
+  // ---- Fiscal years (opened by the server from the entries' dates, never shown) -------
 
   fiscalYears(status: OpenClosed | null = null): Observable<Paginated<FiscalYear>> {
     return this.api.get<Paginated<FiscalYear>>(`${base}fiscal-years/`, {
       params: { status, page_size: REFERENCE_PAGE_SIZE },
     });
-  }
-
-  periods(fiscalYearId: string, status: OpenClosed | null = null): Observable<Paginated<Period>> {
-    return this.api.get<Paginated<Period>>(`${base}periods/`, {
-      params: { fiscal_year: fiscalYearId, status, page_size: REFERENCE_PAGE_SIZE },
-    });
-  }
-
-  /** A fiscal year and, with `monthly_periods`, one period per calendar month. */
-  createFiscalYear(year: FiscalYearWrite): Observable<FiscalYear> {
-    return this.api.post<FiscalYear>(`${base}fiscal-years/`, year);
-  }
-
-  /** The monthly periods of a fiscal year that has none yet. */
-  createMonthlyPeriods(fiscalYearId: string): Observable<readonly Period[]> {
-    return this.api.post<readonly Period[]>(
-      `${base}fiscal-years/${id(fiscalYearId)}/monthly-periods/`,
-    );
-  }
-
-  /** « Clôturer » / « Rouvrir » a period: its commands, the server decides. */
-  setPeriodOpen(periodId: string, open: boolean): Observable<Period> {
-    const command = open ? 'reopen' : 'close';
-    return this.api.post<Period>(`${base}periods/${id(periodId)}/${command}/`);
-  }
-
-  /** How many drafts are dated in a period (the `count` of the entry list). */
-  draftCount(periodId: string): Observable<number> {
-    return this.api
-      .get<Paginated<unknown>>(`${base}entries/`, {
-        params: { period: periodId, status: 'draft', page_size: 1 },
-      })
-      .pipe(map((page) => page.count));
   }
 
   // ---- Journals -----------------------------------------------------------------------
@@ -231,12 +196,5 @@ export class AccountingApi {
   setAccountActive(accountId: string, active: boolean): Observable<Account> {
     const command = active ? 'reactivate' : 'deactivate';
     return this.api.post<Account>(`${base}accounts/${id(accountId)}/${command}/`);
-  }
-
-  // ---- Counts for the dashboard (the server counts, `count` of a one-row page) ---------
-  accountCount(postable: boolean | null = null): Observable<number> {
-    return this.api
-      .get<Paginated<Account>>(`${base}accounts/`, { params: { postable, page_size: 1 } })
-      .pipe(map((page) => page.count));
   }
 }

@@ -183,7 +183,6 @@ export const APPLICATIONS: readonly AlcoApplication[] = [
         label: 'Configuration',
         children: [
           ...group('Général', [
-            { label: 'Exercices et périodes', path: 'configuration/exercices' },
             { label: 'Paramètres comptables', path: 'configuration/parametres' },
           ]),
           ...group('Comptabilité', [

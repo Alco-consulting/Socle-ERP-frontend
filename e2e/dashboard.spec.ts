@@ -162,7 +162,8 @@ test.describe('Tableau de bord comptable — journaux et alertes de l’API', ()
       watch.getByRole('link', { name: 'Lignes de relevé à rapprocher' }),
     ).toHaveAttribute('href', '/app/comptabilite/tresorerie/rapprochements');
     await expect(watch.getByRole('link', { name: 'Imports en échec' })).toHaveCount(0);
-    await expect(watch).toContainText('Du 01/01/2026 au 04/10/2026 (FY2026)');
+    await expect(watch).toContainText('Du 01/01/2026 au 04/10/2026');
+    await expect(watch).not.toContainText('FY2026');
     const alerts = api.callsTo('dashboards/alerts/');
     expect(alerts).toHaveLength(1);
     const query = new URL(alerts[0].url()).searchParams;

@@ -244,10 +244,7 @@ test('tiers: list, record, form, import', async ({ page, api }) => {
   await shoot(page, '75-phone-tiers-list');
 });
 
-test('comptabilité: dashboard, journals, chart of accounts, fiscal years', async ({
-  page,
-  api,
-}) => {
+test('comptabilité: dashboard, journals, chart of accounts', async ({ page, api }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.goto('/app/comptabilite/tableau-de-bord');
   await shoot(page, '80-accounting-dashboard', true);
@@ -260,8 +257,6 @@ test('comptabilité: dashboard, journals, chart of accounts, fiscal years', asyn
   const forty = api.accounting.books('A').accounts.find((item) => item.code === '40');
   await page.goto(`/app/comptabilite/plan-comptable/${forty?.public_id ?? ''}`);
   await shoot(page, '84-accounting-account-hierarchy', true);
-  await page.goto('/app/comptabilite/configuration/exercices');
-  await shoot(page, '85-accounting-fiscal-years', true);
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto('/app/comptabilite/tableau-de-bord');
   await shoot(page, '86-phone-accounting-dashboard', true);
@@ -436,23 +431,4 @@ test('journals as Odoo: the list, the usual journals, a journal', async ({ page,
     page.getByRole('combobox', { name: /^Compte/ }).locator('option:checked'),
   ).toHaveText('601 — Achats de marchandises');
   await shoot(page, '116-phone-journal-form', true);
-});
-
-test('fiscal years: a new one with its monthly periods, closing a period', async ({ page }) => {
-  test.setTimeout(120_000);
-  await page.setViewportSize({ width: 1440, height: 900 });
-  await page.goto('/app/comptabilite/configuration/exercices/nouveau');
-  await expect(page.locator('input[formcontrolname="code"]')).toHaveValue('2027');
-  await shoot(page, '117-fiscal-year-form', true);
-  await page.getByRole('button', { name: 'Créer l’exercice' }).click();
-  await expect(page.locator('tbody tr')).toHaveCount(12);
-  await shoot(page, '118-fiscal-years-periods', true);
-  await page.getByRole('button', { name: /Exercice 2026/ }).click();
-  await page.getByRole('button', { name: 'Clôturer Mars 2026' }).click();
-  await expect(page.getByRole('alertdialog')).toBeVisible();
-  await shoot(page, '119-period-close-dialog');
-  await page.keyboard.press('Escape');
-  await page.setViewportSize({ width: 390, height: 844 });
-  await page.goto('/app/comptabilite/configuration/exercices');
-  await shoot(page, '120-phone-fiscal-years', true);
 });

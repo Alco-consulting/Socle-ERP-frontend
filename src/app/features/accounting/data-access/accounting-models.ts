@@ -1,7 +1,8 @@
 /**
  * Accounting referential as the API gives it (backend/docs/api/openapi.yaml, `accounting`).
- * Every state here is the server's: the front end never decides that a fiscal year or a
- * period is open, a journal active or an account postable.
+ * Every state here is the server's: the front end never decides that a fiscal year is open,
+ * a journal active or an account postable. The server opens the fiscal years and their
+ * periods from the entries' dates (note backend 0035); no screen shows them.
  */
 
 export type OpenClosed = 'open' | 'closed';
@@ -10,28 +11,6 @@ export type ActiveInactive = 'active' | 'inactive';
 /** `AccountingFiscalYear`. */
 export interface FiscalYear {
   readonly public_id: string;
-  readonly code: string;
-  readonly label: string;
-  readonly start_date: string;
-  readonly end_date: string;
-  readonly status: OpenClosed;
-  readonly created_at: string;
-  readonly updated_at: string;
-}
-
-/** `AccountingFiscalYearCreateRequest`: with its monthly periods, all or nothing. */
-export interface FiscalYearWrite {
-  readonly code: string;
-  readonly label: string;
-  readonly start_date: string;
-  readonly end_date: string;
-  readonly monthly_periods: boolean;
-}
-
-/** `AccountingPeriod`. */
-export interface Period {
-  readonly public_id: string;
-  readonly fiscal_year: string;
   readonly code: string;
   readonly label: string;
   readonly start_date: string;

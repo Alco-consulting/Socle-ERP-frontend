@@ -65,23 +65,11 @@ describe('AccountingApi (accounting/, company scoped)', () => {
     request.flush(page());
   });
 
-  it('periods of one fiscal year; open fiscal years', () => {
+  it('open fiscal years', () => {
     void firstValueFrom(api.fiscalYears('open'));
     const years = expect1('fiscal-years/');
     expect(years.request.params.get('status')).toBe('open');
     years.flush(page());
-    void firstValueFrom(api.periods('fy-1'));
-    const periods = expect1('periods/');
-    expect(periods.request.params.get('fiscal_year')).toBe('fy-1');
-    periods.flush(page());
-  });
-
-  it('counts come from the server (`count` of a one-row page), nothing is counted here', async () => {
-    const postable = firstValueFrom(api.accountCount(true));
-    const accounts = expect1('accounts/');
-    expect(accounts.request.params.get('postable')).toBe('true');
-    accounts.flush(page([{}], 812));
-    expect(await postable).toBe(812);
   });
 
   it('a parent is found by its exact code, on the server', async () => {

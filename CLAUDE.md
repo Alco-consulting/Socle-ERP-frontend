@@ -20,7 +20,8 @@ Le socle parle à l'API Django : environnements, `ApiClient`, intercepteurs (ses
 sociétés accessibles, société active, permissions et lanceur viennent de l'API (plus de
 session simulée). L'application Tiers est réelle (liste, recherche, filtres, fiche,
 création, modification, désactivation, import et export contextuels). Comptabilité : tableau
-de bord, journaux, plan comptable, exercices et périodes sont réels, ainsi que les
+de bord, journaux et plan comptable sont réels (les exercices et périodes, ouverts par le
+serveur à partir de la date des écritures, n'ont pas d'écran : note backend 0035), ainsi que les
 écritures (liste, fiche, saisie des lignes, workflow par les commandes du serveur,
 contrepassation, pièces, historique, import), ainsi que le lettrage (V2.1 A4), les échéances
 et la balance âgée (V2.1 A5) ; la Trésorerie est réelle (Module 6 : comptes, opérations,
@@ -230,12 +231,12 @@ supprime ce qui ne sert plus.
   `BreadcrumbService.nameCurrent` (pas de resolver).
 - **Comptabilité, socle (Module 4)** : `features/accounting` sur `accounting/` ; tableau de
   bord : blocs indépendants (V2.1 : journaux et alertes de `dashboards/`, voir plus bas ;
-  exercices, périodes et plan comptable d'`accounting/`), aucun N+1, aucun calcul ;
-  exercice affiché = exercices `status=open` du serveur ; exercices et périodes : « Nouvel
-  exercice » (douze mois proposés, créé avec ses périodes mensuelles), « Créer les périodes
-  mensuelles » d'un exercice sans période, « Clôturer » (confirmation avec le nombre de
-  brouillons de la période) / « Rouvrir » une période (`manage_periods` ; la clôture de
-  l'exercice reste à la Clôture) ; journaux sans recherche texte (l'API n'en a pas) ;
+  pas de bloc du plan comptable), aucun N+1, aucun calcul ; exercices et périodes **ouverts
+  par le serveur** à partir de la date des écritures et **jamais affichés** (note backend
+  0035 : ni écran, ni « Nouvel exercice », ni clôture d'une période, ni exercice dans l'en-tête
+  ou sous les alertes ; l'exercice ouvert qui contient le jour sert seulement de début aux
+  alertes) ;
+  journaux sans recherche texte (l'API n'en a pas) ;
   hiérarchie des comptes par `parent` / `children/` (pas d'arbre reconstruit : aucun filtre
   « racines ») ; parent saisi par code et résolu par `?code=` ; classe saisie, jamais déduite.
 - **Import/export réels** : `features/transfers` (API `imports-exports/`, écran d'import par
@@ -460,10 +461,7 @@ supprime ce qui ne sert plus.
   e-mail quand le backend l'exposera ; fin du mode prototype (quand les modules métier
   remplaceront les données fictives).
 - Décider l'origine du frontend en production (technical-architecture.md § 12).
-- Exercice dans la barre supérieure et le lanceur (aujourd'hui sur le tableau de bord
-  comptable seulement).
-- Comptabilité : clôturer, rouvrir un exercice entier (avec la Clôture) ; « Paramètres
-  comptables » (`accounting/settings/`, lu par les écritures).
+- Comptabilité : « Paramètres comptables » (`accounting/settings/`, lu par les écritures).
 - Écritures : noms des comptes et tiers dans les lignes de la fiche (l'API ne donne que le
   code) ; saisie de la répartition analytique (module Analytique) ; remplacement et
   suppression d'une pièce (`documents/{id}/replace|delete`) ; export des écritures (absent de

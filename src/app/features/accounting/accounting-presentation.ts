@@ -7,7 +7,6 @@ import {
   DetailedType,
   ActiveInactive,
   JournalType,
-  OpenClosed,
 } from './data-access/accounting-models';
 
 /**
@@ -24,17 +23,6 @@ export interface StatusLook {
 export const RECORD_STATUS: Readonly<Record<ActiveInactive, StatusLook>> = {
   active: { label: 'Actif', tone: 'success', icon: 'check' },
   inactive: { label: 'Inactif', tone: 'neutral', icon: 'lock' },
-};
-
-/** Fiscal years (masculine) and periods (feminine). */
-export const FISCAL_YEAR_STATUS: Readonly<Record<OpenClosed, StatusLook>> = {
-  open: { label: 'Ouvert', tone: 'success', icon: 'check' },
-  closed: { label: 'Clôturé', tone: 'primary', icon: 'lock' },
-};
-
-export const PERIOD_STATUS: Readonly<Record<OpenClosed, StatusLook>> = {
-  open: { label: 'Ouverte', tone: 'success', icon: 'check' },
-  closed: { label: 'Clôturée', tone: 'primary', icon: 'lock' },
 };
 
 /** `journal_type` of the API, in Odoo's order (no « Général » nor « Autre »: note 0033). */
@@ -160,12 +148,6 @@ export function accountTypeLabel(type: AccountType): string {
   return ACCOUNT_TYPES.find((item) => item.id === type)?.label ?? type;
 }
 
-/** « 01/01/2026 → 31/12/2026 » from two ISO dates of the API (no date arithmetic). */
-export function dateRange(start: string, end: string): string {
-  const day = (iso: string) => iso.split('-').reverse().join('/');
-  return `${day(start)} → ${day(end)}`;
-}
-
 /** Errors of the accounting referential, by their stable code (backend contract.md). */
 export const ACCOUNTING_REFERENTIAL_ERRORS: ErrorCatalog = {
   accounting_account_detailed_type_mismatch: {
@@ -191,22 +173,6 @@ export const ACCOUNTING_REFERENTIAL_ERRORS: ErrorCatalog = {
   accounting_journal_code_in_use: {
     title: 'Le code court de ce journal ne peut plus changer.',
     message: 'Des écritures validées portent déjà un numéro qui commence par ce code.',
-  },
-  accounting_fiscal_year_overlap: {
-    title: 'Ces dates chevauchent un autre exercice de la société.',
-    message: 'Choisissez des dates après l’exercice précédent.',
-  },
-  accounting_fiscal_year_code_exists: {
-    title: 'Un exercice de la société porte déjà ce code.',
-    message: 'Choisissez un autre code.',
-  },
-  accounting_fiscal_year_has_periods: {
-    title: 'Cet exercice a déjà ses périodes.',
-    message: 'Rechargez la page pour les voir.',
-  },
-  accounting_period_overlap: {
-    title: 'Ces dates chevauchent une autre période.',
-    message: 'Les périodes d’un exercice ne se chevauchent pas.',
   },
   accounting_journal_template_not_found: {
     title: 'Aucun journal usuel n’est connu pour le plan comptable de la société.',

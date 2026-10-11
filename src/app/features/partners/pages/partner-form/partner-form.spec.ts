@@ -100,39 +100,48 @@ describe('PartnerFormPage (creation and modification)', () => {
 
   it('checks the obvious before sending: required fields, formats', async () => {
     const { element, stable, type, submit, field } = await open('/nouveau');
-    type('country', 'Guinée');
     type('email', 'pas-une-adresse');
     type('phone', 'appeler Mariam');
     submit();
     await stable();
     httpMock().expectNone('/api/v1/partners/');
     expect(element.textContent).toContain('Certaines informations sont manquantes ou incorrectes.');
-    expect(element.textContent).toContain('Saisissez le code pays à 2 lettres (ex. GN).');
     expect(element.textContent).toContain('Saisissez une adresse e-mail valide.');
     expect(element.textContent).toContain('Chiffres, espaces et + ( ) . - seulement.');
-    expect(field('code').getAttribute('aria-invalid')).toBe('true');
-    expect(document.activeElement).toBe(field('code'));
+    expect(field('name').getAttribute('aria-invalid')).toBe('true');
+    expect(document.activeElement).toBe(field('name'));
+  });
+
+  it('creation: no code, country, default tax nor collective account to enter', async () => {
+    const { element } = await open('/nouveau');
+    for (const name of [
+      'code',
+      'country',
+      'default_tax_code',
+      'customer_account_code',
+      'supplier_account_code',
+    ]) {
+      expect(element.querySelector(`[formControlName="${name}"]`)).toBeNull();
+    }
+    expect(element.textContent).toContain('Le code du tiers est attribué à l’enregistrement.');
   });
 
   it('creation: exactly the writable fields, trimmed; then the new record', async () => {
     const { stable, type, submit, element } = await open('/nouveau');
-    type('code', ' cli-002 ');
     type('name', ' Diallo et Cie ');
-    type('country', 'gn');
     element.querySelector<HTMLInputElement>('[formControlName="is_supplier"]')!.click();
     submit();
     await stable();
     const request = httpMock().expectOne('/api/v1/partners/');
     expect(request.request.method).toBe('POST');
+    // No code (the server numbers it) and no country (the company's).
     expect(request.request.body).toEqual({
-      code: 'cli-002',
       name: 'Diallo et Cie',
       legal_name: '',
       is_customer: false,
       is_supplier: true,
       tax_identifier: '',
       registration_number: '',
-      country: 'gn',
       address: '',
       city: '',
       phone: '',
@@ -140,11 +149,8 @@ describe('PartnerFormPage (creation and modification)', () => {
       default_currency: null,
       customer_payment_term: null,
       supplier_payment_term: null,
-      default_tax_code: '',
-      customer_account_code: '',
-      supplier_account_code: '',
     });
-    request.flush({ ...PARTNER, public_id: 'p-2', code: 'CLI-002', name: 'Diallo et Cie' });
+    request.flush({ ...PARTNER, public_id: 'p-2', code: 'FRN-00001', name: 'Diallo et Cie' });
     await stable();
     expect(navigate).toHaveBeenCalledWith(['/app/tiers/liste', 'p-2']);
     expect(TestBed.inject(AlcoToastService).toasts()[0]?.message).toBe(
@@ -154,9 +160,7 @@ describe('PartnerFormPage (creation and modification)', () => {
 
   it('a double click sends one request; the button says it is saving', async () => {
     const { stable, type, submit, element } = await open('/nouveau');
-    type('code', 'CLI-003');
     type('name', 'Test');
-    type('country', 'GN');
     submit();
     submit();
     await stable();
@@ -165,23 +169,17 @@ describe('PartnerFormPage (creation and modification)', () => {
     request.flush({ ...PARTNER, public_id: 'p-3' });
   });
 
-  it('server field errors go under their field; a used code under the code', async () => {
+  it('server field errors go under their field; a used code is said above', async () => {
     const { stable, type, submit, element, field } = await open('/nouveau');
-    type('code', 'CLI-001');
     type('name', 'Test');
-    type('country', 'GN');
     submit();
     await stable();
     httpMock()
       .expectOne('/api/v1/partners/')
       .flush(envelope('partner_code_exists'), { status: 400, statusText: 'x' });
     await stable();
-    expect(element.textContent).toContain(
-      'Ce code est déjà utilisé par un autre tiers de la société.',
-    );
-    expect(field('code').getAttribute('aria-invalid')).toBe('true');
+    expect(element.textContent).toContain('Ce code est déjà utilisé');
 
-    type('code', 'CLI-009');
     type('email', 'a@b.co');
     submit();
     await stable();

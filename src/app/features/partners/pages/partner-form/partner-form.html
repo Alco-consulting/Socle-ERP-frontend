@@ -13,7 +13,9 @@
 } @else {
   <alco-page-header
     [title]="isNew ? 'Nouveau tiers' : 'Modifier ' + (partner()?.name ?? '')"
-    [subtitle]="isNew ? 'Fiche client, fournisseur ou autre tiers' : (partner()?.code ?? '')"
+    [subtitle]="
+      isNew ? 'Le code du tiers est attribué à l’enregistrement.' : (partner()?.code ?? '')
+    "
   >
     <div alcoPageActions>
       <button alcoButton type="button" variant="ghost" (click)="cancel()">Annuler</button>
@@ -51,19 +53,11 @@
     <section class="section" aria-labelledby="general-title">
       <h2 id="general-title" class="alco-section-title">Informations générales</h2>
       <div class="alco-form-grid">
-        @if (isNew) {
-          <alco-form-field
-            label="Code"
-            [required]="true"
-            hint="Unique dans la société ; il ne pourra plus être modifié."
-          >
-            <input alcoInput formControlName="code" maxlength="32" autocomplete="off" />
-          </alco-form-field>
-        } @else {
+        @if (!isNew) {
           <div class="fixed">
             <span class="fixed-label">Code</span>
             <span class="fixed-value">{{ partner()?.code }}</span>
-            <span class="alco-caption">Fixé à la création.</span>
+            <span class="alco-caption">Attribué à la création.</span>
           </div>
         }
         <alco-form-field label="Nom" [required]="true">
@@ -77,15 +71,6 @@
           <label><input type="checkbox" formControlName="is_customer" /> Client</label>
           <label><input type="checkbox" formControlName="is_supplier" /> Fournisseur</label>
         </fieldset>
-        <alco-form-field label="Pays" [required]="true" hint="Code à 2 lettres (ex. GN)">
-          <input
-            alcoInput
-            formControlName="country"
-            maxlength="2"
-            autocomplete="country"
-            autocapitalize="characters"
-          />
-        </alco-form-field>
         <alco-form-field label="Identifiant fiscal">
           <input alcoInput formControlName="tax_identifier" maxlength="64" />
         </alco-form-field>
@@ -126,7 +111,7 @@
     </section>
 
     <details class="section more" [open]="!isNew">
-      <summary class="alco-section-title">Conditions et comptabilité</summary>
+      <summary class="alco-section-title">Devise et conditions de paiement</summary>
       <div class="alco-form-grid">
         <alco-form-field label="Devise par défaut" hint="Vide : la devise de la société">
           <select alcoSelect formControlName="default_currency">
@@ -151,15 +136,6 @@
               <option [value]="term.public_id">{{ term.code }} — {{ term.name }}</option>
             }
           </select>
-        </alco-form-field>
-        <alco-form-field label="Code de taxe par défaut">
-          <input alcoInput formControlName="default_tax_code" maxlength="32" />
-        </alco-form-field>
-        <alco-form-field label="Compte client" hint="Numéro du compte collectif (ex. 411)">
-          <input alcoInput formControlName="customer_account_code" maxlength="20" />
-        </alco-form-field>
-        <alco-form-field label="Compte fournisseur" hint="Numéro du compte collectif (ex. 401)">
-          <input alcoInput formControlName="supplier_account_code" maxlength="20" />
         </alco-form-field>
       </div>
     </details>

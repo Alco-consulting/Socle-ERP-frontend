@@ -34,7 +34,7 @@ export function roleLabel(partner: Pick<PartnerSummary, 'is_customer' | 'is_supp
 export const PARTNER_ERRORS: ErrorCatalog = {
   partner_code_exists: {
     title: 'Ce code est déjà utilisé par un autre tiers de la société.',
-    message: 'Choisissez un autre code.',
+    message: 'Enregistrez à nouveau : le serveur attribue le numéro suivant.',
   },
   currency_inactive: {
     title: 'La devise choisie est inactive.',

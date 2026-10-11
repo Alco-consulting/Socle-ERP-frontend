@@ -91,7 +91,11 @@ test.describe('Tiers — fiche, création, modification', () => {
     await page.goto('/app/tiers/liste');
     await page.getByRole('link', { name: 'Nouveau tiers' }).click();
     await expect(page).toHaveURL(/\/app\/tiers\/nouveau$/);
-    await expect(page.getByRole('textbox', { name: 'Code', exact: true })).toBeFocused();
+    // No code, country, default tax nor collective account to enter (note backend 0037).
+    await expect(page.getByRole('textbox', { name: 'Nom', exact: true })).toBeFocused();
+    for (const label of ['Code', 'Pays', 'Code de taxe par défaut', 'Compte client']) {
+      await expect(page.getByRole('textbox', { name: label, exact: true })).toHaveCount(0);
+    }
 
     await page.getByRole('button', { name: 'Enregistrer' }).click();
     await expect(
@@ -99,19 +103,18 @@ test.describe('Tiers — fiche, création, modification', () => {
     ).toBeVisible();
     expect(api.callsTo('partners/').filter((call) => call.method() === 'POST')).toHaveLength(0);
 
-    await page.getByRole('textbox', { name: 'Code', exact: true }).fill('cli-010');
     await page.getByRole('textbox', { name: 'Nom', exact: true }).fill('Kaba Distribution');
     await page.getByRole('checkbox', { name: 'Client', exact: true }).check();
-    await page.getByLabel('Pays').fill('GN');
     await page.getByLabel('Téléphone').fill('+224 620 00 00 00');
     await page.getByRole('button', { name: 'Enregistrer' }).click();
 
     await expect(page.getByText('Tiers « Kaba Distribution » créé.')).toBeVisible();
     await expect(page).toHaveURL(/\/app\/tiers\/liste\/[0-9a-f-]+$/);
     await expect(page.getByRole('heading', { level: 1 })).toHaveText('Kaba Distribution');
-    await expect(page.getByText('CLI-010 · Client')).toBeVisible();
+    // Numbered by the server after the customers already there (CLI-001 to CLI-003).
+    await expect(page.getByText('CLI-00004 · Client')).toBeVisible();
     await expect(page.getByRole('navigation', { name: 'Fil d’Ariane' })).toContainText(
-      'CLI-010 — Kaba Distribution',
+      'CLI-00004 — Kaba Distribution',
     );
     const [create] = api.callsTo('partners/').filter((call) => call.method() === 'POST');
     // Only the writable fields of the API: no identifier, no status, no company.
@@ -123,26 +126,10 @@ test.describe('Tiers — fiche, création, modification', () => {
       .getByRole('navigation', { name: 'Fil d’Ariane' })
       .getByRole('link', { name: 'Tous les tiers' })
       .click();
-    await expect(codes(page)).toContainText(['CLI-010']);
-    await page.getByRole('link', { name: 'CLI-010' }).click();
+    await expect(codes(page)).toContainText(['CLI-00004']);
+    await page.getByRole('link', { name: 'CLI-00004' }).click();
     await expect(page.getByRole('heading', { level: 1 })).toHaveText('Kaba Distribution');
     expect(await axe(page)).toEqual([]);
-  });
-
-  test('un code déjà utilisé : l’erreur du serveur sous le champ', async ({ page }) => {
-    await page.goto('/app/tiers/nouveau');
-    await page.getByRole('textbox', { name: 'Code', exact: true }).fill('CLI-001');
-    await page.getByRole('textbox', { name: 'Nom', exact: true }).fill('Doublon');
-    await page.getByLabel('Pays').fill('GN');
-    await page.getByRole('button', { name: 'Enregistrer' }).click();
-    await expect(
-      page.getByText('Ce code est déjà utilisé par un autre tiers de la société.'),
-    ).toBeVisible();
-    await expect(page.getByRole('textbox', { name: 'Code', exact: true })).toHaveAttribute(
-      'aria-invalid',
-      'true',
-    );
-    await expect(page.getByRole('textbox', { name: 'Code', exact: true })).toBeFocused();
   });
 
   test('Scénario 6 : modifier — seuls les champs changés, jamais le code', async ({
@@ -314,10 +301,10 @@ test.describe('Tiers — téléphone et accessibilité', () => {
     expect(await overflow(page)).toBeLessThanOrEqual(0);
 
     await page.goto('/app/tiers/nouveau');
-    const code = page.getByRole('textbox', { name: 'Code', exact: true });
     const name = page.getByRole('textbox', { name: 'Nom', exact: true });
-    await expect(code).toBeVisible();
-    const [first, second] = [await code.boundingBox(), await name.boundingBox()];
+    const legal = page.getByRole('textbox', { name: 'Raison sociale', exact: true });
+    await expect(name).toBeVisible();
+    const [first, second] = [await name.boundingBox(), await legal.boundingBox()];
     expect(first?.x).toBe(second?.x); // one column
     expect(await overflow(page)).toBeLessThanOrEqual(0);
     expect(await axe(page)).toEqual([]);

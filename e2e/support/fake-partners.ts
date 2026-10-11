@@ -251,16 +251,29 @@ export class FakePartners {
     return this.answer(route, 200, found);
   }
 
+  /** Without a code, the server numbers the partner by its role (note backend 0037). */
+  private nextCode(list: PartnerJson[], body: Record<string, unknown>): string {
+    const customer = body['is_customer'] === true;
+    const supplier = body['is_supplier'] === true;
+    const prefix = customer && !supplier ? 'CLI' : supplier && !customer ? 'FRN' : 'TIE';
+    const pattern = new RegExp(`^${prefix}-(\\d+)$`);
+    const numbers = list.map((item) => Number(pattern.exec(item.code)?.[1] ?? 0));
+    return `${prefix}-${String(Math.max(0, ...numbers) + 1).padStart(5, '0')}`;
+  }
+
   private async create(route: Route, list: PartnerJson[]): Promise<void> {
     const body = route.request().postDataJSON() as Record<string, unknown>;
-    const missing = ['code', 'name', 'country'].filter((name) => !String(body[name] ?? '').trim());
+    const missing = ['name'].filter((name) => !String(body[name] ?? '').trim());
     if (missing.length) {
       const details = Object.fromEntries(
         missing.map((name) => [name, [{ message: 'This field may not be blank.', code: 'blank' }]]),
       );
       return this.answer(route, 400, error('validation_error', details));
     }
-    const code = String(body['code']).trim().toUpperCase();
+    const code =
+      String(body['code'] ?? '')
+        .trim()
+        .toUpperCase() || this.nextCode(list, body);
     if (list.some((item) => item.code === code)) {
       return this.answer(route, 400, error('partner_code_exists'));
     }
@@ -270,7 +283,10 @@ export class FakePartners {
       ...Object.fromEntries(
         WRITABLE.filter((name) => name in body).map((name) => [name, body[name]]),
       ),
-      country: String(body['country']).trim().toUpperCase(),
+      // Without a country, the company's (company A is in Guinea).
+      country: String(body['country'] ?? 'GN')
+        .trim()
+        .toUpperCase(),
     });
     list.push(created);
     return this.answer(route, 201, created);

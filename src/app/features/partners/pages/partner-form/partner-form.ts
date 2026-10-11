@@ -39,16 +39,12 @@ import { PARTNER_ERRORS, PARTNER_FIELD_MESSAGES } from '../../partner-presentati
 const TEXT_FIELDS = [
   'name',
   'legal_name',
-  'country',
   'tax_identifier',
   'registration_number',
   'address',
   'city',
   'phone',
   'email',
-  'default_tax_code',
-  'customer_account_code',
-  'supplier_account_code',
 ] as const;
 
 /** References: an empty choice is sent as `null` (none). */
@@ -71,8 +67,9 @@ function text(maxLength?: number, ...more: ReturnType<typeof inputFormat>[]) {
  * Creation (`/app/tiers/nouveau`) and modification (`…/:id/modifier`) of a partner with
  * exactly the writable fields of the API. The browser only checks the obvious (required,
  * lengths, formats); the server decides and its field errors are shown under the fields.
- * A modification sends only the fields changed, never the code (fixed at creation), the
- * status (its own commands), the identifier or the company.
+ * The server gives the code and, by default, the company's country (note backend 0037): the
+ * form has neither, nor the default tax code and collective accounts. A modification sends
+ * only the fields changed, never the status (its own commands), the identifier or the company.
  */
 @Component({
   selector: 'alco-partner-form',
@@ -104,10 +101,6 @@ export class PartnerFormPage {
   protected readonly isNew = this.id === null;
 
   protected readonly form = new FormGroup({
-    code: new FormControl('', {
-      nonNullable: true,
-      validators: this.isNew ? [Validators.required, Validators.maxLength(32)] : [],
-    }),
     name: new FormControl('', {
       nonNullable: true,
       validators: [Validators.required, Validators.maxLength(255)],
@@ -115,13 +108,6 @@ export class PartnerFormPage {
     legal_name: text(255),
     is_customer: new FormControl(false, { nonNullable: true }),
     is_supplier: new FormControl(false, { nonNullable: true }),
-    country: new FormControl('', {
-      nonNullable: true,
-      validators: [
-        Validators.required,
-        inputFormat(/^[A-Za-z]{2}$/, 'Saisissez le code pays à 2 lettres (ex. GN).'),
-      ],
-    }),
     tax_identifier: text(64),
     registration_number: text(64),
     address: text(),
@@ -131,9 +117,6 @@ export class PartnerFormPage {
     default_currency: text(),
     customer_payment_term: text(),
     supplier_payment_term: text(),
-    default_tax_code: text(32),
-    customer_account_code: text(20),
-    supplier_account_code: text(20),
   });
 
   /** Edition: the record being changed (its code is shown, never sent). */
@@ -183,7 +166,7 @@ export class PartnerFormPage {
         error: (failure: unknown) => this.loadError.set(toUserError(failure, PARTNER_ERRORS)),
       });
     } else {
-      afterNextRender(() => this.focus('code'), { injector: this.injector });
+      afterNextRender(() => this.focus('name'), { injector: this.injector });
     }
   }
 
@@ -237,7 +220,6 @@ export class PartnerFormPage {
   private creation(): PartnerWrite {
     const value = this.form.getRawValue();
     const write: Record<string, unknown> = {
-      code: value.code.trim(),
       is_customer: value.is_customer,
       is_supplier: value.is_supplier,
     };
@@ -255,7 +237,7 @@ export class PartnerFormPage {
     const creation = this.creation() as unknown as Record<string, unknown>;
     const changes: Record<string, unknown> = {};
     for (const [name, control] of Object.entries(this.form.controls)) {
-      if (name !== 'code' && control.dirty) {
+      if (control.dirty) {
         changes[name] = creation[name];
       }
     }
@@ -266,7 +248,6 @@ export class PartnerFormPage {
     this.partner.set(partner);
     this.breadcrumbs.nameCurrent(`${partner.code} — ${partner.name}`, 1);
     const values: Record<string, unknown> = {
-      code: partner.code,
       is_customer: partner.is_customer,
       is_supplier: partner.is_supplier,
       default_currency: partner.default_currency ?? '',

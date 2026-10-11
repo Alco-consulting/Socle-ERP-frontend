@@ -51,15 +51,16 @@ export interface Partner extends PartnerSummary {
  * `PartnersPartnerWriteRequest`: exactly the writable fields (never `public_id`, `status`,
  * `company` nor dates). `accounting_settings` is left out: no screen edits it yet.
  */
+/** The server gives the code and, without one, the company's country (note backend 0037). */
 export interface PartnerWrite {
-  readonly code: string;
+  readonly code?: string;
   readonly name: string;
   readonly legal_name: string;
   readonly is_customer: boolean;
   readonly is_supplier: boolean;
   readonly tax_identifier: string;
   readonly registration_number: string;
-  readonly country: string;
+  readonly country?: string;
   readonly address: string;
   readonly city: string;
   readonly phone: string;
@@ -67,9 +68,9 @@ export interface PartnerWrite {
   readonly default_currency: string | null;
   readonly customer_payment_term: string | null;
   readonly supplier_payment_term: string | null;
-  readonly default_tax_code: string;
-  readonly customer_account_code: string;
-  readonly supplier_account_code: string;
+  readonly default_tax_code?: string;
+  readonly customer_account_code?: string;
+  readonly supplier_account_code?: string;
 }
 
 /** The code is never changed after creation (the API ignores it in a PATCH). */

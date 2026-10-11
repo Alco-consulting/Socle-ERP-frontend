@@ -176,18 +176,25 @@
           <dt>Conditions de paiement fournisseur</dt>
           <dd>{{ termLabel(partner.supplier_payment_term) }}</dd>
         </div>
-        <div>
-          <dt>Code de taxe par défaut</dt>
-          <dd>{{ partner.default_tax_code || '—' }}</dd>
-        </div>
-        <div>
-          <dt>Compte client</dt>
-          <dd>{{ partner.customer_account_code || '—' }}</dd>
-        </div>
-        <div>
-          <dt>Compte fournisseur</dt>
-          <dd>{{ partner.supplier_account_code || '—' }}</dd>
-        </div>
+        <!-- No longer entered (note backend 0037): shown only when a record holds one. -->
+        @if (partner.default_tax_code) {
+          <div>
+            <dt>Code de taxe par défaut</dt>
+            <dd>{{ partner.default_tax_code }}</dd>
+          </div>
+        }
+        @if (partner.customer_account_code) {
+          <div>
+            <dt>Compte client</dt>
+            <dd>{{ partner.customer_account_code }}</dd>
+          </div>
+        }
+        @if (partner.supplier_account_code) {
+          <div>
+            <dt>Compte fournisseur</dt>
+            <dd>{{ partner.supplier_account_code }}</dd>
+          </div>
+        }
       </dl>
     </section>
 

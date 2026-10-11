@@ -86,7 +86,7 @@ const MONTHS = ['Janvier', 'Février', 'Mars', 'Avril', 'Mai', 'Juin'];
 function year(code: string, status: 'open' | 'closed'): FiscalYearJson {
   return {
     public_id: uuid(),
-    code: `FY${code}`,
+    code,
     label: `Exercice ${code}`,
     start_date: `${code}-01-01`,
     end_date: `${code}-12-31`,

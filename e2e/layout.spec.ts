@@ -14,6 +14,7 @@ const SCREENS = [
   { name: 'Import d’écritures', url: '/app/comptabilite/ecritures/import' },
   { name: 'Taxes', url: '/app/comptabilite/taxes/liste' },
   { name: 'Nouvelle taxe', url: '/app/comptabilite/taxes/liste/nouveau' },
+  { name: 'Clôture', url: '/app/comptabilite/cloture' },
   { name: 'Tiers', url: '/app/tiers/liste' },
   { name: 'Catalogue', url: '/design-system' },
 ];
@@ -92,6 +93,18 @@ test.describe('Règles de mise en page', () => {
       .getByRole('menuitemradio', { name: 'Paramètres comptables' })
       .click();
     await expect(page).toHaveURL(/\/app\/comptabilite\/configuration\/parametres$/);
+  });
+
+  test('a closing: its steps and actions fit every width', async ({ page, api }) => {
+    const year = api.accounting.books('A').years.find((item) => item.status === 'open')!;
+    const run = api.closing.open('A', year.public_id, year.code);
+    await page.goto(`/app/comptabilite/cloture/${run.public_id}`);
+    await expect(page.locator('.step')).toHaveCount(10);
+    await expect(page.locator('.step-action')).toBeVisible();
+    const overflow = await page.evaluate(
+      () => document.documentElement.scrollWidth - document.documentElement.clientWidth,
+    );
+    expect(overflow).toBeLessThanOrEqual(0);
   });
 
   test('the dashboard cards: counters reachable at every width', async ({ page }) => {

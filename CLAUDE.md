@@ -25,7 +25,9 @@ serveur à partir de la date des écritures, n'ont pas d'écran : note backend 0
 écritures (liste, fiche, saisie des lignes, workflow par les commandes du serveur,
 contrepassation, pièces, historique, import), ainsi que le lettrage (V2.1 A4), les échéances
 et la balance âgée (V2.1 A5) ; la Trésorerie est réelle (Module 6 : comptes, opérations,
-virements, relevés et leur import ; rapprochement bancaire V2.1 A6). Les autres domaines de Comptabilité restent des écrans prévus.
+virements, relevés et leur import ; rapprochement bancaire V2.1 A6), ainsi que la Clôture
+(note backend 0036 : clôture d'un exercice avec toutes ses périodes, réouverture de l'exercice
+seul, puis d'une période à la fois). Les autres domaines de Comptabilité restent des écrans prévus.
 Architecture technique : `../docs/frontend/technical-architecture.md`. Prochaine étape : les
 modules métier un par un (chacun remplace ses écrans de démonstration).
 
@@ -239,6 +241,18 @@ supprime ce qui ne sert plus.
   journaux sans recherche texte (l'API n'en a pas) ;
   hiérarchie des comptes par `parent` / `children/` (pas d'arbre reconstruit : aucun filtre
   « racines ») ; parent saisi par code et résolu par `?code=` ; classe saisie, jamais déduite.
+- **Clôture** : `features/closing` sur `closing/runs/` (Comptabilité › Clôture,
+  `closing.read`). Liste : exercices ouverts (« Démarrer la clôture », `closing.start`, ou la
+  clôture en cours) et clôtures de la société. Fiche : les dix étapes du serveur, dans
+  l'ordre, avec les points de leur dernière tentative ; seuls les bloquants et les « À
+  vérifier » sont montrés, nommés par leur `code`. Seule l'étape en cours a son bouton :
+  « Exécuter », « Réessayer », « Valider la clôture » (`closing.validate`) ou « Clôturer
+  l'exercice » (`closing.close`, après une confirmation qui dit que l'exercice et toutes ses
+  périodes seront clôturés). Viennent ensuite les périodes du périmètre (`<id>/periods/`) et
+  l'historique des réouvertures. « Abandonner » et « Rouvrir l'exercice » demandent un motif ;
+  la réouverture laisse les périodes clôturées. Chaque période se rouvre ensuite par
+  « Rouvrir » (`<id>/periods/<période>/reopen/`, motif). Pas encore d'options d'étape : pièces
+  d'ajustement, journal et compte du résultat de l'ouverture.
 - **Import/export réels** : `features/transfers` (API `imports-exports/`, écran d'import par
   étapes, « Actions ▾ » `AlcoDomainTransfers`). Un domaine décrit les siens
   (`ContextualTransfer`) ; aucun écran générique. Écritures : import `accounting.entries`

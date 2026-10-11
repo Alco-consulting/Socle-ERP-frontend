@@ -432,3 +432,55 @@ test('journals as Odoo: the list, the usual journals, a journal', async ({ page,
   ).toHaveText('601 — Achats de marchandises');
   await shoot(page, '116-phone-journal-form', true);
 });
+
+/** A clean page to shoot: no notification left, scrolled to the top. */
+async function tidy(page: Page): Promise<void> {
+  const close = page.getByRole('button', { name: 'Fermer la notification' });
+  while ((await close.count()) > 0) {
+    await close.first().click();
+  }
+  await page.evaluate(() => window.scrollTo(0, 0));
+}
+
+test('closing: a fiscal year with all its periods, reopened alone, then a period', async ({
+  page,
+  api,
+}) => {
+  test.setTimeout(180_000);
+  api.closing.blockingOnce = 'pre_close_checks';
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto('/app/comptabilite/cloture');
+  await expect(page.getByText('Aucune clôture pour l’instant.')).toBeVisible();
+  await shoot(page, '117-closing-list', true);
+  await page.getByRole('button', { name: 'Démarrer la clôture de Exercice 2026' }).click();
+  await page.locator('.step-action').click();
+  await expect(page.locator('.step').first()).toContainText('Écritures non validées');
+  await tidy(page);
+  await shoot(page, '118-closing-run-blocked', true);
+  await page.locator('.step-action').click();
+  for (let index = 1; index < 8; index += 1) {
+    await expect(page.locator('.step').nth(index - 1)).toContainText('Réussie');
+    await page.locator('.step-action').click();
+  }
+  await page.locator('.step-action', { hasText: 'Clôturer l’exercice' }).click();
+  await expect(page.getByRole('alertdialog')).toBeVisible();
+  await shoot(page, '119-closing-close-dialog');
+  await page.getByRole('alertdialog').getByRole('button', { name: 'Clôturer l’exercice' }).click();
+  await expect(page.locator('.step').nth(8)).toContainText('Réussie');
+  await page.locator('.step-action').click();
+  await expect(page.locator('alco-page-header')).toContainText('Terminée');
+  await page.getByRole('button', { name: 'Rouvrir l’exercice' }).click();
+  await page.getByRole('dialog').getByLabel('Motif').fill('Écriture d’audit');
+  await page.getByRole('dialog').getByRole('button', { name: 'Rouvrir l’exercice' }).click();
+  await page.getByRole('button', { name: 'Rouvrir Mars 2026' }).click();
+  await page.getByRole('dialog').getByLabel('Motif').fill('Facture tardive de mars');
+  await page.getByRole('dialog').getByRole('button', { name: 'Rouvrir la période' }).click();
+  await expect(page.getByText('Période Mars 2026 rouverte.')).toBeVisible();
+  await tidy(page);
+  await shoot(page, '120-closing-reopened', true);
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.reload();
+  await expect(page.locator('.step')).toHaveCount(10);
+  await tidy(page);
+  await shoot(page, '121-phone-closing-run', true);
+});

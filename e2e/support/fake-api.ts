@@ -3,6 +3,7 @@ import { Page, Request, test as base } from '@playwright/test';
 import { FakeAccountImport } from './fake-account-import';
 import { FakeAccounting } from './fake-accounting';
 import { FakeAccountingEntries } from './fake-accounting-entries';
+import { FakeClosing } from './fake-closing';
 import { FakeCurrencies } from './fake-currencies';
 import { FakeDashboards } from './fake-dashboards';
 import { FakeDues } from './fake-dues';
@@ -119,6 +120,12 @@ const WRITE = [
   'imports_exports.export',
   'documents.upload',
   'documents.download',
+  // Closing (note backend 0036): granted explicitly, never implied.
+  'closing.start',
+  'closing.execute',
+  'closing.validate',
+  'closing.close',
+  'closing.reopen',
 ];
 
 /** Permissions of a membership, per profile (backend codes). */
@@ -194,6 +201,8 @@ export class FakeApi {
   readonly accountImport: FakeAccountImport;
   /** The shared currency catalogue and each company's exchange rates. */
   readonly currencies: FakeCurrencies;
+  /** Closing: a fiscal year's closing, its steps, its reopenings (note backend 0036). */
+  readonly closing: FakeClosing;
 
   constructor(private readonly page: Page) {
     const context: PartnersContext = {
@@ -222,6 +231,7 @@ export class FakeApi {
     this.treasury = new FakeTreasury(context, this.lettering);
     this.accountImport = new FakeAccountImport(context, this.accounting);
     this.currencies = new FakeCurrencies(context, () => this.globalPermissions);
+    this.closing = new FakeClosing(context, this.accounting);
   }
 
   /** No session open at start (the login screen). */
@@ -303,6 +313,7 @@ export class FakeApi {
     await this.dues.install();
     await this.treasury.install();
     await this.accountImport.install();
+    await this.closing.install();
     await page.route('**/api/v1/auth/me/', (route) => {
       this.calls.push(route.request());
       if (this.down) {

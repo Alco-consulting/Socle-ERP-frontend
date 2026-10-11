@@ -1,0 +1,155 @@
+@if (run.status() === 'forbidden') {
+  <alco-page-header title="Clôture" />
+  <alco-error-state
+    title="Vous n’avez pas accès aux clôtures de cette société."
+    message="Demandez l’accès à un administrateur de la société si vous en avez besoin."
+  />
+} @else if (loadError(); as failure) {
+  <alco-page-header title="Clôture" />
+  <alco-error-state
+    [title]="failure.title"
+    [message]="failure.message"
+    [code]="failure.code"
+    [correlationId]="failure.correlationId ?? ''"
+    retryLabel="Réessayer"
+    (retry)="retry()"
+  />
+} @else if (run.value(); as current) {
+  <alco-page-header [title]="'Clôture — ' + subject()">
+    @let look = runStatus[current.status];
+    <alco-badge alcoPageStatus [tone]="look.tone" [icon]="look.icon">{{ look.label }}</alco-badge>
+    <div alcoPageActions>
+      @if (canCancel()) {
+        <button
+          alcoButton
+          type="button"
+          variant="ghost"
+          [loading]="busy() === 'cancel'"
+          loadingLabel="Abandon…"
+          (click)="cancel()"
+        >
+          Abandonner
+        </button>
+      }
+      @if (canReopen()) {
+        <button
+          alcoButton
+          type="button"
+          [loading]="busy() === 'reopen'"
+          loadingLabel="Réouverture…"
+          (click)="reopen()"
+        >
+          {{ isYear() ? 'Rouvrir l’exercice' : 'Rouvrir la période' }}
+        </button>
+      }
+    </div>
+  </alco-page-header>
+
+  <alco-card title="Étapes" icon="check-circle">
+    @if (steps.value(); as list) {
+      <ol class="steps" aria-label="Étapes de la clôture">
+        @for (step of list; track step.code) {
+          @let state = stepStatus[step.status];
+          @let points = attention(step);
+          <li class="step" [class.step--current]="step.code === current.current_step">
+            <div class="step-head">
+              <span class="step-number" aria-hidden="true">{{ step.sequence }}</span>
+              <span class="step-label">{{ stepLabels[step.code] }}</span>
+              <alco-badge [tone]="state.tone" [icon]="state.icon">{{ state.label }}</alco-badge>
+              @if (runnable(step)) {
+                <button
+                  alcoButton
+                  type="button"
+                  class="step-action"
+                  size="sm"
+                  [variant]="step.code === 'close' ? 'primary' : 'secondary'"
+                  [loading]="busy() === step.code"
+                  loadingLabel="En cours…"
+                  (click)="execute(step)"
+                >
+                  {{ actionLabel(step) }}
+                </button>
+              }
+            </div>
+            @if (points.length > 0) {
+              <ul class="checks" [attr.aria-label]="'Points de l’étape ' + stepLabels[step.code]">
+                @for (point of points; track $index) {
+                  @let level = levelLook(point);
+                  <li>
+                    <alco-badge [tone]="level.tone" [icon]="level.icon">{{
+                      level.label
+                    }}</alco-badge>
+                    <span>{{ checkLabel(point.code) }}</span>
+                  </li>
+                }
+              </ul>
+            }
+          </li>
+        }
+      </ol>
+    } @else {
+      <alco-loading [rows]="5" label="Chargement des étapes…" />
+    }
+  </alco-card>
+
+  @if (periods.value(); as rows) {
+    @if (rows.length > 0) {
+      <alco-card [title]="isYear() ? 'Périodes de l’exercice' : 'Période'" [flush]="true">
+        @if (reopened() && isYear()) {
+          <p class="note alco-caption">
+            L’exercice est rouvert ; ses périodes restent clôturées. Rouvrez celles qui doivent
+            recevoir des écritures.
+          </p>
+        }
+        <alco-table
+          [caption]="'Périodes — ' + subject()"
+          [columns]="periodColumns()"
+          [rows]="rows"
+          [rowId]="periodId"
+        >
+          <ng-template alcoCell="dates" let-period>
+            {{ dateRange(period.start_date, period.end_date) }}
+          </ng-template>
+          <ng-template alcoCell="status" let-period>
+            @let periodLook = periodLookOf(period);
+            <alco-badge [tone]="periodLook.tone" [icon]="periodLook.icon">{{
+              periodLook.label
+            }}</alco-badge>
+          </ng-template>
+          <ng-template alcoCell="actions" let-period>
+            @if (canReopenPeriod(period)) {
+              <button
+                alcoButton
+                type="button"
+                variant="ghost"
+                size="sm"
+                [loading]="busy() === period.public_id"
+                loadingLabel="Réouverture…"
+                [attr.aria-label]="'Rouvrir ' + period.label"
+                (click)="reopenPeriod(period)"
+              >
+                Rouvrir
+              </button>
+            }
+          </ng-template>
+        </alco-table>
+      </alco-card>
+    }
+  }
+
+  @if (current.reopenings.length > 0) {
+    <alco-card title="Réouvertures" icon="refresh">
+      <ul class="reopenings" role="list">
+        @for (item of current.reopenings; track item.public_id) {
+          <li>
+            <span class="reopening-what">{{ reopeningText(item) }}</span>
+            <span class="alco-caption">{{ item.created_at | date: 'dd/MM/yyyy HH:mm' }}</span>
+            <span class="reopening-reason">Motif : {{ item.reason }}</span>
+          </li>
+        }
+      </ul>
+    </alco-card>
+  }
+} @else {
+  <alco-loading variant="cards" [rows]="2" label="Chargement de la clôture…" />
+}

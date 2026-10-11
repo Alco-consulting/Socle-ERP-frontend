@@ -1,0 +1,80 @@
+<alco-page-header
+  title="Clôture"
+  subtitle="Un exercice se clôture avec toutes ses périodes, après ses contrôles."
+/>
+
+@if (years.value(); as open) {
+  @if (open.length > 0) {
+    <alco-card title="Exercices ouverts" icon="calendar">
+      <ul class="years" role="list">
+        @for (year of open; track year.public_id) {
+          @let live = liveRun(year);
+          <li class="year">
+            <span class="year-label">{{ year.label }}</span>
+            <span class="alco-caption">{{ dateRange(year.start_date, year.end_date) }}</span>
+            @if (live) {
+              <a class="year-action" [routerLink]="live.public_id">Voir la clôture en cours</a>
+            } @else if (canStart()) {
+              <button
+                alcoButton
+                type="button"
+                class="year-action"
+                size="sm"
+                [loading]="starting() === year.public_id"
+                loadingLabel="Démarrage…"
+                [attr.aria-label]="'Démarrer la clôture de ' + year.label"
+                (click)="start(year)"
+              >
+                Démarrer la clôture
+              </button>
+            }
+          </li>
+        }
+      </ul>
+    </alco-card>
+  }
+}
+
+@if (runs.status() === 'forbidden') {
+  <alco-error-state
+    title="Vous n’avez pas accès aux clôtures de cette société."
+    message="Demandez l’accès à un administrateur de la société si vous en avez besoin."
+  />
+} @else if (loadError(); as failure) {
+  <alco-error-state
+    [title]="failure.title"
+    [message]="failure.message"
+    [code]="failure.code"
+    [correlationId]="failure.correlationId ?? ''"
+    retryLabel="Réessayer"
+    (retry)="runs.reload()"
+  />
+} @else if (runs.value(); as rows) {
+  @if (rows.length === 0) {
+    <div class="empty-frame">
+      <alco-empty-state
+        icon="lock"
+        title="Aucune clôture pour l’instant."
+        message="Démarrez la clôture d’un exercice ouvert : ses étapes se suivent, jusqu’à la clôture de l’exercice et de ses périodes."
+      />
+    </div>
+  } @else {
+    <alco-table caption="Clôtures de la société" [columns]="columns" [rows]="rows" [rowId]="runId">
+      <ng-template alcoCell="subject" let-run>
+        <a [routerLink]="run.public_id">{{ subject(run) }}</a>
+      </ng-template>
+      <ng-template alcoCell="status" let-run>
+        @let look = statusLook(run);
+        <alco-badge [tone]="look.tone" [icon]="look.icon">{{ look.label }}</alco-badge>
+      </ng-template>
+      <ng-template alcoCell="step" let-run>
+        {{ stepLabel(run) }}
+      </ng-template>
+      <ng-template alcoCell="created_at" let-run>
+        {{ run.created_at | date: 'dd/MM/yyyy' }}
+      </ng-template>
+    </alco-table>
+  }
+} @else {
+  <alco-loading variant="table" [rows]="4" [columns]="4" label="Chargement des clôtures…" />
+}

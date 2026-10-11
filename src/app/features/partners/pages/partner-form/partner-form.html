@@ -71,6 +71,34 @@
           <label><input type="checkbox" formControlName="is_customer" /> Client</label>
           <label><input type="checkbox" formControlName="is_supplier" /> Fournisseur</label>
         </fieldset>
+        @if (form.controls.is_customer.value) {
+          <alco-form-field
+            label="Compte client"
+            [required]="true"
+            hint="Un compte client du plan comptable"
+          >
+            <select alcoSelect formControlName="customer_account_code">
+              <option value="">Choisir un compte</option>
+              @for (account of accountOptions('customer'); track account.code) {
+                <option [value]="account.code">{{ account.label }}</option>
+              }
+            </select>
+          </alco-form-field>
+        }
+        @if (form.controls.is_supplier.value) {
+          <alco-form-field
+            label="Compte fournisseur"
+            [required]="true"
+            hint="Un compte fournisseur du plan comptable"
+          >
+            <select alcoSelect formControlName="supplier_account_code">
+              <option value="">Choisir un compte</option>
+              @for (account of accountOptions('supplier'); track account.code) {
+                <option [value]="account.code">{{ account.label }}</option>
+              }
+            </select>
+          </alco-form-field>
+        }
         <alco-form-field label="Identifiant fiscal">
           <input alcoInput formControlName="tax_identifier" maxlength="64" />
         </alco-form-field>

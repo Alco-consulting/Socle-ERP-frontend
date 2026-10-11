@@ -224,10 +224,16 @@ export function seedAccounting(): Record<string, Books> {
   const chartA = chart([
     ['4', 'Comptes de tiers', 'liability', null, { allow_entries: false }],
     ['40', 'Fournisseurs et comptes rattachés', 'liability', '4', { allow_entries: false }],
-    ['401', 'Fournisseurs', 'liability', '40', { letterable: true }],
+    [
+      '401',
+      'Fournisseurs',
+      'liability',
+      '40',
+      { letterable: true, detailed_type: 'liability_payable' },
+    ],
     ['404', 'Fournisseurs d’immobilisations', 'liability', '40'],
     ['41', 'Clients et comptes rattachés', 'asset', '4', { allow_entries: false }],
-    ['411', 'Clients', 'asset', '41', { letterable: true }],
+    ['411', 'Clients', 'asset', '41', { letterable: true, detailed_type: 'asset_receivable' }],
     ['6', 'Comptes de charges', 'expense', null, { allow_entries: false }],
     ['60', 'Achats', 'expense', '6', { allow_entries: false }],
     ['601', 'Achats de marchandises', 'expense', '60'],

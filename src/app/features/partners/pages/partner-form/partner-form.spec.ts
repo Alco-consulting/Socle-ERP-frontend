@@ -34,7 +34,7 @@ const PARTNER: Partner = {
   customer_payment_term: null,
   supplier_payment_term: null,
   default_tax_code: '',
-  customer_account_code: '',
+  customer_account_code: '411100',
   supplier_account_code: '',
   created_at: '2026-09-01T10:00:00Z',
   updated_at: '2026-09-01T10:00:00Z',
@@ -73,6 +73,19 @@ describe('PartnerFormPage (creation and modification)', () => {
     httpMock()
       .expectOne((req) => req.url === '/api/v1/partners/payment-terms/')
       .flush(EMPTY);
+    // The collective accounts offered: receivable for a customer, payable for a supplier.
+    for (const request of httpMock().match((req) => req.url === '/api/v1/accounting/accounts/')) {
+      const receivable = request.request.params.get('detailed_type') === 'asset_receivable';
+      request.flush({
+        ...EMPTY,
+        count: 1,
+        results: [
+          receivable
+            ? { public_id: 'a-411', code: '411100', name: 'Clients' }
+            : { public_id: 'a-401', code: '401100', name: 'Fournisseurs' },
+        ],
+      });
+    }
     navigate = vi.spyOn(TestBed.inject(Router), 'navigate').mockResolvedValue(true);
     const element = harness.routeNativeElement as HTMLElement;
     // The save is an async method: its promises settle first, then the view.
@@ -112,24 +125,48 @@ describe('PartnerFormPage (creation and modification)', () => {
     expect(document.activeElement).toBe(field('name'));
   });
 
-  it('creation: no code, country, default tax nor collective account to enter', async () => {
-    const { element } = await open('/nouveau');
-    for (const name of [
-      'code',
-      'country',
-      'default_tax_code',
-      'customer_account_code',
-      'supplier_account_code',
-    ]) {
+  it('creation: no code, country nor default tax; each role asks its account', async () => {
+    const { element, stable, submit } = await open('/nouveau');
+    for (const name of ['code', 'country', 'default_tax_code']) {
       expect(element.querySelector(`[formControlName="${name}"]`)).toBeNull();
     }
     expect(element.textContent).toContain('Le code du tiers est attribué à l’enregistrement.');
+    const select = (name: string) =>
+      element.querySelector<HTMLSelectElement>(`select[formControlName="${name}"]`);
+    const options = (name: string) =>
+      Array.from(select(name)?.options ?? []).map((option) => option.textContent?.trim());
+    expect(select('customer_account_code')).toBeNull();
+    expect(select('supplier_account_code')).toBeNull();
+
+    element.querySelector<HTMLInputElement>('[formControlName="is_customer"]')!.click();
+    element.querySelector<HTMLInputElement>('[formControlName="is_supplier"]')!.click();
+    await stable();
+    expect(options('customer_account_code')).toEqual(['Choisir un compte', '411100 — Clients']);
+    expect(options('supplier_account_code')).toEqual([
+      'Choisir un compte',
+      '401100 — Fournisseurs',
+    ]);
+    // Required: nothing is sent without them.
+    const name = element.querySelector<HTMLInputElement>('[formControlName="name"]')!;
+    name.value = 'Mixte';
+    name.dispatchEvent(new Event('input'));
+    submit();
+    await stable();
+    httpMock().expectNone('/api/v1/partners/');
+    expect(select('customer_account_code')!.getAttribute('aria-invalid')).toBe('true');
+    expect(select('supplier_account_code')!.getAttribute('aria-invalid')).toBe('true');
   });
 
   it('creation: exactly the writable fields, trimmed; then the new record', async () => {
     const { stable, type, submit, element } = await open('/nouveau');
     type('name', ' Diallo et Cie ');
     element.querySelector<HTMLInputElement>('[formControlName="is_supplier"]')!.click();
+    await stable();
+    const payable = element.querySelector<HTMLSelectElement>(
+      '[formControlName="supplier_account_code"]',
+    )!;
+    payable.value = '401100';
+    payable.dispatchEvent(new Event('change'));
     submit();
     await stable();
     const request = httpMock().expectOne('/api/v1/partners/');
@@ -149,6 +186,8 @@ describe('PartnerFormPage (creation and modification)', () => {
       default_currency: null,
       customer_payment_term: null,
       supplier_payment_term: null,
+      customer_account_code: '',
+      supplier_account_code: '401100',
     });
     request.flush({ ...PARTNER, public_id: 'p-2', code: 'FRN-00001', name: 'Diallo et Cie' });
     await stable();

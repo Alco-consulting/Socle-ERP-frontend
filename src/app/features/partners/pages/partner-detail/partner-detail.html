@@ -183,16 +183,16 @@
             <dd>{{ partner.default_tax_code }}</dd>
           </div>
         }
-        @if (partner.customer_account_code) {
+        @if (partner.is_customer || partner.customer_account_code) {
           <div>
             <dt>Compte client</dt>
-            <dd>{{ partner.customer_account_code }}</dd>
+            <dd>{{ partner.customer_account_code || '—' }}</dd>
           </div>
         }
-        @if (partner.supplier_account_code) {
+        @if (partner.is_supplier || partner.supplier_account_code) {
           <div>
             <dt>Compte fournisseur</dt>
-            <dd>{{ partner.supplier_account_code }}</dd>
+            <dd>{{ partner.supplier_account_code || '—' }}</dd>
           </div>
         }
       </dl>

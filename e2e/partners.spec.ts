@@ -93,7 +93,7 @@ test.describe('Tiers — fiche, création, modification', () => {
     await expect(page).toHaveURL(/\/app\/tiers\/nouveau$/);
     // No code, country, default tax nor collective account to enter (note backend 0037).
     await expect(page.getByRole('textbox', { name: 'Nom', exact: true })).toBeFocused();
-    for (const label of ['Code', 'Pays', 'Code de taxe par défaut', 'Compte client']) {
+    for (const label of ['Code', 'Pays', 'Code de taxe par défaut']) {
       await expect(page.getByRole('textbox', { name: label, exact: true })).toHaveCount(0);
     }
 
@@ -106,6 +106,13 @@ test.describe('Tiers — fiche, création, modification', () => {
     await page.getByRole('textbox', { name: 'Nom', exact: true }).fill('Kaba Distribution');
     await page.getByRole('checkbox', { name: 'Client', exact: true }).check();
     await page.getByLabel('Téléphone').fill('+224 620 00 00 00');
+    // A customer needs its account, chosen among the chart's customer accounts.
+    await page.getByRole('button', { name: 'Enregistrer' }).click();
+    await expect(page.getByRole('combobox', { name: /^Compte client/ })).toHaveAttribute(
+      'aria-invalid',
+      'true',
+    );
+    await page.getByRole('combobox', { name: /^Compte client/ }).selectOption('411');
     await page.getByRole('button', { name: 'Enregistrer' }).click();
 
     await expect(page.getByText('Tiers « Kaba Distribution » créé.')).toBeVisible();
@@ -113,6 +120,7 @@ test.describe('Tiers — fiche, création, modification', () => {
     await expect(page.getByRole('heading', { level: 1 })).toHaveText('Kaba Distribution');
     // Numbered by the server after the customers already there (CLI-001 to CLI-003).
     await expect(page.getByText('CLI-00004 · Client')).toBeVisible();
+    await expect(page.getByRole('definition').filter({ hasText: /^411$/ })).toBeVisible();
     await expect(page.getByRole('navigation', { name: 'Fil d’Ariane' })).toContainText(
       'CLI-00004 — Kaba Distribution',
     );

@@ -8,6 +8,7 @@ import {
   inject,
   signal,
 } from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormControl, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { catchError, firstValueFrom, map, of } from 'rxjs';
@@ -33,6 +34,13 @@ import {
   PaymentTerm,
 } from '../../data-access/partner-models';
 import { PartnersApi } from '../../data-access/partners-api';
+import { AccountingApi } from '../../../accounting/data-access/accounting-api';
+import { Account } from '../../../accounting/data-access/accounting-models';
+
+interface AccountOption {
+  readonly code: string;
+  readonly label: string;
+}
 import { PARTNER_ERRORS, PARTNER_FIELD_MESSAGES } from '../../partner-presentation';
 
 /** Text fields of the API (`PartnersPartnerWriteRequest`), in the order of the form. */
@@ -45,6 +53,8 @@ const TEXT_FIELDS = [
   'city',
   'phone',
   'email',
+  'customer_account_code',
+  'supplier_account_code',
 ] as const;
 
 /** References: an empty choice is sent as `null` (none). */
@@ -68,8 +78,10 @@ function text(maxLength?: number, ...more: ReturnType<typeof inputFormat>[]) {
  * exactly the writable fields of the API. The browser only checks the obvious (required,
  * lengths, formats); the server decides and its field errors are shown under the fields.
  * The server gives the code and, by default, the company's country (note backend 0037): the
- * form has neither, nor the default tax code and collective accounts. A modification sends
- * only the fields changed, never the status (its own commands), the identifier or the company.
+ * form has neither, nor the default tax code. A customer needs its customer account, a
+ * supplier its supplier account, chosen among the chart's receivable and payable accounts. A
+ * modification sends only the fields changed, never the status (its own commands), the
+ * identifier or the company.
  */
 @Component({
   selector: 'alco-partner-form',
@@ -89,6 +101,7 @@ function text(maxLength?: number, ...more: ReturnType<typeof inputFormat>[]) {
 })
 export class PartnerFormPage {
   private readonly api = inject(PartnersApi);
+  private readonly accounting = inject(AccountingApi);
   private readonly router = inject(Router);
   private readonly route = inject(ActivatedRoute);
   private readonly toast = inject(AlcoToastService);
@@ -117,6 +130,8 @@ export class PartnerFormPage {
     default_currency: text(),
     customer_payment_term: text(),
     supplier_payment_term: text(),
+    customer_account_code: text(),
+    supplier_account_code: text(),
   });
 
   /** Edition: the record being changed (its code is shown, never sent). */
@@ -137,6 +152,24 @@ export class PartnerFormPage {
       (currency) => currency.status === 'active' || currency.code === current,
     );
   });
+  /** Receivable and payable accounts of the chart; none without `accounting.read`. */
+  private readonly collective = signal<Readonly<Record<'customer' | 'supplier', Account[]>>>({
+    customer: [],
+    supplier: [],
+  });
+  /** The chart's accounts of the role, plus the partner's own code if it is not among them. */
+  protected accountOptions(role: 'customer' | 'supplier'): readonly AccountOption[] {
+    const options: AccountOption[] = this.collective()[role].map((account) => ({
+      code: account.code,
+      label: `${account.code} — ${account.name}`,
+    }));
+    const current = this.partner()?.[`${role}_account_code`];
+    if (current && !options.some((option) => option.code === current)) {
+      options.unshift({ code: current, label: current });
+    }
+    return options;
+  }
+
   protected termOptions(field: 'customer_payment_term' | 'supplier_payment_term') {
     const current = this.partner()?.[field]?.public_id;
     return (this.paymentTerms() ?? []).filter(
@@ -146,6 +179,8 @@ export class PartnerFormPage {
 
   constructor() {
     inject(UnsavedChangesService).track(() => this.form.dirty);
+    this.accountRequiredFor('is_customer', 'customer_account_code');
+    this.accountRequiredFor('is_supplier', 'supplier_account_code');
     this.api
       .currencies()
       .pipe(
@@ -160,6 +195,12 @@ export class PartnerFormPage {
         catchError(() => of([])),
       )
       .subscribe((list) => this.paymentTerms.set(list));
+    for (const role of ['customer', 'supplier'] as const) {
+      this.accounting
+        .collectiveAccounts(role)
+        .pipe(catchError(() => of([] as Account[])))
+        .subscribe((list) => this.collective.update((all) => ({ ...all, [role]: [...list] })));
+    }
     if (this.id) {
       this.api.get(this.id).subscribe({
         next: (partner) => this.fill(partner),
@@ -214,6 +255,20 @@ export class PartnerFormPage {
     void this.router.navigate(this.isNew ? ['/app/tiers/liste'] : ['..'], {
       relativeTo: this.route,
     });
+  }
+
+  /** The account of a role is required while the role is checked. */
+  private accountRequiredFor(
+    role: 'is_customer' | 'is_supplier',
+    account: 'customer_account_code' | 'supplier_account_code',
+  ): void {
+    const apply = (checked: boolean) => {
+      const control = this.form.controls[account];
+      control.setValidators(checked ? [Validators.required] : []);
+      control.updateValueAndValidity({ emitEvent: false });
+    };
+    apply(this.form.controls[role].value);
+    this.form.controls[role].valueChanges.pipe(takeUntilDestroyed()).subscribe(apply);
   }
 
   /** Every writable field, as the API expects it (creation). */

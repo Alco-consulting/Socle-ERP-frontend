@@ -228,10 +228,11 @@ supprime ce qui ne sert plus.
 - **Tiers (Module 3)** : `features/partners` sur `partners/` ; liste = colonnes de
   `PartnersPartnerSummary` (pas de téléphone/e-mail : pas de requête par ligne) ; recherche,
   filtres (État, Rôle, Pays) et pages du serveur ; pas de tri ni de regroupement (non offerts
-  par l'API) ; création sans code, pays, taxe par défaut ni comptes collectifs (note backend
-  0037 : le serveur numérote, le pays est celui de la société) ; modification = champs changés
-  seulement ; la fiche ne montre taxe et comptes que s'ils existent ; pas de suppression
-  (désactivation). Fiche nommée dans le fil d'Ariane par
+  par l'API) ; création sans code, pays ni taxe par défaut (note backend 0037 : le serveur
+  numérote, le pays est celui de la société) ; compte client / fournisseur **obligatoire selon
+  le rôle coché**, choisi dans les comptes clients / fournisseurs du plan
+  (`AccountingApi.collectiveAccounts`) ; modification = champs changés seulement ; pas de
+  suppression (désactivation). Fiche nommée dans le fil d'Ariane par
   `BreadcrumbService.nameCurrent` (pas de resolver).
 - **Comptabilité, socle (Module 4)** : `features/accounting` sur `accounting/` ; tableau de
   bord : blocs indépendants (V2.1 : journaux et alertes de `dashboards/`, voir plus bas ;

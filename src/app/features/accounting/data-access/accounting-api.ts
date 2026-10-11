@@ -98,9 +98,21 @@ export class AccountingApi {
    */
   journalAccounts(type: JournalType): Observable<readonly Account[]> {
     const filter = JOURNAL_ACCOUNT_FILTERS[type];
-    if (!filter) {
-      return of([]);
-    }
+    return filter ? this.allAccounts(filter) : of([]);
+  }
+
+  /** The collective accounts a partner may name: receivable (customer) or payable (supplier). */
+  collectiveAccounts(role: 'customer' | 'supplier'): Observable<readonly Account[]> {
+    return this.allAccounts({
+      detailedType: role === 'customer' ? 'asset_receivable' : 'liability_payable',
+    });
+  }
+
+  /** Every active postable account of a nature or a type, all pages. */
+  private allAccounts(filter: {
+    accountType?: AccountType;
+    detailedType?: DetailedType;
+  }): Observable<readonly Account[]> {
     const pageOf = (page: number) =>
       this.api.get<Paginated<Account>>(`${base}accounts/`, {
         params: {

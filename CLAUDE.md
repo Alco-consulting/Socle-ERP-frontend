@@ -319,8 +319,10 @@ supprime ce qui ne sert plus.
 - **Écritures comptables** (note backend 0039) : Comptabilité ▾ › Écritures
   (`/app/comptabilite/ecritures`, `EntryLinesPage` sur `accounting/entry-lines/`) = une ligne
   par ligne d'écriture comme Odoo : Date, Pièce comptable (lien vers la fiche), Compte,
-  Partenaire, Libellé, Débit, Crédit (devise de référence, vides à zéro), Lettrage ; panneau
-  des classes (`entry-lines/classes/`), recherche et filtres dans l'URL (`q`, `etat`,
+  Partenaire, Libellé, Débit, Crédit (devise de référence, « 0 GNF » en gris), Lettrage ;
+  date courte (« 10 oct. »), textes coupés par « … » ; panneau des classes dépliables en groupes,
+  sans nombres (`entry-lines/classes/`) ; cases à cocher → totaux de la sélection en pied de
+  tableau ; recherche et filtres dans l'URL (`q`, `etat`,
   `journal`, `classe`, `du`, `au`), 50 par page, lecture seule. La liste des écritures
   est « Pièces comptables » (`/ecritures/pieces`) ; les compteurs (journal, compte, tiers,
   tableau de bord) y mènent. Fiche et formulaire restent `/ecritures/<id>` et

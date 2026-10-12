@@ -36,10 +36,11 @@ export interface EntryLineRow {
   readonly lettering: string | null;
 }
 
-/** One class of the panel: the code's first character and its lines. */
+/** One class of the panel: the code's first character, then its groups (first two). */
 export interface LineClass {
   readonly prefix: string;
   readonly count: number;
+  readonly children: readonly { readonly prefix: string; readonly count: number }[];
 }
 
 export interface EntryLineQuery {
@@ -71,7 +72,7 @@ export class EntryLinesApi {
     });
   }
 
-  /** The panel « Tous, 1, 4, 5… »: the lines of the same filters by account class. */
+  /** The panel « Tous, ▸ 1, ▸ 4… »: the lines of the same filters by class and group. */
   classes(query: EntryLineQuery = {}): Observable<readonly LineClass[]> {
     return this.api.get<readonly LineClass[]>(`${base}classes/`, { params: this.filters(query) });
   }

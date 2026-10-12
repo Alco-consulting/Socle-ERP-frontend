@@ -86,23 +86,54 @@
           (click)="choosePrefix(null)"
         >
           <span>Tous</span>
-          @if (classes.value()) {
-            <span class="count">{{ total() }}</span>
-          }
         </button>
       </li>
       @for (item of classes.value() ?? []; track item.prefix) {
         <li>
-          <button
-            type="button"
-            class="prefix"
-            [class.current]="prefix() === item.prefix"
-            [attr.aria-current]="prefix() === item.prefix ? 'true' : null"
-            (click)="choosePrefix(item.prefix)"
-          >
-            <span>{{ item.prefix }}</span>
-            <span class="count">{{ item.count }}</span>
-          </button>
+          <div class="group">
+            @if (item.children.length > 0) {
+              <button
+                type="button"
+                class="fold"
+                [attr.aria-expanded]="isOpen(item.prefix)"
+                [attr.aria-label]="(isOpen(item.prefix) ? 'Replier ' : 'Déplier ') + item.prefix"
+                (click)="toggle(item.prefix)"
+              >
+                <alco-icon
+                  [name]="isOpen(item.prefix) ? 'chevron-down' : 'chevron-right'"
+                  [size]="14"
+                />
+              </button>
+            } @else {
+              <span class="fold" aria-hidden="true"></span>
+            }
+            <button
+              type="button"
+              class="prefix"
+              [class.current]="prefix() === item.prefix"
+              [attr.aria-current]="prefix() === item.prefix ? 'true' : null"
+              (click)="choosePrefix(item.prefix)"
+            >
+              <span>{{ item.prefix }}</span>
+            </button>
+          </div>
+          @if (isOpen(item.prefix) && item.children.length > 0) {
+            <ul class="children">
+              @for (child of item.children; track child.prefix) {
+                <li>
+                  <button
+                    type="button"
+                    class="prefix"
+                    [class.current]="prefix() === child.prefix"
+                    [attr.aria-current]="prefix() === child.prefix ? 'true' : null"
+                    (click)="choosePrefix(child.prefix)"
+                  >
+                    <span>{{ child.prefix }}</span>
+                  </button>
+                </li>
+              }
+            </ul>
+          }
         </li>
       }
     </ul>
@@ -164,37 +195,46 @@
             [rows]="rows()"
             [rowId]="rowId"
             [rowLabel]="rowLabel"
+            [selectable]="true"
+            [(selection)]="selected"
+            [totals]="totals()"
             [clickableRows]="true"
             (rowActivated)="open($event)"
           >
-            <ng-template alcoCell="date" let-row>{{
-              row.entry.entry_date | date: 'dd/MM/yyyy'
-            }}</ng-template>
+            <ng-template alcoCell="date" let-row>{{ shortDate(row.entry.entry_date) }}</ng-template>
             <ng-template alcoCell="entry" let-row>
-              <a class="code" [routerLink]="[entriesUrl, row.entry.public_id]">{{
-                row.entry.entry_number || 'Brouillon'
-              }}</a>
+              @let piece = row.entry.entry_number || 'Brouillon';
+              <a
+                class="cut piece"
+                [title]="piece"
+                [routerLink]="[entriesUrl, row.entry.public_id]"
+                >{{ piece }}</a
+              >
             </ng-template>
             <ng-template alcoCell="account" let-row>
-              <span class="mono">{{ row.account.code }}</span> {{ row.account.name }}
+              @let account = row.account.code + ' ' + row.account.name;
+              <span class="cut account" [title]="account">{{ account }}</span>
             </ng-template>
-            <ng-template alcoCell="partner" let-row>{{ row.partner?.name ?? '' }}</ng-template>
-            <ng-template alcoCell="label" let-row>{{
-              row.label || row.entry.description
-            }}</ng-template>
+            <ng-template alcoCell="partner" let-row>
+              <span class="cut partner" [title]="row.partner?.name ?? ''">{{
+                row.partner?.name ?? ''
+              }}</span>
+            </ng-template>
+            <ng-template alcoCell="label" let-row>
+              @let label = row.label || row.entry.description;
+              <span class="cut label" [title]="label">{{ label }}</span>
+            </ng-template>
             <ng-template alcoCell="debit" let-row>
-              @if (side(row, 'reference_debit'); as amount) {
-                {{ amount | alcoAmount: 0 }} {{ row.reference_currency }}
-              }
+              <span [class.zero]="isZero(row.reference_debit)"
+                >{{ row.reference_debit | alcoAmount: 0 }} {{ row.reference_currency }}</span
+              >
             </ng-template>
             <ng-template alcoCell="credit" let-row>
-              @if (side(row, 'reference_credit'); as amount) {
-                {{ amount | alcoAmount: 0 }} {{ row.reference_currency }}
-              }
+              <span [class.zero]="isZero(row.reference_credit)"
+                >{{ row.reference_credit | alcoAmount: 0 }} {{ row.reference_currency }}</span
+              >
             </ng-template>
-            <ng-template alcoCell="lettering" let-row>
-              <span class="mono">{{ row.lettering ?? '' }}</span>
-            </ng-template>
+            <ng-template alcoCell="lettering" let-row>{{ row.lettering ?? '' }}</ng-template>
           </alco-table>
         }
       }

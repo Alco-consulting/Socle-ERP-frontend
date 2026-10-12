@@ -1,0 +1,39 @@
+@use 'breakpoints' as bp;
+
+// As in Odoo: a narrow panel, one line per row, long texts cut, a zero side muted.
+.chart-layout {
+  grid-template-columns: 6rem minmax(0, 1fr);
+
+  @include bp.below-tablet {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+.cut {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.piece {
+  max-width: 9rem;
+  text-decoration: none;
+
+  &:hover {
+    text-decoration: underline;
+  }
+}
+
+.account,
+.label {
+  max-width: 16rem;
+}
+
+.partner {
+  max-width: 8rem;
+}
+
+.zero {
+  color: var(--color-text-muted);
+}

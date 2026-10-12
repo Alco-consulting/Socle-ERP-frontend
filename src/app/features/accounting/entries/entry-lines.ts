@@ -1,7 +1,8 @@
-import { DatePipe } from '@angular/common';
+import { formatDate } from '@angular/common';
 import {
   ChangeDetectionStrategy,
   Component,
+  LOCALE_ID,
   computed,
   effect,
   inject,
@@ -25,10 +26,11 @@ import { AlcoCell, AlcoTable, TableColumn } from '../../../shared/tables/table';
 import { AlcoButton } from '../../../shared/ui/button/button';
 import { AlcoEmptyState } from '../../../shared/ui/empty-state/empty-state';
 import { AlcoErrorState } from '../../../shared/ui/error-state/error-state';
+import { AlcoIcon } from '../../../shared/ui/icon/icon';
 import { AlcoLoading } from '../../../shared/ui/loading/loading';
 import { AlcoPageHeader } from '../../../shared/ui/page-header/page-header';
 import { AlcoPagination } from '../../../shared/ui/pagination/pagination';
-import { isZeroDecimal } from '../../../shared/utils/decimal';
+import { isZeroDecimal, sumDecimals } from '../../../shared/utils/decimal';
 import { AccountingApi } from '../data-access/accounting-api';
 import { Journal } from '../data-access/accounting-models';
 import {
@@ -59,7 +61,6 @@ const STATES: readonly { id: LineState; label: string }[] = [
 @Component({
   selector: 'alco-entry-lines',
   imports: [
-    DatePipe,
     ReactiveFormsModule,
     RouterLink,
     AlcoAmountPipe,
@@ -69,6 +70,7 @@ const STATES: readonly { id: LineState; label: string }[] = [
     AlcoErrorState,
     AlcoFilterBar,
     AlcoFormField,
+    AlcoIcon,
     AlcoInput,
     AlcoLoading,
     AlcoPageHeader,
@@ -77,20 +79,23 @@ const STATES: readonly { id: LineState; label: string }[] = [
     AlcoTable,
   ],
   templateUrl: './entry-lines.html',
-  styleUrls: ['../accounting-list.scss', '../accounts/account-list.scss'],
+  styleUrls: ['../accounting-list.scss', '../accounts/account-list.scss', './entry-lines.scss'],
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class EntryLinesPage {
   private readonly api = inject(EntryLinesApi);
   private readonly router = inject(Router);
   private readonly route = inject(ActivatedRoute);
+  private readonly locale = inject(LOCALE_ID);
+  private readonly amount = new AlcoAmountPipe();
+  private readonly year = String(new Date().getFullYear());
 
   protected readonly entriesUrl = `${APP_ROOT}/comptabilite/ecritures`;
   protected readonly states = STATES;
   protected readonly pageSize = LINE_PAGE_SIZE;
   protected readonly columns: readonly TableColumn[] = [
     { key: 'date', label: 'Date', width: '6.5rem' },
-    { key: 'entry', label: 'Pièce comptable', width: '11rem' },
+    { key: 'entry', label: 'Pièce comptable' },
     { key: 'account', label: 'Compte' },
     { key: 'partner', label: 'Partenaire', hideBelow: 'tablet' },
     { key: 'label', label: 'Libellé', hideBelow: 'laptop' },
@@ -128,6 +133,11 @@ export class EntryLinesPage {
   protected readonly searchText = signal(this.route.snapshot.queryParamMap.get(PARAM.search) ?? '');
   private readonly searchTyped = new Subject<string>();
   protected readonly panelShown = signal(false);
+  /** Classes unfolded in the panel; the chosen group's class starts unfolded. */
+  protected readonly opened = signal<ReadonlySet<string>>(
+    new Set((this.route.snapshot.queryParamMap.get(PARAM.prefix) ?? '').slice(0, 1) || []),
+  );
+  protected readonly selected = signal<ReadonlySet<string>>(new Set());
 
   protected readonly activeFilterCount = computed(
     () =>
@@ -179,10 +189,21 @@ export class EntryLinesPage {
   protected readonly classes = requestState(() => this.api.classes(untracked(this.filters)), {
     immediate: false,
   });
-  protected readonly total = computed(() =>
-    (this.classes.value() ?? []).reduce((sum, item) => sum + item.count, 0),
-  );
   protected readonly rows = computed(() => this.list.value()?.results ?? []);
+  /** As in Odoo: the debit and credit of the lines ticked. */
+  protected readonly totals = computed(() => {
+    const ticked = this.rows().filter((row) => this.selected().has(row.public_id));
+    if (ticked.length === 0) {
+      return null;
+    }
+    const sum = (side: 'reference_debit' | 'reference_credit') =>
+      `${this.amount.transform(sumDecimals(ticked.map((row) => row[side])), 0)} ${ticked[0].reference_currency}`;
+    return {
+      date: ticked.length === 1 ? '1 sélectionnée' : `${ticked.length} sélectionnées`,
+      debit: sum('reference_debit'),
+      credit: sum('reference_credit'),
+    };
+  });
   protected readonly failure = computed(() => {
     const error = this.list.error();
     return error ? toUserError(error, ENTRY_ERRORS) : null;
@@ -197,7 +218,10 @@ export class EntryLinesPage {
   constructor() {
     effect(() => {
       this.query();
-      untracked(() => this.list.reload());
+      untracked(() => {
+        this.selected.set(new Set());
+        this.list.reload();
+      });
     });
     effect(() => {
       this.filters();
@@ -227,12 +251,32 @@ export class EntryLinesPage {
       );
   }
 
-  /** A side of a line, in the reference currency; blank when zero. */
-  protected side(row: EntryLineRow, side: 'reference_debit' | 'reference_credit'): string {
-    return isZeroDecimal(row[side]) ? '' : row[side];
+  /** « 10 oct. » this year, « 10 oct. 2025 » before. */
+  protected shortDate(value: string): string {
+    return formatDate(value, value.startsWith(this.year) ? 'd MMM' : 'd MMM y', this.locale);
   }
 
+  protected isZero(value: string): boolean {
+    return isZeroDecimal(value);
+  }
+
+  protected isOpen(first: string): boolean {
+    return this.opened().has(first);
+  }
+
+  protected toggle(first: string): void {
+    const next = new Set(this.opened());
+    if (!next.delete(first)) {
+      next.add(first);
+    }
+    this.opened.set(next);
+  }
+
+  /** A class (unfolded) or a group of the panel, or all lines (`null`). */
   protected choosePrefix(prefix: string | null): void {
+    if (prefix?.length === 1 && !this.isOpen(prefix)) {
+      this.toggle(prefix);
+    }
     this.navigate({ [PARAM.prefix]: prefix, [PARAM.page]: null });
   }
 

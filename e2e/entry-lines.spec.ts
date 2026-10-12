@@ -26,6 +26,7 @@ test.describe('Écritures comptables : une ligne par ligne d’écriture, comme 
     await expect(page).toHaveURL(/\/app\/comptabilite\/ecritures$/);
     await expect(page.getByRole('heading', { level: 1 })).toHaveText('Écritures comptables');
     await expect(page.getByRole('columnheader')).toHaveText([
+      '',
       'Date',
       'Pièce comptable',
       'Compte',
@@ -36,22 +37,34 @@ test.describe('Écritures comptables : une ligne par ligne d’écriture, comme 
       'Lettrage',
     ]);
     await expect(rows(page)).toHaveCount(Math.min(lines.length, 50));
-    await expect(classes(page).getByRole('button', { name: /^Tous/ })).toContainText(
-      String(lines.length),
+    await expect(classes(page).getByRole('button', { name: 'Tous' })).toHaveAttribute(
+      'aria-current',
+      'true',
     );
     // No creation here: the entries come from their documents.
     await expect(page.getByRole('link', { name: 'Nouvelle écriture' })).toHaveCount(0);
 
-    // Class 6: the expense lines only.
-    await classes(page).getByRole('button', { name: /^6\s/ }).click();
+    // Class 6: the expense lines only; it unfolds its groups, as in Odoo.
+    await classes(page).getByRole('button', { name: '6', exact: true }).click();
     await expect(page).toHaveURL(/classe=6/);
     await expect(rows(page)).toHaveCount(Math.min(expenses.length, 50));
     for (const row of await rows(page).all()) {
-      await expect(row.locator('td').nth(2)).toHaveText(/^\s*6/);
+      await expect(row.locator('td').nth(3)).toHaveText(/^\s*6/);
     }
     const last = api.callsTo('accounting/entry-lines/').at(-1);
     expect(new URL(last!.url()).searchParams.get('account_prefix')).toBe('6');
     expect(await last?.headerValue('x-company-id')).toBe(COMPANY_A.public_id);
+    const group = expenses[0].account.code.slice(0, 2);
+    await classes(page).getByRole('button', { name: group, exact: true }).click();
+    await expect(page).toHaveURL(new RegExp(`classe=${group}`));
+    await expect(rows(page)).toHaveCount(
+      Math.min(expenses.filter((line) => line.account.code.startsWith(group)).length, 50),
+    );
+
+    // Ticked lines: their debit and credit below the table.
+    await rows(page).nth(0).getByRole('checkbox').check();
+    await expect(page.locator('tfoot')).toContainText('1 sélectionnée');
+    await expect(page.locator('tfoot')).toContainText('GNF');
 
     // The piece opens the entry; the breadcrumb comes back to the lines.
     const piece = rows(page).first().getByRole('link');
@@ -59,7 +72,7 @@ test.describe('Écritures comptables : une ligne par ligne d’écriture, comme 
     await piece.click();
     await expect(page.getByRole('heading', { level: 1 })).toHaveText(number);
     await page.goBack();
-    await expect(page).toHaveURL(/classe=6/);
+    await expect(page).toHaveURL(new RegExp(`classe=${group}`));
   });
 
   test('the drafts by the filters, then the pieces themselves', async ({ page, api }) => {

@@ -286,12 +286,20 @@ export class FakeAccountingEntries {
     if (url.pathname.endsWith('/classes/')) {
       const counts = new Map<string, number>();
       for (const row of rows) {
-        const prefix = row.account.code.charAt(0);
-        counts.set(prefix, (counts.get(prefix) ?? 0) + 1);
+        for (const prefix of [row.account.code.slice(0, 1), row.account.code.slice(0, 2)]) {
+          counts.set(prefix, (counts.get(prefix) ?? 0) + 1);
+        }
       }
-      const classes = [...counts.entries()]
-        .sort(([a], [b]) => a.localeCompare(b))
-        .map(([prefix, count]) => ({ prefix, count }));
+      const levels = [...counts.entries()].sort(([a], [b]) => a.localeCompare(b));
+      const classes = levels
+        .filter(([prefix]) => prefix.length === 1)
+        .map(([prefix, count]) => ({
+          prefix,
+          count,
+          children: levels
+            .filter(([child]) => child.length === 2 && child.startsWith(prefix))
+            .map(([child, total]) => ({ prefix: child, count: total })),
+        }));
       return route.fulfill({ status: 200, json: classes });
     }
     const shown = rows.filter((row) => row.account.code.startsWith(q('account_prefix')));

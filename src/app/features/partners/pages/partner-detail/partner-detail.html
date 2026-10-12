@@ -183,13 +183,12 @@
             <dd>{{ partner.default_tax_code }}</dd>
           </div>
         }
-        @if (partner.is_customer || partner.customer_account_code) {
+        <!-- With accounting.read, « Comptes collectifs » below shows them, with their state. -->
+        @if (!canReadAccounting()) {
           <div>
             <dt>Compte client</dt>
             <dd>{{ partner.customer_account_code || '—' }}</dd>
           </div>
-        }
-        @if (partner.is_supplier || partner.supplier_account_code) {
           <div>
             <dt>Compte fournisseur</dt>
             <dd>{{ partner.supplier_account_code || '—' }}</dd>

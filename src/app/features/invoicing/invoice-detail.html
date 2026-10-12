@@ -1,0 +1,203 @@
+@if (loadError(); as failure) {
+  <alco-error-state
+    [title]="failure.title"
+    [message]="failure.message"
+    [code]="failure.code"
+    [correlationId]="failure.correlationId ?? ''"
+  />
+  <div class="center">
+    <a alcoButton icon="arrow-left" routerLink="..">Retour à la liste</a>
+  </div>
+} @else if (invoice(); as invoice) {
+  <alco-page-header [title]="title()" [subtitle]="invoice.partner.name">
+    <div alcoPageStatus>
+      @if (status(); as badge) {
+        <alco-badge [tone]="badge.tone" [icon]="badge.icon">{{ badge.label }}</alco-badge>
+      }
+      @if (payment(); as badge) {
+        <alco-badge [tone]="badge.tone">{{ badge.label }}</alco-badge>
+      }
+    </div>
+    <div alcoPageActions>
+      @if (menu().length > 0) {
+        <alco-dropdown align="end" [items]="menu()" (selected)="onMenu($event)">
+          Actions
+        </alco-dropdown>
+      }
+      @if (primary(); as action) {
+        <button
+          alcoButton
+          type="button"
+          variant="primary"
+          [icon]="action.icon"
+          [loading]="busy()"
+          loadingLabel="En cours…"
+          [disabled]="busy()"
+          (click)="act(action.id)"
+        >
+          {{ action.label }}
+        </button>
+      }
+    </div>
+  </alco-page-header>
+
+  @if (actionError(); as failure) {
+    <alco-error-state
+      [inline]="true"
+      [title]="failure.title"
+      [message]="failure.message"
+      [help]="failure.help ?? ''"
+      [code]="failure.code"
+      [correlationId]="failure.correlationId ?? ''"
+    />
+  }
+  @if (invoice.status === 'cancelled') {
+    <p class="note" role="note">
+      Annulée le {{ invoice.cancelled_at | date: 'dd/MM/yyyy' }} : {{ invoice.cancellation_reason }}
+    </p>
+  }
+
+  <div class="sheet">
+    <section class="section" aria-labelledby="general-title">
+      <h2 id="general-title" class="alco-section-title">Informations générales</h2>
+      <dl class="facts">
+        <div>
+          <dt>Numéro</dt>
+          <dd>{{ invoice.number || 'Attribué à la comptabilisation' }}</dd>
+        </div>
+        <div>
+          <dt>{{ spec()?.partnerLabel }}</dt>
+          <dd>
+            {{ invoice.partner.name }}
+            <span class="alco-caption">· {{ invoice.partner.code }}</span>
+          </dd>
+        </div>
+        <div>
+          <dt>Date</dt>
+          <dd>{{ invoice.invoice_date | date: 'dd/MM/yyyy' }}</dd>
+        </div>
+        <div>
+          <dt>Journal</dt>
+          <dd class="mono">{{ invoice.journal.code }}</dd>
+        </div>
+        @if (invoice.reference) {
+          <div>
+            <dt>Numéro du fournisseur</dt>
+            <dd>{{ invoice.reference }}</dd>
+          </div>
+        }
+        @if (originUrl(); as url) {
+          <div>
+            <dt>Facture d’origine</dt>
+            <dd><a [routerLink]="url">Ouvrir la facture</a></dd>
+          </div>
+        }
+        <div>
+          <dt>Écriture</dt>
+          <dd>
+            @if (invoice.entry; as entry) {
+              @if (canOpenEntries()) {
+                <a class="mono" [routerLink]="[accounting, 'ecritures', entry.public_id]">{{
+                  entry.entry_number
+                }}</a>
+              } @else {
+                <span class="mono">{{ entry.entry_number }}</span>
+              }
+            } @else {
+              Créée à la comptabilisation
+            }
+          </dd>
+        </div>
+        @if (invoice.cancellation_entry; as entry) {
+          <div>
+            <dt>Extourne</dt>
+            <dd>
+              @if (canOpenEntries()) {
+                <a class="mono" [routerLink]="[accounting, 'ecritures', entry.public_id]">{{
+                  entry.entry_number
+                }}</a>
+              } @else {
+                <span class="mono">{{ entry.entry_number }}</span>
+              }
+            </dd>
+          </div>
+        }
+      </dl>
+    </section>
+
+    <section class="section" aria-labelledby="lines-title">
+      <h2 id="lines-title" class="alco-section-title">Lignes</h2>
+      <alco-table
+        caption="Lignes du document"
+        [columns]="lineColumns"
+        [rows]="invoice.lines"
+        [rowId]="lineId"
+        [rowLabel]="lineLabel"
+      >
+        <ng-template alcoCell="product" let-line>
+          {{ line.description }}
+          @if (line.description !== line.product.name) {
+            <span class="alco-caption">· {{ line.product.name }}</span>
+          }
+        </ng-template>
+        <ng-template alcoCell="quantity" let-line>{{ line.quantity | alcoAmount: 0 }}</ng-template>
+        <ng-template alcoCell="price" let-line>{{ line.unit_price | alcoAmount: 0 }}</ng-template>
+        <ng-template alcoCell="tax" let-line>{{ line.tax.name }}</ng-template>
+        <ng-template alcoCell="amount" let-line>{{
+          line.amount_untaxed | alcoAmount: 0
+        }}</ng-template>
+        <ng-template alcoCell="account" let-line>
+          <span class="mono">{{ line.account?.code ?? '—' }}</span>
+        </ng-template>
+      </alco-table>
+    </section>
+
+    <section class="section" aria-labelledby="taxes-title">
+      <h2 id="taxes-title" class="alco-section-title">TVA et totaux</h2>
+      <alco-table
+        caption="TVA par taux"
+        [columns]="taxColumns"
+        [rows]="invoice.taxes"
+        [rowId]="taxId"
+        [rowLabel]="taxLabel"
+      >
+        <ng-template alcoCell="tax" let-tax>{{ tax.tax.name }}</ng-template>
+        <ng-template alcoCell="base" let-tax>{{ tax.base | alcoAmount: 0 }}</ng-template>
+        <ng-template alcoCell="amount" let-tax>{{ tax.amount | alcoAmount: 0 }}</ng-template>
+        <ng-template alcoCell="account" let-tax>
+          <span class="mono">{{ tax.account?.code ?? '—' }}</span>
+        </ng-template>
+      </alco-table>
+      <dl class="facts totals">
+        <div>
+          <dt>Total HT</dt>
+          <dd>{{ invoice.amount_untaxed | alcoAmount: 0 }} {{ invoice.currency }}</dd>
+        </div>
+        <div>
+          <dt>TVA</dt>
+          <dd>{{ invoice.amount_tax | alcoAmount: 0 }} {{ invoice.currency }}</dd>
+        </div>
+        <div>
+          <dt>Total TTC</dt>
+          <dd>
+            <strong>{{ invoice.amount_total | alcoAmount: 0 }} {{ invoice.currency }}</strong>
+          </dd>
+        </div>
+        @if (invoice.amount_residual !== null) {
+          <div>
+            <dt>Reste dû</dt>
+            <dd>{{ invoice.amount_residual | alcoAmount: 0 }} {{ invoice.currency }}</dd>
+          </div>
+        }
+      </dl>
+    </section>
+
+    @if (canSeeHistory()) {
+      <section id="historique" class="section" aria-labelledby="history-title">
+        <alco-object-history [objectType]="auditType" [objectId]="invoice.public_id" />
+      </section>
+    }
+  </div>
+} @else {
+  <alco-loading [rows]="8" label="Chargement du document…" />
+}

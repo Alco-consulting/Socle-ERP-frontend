@@ -110,14 +110,15 @@ describe('Application catalogue', () => {
     expect(everyLabel.filter((label) => /import|export/i.test(label))).toEqual([]);
   });
 
-  it('keeps menus short: 6 direct links at most, then 3 menus at most', () => {
+  // Comptabilité has Odoo's Clients ▾ and Fournisseurs ▾ menus (note backend 0038): 5 menus.
+  it('keeps menus short: 6 direct links at most, then 5 menus at most', () => {
     const menus = [
       ...APPLICATIONS.map((app) => app.nav),
       ...(accounting().sections ?? []).map((s) => s.nav),
     ];
     for (const nav of menus) {
       expect(nav.filter((entry) => !entry.children).length).toBeLessThanOrEqual(6);
-      expect(nav.filter((entry) => entry.children).length).toBeLessThanOrEqual(3);
+      expect(nav.filter((entry) => entry.children).length).toBeLessThanOrEqual(5);
     }
   });
 
@@ -376,9 +377,10 @@ describe('NavigationService', () => {
     const navigation = signIn(['accounting.read', 'partners.read']);
     // The dashboard needs dashboards.read: without it, Clients comes first.
     expect(navigation.homeUrl(accounting())).toBe('/app/comptabilite/clients');
-    expect(navigation.menu(accounting())[0]).toEqual({
+    // Clients ▾ shows its partners only: its documents need invoicing.read.
+    expect(navigation.menu(accounting())[0]).toMatchObject({
       label: 'Clients',
-      url: '/app/comptabilite/clients',
+      children: [{ label: 'Clients', url: '/app/comptabilite/clients' }],
     });
     expect(signIn(['accounting.read', 'dashboards.read']).homeUrl(accounting())).toBe(
       '/app/comptabilite/tableau-de-bord',

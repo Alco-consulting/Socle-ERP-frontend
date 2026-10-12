@@ -115,8 +115,26 @@ export const APPLICATIONS: readonly AlcoApplication[] = [
     ],
     nav: [
       { label: 'Tableau de bord', path: 'tableau-de-bord', permission: 'dashboards.read' },
-      { label: 'Clients', path: 'clients', permission: 'partners.read' },
-      { label: 'Fournisseurs', path: 'fournisseurs', permission: 'partners.read' },
+      // As Odoo's Facturation (note backend 0038): the documents, then the products and
+      // the partners of the side.
+      {
+        label: 'Clients',
+        children: [
+          { label: 'Factures', path: 'ventes/factures', permission: 'invoicing.read' },
+          { label: 'Avoirs', path: 'ventes/avoirs', permission: 'invoicing.read' },
+          { label: 'Produits', path: 'produits', permission: 'invoicing.read' },
+          { label: 'Clients', path: 'clients', permission: 'partners.read' },
+        ],
+      },
+      {
+        label: 'Fournisseurs',
+        children: [
+          { label: 'Factures', path: 'achats/factures', permission: 'invoicing.read' },
+          { label: 'Avoirs', path: 'achats/avoirs', permission: 'invoicing.read' },
+          { label: 'Produits', path: 'produits', permission: 'invoicing.read' },
+          { label: 'Fournisseurs', path: 'fournisseurs', permission: 'partners.read' },
+        ],
+      },
       {
         label: 'Comptabilité',
         children: [

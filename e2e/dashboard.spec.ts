@@ -81,21 +81,25 @@ test.describe('Tableau de bord comptable — journaux et alertes de l’API', ()
 
   test('nouvelle écriture depuis un journal : le journal est présélectionné', async ({ page }) => {
     await page.goto('/app/comptabilite/tableau-de-bord');
-    await page.getByRole('link', { name: 'Nouvelle écriture dans le journal CAI' }).click();
+    // Entered by hand in miscellaneous operations only (note backend 0038).
+    await expect(
+      page.getByRole('link', { name: 'Nouvelle écriture dans le journal CAI' }),
+    ).toHaveCount(0);
+    await page.getByRole('link', { name: 'Nouvelle écriture dans le journal OD' }).click();
     await expect(page).toHaveURL(/\/app\/comptabilite\/ecritures\/nouvelle\?journal=/);
     await expect(page.getByRole('heading', { level: 1 })).toHaveText('Nouvelle écriture');
     await expect(page.getByLabel('Journal')).toHaveValue(/.+/);
     await expect(page.getByLabel('Journal').locator('option:checked')).toHaveText(
-      /^\s*CAI — Caisse/,
+      /^\s*OD — Opérations diverses/,
     );
   });
 
   test('menu ⋮ d’une carte : seulement les actions qui existent', async ({ page }) => {
     await page.goto('/app/comptabilite/tableau-de-bord');
     await card(page, 'VTE').getByRole('button', { name: 'Actions du journal VTE' }).click();
+    // No « Nouvelle écriture » in a sales journal: its entries come from invoices.
     await expect(page.getByRole('menuitem')).toHaveText([
       'Voir les écritures',
-      'Nouvelle écriture',
       'Configuration du journal',
     ]);
     await page.getByRole('menuitem', { name: 'Configuration du journal' }).click();

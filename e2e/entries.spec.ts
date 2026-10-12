@@ -134,7 +134,7 @@ test.describe('Écritures — saisie', () => {
     await expect(page).toHaveURL(/\/ecritures\/nouvelle$/);
     await expect(page.getByRole('heading', { level: 1 })).toHaveText('Nouvelle écriture');
 
-    await page.getByLabel('Journal').selectOption({ label: 'ACH — Achats' });
+    await page.getByLabel('Journal').selectOption({ label: 'OD — Opérations diverses' });
     await dateField(page).fill(ENTRY.date);
     await page.getByRole('textbox', { name: 'Libellé', exact: true }).fill(ENTRY.description);
     await fillLine(page, 0, '601', 'Débit', '1 150 000');
@@ -164,7 +164,7 @@ test.describe('Écritures — saisie', () => {
     const accounts = api.accounting.books('A').accounts;
     const id = (code: string) => accounts.find((item) => item.code === code)?.public_id;
     expect(posts[0].postDataJSON()).toEqual({
-      journal: api.accounting.books('A').journals.find((item) => item.code === 'ACH')?.public_id,
+      journal: api.accounting.books('A').journals.find((item) => item.code === 'OD')?.public_id,
       entry_date: ENTRY.date,
       description: ENTRY.description,
       lines: [
@@ -207,8 +207,8 @@ test.describe('Écritures — workflow du serveur', () => {
     await header(page).getByRole('button', { name: 'Valider' }).click();
     await expect(page.getByRole('alertdialog')).toContainText('attribue le numéro définitif');
     await confirmWith(page, 'Valider l’écriture');
-    await expect(page.getByText(/Écriture validée : n° ACH-\d{6}\./)).toBeVisible();
-    await expect(page.getByRole('heading', { level: 1 })).toHaveText(/^ACH-\d{6}$/);
+    await expect(page.getByText(/Écriture validée : n° OD-\d{6}\./)).toBeVisible();
+    await expect(page.getByRole('heading', { level: 1 })).toHaveText(/^OD-\d{6}$/);
     await expect(header(page)).toContainText('Validée');
     const commands = api.calls
       .filter((call) => call.method() === 'POST')

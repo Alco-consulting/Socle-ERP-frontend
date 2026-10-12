@@ -117,7 +117,8 @@ Sens des dépendances, vérifié par ESLint (`no-restricted-imports`) : `shared`
 7. Chaque écran gère chargement (squelette local), vide (message + action selon les droits),
    erreur (humaine, réessayer) et interdit.
 8. UX non négociable : aucune sidebar globale (même pour gagner de la place) ; navigation de
-   module ≤ 6 liens directs + 3 menus ; une action principale par écran, les autres dans
+   module ≤ 6 liens directs + 5 menus (Comptabilité a les menus Clients ▾ et Fournisseurs ▾
+   d'Odoo, note backend 0038) ; une action principale par écran, les autres dans
    « Actions ▾ » ; confirmation des actions sensibles ; modales rares ; pas de défilement
    horizontal de page.
 9. **Regroupement des modules** : les domaines financiers spécialisés (trésorerie,
@@ -178,7 +179,8 @@ supprime ce qui ne sert plus.
 - **Cinq applications (V2.1)** : Comptabilité, Tiers, Documents, Tableau de bord, Paramètres.
   **Reporting n'est plus une application** : ses rapports sont Comptabilité › Analyse (le
   domaine `reporting` du backend reste leur source ; aucun endpoint retiré). Comptabilité :
-  Tableau de bord, Clients, Fournisseurs, puis Comptabilité ▾ (Écritures, Journaux, Plan
+  Tableau de bord, Clients ▾ (Factures, Avoirs, Produits, Clients), Fournisseurs ▾ (Factures,
+  Avoirs, Produits, Fournisseurs), puis Comptabilité ▾ (Écritures, Journaux, Plan
   comptable, Tiers, Trésorerie, Lettrage, Échéances, Rapprochement, Clôture), Analyse ▾
   (Rapports financiers, comptables, de tiers, Analyses) et Configuration ▾ (Général,
   Comptabilité (dont Devises), Banques, Paiements, Taxes, Immobilisations, Analytique,
@@ -229,9 +231,10 @@ supprime ce qui ne sert plus.
   `PartnersPartnerSummary` (pas de téléphone/e-mail : pas de requête par ligne) ; recherche,
   filtres (État, Rôle, Pays) et pages du serveur ; pas de tri ni de regroupement (non offerts
   par l'API) ; création sans code, pays ni taxe par défaut (note backend 0037 : le serveur
-  numérote, le pays est celui de la société) ; compte client / fournisseur **obligatoire selon
-  le rôle coché**, choisi dans les comptes clients / fournisseurs du plan
-  (`AccountingApi.collectiveAccounts`) ; modification = champs changés seulement ; pas de
+  numérote, le pays est celui de la société) ; **les deux comptes collectifs** (client et
+  fournisseur) donnés par le serveur à la création, quel que soit le rôle (note backend 0038 :
+  « Client » et « Fournisseur » sont des étiquettes), jamais saisis ; la fiche les montre dans
+  « Comptes collectifs » ; modification = champs changés seulement ; pas de
   suppression (désactivation). Fiche nommée dans le fil d'Ariane par
   `BreadcrumbService.nameCurrent` (pas de resolver).
 - **Comptabilité, socle (Module 4)** : `features/accounting` sur `accounting/` ; tableau de
@@ -298,8 +301,24 @@ supprime ce qui ne sert plus.
   4 requêtes fixes. Export `reporting.ledger` (`account`, `fiscal_year`) sans sous-comptes.
 - **Liens d'une écriture** : journal, comptes, tiers (`partners.read`) par leurs `public_id` ;
   opérations de trésorerie liées (`treasury/operations/?accounting_entry=`, `treasury.read`) ;
-  source nommée (`source_type`), sans lien tant que l'écran du domaine n'existe pas.
-- **Écritures (Module 5)** : `features/accounting/entries` sur `accounting/entries/`. Liste =
+  source nommée (`source_type`), sans lien tant que l'écran du domaine n'existe pas ; une
+  écriture de facture (`invoicing.invoice`) mène à sa facture (« Facture FV-2026-0001 »).
+- **Facturation** (note backend 0038) : `features/invoicing` sur `invoicing/`. Clients ▾ ›
+  Factures (`ventes/factures`), Avoirs (`ventes/avoirs`), Fournisseurs ▾ › Factures
+  (`achats/factures`), Avoirs (`achats/avoirs`) et Produits (`produits`, `invoicing.read`).
+  Liste par nature (route `data.kind`) : Numéro, tiers, Date, totaux, État, Paiement, comme le
+  serveur les donne. Brouillon : tiers (autocomplétion), date, numéro du fournisseur, journal
+  s'il y en a plusieurs, lignes (produit, description, quantité, prix HT, TVA du côté) ;
+  **aucun montant calculé à l'écran** : la fiche montre ceux du serveur après « Enregistrer le
+  brouillon ». Fiche : « Comptabiliser » (confirmé : le numéro et l'écriture, lien vers elle),
+  Actions ▾ « Modifier », « Supprimer le brouillon », puis « Créer un avoir » (brouillon à
+  ajuster) et « Annuler le document » (motif) ; reste dû et état du paiement du serveur.
+  Produit : une page (Nom, Référence interne, Prix de vente HT, TVA, Compte de vente des
+  comptes de produits, Compte d'achat des comptes de charges, Actif). Faux serveur :
+  `e2e/support/fake-invoicing.ts` ; e2e : `e2e/invoicing.spec.ts`.
+- **Écritures (Module 5)** : `features/accounting/entries` sur `accounting/entries/`. La
+  saisie manuelle n'offre que les journaux d'opérations diverses (note backend 0038) ;
+  l'écriture d'une facture n'a pas « Contrepasser » (un avoir ou l'annulation). Liste =
   filtres de l'API seulement (aucune recherche texte dans l'API → pas de barre de recherche ;
   compte et tiers filtrés par code dans l'URL, trouvés par le serveur), 25 par page, pas de
   regroupement. Workflow = commandes `submit`/`reject`/`validate`/`lock`/`reverse` (jamais
@@ -404,14 +423,14 @@ supprime ce qui ne sert plus.
   - types : Ventes, Achats, Banque, Caisse, Opérations diverses (plus de « Général » ni
     d'« Autre ») ;
   - liste : Nom du journal (le lien), Type, Code court, Compte, Devise, Actif
-    (interrupteur, commandes) ; « Créer les journaux usuels » (`default-journals/` : Ventes,
-    Achats, Opérations diverses, sans compte par défaut) ;
+    (interrupteur, commandes) ; « Créer les journaux usuels » (`default-journals/` : VT
+    Ventes, AC Achats, OD Opérations diverses, sans compte) ;
   - formulaire : Nom du journal, Type, Code court (modifiable : le serveur le refuse après
-    la première écriture numérotée, `accounting_journal_code_in_use` sous le champ) | Compte
-    du type, facultatif (liste déroulante, « Aucun compte » d'abord ; `journalAccounts` lit
-    toutes les pages, 200 à la fois : nature produits ou charges, type « Banque et caisse » ;
-    aucun pour les opérations diverses, effacé quand le type change ; le compte du journal
-    reste proposé si le plan ne le liste plus), Devise ;
+    la première écriture numérotée, `accounting_journal_code_in_use` sous le champ) | Compte,
+    pour un journal de banque ou de caisse seulement (note backend 0038 ; liste déroulante,
+    « Aucun compte » d'abord ; `journalAccounts` lit toutes les pages, 200 à la fois, type
+    « Banque et caisse » ; effacé quand le type change ; le compte du journal reste proposé si
+    le plan ne le liste plus), Devise ;
     le préfixe en options avancées ; ni aperçu du numéro, ni nombre de chiffres (le
     serveur garde 6) ;
   - le compte de trésorerie choisit son journal parmi les journaux de banque et de caisse ;

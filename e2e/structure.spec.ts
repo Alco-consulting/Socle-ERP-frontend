@@ -61,25 +61,34 @@ test.describe('Lanceur : Reporting n’est plus une application', () => {
   });
 });
 
-test.describe('Comptabilité : trois liens et trois menus groupés', () => {
-  test('Tableau de bord, Clients, Fournisseurs, then Comptabilité, Analyse, Configuration', async ({
+test.describe('Comptabilité : un lien et cinq menus groupés', () => {
+  test('Tableau de bord, then Clients, Fournisseurs, Comptabilité, Analyse, Configuration', async ({
     page,
   }) => {
     await page.goto('/app/comptabilite/tableau-de-bord');
     const full = moduleNav(page).locator('.entries--full > li');
     await expect(full).toHaveText([
       'Tableau de bord',
-      'Clients',
-      'Fournisseurs',
+      /Clients/,
+      /Fournisseurs/,
       /Comptabilité/,
       /Analyse/,
       /Configuration/,
     ]);
-    await moduleNav(page).getByRole('link', { name: 'Clients' }).click();
+    // As Odoo's Facturation (note backend 0038): the documents, the products, the partners.
+    const clients = await openMenu(page, 'Clients');
+    await expect(clients.getByRole('menuitemradio')).toHaveText([
+      'Factures',
+      'Avoirs',
+      'Produits',
+      'Clients',
+    ]);
+    await clients.getByRole('menuitemradio', { name: 'Clients', exact: true }).click();
     await expect(page).toHaveURL(/\/app\/comptabilite\/clients$/);
     await expect(page.getByRole('heading', { level: 1 })).toHaveText('Clients');
     await expect(page.getByRole('table')).toBeVisible();
-    await moduleNav(page).getByRole('link', { name: 'Fournisseurs' }).click();
+    const suppliers = await openMenu(page, 'Fournisseurs');
+    await suppliers.getByRole('menuitemradio', { name: 'Fournisseurs', exact: true }).click();
     await expect(page.getByRole('heading', { level: 1 })).toHaveText('Fournisseurs');
   });
 

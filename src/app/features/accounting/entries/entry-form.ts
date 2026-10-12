@@ -291,8 +291,9 @@ export class EntryFormPage {
 
   constructor() {
     inject(UnsavedChangesService).track(() => this.form.dirty);
+    // An entry is entered by hand in miscellaneous operations only (note backend 0038).
     this.accounting
-      .journals({ status: 'active' })
+      .journals({ status: 'active', journalType: 'general' })
       .pipe(
         map((page) => page.results),
         catchError(() => of([] as Journal[])),

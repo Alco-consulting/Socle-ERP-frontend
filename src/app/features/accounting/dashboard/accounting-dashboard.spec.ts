@@ -228,14 +228,19 @@ describe('AccountingDashboardPage (dashboards/journals/ and dashboards/alerts/)'
     expect(element.textContent).toContain('Aucun compte de trésorerie n’utilise ce journal.');
   });
 
-  it('a new entry from a card opens the form with the journal preselected', async () => {
+  it('a new entry from a card of miscellaneous operations, the journal preselected', async () => {
     const { element, stable } = await open([...READER, 'accounting.create']);
-    await answer(stable, journals([BANK]));
+    const general = { ...BANK, public_id: 'j-od', code: 'OD', journal_type: 'general' as const };
+    await answer(stable, journals([BANK, { ...general, treasury_accounts: null }]));
 
+    // Entered by hand in miscellaneous operations only (note backend 0038).
+    expect(
+      element.querySelector('a[aria-label="Nouvelle écriture dans le journal BQ1"]'),
+    ).toBeNull();
     const create = element.querySelector<HTMLAnchorElement>(
-      'a[aria-label="Nouvelle écriture dans le journal BQ1"]',
+      'a[aria-label="Nouvelle écriture dans le journal OD"]',
     );
-    expect(create?.getAttribute('href')).toBe('/app/comptabilite/ecritures/nouvelle?journal=j-bq');
+    expect(create?.getAttribute('href')).toBe('/app/comptabilite/ecritures/nouvelle?journal=j-od');
   });
 
   it('the card menu offers only what exists: no new entry without accounting.create', async () => {

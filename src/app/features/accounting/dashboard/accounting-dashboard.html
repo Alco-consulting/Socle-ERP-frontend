@@ -152,7 +152,7 @@
             }
           }
 
-          @if (session.can('accounting.create')) {
+          @if (canEnter(journal)) {
             <div class="journal-actions">
               <a
                 alcoButton

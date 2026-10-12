@@ -14,6 +14,8 @@ export interface ClosingReasonData {
   readonly message: string;
   readonly confirmLabel: string;
   readonly tone?: 'primary' | 'danger';
+  /** Under the reason; by default, the closing's history keeps it. */
+  readonly hint?: string;
 }
 
 const TITLE_ID = 'alco-closing-reason-title';
@@ -35,7 +37,7 @@ const TITLE_ID = 'alco-closing-reason-title';
         <alco-form-field
           label="Motif"
           [required]="true"
-          hint="Gardé dans l’historique de la clôture."
+          [hint]="data.hint ?? 'Gardé dans l’historique de la clôture.'"
         >
           <textarea alcoInput formControlName="reason" rows="2" data-autofocus></textarea>
         </alco-form-field>

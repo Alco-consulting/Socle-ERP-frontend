@@ -118,7 +118,13 @@
         @if (sourceLabel(); as source) {
           <div>
             <dt>Source</dt>
-            <dd>{{ source }}</dd>
+            <dd>
+              @if (invoiceLink(); as link) {
+                <a [routerLink]="link.url">{{ link.label }}</a>
+              } @else {
+                {{ source }}
+              }
+            </dd>
           </div>
         }
         @if (treasuryOperations().length > 0) {

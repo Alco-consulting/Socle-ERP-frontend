@@ -1,0 +1,125 @@
+@if (loadError(); as failure) {
+  <alco-error-state
+    [title]="failure.title"
+    [message]="failure.message"
+    [code]="failure.code"
+    [correlationId]="failure.correlationId ?? ''"
+  />
+  <div class="center">
+    <a alcoButton icon="arrow-left" [routerLink]="list">Retour aux produits</a>
+  </div>
+} @else if (!ready()) {
+  <alco-loading [rows]="5" label="Chargement du produit…" />
+} @else {
+  <alco-page-header [title]="title()" [subtitle]="isNew ? 'Produit de la société' : ''">
+    <div alcoPageActions>
+      <button alcoButton type="button" variant="ghost" (click)="cancel()">
+        {{ canSave ? 'Annuler' : 'Retour aux produits' }}
+      </button>
+      @if (canSave) {
+        <button
+          alcoButton
+          type="submit"
+          form="product-form"
+          variant="primary"
+          [loading]="saving()"
+          loadingLabel="Enregistrement…"
+        >
+          Enregistrer
+        </button>
+      }
+    </div>
+  </alco-page-header>
+
+  @if (error(); as failure) {
+    <alco-error-state
+      [inline]="true"
+      [title]="failure.title"
+      [message]="failure.message"
+      [code]="failure.code"
+      [correlationId]="failure.correlationId ?? ''"
+    />
+  }
+  @if (invalidSubmit() && form.invalid) {
+    <alco-error-state
+      [inline]="true"
+      title="Certaines informations sont manquantes ou incorrectes."
+      message="Corrigez les champs signalés, puis enregistrez à nouveau."
+    />
+  }
+
+  <form id="product-form" class="sheet" [formGroup]="form" (ngSubmit)="save()" novalidate>
+    <div class="columns">
+      <div class="column">
+        <alco-form-field label="Nom" [required]="true">
+          <input alcoInput formControlName="name" maxlength="255" autocomplete="off" />
+        </alco-form-field>
+        <alco-form-field label="Référence interne" [optional]="true" hint="Ex. MAR-001.">
+          <input alcoInput formControlName="code" maxlength="32" autocomplete="off" />
+        </alco-form-field>
+        <alco-form-field
+          label="Prix de vente HT"
+          [optional]="true"
+          hint="Proposé sur une facture client ; modifiable sur la ligne."
+        >
+          <input alcoInput [numeric]="true" inputmode="decimal" formControlName="sale_price" />
+        </alco-form-field>
+        <alco-form-field label="TVA" [required]="true" hint="Reprise sur chaque ligne de facture.">
+          <select alcoSelect formControlName="tax">
+            <option value="">Choisir une TVA</option>
+            @for (choice of taxChoices(); track choice.id) {
+              <option [value]="choice.id">{{ choice.label }}</option>
+            }
+          </select>
+        </alco-form-field>
+      </div>
+      <div class="column">
+        <alco-form-field
+          label="Compte de vente"
+          [optional]="true"
+          hint="Un compte de produits (classe 7), ex. 701100. Exigé pour le vendre."
+        >
+          <select alcoSelect formControlName="sale_account">
+            <option value="">Aucun compte</option>
+            @for (choice of accountChoices('sale_account'); track choice.id) {
+              <option [value]="choice.id">{{ choice.label }}</option>
+            }
+          </select>
+        </alco-form-field>
+        <alco-form-field
+          label="Compte d’achat"
+          [optional]="true"
+          hint="Un compte de charges (classe 6), ex. 601100. Exigé pour l’acheter."
+        >
+          <select alcoSelect formControlName="purchase_account">
+            <option value="">Aucun compte</option>
+            @for (choice of accountChoices('purchase_account'); track choice.id) {
+              <option [value]="choice.id">{{ choice.label }}</option>
+            }
+          </select>
+        </alco-form-field>
+        <div class="field-check">
+          <span class="fixed-label" id="active-label">Actif</span>
+          <label class="alco-switch">
+            <input
+              type="checkbox"
+              role="switch"
+              formControlName="active"
+              aria-labelledby="active-label"
+            />
+            <span class="track" aria-hidden="true"></span>
+          </label>
+          <span class="alco-caption">Un produit inactif n’est plus proposé sur une facture.</span>
+        </div>
+      </div>
+    </div>
+
+    @if (product(); as product) {
+      @if (canSeeHistory) {
+        <section class="section" aria-labelledby="history-title">
+          <alco-object-history [objectType]="auditType" [objectId]="product.public_id" />
+        </section>
+      }
+    }
+  </form>
+}

@@ -167,26 +167,24 @@ test.describe('Comptabilité — journaux', () => {
     await expect(page.getByText('Les journaux usuels existent déjà.')).toBeVisible();
   });
 
-  test('nouveau journal : son compte par défaut parmi les comptes de son type', async ({
-    page,
-  }) => {
+  test('nouveau journal : un compte pour la banque et la caisse seulement', async ({ page }) => {
     await page.goto('/app/comptabilite/journaux/nouveau');
     await page
       .getByRole('textbox', { name: 'Nom du journal', exact: true })
       .fill('Achats importés');
     await page.getByRole('combobox', { name: 'Type' }).selectOption({ label: 'Achats' });
     await page.getByRole('textbox', { name: 'Code court', exact: true }).fill('ACI');
-    // A selection list of the expense accounts, « Aucun compte » first (the field is optional).
+    // Sales and purchase journals have no account (note backend 0038).
     const account = page.getByRole('combobox', { name: /^Compte/ });
-    await expect(account.locator('option')).toHaveText([
-      'Aucun compte',
-      '601 — Achats de marchandises',
-    ]);
-    await account.selectOption({ label: '601 — Achats de marchandises' });
+    await expect(account).toHaveCount(0);
     expect(await axe(page)).toEqual([]);
     await page.getByRole('button', { name: 'Enregistrer' }).click();
     await expect(page.getByText('Journal « ACI » créé.')).toBeVisible();
-    await expect(page.locator('.facts')).toContainText('601 Achats de marchandises');
+
+    // A bank journal: the list of the « Banque et caisse » accounts, « Aucun compte » first.
+    await page.goto('/app/comptabilite/journaux/nouveau');
+    await page.getByRole('combobox', { name: 'Type' }).selectOption({ label: 'Banque' });
+    await expect(account.locator('option').first()).toHaveText('Aucun compte');
 
     // Miscellaneous operations: no default account.
     await page.goto('/app/comptabilite/journaux/nouveau');

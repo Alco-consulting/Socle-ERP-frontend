@@ -292,7 +292,16 @@ describe('Journaux (accounting/journals/)', () => {
       request.flush(page([...results]));
       return request.request.params;
     };
-    const PURCHASES = { public_id: 'a-601', code: '601100', name: 'Achats de marchandises' };
+    const BANK_ACCOUNT = { public_id: 'a-521', code: '521100', name: 'Banque BICIGUI' };
+    /** A bank journal: the only kind, with cash, that has an account (note backend 0038). */
+    const BANK = {
+      ...JOURNAL,
+      public_id: 'j-bq',
+      code: 'BQ',
+      name: 'Banque BICIGUI',
+      journal_type: 'bank',
+      default_account: BANK_ACCOUNT,
+    };
     const options = (element: HTMLElement) =>
       Array.from(
         element.querySelector<HTMLSelectElement>('[formControlName="default_account"]')?.options ??
@@ -329,10 +338,9 @@ describe('Journaux (accounting/journals/)', () => {
       fill(element, 'journal_type', 'sales');
       fill(element, 'code', 'VTE');
       await stable();
-      expect(accounts().get('account_type')).toBe('income');
-      await stable();
-      // « Compte », simply (Odoo's « Compte de revenus par défaut »).
-      expect(options(element)).toEqual(['Aucun compte']);
+      // A sales journal has no account (note backend 0038): neither the field nor a request.
+      httpMock().expectNone((req) => req.url === '/api/v1/accounting/accounts/');
+      expect(element.querySelector('[formControlName="default_account"]')).toBeNull();
       expect(element.textContent).not.toContain('par défaut');
       expect(element.textContent).not.toContain('Numéro des écritures');
       expect(element.textContent).not.toContain('Nombre de chiffres');
@@ -393,48 +401,46 @@ describe('Journaux (accounting/journals/)', () => {
       await stable();
     });
 
-    it('miscellaneous operations have no default account: changing the type clears it', async () => {
-      const { element, stable, currencies } = await open('/journaux/j-ach/modifier', MANAGE);
+    it('only bank and cash journals have an account: changing the type clears it', async () => {
+      const { element, stable, currencies } = await open('/journaux/j-bq/modifier', MANAGE);
       currencies();
-      httpMock().expectOne('/api/v1/accounting/journals/j-ach/').flush(JOURNAL);
+      httpMock().expectOne('/api/v1/accounting/journals/j-bq/').flush(BANK);
       await stable();
-      expect(accounts([PURCHASES]).get('account_type')).toBe('expense');
+      expect(accounts([BANK_ACCOUNT]).get('detailed_type')).toBe('asset_cash');
       await stable();
       vi.spyOn(TestBed.inject(Router), 'navigate').mockResolvedValue(true);
       const account = () =>
         element.querySelector<HTMLSelectElement>('[formControlName="default_account"]');
-      expect(account()?.value).toBe('a-601');
-      expect(options(element)).toEqual(['Aucun compte', '601100 — Achats de marchandises']);
-      fill(element, 'journal_type', 'general');
+      expect(account()?.value).toBe('a-521');
+      expect(options(element)).toEqual(['Aucun compte', '521100 — Banque BICIGUI']);
+      fill(element, 'journal_type', 'sales');
       await stable();
       expect(account()).toBeNull();
       submit(element);
       await stable();
-      const patch = httpMock().expectOne('/api/v1/accounting/journals/j-ach/');
-      expect(patch.request.body).toEqual({ journal_type: 'general', default_account: null });
-      patch.flush({ ...JOURNAL, journal_type: 'general', default_account: null });
+      const patch = httpMock().expectOne('/api/v1/accounting/journals/j-bq/');
+      expect(patch.request.body).toEqual({ journal_type: 'sales', default_account: null });
+      patch.flush({ ...BANK, journal_type: 'sales', default_account: null });
       await stable();
     });
 
     it('the journal keeps its account when the chart no longer lists it', async () => {
-      const { element, stable, currencies } = await open('/journaux/j-ach/modifier', MANAGE);
+      const { element, stable, currencies } = await open('/journaux/j-bq/modifier', MANAGE);
       currencies();
-      httpMock().expectOne('/api/v1/accounting/journals/j-ach/').flush(JOURNAL);
+      httpMock().expectOne('/api/v1/accounting/journals/j-bq/').flush(BANK);
       await stable();
       accounts([]);
       await stable();
-      expect(options(element)).toEqual(['Aucun compte', '601100 — Achats de marchandises']);
+      expect(options(element)).toEqual(['Aucun compte', '521100 — Banque BICIGUI']);
       expect(
         element.querySelector<HTMLSelectElement>('[formControlName="default_account"]')?.value,
-      ).toBe('a-601');
+      ).toBe('a-521');
     });
 
     it('the short code changes; once entries are numbered, the server says no', async () => {
       const { element, stable, currencies } = await open('/journaux/j-ach/modifier', MANAGE);
       currencies();
       httpMock().expectOne('/api/v1/accounting/journals/j-ach/').flush(JOURNAL);
-      await stable();
-      accounts([PURCHASES]);
       await stable();
       const code = element.querySelector<HTMLInputElement>('[formControlName="code"]')!;
       expect(code.value).toBe('ACH');
@@ -454,8 +460,6 @@ describe('Journaux (accounting/journals/)', () => {
       const { element, stable, currencies } = await open('/journaux/j-ach/modifier', MANAGE);
       currencies();
       httpMock().expectOne('/api/v1/accounting/journals/j-ach/').flush(JOURNAL);
-      await stable();
-      accounts([PURCHASES]);
       await stable();
       fill(element, 'sequence_prefix', 'AC-');
       submit(element);

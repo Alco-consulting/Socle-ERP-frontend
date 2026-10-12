@@ -4,6 +4,7 @@ import { FakeAccountImport } from './fake-account-import';
 import { FakeAccounting } from './fake-accounting';
 import { FakeAccountingEntries } from './fake-accounting-entries';
 import { FakeClosing } from './fake-closing';
+import { FakeInvoicing } from './fake-invoicing';
 import { FakeCurrencies } from './fake-currencies';
 import { FakeDashboards } from './fake-dashboards';
 import { FakeDues } from './fake-dues';
@@ -80,6 +81,7 @@ const READ = [
   'imports_exports.read',
   'documents.read',
   'dashboards.read',
+  'invoicing.read',
   // The accounting dashboard's treasury part (V2.1): granted explicitly, never implied.
   'dashboards.read_treasury',
 ];
@@ -120,6 +122,12 @@ const WRITE = [
   'imports_exports.export',
   'documents.upload',
   'documents.download',
+  // Invoicing (note backend 0038): granted explicitly, never implied.
+  'invoicing.create',
+  'invoicing.update',
+  'invoicing.post',
+  'invoicing.cancel',
+  'invoicing.manage_products',
   // Closing (note backend 0036): granted explicitly, never implied.
   'closing.start',
   'closing.execute',
@@ -203,6 +211,7 @@ export class FakeApi {
   readonly currencies: FakeCurrencies;
   /** Closing: a fiscal year's closing, its steps, its reopenings (note backend 0036). */
   readonly closing: FakeClosing;
+  readonly invoicing: FakeInvoicing;
 
   constructor(private readonly page: Page) {
     const context: PartnersContext = {
@@ -232,6 +241,7 @@ export class FakeApi {
     this.accountImport = new FakeAccountImport(context, this.accounting);
     this.currencies = new FakeCurrencies(context, () => this.globalPermissions);
     this.closing = new FakeClosing(context, this.accounting);
+    this.invoicing = new FakeInvoicing(context, this.accounting, this.entries, this.partners);
   }
 
   /** No session open at start (the login screen). */
@@ -314,6 +324,7 @@ export class FakeApi {
     await this.treasury.install();
     await this.accountImport.install();
     await this.closing.install();
+    await this.invoicing.install();
     await page.route('**/api/v1/auth/me/', (route) => {
       this.calls.push(route.request());
       if (this.down) {

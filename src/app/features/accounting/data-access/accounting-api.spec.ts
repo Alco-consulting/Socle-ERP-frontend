@@ -94,23 +94,23 @@ describe('AccountingApi (accounting/, company scoped)', () => {
     usual.flush({ created: [], existing: [] });
 
     // A selection list: every page of the type's accounts (200 at a time), joined.
-    let revenue: readonly { code: string }[] = [];
-    void firstValueFrom(api.journalAccounts('sales')).then((list) => (revenue = list));
+    let banks: readonly { code: string }[] = [];
+    void firstValueFrom(api.journalAccounts('bank')).then((list) => (banks = list));
     const first = expect1('accounts/');
     const params = first.request.params;
-    expect([params.get('account_type'), params.get('detailed_type')]).toEqual(['income', null]);
+    expect([params.get('account_type'), params.get('detailed_type')]).toEqual([null, 'asset_cash']);
     expect([params.get('postable'), params.get('status'), params.get('page_size')]).toEqual([
       'true',
       'active',
       '200',
     ]);
     expect(params.has('page')).toBe(false);
-    first.flush(page([{ code: '701100' }], 201));
+    first.flush(page([{ code: '521101' }], 201));
     const second = expect1('accounts/');
     expect(second.request.params.get('page')).toBe('2');
-    second.flush(page([{ code: '706100' }], 201));
+    second.flush(page([{ code: '521102' }], 201));
     await Promise.resolve();
-    expect(revenue.map((account) => account.code)).toEqual(['701100', '706100']);
+    expect(banks.map((account) => account.code)).toEqual(['521101', '521102']);
 
     void firstValueFrom(api.journalAccounts('cash'));
     const cash = expect1('accounts/');
@@ -120,8 +120,10 @@ describe('AccountingApi (accounting/, company scoped)', () => {
     ]).toEqual([null, 'asset_cash']);
     cash.flush(page());
 
-    // Miscellaneous operations: no default account, no request.
-    expect(await firstValueFrom(api.journalAccounts('general'))).toEqual([]);
+    // Sales, purchases, miscellaneous operations: no account (note backend 0038), no request.
+    for (const type of ['sales', 'purchase', 'general'] as const) {
+      expect(await firstValueFrom(api.journalAccounts(type))).toEqual([]);
+    }
   });
 
   it('writes: POST, PATCH of the changes, status commands, with CSRF', () => {

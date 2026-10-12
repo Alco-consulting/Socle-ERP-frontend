@@ -1,0 +1,141 @@
+<alco-page-header [title]="spec.title">
+  <div alcoPageActions>
+    @if (canCreate()) {
+      <a alcoButton variant="primary" icon="plus" routerLink="nouvelle">Nouvelle facture</a>
+    }
+  </div>
+</alco-page-header>
+
+<div class="control-panel">
+  <alco-search-bar
+    class="search"
+    [label]="'Rechercher dans les ' + spec.title.toLowerCase()"
+    placeholder="Numéro, référence ou tiers…"
+    [query]="searchText()"
+    [facets]="facets()"
+    (queryChange)="onSearch($event)"
+    (facetRemoved)="removeFacet($event)"
+  />
+  <div class="controls">
+    <alco-filter-bar
+      [activeFilterCount]="activeFilterCount()"
+      (applied)="applyFilters()"
+      (cleared)="resetFilters()"
+    >
+      <div alcoFilterFields class="filter-fields" [formGroup]="filterForm">
+        <alco-form-field label="État">
+          <select alcoSelect formControlName="status">
+            <option value="">Tous les états</option>
+            @for (status of statuses; track status.id) {
+              <option [value]="status.id">{{ status.label }}</option>
+            }
+          </select>
+        </alco-form-field>
+      </div>
+    </alco-filter-bar>
+    @if (list.value(); as page) {
+      <alco-pagination
+        class="pager"
+        [page]="page.count > 0 ? this.page() : 1"
+        [pageSize]="pageSize"
+        [total]="page.count"
+        (pageChange)="setPage($event)"
+      />
+    }
+  </div>
+</div>
+
+@switch (list.status()) {
+  @case ('forbidden') {
+    <alco-error-state
+      title="Vous n’avez pas accès aux factures de cette société."
+      message="Demandez l’accès à un administrateur de la société si vous en avez besoin."
+    />
+  }
+  @case ('error') {
+    @if (failure(); as error) {
+      <alco-error-state
+        [title]="error.title"
+        [message]="error.message"
+        [code]="error.code"
+        [correlationId]="error.correlationId ?? ''"
+        retryLabel="Réessayer"
+        (retry)="list.reload()"
+      />
+    }
+  }
+  @default {
+    @if (list.value() === null) {
+      <alco-loading
+        variant="table"
+        [rows]="5"
+        [columns]="6"
+        [label]="'Chargement des ' + spec.title.toLowerCase() + '…'"
+      />
+    } @else if (rows().length === 0) {
+      <div class="empty-frame">
+        @if (hasCriteria()) {
+          <alco-empty-state
+            icon="search"
+            title="Aucun document ne correspond à ces critères."
+            message="Modifiez la recherche ou retirez un filtre."
+          >
+            <button alcoButton type="button" icon="refresh" (click)="resetFilters()">
+              Réinitialiser les filtres
+            </button>
+          </alco-empty-state>
+        } @else if (spec.creatable) {
+          <alco-empty-state
+            icon="file"
+            title="Aucune facture pour l’instant."
+            message="Comptabiliser une facture crée son écriture dans le journal concerné."
+          >
+            @if (canCreate()) {
+              <a alcoButton variant="primary" icon="plus" routerLink="nouvelle">Nouvelle facture</a>
+            }
+          </alco-empty-state>
+        } @else {
+          <alco-empty-state
+            icon="file"
+            title="Aucun avoir pour l’instant."
+            message="Un avoir se crée depuis une facture comptabilisée : « Créer un avoir »."
+          />
+        }
+      </div>
+    } @else {
+      <alco-table
+        [class.reloading]="list.loading()"
+        [attr.aria-busy]="list.loading()"
+        [caption]="spec.title + ', les plus récentes d’abord'"
+        [columns]="columns"
+        [rows]="rows()"
+        [rowId]="rowId"
+        [rowLabel]="rowLabel"
+        [clickableRows]="true"
+        (rowActivated)="open($event)"
+      >
+        <ng-template alcoCell="number" let-row>
+          <a class="code" [routerLink]="row.public_id">{{ row.number || 'Brouillon' }}</a>
+        </ng-template>
+        <ng-template alcoCell="partner" let-row>{{ row.partner.name }}</ng-template>
+        <ng-template alcoCell="date" let-row>{{
+          row.invoice_date | date: 'dd/MM/yyyy'
+        }}</ng-template>
+        <ng-template alcoCell="untaxed" let-row>{{
+          row.amount_untaxed | alcoAmount: 0
+        }}</ng-template>
+        <ng-template alcoCell="total" let-row>{{ row.amount_total | alcoAmount: 0 }}</ng-template>
+        <ng-template alcoCell="status" let-row>
+          <alco-badge [tone]="statusOf(row).tone" [icon]="statusOf(row).icon">{{
+            statusOf(row).label
+          }}</alco-badge>
+        </ng-template>
+        <ng-template alcoCell="payment" let-row>
+          @if (paymentOf(row.payment_state); as payment) {
+            <alco-badge [tone]="payment.tone">{{ payment.label }}</alco-badge>
+          }
+        </ng-template>
+      </alco-table>
+    }
+  }
+}

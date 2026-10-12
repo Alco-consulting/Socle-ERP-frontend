@@ -35,14 +35,12 @@ export const JOURNAL_TYPES: readonly { id: JournalType; label: string }[] = [
 ];
 
 /**
- * The « Compte » of a journal (Odoo's « Compte par défaut »), said simply, with what it is for
- * each type; a journal of miscellaneous operations has none.
+ * The « Compte » of a journal (Odoo's « Compte par défaut »), said simply: a bank or cash
+ * journal only; sales, purchases and miscellaneous operations have none (note backend 0038).
  */
 export const JOURNAL_ACCOUNT_FIELDS: Readonly<
   Partial<Record<JournalType, { label: string; hint: string }>>
 > = {
-  sales: { label: 'Compte', hint: 'Un compte de produits, ex. 701100 Ventes de marchandises.' },
-  purchase: { label: 'Compte', hint: 'Un compte de charges, ex. 601100 Achats de marchandises.' },
   bank: { label: 'Compte', hint: 'Le compte de la banque dans le plan, ex. 521100.' },
   cash: { label: 'Compte', hint: 'Le compte de la caisse dans le plan, ex. 571100.' },
 };

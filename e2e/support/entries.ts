@@ -38,7 +38,10 @@ export interface NewEntry {
 
 /** Fills the header and the lines of « Nouvelle écriture » (without saving). */
 export async function fillEntry(page: Page, entry: NewEntry): Promise<void> {
-  await page.getByLabel('Journal').selectOption({ label: entry.journal ?? 'ACH — Achats' });
+  // Entered by hand in miscellaneous operations only (note backend 0038).
+  await page
+    .getByLabel('Journal')
+    .selectOption({ label: entry.journal ?? 'OD — Opérations diverses' });
   await dateField(page).fill(entry.date);
   await page.getByRole('textbox', { name: 'Libellé', exact: true }).fill(entry.description);
   for (const [index, [code, side, amount]] of entry.lines.entries()) {

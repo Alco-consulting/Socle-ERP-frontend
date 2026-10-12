@@ -11,7 +11,15 @@ import {
 } from '@angular/core';
 import { toObservable, toSignal } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
-import { Observable, catchError, firstValueFrom, map, of, switchMap } from 'rxjs';
+import {
+  Observable,
+  catchError,
+  distinctUntilChanged,
+  firstValueFrom,
+  map,
+  of,
+  switchMap,
+} from 'rxjs';
 
 import { UserError, toUserError } from '../../../core/errors/user-error';
 import { ApiError, toApiError } from '../../../core/http/api-error';
@@ -38,6 +46,9 @@ import { AlcoToastService } from '../../../shared/ui/toast/toast.service';
 import { AlcoWorkflowSteps } from '../../../shared/ui/workflow-steps/workflow-steps';
 import { isZeroDecimal, subtractDecimals, sumDecimals } from '../../../shared/utils/decimal';
 import { localToday } from '../../../shared/utils/dates';
+import { InvoicingApi } from '../../invoicing/data-access/invoicing-api';
+import { Invoice } from '../../invoicing/data-access/invoicing-models';
+import { KINDS, invoiceUrl } from '../../invoicing/invoicing-presentation';
 import { PartnersApi } from '../../partners/data-access/partners-api';
 import { TreasuryApi, TreasuryOperationSummary } from '../../treasury/data-access/treasury-api';
 import { EntriesApi } from '../data-access/entries-api';
@@ -64,8 +75,12 @@ interface ActionSpec {
 
 const ACCOUNTING = `${APP_ROOT}/comptabilite`;
 
+/** The entry of an invoice: Facturation corrects it, never a reversal by hand. */
+const fromInvoice = (entry: Entry) => entry.source_type === 'invoicing.invoice';
+
 /** Modules that generate entries (`source_type` = `<module>.<object>`), in words. */
 const SOURCE_MODULES: Readonly<Record<string, string>> = {
+  invoicing: 'Facturation',
   treasury: 'Trésorerie',
   assets: 'Immobilisations',
   loans: 'Emprunts',
@@ -218,6 +233,30 @@ export class EntryDetailPage {
   protected readonly treasuryUrl = computed(() =>
     this.canOpen('tresorerie/operations') ? `${ACCOUNTING}/tresorerie/operations` : null,
   );
+  /** The invoice an entry comes from (source `invoicing.invoice`, `invoicing.read`). */
+  private readonly invoicingApi = inject(InvoicingApi);
+  private readonly sourceInvoice = toSignal(
+    toObservable(this.entry).pipe(
+      map((entry) => (entry?.source_type === 'invoicing.invoice' ? entry.source_id : '')),
+      distinctUntilChanged(),
+      switchMap((invoiceId) =>
+        invoiceId && this.session.can('invoicing.read')
+          ? this.invoicingApi.invoice(invoiceId).pipe(catchError(() => of(null as Invoice | null)))
+          : of(null as Invoice | null),
+      ),
+    ),
+    { initialValue: null as Invoice | null },
+  );
+  /** « Facture FV-2026-0001 » and its record, from the entry (the link back). */
+  protected readonly invoiceLink = computed(() => {
+    const invoice = this.sourceInvoice();
+    return invoice
+      ? {
+          label: `${KINDS[invoice.kind].word} ${invoice.number}`,
+          url: invoiceUrl(invoice.kind, invoice.public_id),
+        }
+      : null;
+  });
   /** « Trésorerie », « Immobilisations »…: the module that generated the entry. */
   protected readonly sourceLabel = computed(() => {
     const type = this.entry()?.source_type ?? '';
@@ -271,7 +310,9 @@ export class EntryDetailPage {
       case 'submitted':
         return 'Soumise : elle ne se modifie plus. Un validateur peut la valider, ou la renvoyer en brouillon.';
       case 'validated':
-        return 'Validée : elle ne se modifie plus. Pour la corriger, contrepassez-la.';
+        return fromInvoice(entry)
+          ? 'Générée par une facture : elle se corrige par un avoir, ou par l’annulation de la facture.'
+          : 'Validée : elle ne se modifie plus. Pour la corriger, contrepassez-la.';
       case 'locked':
         return 'Verrouillée : elle ne change plus d’état. Elle peut encore être contrepassée.';
     }
@@ -367,7 +408,8 @@ export class EntryDetailPage {
     if (draft && can('accounting.submit')) {
       actions.push('submit');
     }
-    if (posted && entry.kind !== 'reversal' && can('accounting.reverse')) {
+    // An invoice's entry is corrected by a credit note or its cancellation (note backend 0038).
+    if (posted && entry.kind !== 'reversal' && !fromInvoice(entry) && can('accounting.reverse')) {
       actions.push('reverse');
     }
     if (entry.status === 'validated' && can('accounting.lock')) {

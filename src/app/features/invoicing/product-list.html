@@ -1,0 +1,140 @@
+<alco-page-header title="Produits">
+  <div alcoPageActions>
+    @if (canManage()) {
+      <a alcoButton variant="primary" icon="plus" routerLink="nouveau">Nouveau produit</a>
+    }
+  </div>
+</alco-page-header>
+
+<div class="control-panel">
+  <alco-search-bar
+    class="search"
+    label="Rechercher un produit"
+    placeholder="Rechercher par référence ou nom…"
+    [query]="searchText()"
+    [facets]="facets()"
+    (queryChange)="onSearch($event)"
+    (facetRemoved)="removeFacet($event)"
+  />
+  <div class="controls">
+    <alco-filter-bar
+      [activeFilterCount]="activeFilterCount()"
+      (applied)="applyFilters()"
+      (cleared)="resetFilters()"
+    >
+      <div alcoFilterFields class="filter-fields" [formGroup]="filterForm">
+        <alco-form-field label="État">
+          <select alcoSelect formControlName="status">
+            <option value="">Tous les produits</option>
+            @for (status of statuses; track status.id) {
+              <option [value]="status.id">{{ status.label }}</option>
+            }
+          </select>
+        </alco-form-field>
+      </div>
+    </alco-filter-bar>
+    @if (list.value(); as page) {
+      <alco-pagination
+        class="pager"
+        [page]="page.count > 0 ? this.page() : 1"
+        [pageSize]="pageSize"
+        [total]="page.count"
+        (pageChange)="setPage($event)"
+      />
+    }
+  </div>
+</div>
+
+@switch (list.status()) {
+  @case ('forbidden') {
+    <alco-error-state
+      title="Vous n’avez pas accès aux produits de cette société."
+      message="Demandez l’accès à un administrateur de la société si vous en avez besoin."
+    />
+  }
+  @case ('error') {
+    @if (failure(); as error) {
+      <alco-error-state
+        [title]="error.title"
+        [message]="error.message"
+        [code]="error.code"
+        [correlationId]="error.correlationId ?? ''"
+        retryLabel="Réessayer"
+        (retry)="list.reload()"
+      />
+    }
+  }
+  @default {
+    @if (list.value() === null) {
+      <alco-loading variant="table" [rows]="4" [columns]="6" label="Chargement des produits…" />
+    } @else if (rows().length === 0) {
+      <div class="empty-frame">
+        @if (hasCriteria()) {
+          <alco-empty-state
+            icon="search"
+            title="Aucun produit ne correspond à ces critères."
+            message="Modifiez la recherche ou retirez un filtre."
+          >
+            <button alcoButton type="button" icon="refresh" (click)="resetFilters()">
+              Réinitialiser les filtres
+            </button>
+          </alco-empty-state>
+        } @else {
+          <alco-empty-state
+            icon="file"
+            title="Cette société n’a pas encore de produit."
+            message="Un produit porte son compte de vente, son compte d’achat et sa TVA : les factures les reprennent."
+          >
+            @if (canManage()) {
+              <a alcoButton variant="primary" icon="plus" routerLink="nouveau">Nouveau produit</a>
+            }
+          </alco-empty-state>
+        }
+      </div>
+    } @else {
+      <alco-table
+        [class.reloading]="list.loading()"
+        [attr.aria-busy]="list.loading()"
+        caption="Produits de la société, par nom"
+        [columns]="columns"
+        [rows]="rows()"
+        [rowId]="rowId"
+        [rowLabel]="rowLabel"
+        [clickableRows]="true"
+        (rowActivated)="open($event)"
+      >
+        <ng-template alcoCell="code" let-product>{{ product.code || '—' }}</ng-template>
+        <ng-template alcoCell="name" let-product>
+          <a class="code" [routerLink]="product.public_id">{{ product.name }}</a>
+        </ng-template>
+        <ng-template alcoCell="sale_price" let-product>
+          @if (product.sale_price !== null) {
+            {{ product.sale_price | alcoAmount: 0 }}
+          } @else {
+            —
+          }
+        </ng-template>
+        <ng-template alcoCell="sale_account" let-product>{{
+          product.sale_account?.code ?? '—'
+        }}</ng-template>
+        <ng-template alcoCell="purchase_account" let-product>{{
+          product.purchase_account?.code ?? '—'
+        }}</ng-template>
+        <ng-template alcoCell="tax" let-product>{{ product.tax.name }}</ng-template>
+        <ng-template alcoCell="active" let-product>
+          <label class="alco-switch">
+            <input
+              type="checkbox"
+              role="switch"
+              [checked]="active(product)"
+              [disabled]="!canManage() || switching() === product.public_id"
+              [attr.aria-label]="'Produit ' + product.name + ' actif'"
+              (change)="setActive(product, $event)"
+            />
+            <span class="track" aria-hidden="true"></span>
+          </label>
+        </ng-template>
+      </alco-table>
+    }
+  }
+}

@@ -207,6 +207,11 @@ export class AccountingDashboardPage {
     return error ? toUserError(error, ACCOUNTING_REFERENTIAL_ERRORS) : null;
   }
 
+  /** « Nouvelle écriture »: a journal of miscellaneous operations, `accounting.create`. */
+  protected canEnter(journal: JournalSummary): boolean {
+    return journal.journal_type === 'general' && this.session.can('accounting.create');
+  }
+
   /** ⋮ of a card: only what the API and the user's permissions allow. */
   private actionsOf(journal: JournalSummary): DropdownItem[] {
     const id = encodeURIComponent(journal.public_id);
@@ -217,7 +222,8 @@ export class AccountingDashboardPage {
         icon: 'eye',
         route: `${ACCOUNTING}/ecritures?journal=${id}`,
       },
-      ...(this.session.can('accounting.create')
+      // An entry is entered by hand in miscellaneous operations only (note backend 0038).
+      ...(this.canEnter(journal)
         ? [
             {
               id: 'new',

@@ -4,6 +4,7 @@ import { permissionGuard } from '../../core/navigation/app-access.guard';
 import { unsavedChangesGuard } from '../../core/navigation/unsaved-changes';
 import { CLOSING_ROUTES } from '../closing/closing.routes';
 import { CURRENCIES_ROUTES } from '../currencies/currencies.routes';
+import { INVOICING_ROUTES } from '../invoicing/invoicing.routes';
 import { TAXES_ROUTES } from '../taxes/taxes.routes';
 import { TREASURY_ROUTES } from '../treasury/treasury.routes';
 import { ACCOUNT_TRANSFER } from './accounts/account-transfer';
@@ -161,6 +162,8 @@ export const ACCOUNTING_ROUTES: Routes = [
       },
     ],
   },
+  // Facturation (note backend 0038): invoices, credit notes, products.
+  ...INVOICING_ROUTES,
   // Trésorerie (Module 6; reconciliation V2.1 A6): served among the section's routes.
   ...TREASURY_ROUTES,
   // Taxes as Odoo's screens (Configuration › Taxes): served among the section's routes.

@@ -24,12 +24,10 @@ export const JOURNAL_PAGE_SIZE = 50;
 /** A selection list reads every page: the server's largest (`API_MAX_PAGE_SIZE`). */
 const OPTIONS_PAGE_SIZE = 200;
 
-/** The accounts of a journal type (generic natures and types, no national code). */
+/** Only a bank or cash journal has an account (note backend 0038): bank and cash type. */
 const JOURNAL_ACCOUNT_FILTERS: Readonly<
   Partial<Record<JournalType, { accountType?: AccountType; detailedType?: DetailedType }>>
 > = {
-  sales: { accountType: 'income' },
-  purchase: { accountType: 'expense' },
   bank: { detailedType: 'asset_cash' },
   cash: { detailedType: 'asset_cash' },
 };
@@ -92,20 +90,18 @@ export class AccountingApi {
   }
 
   /**
-   * Every account a journal of `type` may take as default account, by code (a selection
-   * list: all the pages, 200 at a time): active, postable, of the nature (revenue, expense)
-   * or the type (bank and cash) it uses. None for miscellaneous operations.
+   * Every account a journal of `type` may take as its account, by code (a selection list:
+   * all the pages, 200 at a time): active, postable, of type « Banque et caisse ». None for
+   * sales, purchases and miscellaneous operations (note backend 0038).
    */
   journalAccounts(type: JournalType): Observable<readonly Account[]> {
     const filter = JOURNAL_ACCOUNT_FILTERS[type];
     return filter ? this.allAccounts(filter) : of([]);
   }
 
-  /** The collective accounts a partner may name: receivable (customer) or payable (supplier). */
-  collectiveAccounts(role: 'customer' | 'supplier'): Observable<readonly Account[]> {
-    return this.allAccounts({
-      detailedType: role === 'customer' ? 'asset_receivable' : 'liability_payable',
-    });
+  /** The accounts of a nature, for a product: income (sale), expense (purchase). */
+  accountsOfNature(nature: 'income' | 'expense'): Observable<readonly Account[]> {
+    return this.allAccounts({ accountType: nature });
   }
 
   /** Every active postable account of a nature or a type, all pages. */

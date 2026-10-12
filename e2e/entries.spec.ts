@@ -10,7 +10,9 @@ import { openMenuItem } from './support/navigation';
  * the 13 scenarios of the module. Nothing reaches the real API.
  */
 
-const LIST = '/app/comptabilite/ecritures';
+const LIST = '/app/comptabilite/ecritures/pieces';
+/** A record and the form live beside the lines (« Écritures comptables »). */
+const ENTRIES = '/app/comptabilite/ecritures';
 const companyButton = (page: Page) => page.getByRole('button', { name: /^Société active/ });
 const header = (page: Page) => page.locator('alco-page-header');
 const rows = (page: Page) => page.locator('tbody tr');
@@ -49,8 +51,8 @@ test.describe('Écritures — liste', () => {
     api,
   }) => {
     await page.goto('/app/comptabilite/tableau-de-bord');
-    await openMenuItem(page, 'Comptabilité', 'Écritures');
-    await expect(page.getByRole('heading', { level: 1 })).toHaveText('Écritures');
+    await openMenuItem(page, 'Comptabilité', 'Pièces comptables');
+    await expect(page.getByRole('heading', { level: 1 })).toHaveText('Pièces comptables');
     await expect(page.getByRole('note', { name: 'Démonstration' })).toHaveCount(0);
     await expect(rows(page)).toHaveCount(25);
     await expect(page.getByText(/1–25\s*sur\s*48/)).toBeVisible();
@@ -245,7 +247,7 @@ test.describe('Écritures — workflow du serveur', () => {
     api,
   }) => {
     const validated = api.entries.entries('A').find((item) => item.status === 'validated');
-    await page.goto(`${LIST}/${validated?.public_id}`);
+    await page.goto(`${ENTRIES}/${validated?.public_id}`);
     await expect(page.getByRole('heading', { level: 1 })).toHaveText(validated!.entry_number);
     await expect(page.getByText('Validée : elle ne se modifie plus.')).toBeVisible();
     await expect(page.getByRole('table', { name: 'Lignes de l’écriture' })).toContainText('Totaux');
@@ -257,7 +259,7 @@ test.describe('Écritures — workflow du serveur', () => {
       page.getByRole('navigation', { name: 'Fil d’Ariane' }).getByText(validated!.entry_number),
     ).toBeVisible();
 
-    await page.goto(`${LIST}/${validated?.public_id}/modifier`);
+    await page.goto(`${ENTRIES}/${validated?.public_id}/modifier`);
     await expect(page.getByText('Cette écriture ne peut pas être modifiée.')).toBeVisible();
     await expect(page.locator('form')).toHaveCount(0);
   });
@@ -267,7 +269,7 @@ test.describe('Écritures — workflow du serveur', () => {
     api,
   }) => {
     const validated = api.entries.entries('A').find((item) => item.status === 'validated');
-    await page.goto(`${LIST}/${validated?.public_id}`);
+    await page.goto(`${ENTRIES}/${validated?.public_id}`);
     await header(page).getByRole('button', { name: 'Contrepasser' }).click();
     const dialog = page.getByRole('dialog', { name: `Contrepasser ${validated?.entry_number} ?` });
     await expect(dialog).toContainText('chaque ligne inversée');
@@ -309,12 +311,12 @@ test.describe('Écritures — droits, société, modifications', () => {
     await expect(page.getByRole('link', { name: 'Nouvelle écriture' })).toHaveCount(0);
     await expect(page.getByRole('button', { name: 'Actions' })).toHaveCount(0);
     const draft = api.entries.entries('A').find((item) => item.status === 'draft');
-    await page.goto(`${LIST}/${draft?.public_id}`);
+    await page.goto(`${ENTRIES}/${draft?.public_id}`);
     await expect(header(page)).toContainText('Brouillon');
     await expect(header(page).getByRole('button')).toHaveCount(0);
 
-    await page.goto(`${LIST}/nouvelle`);
-    await expect(page).toHaveURL(/\/ecritures$/);
+    await page.goto(`${ENTRIES}/nouvelle`);
+    await expect(page).toHaveURL(/\/app\/comptabilite\/ecritures$/);
     await expect(page.getByText('Votre profil ne permet pas d’ouvrir cet écran.')).toBeVisible();
   });
 
@@ -328,6 +330,8 @@ test.describe('Écritures — droits, société, modifications', () => {
     await switchTo(page, /FILIALE SÉNÉGAL/);
     await expect(companyButton(page)).toContainText('FILIALE SÉNÉGAL (test)');
     await expect(page).toHaveURL(/\/app\/comptabilite\/ecritures$/); // the list, never a record
+    await expect(page.getByRole('heading', { level: 1 })).toHaveText('Écritures comptables');
+    await page.getByRole('link', { name: 'Pièces comptables' }).click();
     await expect(rows(page).first()).toBeVisible();
     await expect(page.getByText('Écriture propre à Alpha')).toHaveCount(0);
     await expect(rows(page)).toHaveCount(6);
@@ -348,6 +352,7 @@ test.describe('Écritures — droits, société, modifications', () => {
     await switchTo(page, /ALCO GUINÉE/);
     await expect(companyButton(page)).toContainText('ALCO GUINÉE (test)');
     await expect(page).toHaveURL(/\/app\/comptabilite\/ecritures$/); // the list, never a record
+    await page.getByRole('link', { name: 'Pièces comptables' }).click();
     await expect(page.getByRole('cell', { name: /Écriture propre à Alpha/ })).toBeVisible();
   });
 
@@ -387,7 +392,7 @@ test.describe('Écritures — droits, société, modifications', () => {
 
   test('Scénario 13 : téléphone, une colonne, lignes dans un cadre adapté', async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 844 });
-    await page.goto(`${LIST}/nouvelle`);
+    await page.goto(`${ENTRIES}/nouvelle`);
     const line = page.locator('[data-line="0"]');
     await expect(line).toBeVisible();
     const account = await line.getByRole('combobox', { name: 'Compte' }).boundingBox();

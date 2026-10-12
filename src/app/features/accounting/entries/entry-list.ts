@@ -300,7 +300,7 @@ export class EntryListPage {
   }
 
   protected open(entry: Entry): void {
-    void this.router.navigate([entry.public_id], { relativeTo: this.route });
+    void this.router.navigate(['..', entry.public_id], { relativeTo: this.route });
   }
 
   /**

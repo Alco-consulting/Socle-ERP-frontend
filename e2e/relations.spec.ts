@@ -36,7 +36,9 @@ test.describe('Journal → objets liés', () => {
     await expect(page.getByRole('heading', { level: 1 })).toHaveText('Achats');
     const total = await countOf(page, 'Écritures');
     await smart(page, 'Écritures').click();
-    await expect(page).toHaveURL(new RegExp(`/ecritures\\?journal=${journalId(api, 'ACH')}$`));
+    await expect(page).toHaveURL(
+      new RegExp(`/ecritures/pieces\\?journal=${journalId(api, 'ACH')}$`),
+    );
     await expect(rows(page)).toHaveCount(total);
   });
 
@@ -59,7 +61,7 @@ test.describe('Compte → objets liés', () => {
     await page.goto(`${ACC}/plan-comptable/${accountId(api, '401')}`);
     const total = await countOf(page, 'Écritures');
     await smart(page, 'Écritures').click();
-    await expect(page).toHaveURL(/\/ecritures\?compte=401$/);
+    await expect(page).toHaveURL(/\/ecritures\/pieces\?compte=401$/);
     await expect(rows(page)).toHaveCount(Math.min(total, 25));
   });
 
@@ -98,7 +100,7 @@ test.describe('Tiers → objets liés', () => {
     const total = await countOf(page, 'Écritures');
     expect(total).toBeGreaterThan(0);
     await smart(page, 'Écritures').click();
-    await expect(page).toHaveURL(/\/ecritures\?tiers=FOU-001$/);
+    await expect(page).toHaveURL(/\/ecritures\/pieces\?tiers=FOU-001$/);
     await expect(rows(page)).toHaveCount(Math.min(total, 25));
   });
 
@@ -224,6 +226,6 @@ test.describe('Société, permissions', () => {
     const entries = smart(page, 'Écritures');
     await entries.focus();
     await page.keyboard.press('Enter');
-    await expect(page).toHaveURL(/\/ecritures\?tiers=FOU-001$/);
+    await expect(page).toHaveURL(/\/ecritures\/pieces\?tiers=FOU-001$/);
   });
 });

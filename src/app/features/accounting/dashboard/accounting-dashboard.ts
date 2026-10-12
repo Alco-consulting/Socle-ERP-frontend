@@ -220,7 +220,7 @@ export class AccountingDashboardPage {
         id: 'entries',
         label: 'Voir les écritures',
         icon: 'eye',
-        route: `${ACCOUNTING}/ecritures?journal=${id}`,
+        route: `${ACCOUNTING}/ecritures/pieces?journal=${id}`,
       },
       // An entry is entered by hand in miscellaneous operations only (note backend 0038).
       ...(this.canEnter(journal)

@@ -1,0 +1,203 @@
+<alco-page-header title="Écritures comptables">
+  <div alcoPageActions>
+    <a alcoButton icon="book" [routerLink]="entriesUrl + '/pieces'">Pièces comptables</a>
+  </div>
+</alco-page-header>
+
+<div class="control-panel">
+  <alco-search-bar
+    class="search"
+    label="Rechercher une écriture"
+    placeholder="Libellé, pièce, référence ou partenaire…"
+    [query]="searchText()"
+    [facets]="facets()"
+    (queryChange)="onSearch($event)"
+    (facetRemoved)="removeFacet($event)"
+  />
+  <div class="controls">
+    <alco-filter-bar
+      [activeFilterCount]="activeFilterCount()"
+      (applied)="applyFilters()"
+      (cleared)="resetFilters()"
+    >
+      <div alcoFilterFields class="filter-fields" [formGroup]="filterForm">
+        <alco-form-field label="État">
+          <select alcoSelect formControlName="state">
+            @for (item of states; track item.id) {
+              <option [value]="item.id">{{ item.label }}</option>
+            }
+          </select>
+        </alco-form-field>
+        <alco-form-field label="Journal">
+          <select alcoSelect formControlName="journal">
+            <option value="">Tous les journaux</option>
+            @for (journal of journals(); track journal.public_id) {
+              <option [value]="journal.public_id">{{ journal.code }} — {{ journal.name }}</option>
+            }
+          </select>
+        </alco-form-field>
+        <alco-form-field label="Du">
+          <input alcoDatePicker type="date" formControlName="from" />
+        </alco-form-field>
+        <alco-form-field label="Au">
+          <input alcoDatePicker type="date" formControlName="to" />
+        </alco-form-field>
+      </div>
+    </alco-filter-bar>
+    @if (list.value(); as page) {
+      <alco-pagination
+        class="pager"
+        [page]="page.count > 0 ? this.page() : 1"
+        [pageSize]="pageSize"
+        [total]="page.count"
+        (pageChange)="setPage($event)"
+      />
+    }
+  </div>
+</div>
+
+<div class="chart-layout">
+  <button
+    alcoButton
+    type="button"
+    variant="ghost"
+    size="sm"
+    icon="filter"
+    class="panel-toggle"
+    [attr.aria-expanded]="panelShown()"
+    aria-controls="line-classes"
+    (click)="panelShown.set(!panelShown())"
+  >
+    Classes de comptes{{ prefix() ? ' : ' + prefix() : '' }}
+  </button>
+  <nav
+    id="line-classes"
+    class="prefixes"
+    [class.shown]="panelShown()"
+    aria-label="Classes de comptes des écritures"
+  >
+    <ul>
+      <li>
+        <button
+          type="button"
+          class="prefix all"
+          [class.current]="!prefix()"
+          [attr.aria-current]="!prefix() ? 'true' : null"
+          (click)="choosePrefix(null)"
+        >
+          <span>Tous</span>
+          @if (classes.value()) {
+            <span class="count">{{ total() }}</span>
+          }
+        </button>
+      </li>
+      @for (item of classes.value() ?? []; track item.prefix) {
+        <li>
+          <button
+            type="button"
+            class="prefix"
+            [class.current]="prefix() === item.prefix"
+            [attr.aria-current]="prefix() === item.prefix ? 'true' : null"
+            (click)="choosePrefix(item.prefix)"
+          >
+            <span>{{ item.prefix }}</span>
+            <span class="count">{{ item.count }}</span>
+          </button>
+        </li>
+      }
+    </ul>
+  </nav>
+  <div class="chart-main">
+    @switch (list.status()) {
+      @case ('forbidden') {
+        <alco-error-state
+          title="Vous n’avez pas accès aux écritures de cette société."
+          message="Demandez l’accès à un administrateur de la société si vous en avez besoin."
+        />
+      }
+      @case ('error') {
+        @if (failure(); as error) {
+          <alco-error-state
+            [title]="error.title"
+            [message]="error.message"
+            [code]="error.code"
+            [correlationId]="error.correlationId ?? ''"
+            retryLabel="Réessayer"
+            (retry)="list.reload()"
+          />
+        }
+      }
+      @default {
+        @if (list.value() === null) {
+          <alco-loading
+            variant="table"
+            [rows]="8"
+            [columns]="7"
+            label="Chargement des écritures…"
+          />
+        } @else if (rows().length === 0) {
+          <div class="empty-frame">
+            @if (hasCriteria()) {
+              <alco-empty-state
+                icon="search"
+                title="Aucune écriture ne correspond à ces critères."
+                message="Modifiez la recherche ou retirez un filtre."
+              >
+                <button alcoButton type="button" icon="refresh" (click)="resetFilters()">
+                  Réinitialiser les filtres
+                </button>
+              </alco-empty-state>
+            } @else {
+              <alco-empty-state
+                icon="accounting"
+                title="Aucune écriture comptabilisée pour l’instant."
+                message="Les écritures naissent des factures, des avoirs et des paiements ; les opérations diverses se saisissent dans Pièces comptables."
+              />
+            }
+          </div>
+        } @else {
+          <alco-table
+            [class.reloading]="list.loading()"
+            [attr.aria-busy]="list.loading()"
+            caption="Écritures comptables, les plus récentes d’abord"
+            [columns]="columns"
+            [rows]="rows()"
+            [rowId]="rowId"
+            [rowLabel]="rowLabel"
+            [clickableRows]="true"
+            (rowActivated)="open($event)"
+          >
+            <ng-template alcoCell="date" let-row>{{
+              row.entry.entry_date | date: 'dd/MM/yyyy'
+            }}</ng-template>
+            <ng-template alcoCell="entry" let-row>
+              <a class="code" [routerLink]="[entriesUrl, row.entry.public_id]">{{
+                row.entry.entry_number || 'Brouillon'
+              }}</a>
+            </ng-template>
+            <ng-template alcoCell="account" let-row>
+              <span class="mono">{{ row.account.code }}</span> {{ row.account.name }}
+            </ng-template>
+            <ng-template alcoCell="partner" let-row>{{ row.partner?.name ?? '' }}</ng-template>
+            <ng-template alcoCell="label" let-row>{{
+              row.label || row.entry.description
+            }}</ng-template>
+            <ng-template alcoCell="debit" let-row>
+              @if (side(row, 'reference_debit'); as amount) {
+                {{ amount | alcoAmount: 0 }} {{ row.reference_currency }}
+              }
+            </ng-template>
+            <ng-template alcoCell="credit" let-row>
+              @if (side(row, 'reference_credit'); as amount) {
+                {{ amount | alcoAmount: 0 }} {{ row.reference_currency }}
+              }
+            </ng-template>
+            <ng-template alcoCell="lettering" let-row>
+              <span class="mono">{{ row.lettering ?? '' }}</span>
+            </ng-template>
+          </alco-table>
+        }
+      }
+    }
+  </div>
+</div>

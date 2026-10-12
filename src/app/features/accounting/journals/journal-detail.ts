@@ -93,7 +93,7 @@ export class JournalDetailPage {
     },
     { immediate: false },
   );
-  protected readonly entriesUrl = '/app/comptabilite/ecritures';
+  protected readonly entriesUrl = '/app/comptabilite/ecritures/pieces';
   protected readonly auditType = AUDIT_TYPES.journal;
   protected readonly canSeeHistory = computed(() => this.session.can('audit.read'));
   private readonly history = viewChild(AlcoObjectHistory);

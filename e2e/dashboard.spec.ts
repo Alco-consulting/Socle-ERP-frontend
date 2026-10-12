@@ -53,7 +53,9 @@ test.describe('Tableau de bord comptable — journaux et alertes de l’API', ()
     await page.goto('/app/comptabilite/tableau-de-bord');
     const drafts = await countOf(page, 'ACH', 'Brouillons');
     await counter(page, 'ACH', 'Brouillons').click();
-    await expect(page).toHaveURL(/\/app\/comptabilite\/ecritures\?journal=[^&]+&etat=draft$/);
+    await expect(page).toHaveURL(
+      /\/app\/comptabilite\/ecritures\/pieces\?journal=[^&]+&etat=draft$/,
+    );
     await expect(rows(page)).toHaveCount(drafts);
     for (const row of await rows(page).all()) {
       await expect(row).toContainText('ACH');

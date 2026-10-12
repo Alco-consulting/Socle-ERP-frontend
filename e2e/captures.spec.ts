@@ -34,7 +34,7 @@ test('desktop 1440 × 900', async ({ page, api }) => {
   await page.getByRole('button', { name: 'Analyse', exact: true }).click();
   await shoot(page, '03-shell-navigation-menu');
 
-  await page.goto('/app/comptabilite/ecritures');
+  await page.goto('/app/comptabilite/ecritures/pieces');
   await shoot(page, '04-list');
 
   await page.getByRole('button', { name: 'Filtres' }).click();
@@ -47,7 +47,7 @@ test('desktop 1440 × 900', async ({ page, api }) => {
   await page.goto('/app/comptabilite/plan-comptable?groupe=classe');
   await shoot(page, '06-search-facets-grouped');
 
-  await page.goto('/app/comptabilite/ecritures?compte=999');
+  await page.goto('/app/comptabilite/ecritures/pieces?compte=999');
   await shoot(page, '07-state-empty');
 
   const draft = api.entries.entries('A').find((item) => item.status === 'draft');
@@ -119,7 +119,7 @@ test('regroupement: applications and domains of Comptabilité', async ({ page, a
   await shoot(page, '43-domain-assets-actions');
   await page.keyboard.press('Escape');
 
-  await page.goto('/app/comptabilite/ecritures');
+  await page.goto('/app/comptabilite/ecritures/pieces');
   await page.getByRole('button', { name: 'Actions' }).click();
   await shoot(page, '50-entries-actions-import');
   await page.getByRole('menuitem', { name: 'Importer des écritures' }).click();
@@ -195,7 +195,7 @@ test('tablet 820 × 1180', async ({ page }) => {
   await shoot(page, '20-tablet-launcher');
   await page.goto('/app/comptabilite/tableau-de-bord');
   await shoot(page, '21-tablet-dashboard');
-  await page.goto('/app/comptabilite/ecritures');
+  await page.goto('/app/comptabilite/ecritures/pieces');
   await shoot(page, '22-tablet-list');
   await page.goto('/app/comptabilite/ecritures/nouvelle');
   await shoot(page, '23-tablet-form', true);
@@ -213,7 +213,7 @@ test('phone 390 × 844', async ({ page }) => {
   await page.getByRole('button', { name: /^Navigation Comptabilité :/ }).click();
   await shoot(page, '32-phone-module-menu');
   await page.keyboard.press('Escape');
-  await page.goto('/app/comptabilite/ecritures');
+  await page.goto('/app/comptabilite/ecritures/pieces');
   await shoot(page, '33-phone-list');
   await page.goto('/app/comptabilite/ecritures/nouvelle');
   await shoot(page, '34-phone-form', true);
@@ -267,7 +267,7 @@ test('écritures: list, form, record, workflow, reversal, unsaved changes', asyn
   api,
 }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
-  await page.goto('/app/comptabilite/ecritures');
+  await page.goto('/app/comptabilite/ecritures/pieces');
   await shoot(page, '90-entries-list');
   await page.goto('/app/comptabilite/ecritures/nouvelle');
   await fillEntry(page, {

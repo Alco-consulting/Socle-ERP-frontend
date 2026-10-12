@@ -1,8 +1,8 @@
-<alco-page-header title="Écritures">
+<alco-page-header title="Pièces comptables">
   <div alcoPageActions>
-    <alco-domain-transfers [transfer]="transfer" />
+    <alco-domain-transfers [transfer]="transfer" importPath="../import" />
     @if (canCreate()) {
-      <a alcoButton variant="primary" icon="plus" routerLink="nouvelle">Nouvelle écriture</a>
+      <a alcoButton variant="primary" icon="plus" routerLink="../nouvelle">Nouvelle écriture</a>
     }
   </div>
 </alco-page-header>
@@ -134,7 +134,7 @@
         } @else {
           <alco-empty-state icon="book" title="Aucune écriture dans cette société.">
             @if (canCreate()) {
-              <a alcoButton variant="primary" icon="plus" routerLink="nouvelle">
+              <a alcoButton variant="primary" icon="plus" routerLink="../nouvelle">
                 Saisir une écriture
               </a>
             }
@@ -154,7 +154,7 @@
         (rowActivated)="open($event)"
       >
         <ng-template alcoCell="number" let-entry>
-          <a class="code" [routerLink]="entry.public_id">
+          <a class="code" [routerLink]="['..', entry.public_id]">
             @if (entry.entry_number) {
               {{ entry.entry_number }}
             } @else {

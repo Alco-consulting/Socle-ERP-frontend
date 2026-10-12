@@ -81,6 +81,7 @@ describe('Application catalogue', () => {
     ]);
     expect(labels(nav.find((entry) => entry.label === 'Comptabilité')?.children ?? [])).toEqual([
       'Écritures',
+      'Pièces comptables',
       'Journaux',
       'Plan comptable',
       'Tiers',

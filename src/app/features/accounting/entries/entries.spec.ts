@@ -25,6 +25,7 @@ import { page, testEntry, testLine } from './entry-testing';
 import { ReverseDialogService } from './reverse-dialog';
 
 const BASE = '/app/comptabilite/ecritures';
+const PIECES = `${BASE}/pieces`;
 const READ = ['accounting.read'];
 const ACCOUNTANT = [
   'accounting.read',
@@ -66,7 +67,7 @@ describe('Comptabilité › Écritures (accounting/entries/)', () => {
           {
             path: 'app/comptabilite/ecritures',
             children: [
-              { path: '', component: EntryListPage },
+              { path: 'pieces', component: EntryListPage },
               {
                 path: 'nouvelle',
                 component: EntryFormPage,
@@ -124,7 +125,7 @@ describe('Comptabilité › Écritures (accounting/entries/)', () => {
   describe('list', () => {
     it('the URL’s filters go to the server; account and partner codes are found first', async () => {
       const { stable } = await open(
-        `${BASE}?etat=submitted&type=standard&journal=j-ach&exercice=fy-2026&du=2026-09-01&au=2026-09-30&compte=401100&tiers=FRN-001&page=2`,
+        `${PIECES}?etat=submitted&type=standard&journal=j-ach&exercice=fy-2026&du=2026-09-01&au=2026-09-30&compte=401100&tiers=FRN-001&page=2`,
       );
       flushListOptions();
       const account = httpMock().expectOne(is('accounting/accounts/'));
@@ -151,7 +152,7 @@ describe('Comptabilité › Écritures (accounting/entries/)', () => {
     });
 
     it('rows of the API: number or « Sans numéro », reversal said, exact debit total, state', async () => {
-      const { element, stable } = await open(BASE);
+      const { element, stable } = await open(PIECES);
       flushListOptions();
       httpMock()
         .expectOne(is('accounting/entries/'))
@@ -182,7 +183,7 @@ describe('Comptabilité › Écritures (accounting/entries/)', () => {
     });
 
     it('an unknown account code: said, no list asked', async () => {
-      const { element, stable } = await open(`${BASE}?compte=999`);
+      const { element, stable } = await open(`${PIECES}?compte=999`);
       flushListOptions();
       httpMock().expectOne(is('accounting/accounts/')).flush(page([]));
       await stable();
@@ -191,14 +192,14 @@ describe('Comptabilité › Écritures (accounting/entries/)', () => {
     });
 
     it('empty: with filters, reset them; without, create (accounting.create only)', async () => {
-      const first = await open(`${BASE}?etat=locked`);
+      const first = await open(`${PIECES}?etat=locked`);
       flushListOptions();
       httpMock().expectOne(is('accounting/entries/')).flush(page());
       await first.stable();
       expect(text(first.element())).toContain('Aucune écriture ne correspond à ces critères.');
       TestBed.resetTestingModule();
 
-      const reader = await open(BASE, READ);
+      const reader = await open(PIECES, READ);
       flushListOptions();
       httpMock().expectOne(is('accounting/entries/')).flush(page());
       await reader.stable();
@@ -208,7 +209,7 @@ describe('Comptabilité › Écritures (accounting/entries/)', () => {
     });
 
     it('forbidden: said, nothing else', async () => {
-      const { element, stable } = await open(BASE, READ);
+      const { element, stable } = await open(PIECES, READ);
       flushListOptions();
       httpMock()
         .expectOne(is('accounting/entries/'))
@@ -218,7 +219,7 @@ describe('Comptabilité › Écritures (accounting/entries/)', () => {
     });
 
     it('loading: a local skeleton while the server answers', async () => {
-      const { element, stable } = await open(BASE);
+      const { element, stable } = await open(PIECES);
       flushListOptions();
       await stable();
       expect(element().querySelector('alco-loading')).not.toBeNull();

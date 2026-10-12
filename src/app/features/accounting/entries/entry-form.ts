@@ -412,7 +412,7 @@ export class EntryFormPage {
   }
 
   protected cancel(): void {
-    void this.router.navigate(this.isNew ? ['/app/comptabilite/ecritures'] : ['..'], {
+    void this.router.navigate(this.isNew ? ['/app/comptabilite/ecritures/pieces'] : ['..'], {
       relativeTo: this.route,
     });
   }

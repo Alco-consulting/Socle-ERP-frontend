@@ -62,17 +62,17 @@ test.describe('Scénario 2 — aucune société par défaut : l’utilisateur ch
       ],
       null,
     );
-    await page.goto('/app/comptabilite/ecritures');
+    await page.goto('/app/comptabilite/ecritures/pieces');
     await logIn(page);
 
-    await expect(page).toHaveURL(/\/societe\?retour=%2Fapp%2Fcomptabilite%2Fecritures$/);
+    await expect(page).toHaveURL(/\/societe\?retour=%2Fapp%2Fcomptabilite%2Fecritures%2Fpieces$/);
     await expect(page.getByRole('heading', { level: 1 })).toHaveText('Choisissez une société');
     const list = page.getByRole('list', { name: 'Sociétés accessibles' });
     await expect(list.getByRole('button')).toHaveCount(2);
     await page.getByLabel('Ouvrir directement cette société à mes prochaines connexions').check();
     await list.getByRole('button', { name: /FILIALE SÉNÉGAL \(test\)/ }).click();
 
-    await expect(page).toHaveURL(/\/app\/comptabilite\/ecritures$/);
+    await expect(page).toHaveURL(/\/app\/comptabilite\/ecritures\/pieces$/);
     await expect(companyButton(page)).toContainText('FILIALE SÉNÉGAL (test)');
     const choice = api.callsTo('company-context/').at(-1);
     expect(await choice?.headerValue('x-company-id')).toBe(COMPANY_B.public_id);
@@ -140,10 +140,7 @@ test.describe('Scénario 3 — changement de société', () => {
         ['401', 'Crédit', '1000'],
       ],
     });
-    await page
-      .getByRole('navigation', { name: 'Fil d’Ariane' })
-      .getByRole('link', { name: 'Écritures' })
-      .click();
+    await page.goto('/app/comptabilite/ecritures/pieces');
     await expect(page.getByRole('cell', { name: /Achat propre à la société A/ })).toBeVisible();
 
     // Switch to B (a services company) from the screen: slow answer, so that the
@@ -155,7 +152,7 @@ test.describe('Scénario 3 — changement de société', () => {
     await expect(companyButton(page)).toContainText('FILIALE SÉNÉGAL (test)');
 
     // Same menu screen, without A's filters; B's books.
-    await expect(page).toHaveURL(/\/app\/comptabilite\/ecritures$/);
+    await expect(page).toHaveURL(/\/app\/comptabilite\/ecritures\/pieces$/);
     await expect(page.getByRole('table')).toBeVisible();
     await expect(page.getByText(/Achat propre à la société A/)).toHaveCount(0);
     await expect(page.locator('#contenu')).toBeFocused();
@@ -174,7 +171,7 @@ test.describe('Scénario 3 — changement de société', () => {
     // Back to A: its draft is there again (the server kept it).
     api.slowContext(0);
     await switchTo(page, /ALCO GUINÉE/);
-    await expect(page).toHaveURL(/\/app\/comptabilite\/ecritures$/);
+    await expect(page).toHaveURL(/\/app\/comptabilite\/ecritures\/pieces$/);
     await expect(page.getByRole('cell', { name: /Achat propre à la société A/ })).toBeVisible();
   });
 
@@ -187,7 +184,7 @@ test.describe('Scénario 3 — changement de société', () => {
     await expect(page.getByRole('heading', { level: 1 })).toHaveText(validated!.entry_number);
     await switchTo(page, /FILIALE SÉNÉGAL/);
     await expect(page).toHaveURL(/\/app\/comptabilite\/ecritures$/);
-    await expect(page.getByRole('heading', { level: 1 })).toHaveText('Écritures');
+    await expect(page.getByRole('heading', { level: 1 })).toHaveText('Écritures comptables');
   });
 
   test('a screen closed in the new company: the home of the application', async ({ page }) => {
@@ -260,7 +257,7 @@ test.describe('Scénario 4 — application ou écran interdit', () => {
       .withPermissions(COMPANY_A.public_id, ['companies.read', 'companies.manage_members']);
     await page.goto('/app');
     await expect(tiles(page)).toHaveText(['Paramètres']);
-    await page.goto('/app/comptabilite/ecritures');
+    await page.goto('/app/comptabilite/ecritures/pieces');
     await expect(page).toHaveURL(/\/app$/);
     await page.goto('/app/parametres');
     await expect(page).toHaveURL(/\/app\/parametres\/societe$/);
@@ -278,7 +275,7 @@ test.describe('Scénario 5 — société devenue inaccessible', () => {
       ],
       COMPANY_A.public_id,
     );
-    await page.goto('/app/comptabilite/ecritures');
+    await page.goto('/app/comptabilite/ecritures/pieces');
     await expect(page.getByRole('table')).toBeVisible();
     api.revoke(COMPANY_C.public_id); // membership ended meanwhile
 
@@ -286,7 +283,7 @@ test.describe('Scénario 5 — société devenue inaccessible', () => {
     await expect(
       page.getByText('La société sélectionnée n’est plus accessible.', { exact: false }),
     ).toBeVisible();
-    await expect(page).toHaveURL(/\/app\/comptabilite\/ecritures$/);
+    await expect(page).toHaveURL(/\/app\/comptabilite\/ecritures\/pieces$/);
     await expect(companyButton(page)).toContainText('ALCO GUINÉE (test)');
     await expect(page.getByRole('table')).toBeVisible();
     await companyButton(page).click();
@@ -297,7 +294,7 @@ test.describe('Scénario 5 — société devenue inaccessible', () => {
     page,
     api,
   }) => {
-    await page.goto('/app/comptabilite/ecritures');
+    await page.goto('/app/comptabilite/ecritures/pieces');
     await switchTo(page, /FILIALE SÉNÉGAL/);
     await expect(companyButton(page)).toContainText('FILIALE SÉNÉGAL (test)');
     api.revoke(COMPANY_B.public_id);
@@ -307,6 +304,6 @@ test.describe('Scénario 5 — société devenue inaccessible', () => {
       page.getByText('La société sélectionnée n’est plus accessible.', { exact: false }),
     ).toBeVisible();
     await expect(companyButton(page)).toContainText('ALCO GUINÉE (test)');
-    await expect(page).toHaveURL(/\/app\/comptabilite\/ecritures$/);
+    await expect(page).toHaveURL(/\/app\/comptabilite\/ecritures\/pieces$/);
   });
 });

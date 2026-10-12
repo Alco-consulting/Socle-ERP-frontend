@@ -180,7 +180,7 @@ supprime ce qui ne sert plus.
   **Reporting n'est plus une application** : ses rapports sont Comptabilité › Analyse (le
   domaine `reporting` du backend reste leur source ; aucun endpoint retiré). Comptabilité :
   Tableau de bord, Clients ▾ (Factures, Avoirs, Produits, Clients), Fournisseurs ▾ (Factures,
-  Avoirs, Produits, Fournisseurs), puis Comptabilité ▾ (Écritures, Journaux, Plan
+  Avoirs, Produits, Fournisseurs), puis Comptabilité ▾ (Écritures, Pièces comptables, Journaux, Plan
   comptable, Tiers, Trésorerie, Lettrage, Échéances, Rapprochement, Clôture), Analyse ▾
   (Rapports financiers, comptables, de tiers, Analyses) et Configuration ▾ (Général,
   Comptabilité (dont Devises), Banques, Paiements, Taxes, Immobilisations, Analytique,
@@ -316,6 +316,15 @@ supprime ce qui ne sert plus.
   Produit : une page (Nom, Référence interne, Prix de vente HT, TVA, Compte de vente des
   comptes de produits, Compte d'achat des comptes de charges, Actif). Faux serveur :
   `e2e/support/fake-invoicing.ts` ; e2e : `e2e/invoicing.spec.ts`.
+- **Écritures comptables** (note backend 0039) : Comptabilité ▾ › Écritures
+  (`/app/comptabilite/ecritures`, `EntryLinesPage` sur `accounting/entry-lines/`) = une ligne
+  par ligne d'écriture comme Odoo : Date, Pièce comptable (lien vers la fiche), Compte,
+  Partenaire, Libellé, Débit, Crédit (devise de référence, vides à zéro), Lettrage ; panneau
+  des classes (`entry-lines/classes/`), recherche et filtres dans l'URL (`q`, `etat`,
+  `journal`, `classe`, `du`, `au`), 50 par page, lecture seule. La liste des écritures
+  est « Pièces comptables » (`/ecritures/pieces`) ; les compteurs (journal, compte, tiers,
+  tableau de bord) y mènent. Fiche et formulaire restent `/ecritures/<id>` et
+  `/ecritures/nouvelle`. Faux serveur : `entryLines` de `e2e/support/fake-accounting-entries.ts`.
 - **Écritures (Module 5)** : `features/accounting/entries` sur `accounting/entries/`. La
   saisie manuelle n'offre que les journaux d'opérations diverses (note backend 0038) ;
   l'écriture d'une facture n'a pas « Contrepasser » (un avoir ou l'annulation). Liste =

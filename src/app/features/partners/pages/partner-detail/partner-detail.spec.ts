@@ -184,7 +184,7 @@ describe('PartnerDetailPage (the record)', () => {
       'Historique : 2',
     ]);
     expect(links.map((link) => link.getAttribute('href'))).toEqual([
-      '/app/comptabilite/ecritures?tiers=FOU-007',
+      '/app/comptabilite/ecritures/pieces?tiers=FOU-007',
       '/app/comptabilite/analyse/grand-livre-auxiliaire?tiers=FOU-007',
       '/liste/p-1#comptes-collectifs',
       '/app/comptabilite/echeances?tiers=FOU-007',

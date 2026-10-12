@@ -6,12 +6,14 @@ import { ENTRY_TRANSFER } from './entry-presentation';
 
 const form = () => import('./entry-form').then((m) => m.EntryFormPage);
 
-/**
- * Comptabilité › Écritures on the API: list, contextual import, new entry, record and its
- * modification (`/app/comptabilite/ecritures/…`). Forms ask before unsaved changes are lost.
- */
+/** Comptabilité › Écritures: the lines, the pieces, a record and its form (note backend 0039). */
 export const ENTRY_ROUTES: Routes = [
-  { path: '', loadComponent: () => import('./entry-list').then((m) => m.EntryListPage) },
+  { path: '', loadComponent: () => import('./entry-lines').then((m) => m.EntryLinesPage) },
+  {
+    path: 'pieces',
+    data: { breadcrumb: 'Pièces comptables' },
+    loadComponent: () => import('./entry-list').then((m) => m.EntryListPage),
+  },
   {
     path: 'import',
     data: { breadcrumb: 'Import d’écritures', transfer: ENTRY_TRANSFER },

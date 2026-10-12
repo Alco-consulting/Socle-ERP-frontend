@@ -139,6 +139,7 @@ export const APPLICATIONS: readonly AlcoApplication[] = [
         label: 'Comptabilité',
         children: [
           { label: 'Écritures', path: 'ecritures' },
+          { label: 'Pièces comptables', path: 'ecritures/pieces' },
           { label: 'Journaux', path: 'journaux' },
           { label: 'Plan comptable', path: 'plan-comptable' },
           { label: 'Tiers', path: 'tiers', permission: 'partners.read' },

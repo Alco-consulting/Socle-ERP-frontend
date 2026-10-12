@@ -34,7 +34,7 @@ test.describe('Affichage selon les permissions (confort d’interface ; l’API 
     await page.getByRole('link', { name: /Comptabilité/ }).click();
     await expect(page.getByRole('link', { name: 'Nouvelle écriture' })).toHaveCount(0);
     await openMenuItem(page, 'Comptabilité', 'Écritures');
-    await expect(page.getByRole('heading', { level: 1 })).toHaveText('Écritures');
+    await expect(page.getByRole('heading', { level: 1 })).toHaveText('Écritures comptables');
     await expect(page.getByRole('table')).toBeVisible();
     await expect(page.getByRole('link', { name: 'Nouvelle écriture' })).toHaveCount(0);
   });
@@ -69,6 +69,7 @@ test.describe('Affichage selon les permissions (confort d’interface ; l’API 
     await moduleNav(page).getByRole('button', { name: 'Comptabilité', exact: true }).click();
     await expect(page.getByRole('menu').getByRole('menuitemradio')).toHaveText([
       'Écritures',
+      'Pièces comptables',
       'Journaux',
       'Plan comptable',
       'Trésorerie',

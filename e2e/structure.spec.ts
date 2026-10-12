@@ -99,6 +99,7 @@ test.describe('Comptabilité : un lien et cinq menus groupés', () => {
     const menu = await openMenu(page, 'Comptabilité');
     await expect(menu.getByRole('menuitemradio')).toHaveText([
       'Écritures',
+      'Pièces comptables',
       'Journaux',
       'Plan comptable',
       'Tiers',
@@ -219,7 +220,7 @@ test.describe('Comptabilité : un lien et cinq menus groupés', () => {
 
 test.describe('Import / export contextuels', () => {
   test('import is started from Écritures and imports entries only', async ({ page }) => {
-    await page.goto('/app/comptabilite/ecritures');
+    await page.goto('/app/comptabilite/ecritures/pieces');
     await page.getByRole('button', { name: 'Actions' }).click();
     // The API V1 has no export of entries: not offered.
     await expect(page.getByRole('menuitem')).toHaveText(['Importer des écritures']);
@@ -257,7 +258,7 @@ test.describe('Import / export contextuels', () => {
 
   test('a read-only profile has no import / export action', async ({ page, api }) => {
     api.withPermissions(COMPANY_A.public_id, PROFILES.viewer);
-    await page.goto('/app/comptabilite/ecritures');
+    await page.goto('/app/comptabilite/ecritures/pieces');
     await expect(page.getByRole('table')).toBeVisible();
     await expect(page.getByRole('button', { name: 'Actions' })).toHaveCount(0);
   });

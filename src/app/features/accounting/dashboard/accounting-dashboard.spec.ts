@@ -185,11 +185,11 @@ describe('AccountingDashboardPage (dashboards/journals/ and dashboards/alerts/)'
 
     const links = Array.from(element.querySelectorAll<HTMLAnchorElement>('.counter'));
     expect(links.map((link) => link.getAttribute('href'))).toEqual([
-      '/app/comptabilite/ecritures?journal=j-bq',
-      '/app/comptabilite/ecritures?journal=j-bq&etat=draft',
-      '/app/comptabilite/ecritures?journal=j-bq&etat=submitted',
-      '/app/comptabilite/ecritures?journal=j-bq&etat=validated',
-      '/app/comptabilite/ecritures?journal=j-bq&etat=locked',
+      '/app/comptabilite/ecritures/pieces?journal=j-bq',
+      '/app/comptabilite/ecritures/pieces?journal=j-bq&etat=draft',
+      '/app/comptabilite/ecritures/pieces?journal=j-bq&etat=submitted',
+      '/app/comptabilite/ecritures/pieces?journal=j-bq&etat=validated',
+      '/app/comptabilite/ecritures/pieces?journal=j-bq&etat=locked',
     ]);
     expect(links[1].getAttribute('aria-label')).toBe('Brouillons : 3');
   });

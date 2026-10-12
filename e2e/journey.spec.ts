@@ -25,7 +25,7 @@ test.describe('Parcours App Launcher → Comptabilité → Écritures → Formul
     // Dashboard → list through the module navigation (Comptabilité ▾ › Écritures)
     await moduleNav.getByRole('button', { name: 'Comptabilité', exact: true }).click();
     await page.getByRole('menuitemradio', { name: 'Écritures', exact: true }).click();
-    await expect(page.getByRole('heading', { level: 1 })).toHaveText('Écritures');
+    await expect(page.getByRole('heading', { level: 1 })).toHaveText('Écritures comptables');
     await expect(page).toHaveTitle('Écritures · Comptabilité · Alco');
     await expect(page.getByRole('table')).toBeVisible();
 
@@ -39,7 +39,7 @@ test.describe('Parcours App Launcher → Comptabilité → Écritures → Formul
 
     // Back (browser) keeps the list
     await page.goBack();
-    await expect(page.getByRole('heading', { level: 1 })).toHaveText('Écritures');
+    await expect(page.getByRole('heading', { level: 1 })).toHaveText('Écritures comptables');
 
     // Breadcrumb → application home
     await breadcrumb(page).getByRole('link', { name: 'Comptabilité' }).click();
@@ -68,13 +68,13 @@ test.describe('Parcours App Launcher → Comptabilité → Écritures → Formul
   });
 
   test('the skip link moves the focus to the content', async ({ page }) => {
-    await page.goto('/app/comptabilite/ecritures');
-    await expect(page.getByRole('heading', { level: 1 })).toHaveText('Écritures');
+    await page.goto('/app/comptabilite/ecritures/pieces');
+    await expect(page.getByRole('heading', { level: 1 })).toHaveText('Pièces comptables');
     await page.keyboard.press('Tab');
     await expect(page.getByRole('link', { name: 'Aller au contenu' })).toBeFocused();
     await page.keyboard.press('Enter');
     await expect(page.locator('#contenu')).toBeFocused();
-    await expect(page).toHaveURL(/\/app\/comptabilite\/ecritures$/);
+    await expect(page).toHaveURL(/\/app\/comptabilite\/ecritures\/pieces$/);
   });
 
   test('an unknown address shows a useful page', async ({ page }) => {

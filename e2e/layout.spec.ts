@@ -3,7 +3,8 @@ import { expect, test } from './support/fake-api';
 const SCREENS = [
   { name: 'App Launcher', url: '/' },
   { name: 'Tableau de bord', url: '/app/comptabilite/tableau-de-bord' },
-  { name: 'Liste', url: '/app/comptabilite/ecritures' },
+  { name: 'Écritures comptables', url: '/app/comptabilite/ecritures' },
+  { name: 'Liste', url: '/app/comptabilite/ecritures/pieces' },
   { name: 'Journaux', url: '/app/comptabilite/journaux' },
   { name: 'Lettrage', url: '/app/comptabilite/lettrage' },
   { name: 'Échéances', url: '/app/comptabilite/echeances' },
@@ -51,7 +52,7 @@ test.describe('Règles de mise en page', () => {
   test('inside an application: top bar with company, then the module navigation', async ({
     page,
   }) => {
-    await page.goto('/app/comptabilite/ecritures');
+    await page.goto('/app/comptabilite/ecritures/pieces');
     await expect(
       page.getByRole('button', { name: /Société active : ALCO GUINÉE \(test\)/ }),
     ).toBeVisible();

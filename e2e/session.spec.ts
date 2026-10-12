@@ -46,10 +46,10 @@ test.describe('Connexion', () => {
 
   test('back to the page asked before login', async ({ page, api }) => {
     api.signedOut();
-    await page.goto('/app/comptabilite/ecritures');
+    await page.goto('/app/comptabilite/ecritures/pieces');
     await logIn(page);
-    await expect(page).toHaveURL(/\/app\/comptabilite\/ecritures$/);
-    await expect(page.getByRole('heading', { level: 1 })).toHaveText('Écritures');
+    await expect(page).toHaveURL(/\/app\/comptabilite\/ecritures\/pieces$/);
+    await expect(page.getByRole('heading', { level: 1 })).toHaveText('Pièces comptables');
   });
 
   test('an external return address is never followed', async ({ page, api }) => {
@@ -138,8 +138,8 @@ test.describe('Session Django et CSRF', () => {
     api,
   }) => {
     api.signedOut();
-    await page.goto('/app/comptabilite/ecritures');
-    await expect(page).toHaveURL(/\/login\?retour=%2Fapp%2Fcomptabilite%2Fecritures$/);
+    await page.goto('/app/comptabilite/ecritures/pieces');
+    await expect(page).toHaveURL(/\/login\?retour=%2Fapp%2Fcomptabilite%2Fecritures%2Fpieces$/);
     await expect(page.getByRole('heading', { level: 1 })).toHaveText('Connexion');
     await expect(page.getByRole('note', { name: 'Démonstration' })).toHaveCount(0);
   });

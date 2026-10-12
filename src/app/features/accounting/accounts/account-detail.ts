@@ -108,7 +108,7 @@ export class AccountDetailPage {
     () => this.relations.entryCount(null, { account: untracked(this.id) }),
     { immediate: false },
   );
-  protected readonly entriesUrl = `${APP_ROOT}/comptabilite/ecritures`;
+  protected readonly entriesUrl = `${APP_ROOT}/comptabilite/ecritures/pieces`;
   protected readonly ledgerUrl = `${APP_ROOT}/comptabilite/analyse/grand-livre`;
   protected readonly letteringUrl = `${APP_ROOT}/comptabilite/lettrage`;
   private readonly lettering = inject(LetteringApi);

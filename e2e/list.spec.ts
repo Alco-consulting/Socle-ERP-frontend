@@ -3,7 +3,7 @@ import { expect, test } from './support/fake-api';
 /** The list view of the design system, on real screens of the API (fake server). */
 test.describe('Vue liste : filtres, regroupement, recherche, état dans l’URL', () => {
   test('the filter panel: counted criteria, reset, Escape returns the focus', async ({ page }) => {
-    await page.goto('/app/comptabilite/ecritures');
+    await page.goto('/app/comptabilite/ecritures/pieces');
     await expect(page.getByRole('table')).toBeVisible();
     const trigger = page.getByRole('button', { name: 'Filtres' });
     await trigger.click();
@@ -50,7 +50,7 @@ test.describe('Vue liste : filtres, regroupement, recherche, état dans l’URL'
   });
 
   test('pages come from the server; back keeps the page', async ({ page }) => {
-    await page.goto('/app/comptabilite/ecritures');
+    await page.goto('/app/comptabilite/ecritures/pieces');
     await expect(page.getByText(/1–25\s*sur\s*48/)).toBeVisible();
     await page.getByRole('button', { name: 'Page suivante' }).click();
     await expect(page.getByText(/26–48\s*sur\s*48/)).toBeVisible();

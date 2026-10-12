@@ -4,7 +4,8 @@ import { expect, test } from './support/fake-api';
 const SCREENS = [
   { name: 'App Launcher', url: '/' },
   { name: 'Tableau de bord', url: '/app/comptabilite/tableau-de-bord' },
-  { name: 'Liste', url: '/app/comptabilite/ecritures' },
+  { name: 'Écritures comptables', url: '/app/comptabilite/ecritures' },
+  { name: 'Liste', url: '/app/comptabilite/ecritures/pieces' },
   { name: 'Lettrage', url: '/app/comptabilite/lettrage' },
   { name: 'Échéances', url: '/app/comptabilite/echeances' },
   { name: 'Balance âgée', url: '/app/comptabilite/analyse/balance-clients?au=2026-04-15' },
@@ -37,7 +38,7 @@ test.describe('Accessibilité (axe-core, WCAG 2.1 A/AA)', () => {
   }
 
   test('open menus and the filter panel stay accessible', async ({ page }) => {
-    await page.goto('/app/comptabilite/ecritures');
+    await page.goto('/app/comptabilite/ecritures/pieces');
     await page.getByRole('button', { name: 'Filtres' }).click();
     await expect(page.getByRole('dialog', { name: 'Filtres' })).toBeVisible();
     const results = await new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa']).analyze();

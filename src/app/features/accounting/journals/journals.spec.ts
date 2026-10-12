@@ -223,9 +223,9 @@ describe('Journaux (accounting/journals/)', () => {
         'Historique : 4',
       ]);
       expect(buttons.map((button) => button.getAttribute('href'))).toEqual([
-        '/app/comptabilite/ecritures?journal=j-ach',
-        '/app/comptabilite/ecritures?journal=j-ach&etat=draft',
-        '/app/comptabilite/ecritures?journal=j-ach&etat=submitted',
+        '/app/comptabilite/ecritures/pieces?journal=j-ach',
+        '/app/comptabilite/ecritures/pieces?journal=j-ach&etat=draft',
+        '/app/comptabilite/ecritures/pieces?journal=j-ach&etat=submitted',
         '/journaux/j-ach#historique',
       ]);
       expect(element.querySelector('#historique')?.textContent).toContain('Historique');

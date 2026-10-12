@@ -204,11 +204,108 @@ export class FakeAccountingEntries {
   async install(): Promise<void> {
     const page = this.context.page;
     await page.route('**/api/v1/accounting/entries/**', (route) => this.handle(route));
+    await page.route('**/api/v1/accounting/entry-lines/**', (route) => this.entryLines(route));
     await page.route('**/api/v1/accounting/settings/', (route) => this.settings(route));
     await page.route('**/api/v1/taxes/**', (route) => this.taxes(route));
     await page.route('**/api/v1/accounting/default-taxes/', (route) => this.defaultTaxes(route));
     await page.route('**/api/v1/documents/**', (route) => this.documents(route));
     await page.route('**/api/v1/audit/**', (route) => this.audit(route));
+  }
+
+  // ---- Lines of the entries (« Écritures comptables », note backend 0039) -------------
+  private async entryLines(route: Route): Promise<void> {
+    const request = route.request();
+    const permissions = await this.context.permissionsOf(request);
+    if (!permissions.includes('accounting.read')) {
+      return this.answer(route, 403, error('company_permission_denied'));
+    }
+    const company = await this.context.companyOf(request);
+    const url = new URL(request.url());
+    const q = (name: string) => url.searchParams.get(name) ?? '';
+    const states: Record<string, readonly string[]> = {
+      posted: ['validated', 'locked'],
+      draft: ['draft'],
+      submitted: ['submitted'],
+    };
+    const state = q('state') || 'posted';
+    const accounts = this.accounting.books(company).accounts;
+    const partners = this.partners.list(company);
+    const search = q('search').toLowerCase();
+    const rows = this.ledger(company)
+      .entries.filter((entry) => state === 'all' || states[state]?.includes(entry.status))
+      .filter((entry) => !q('journal') || entry.journal.public_id === q('journal'))
+      .filter((entry) => !q('date_from') || entry.entry_date >= q('date_from'))
+      .filter((entry) => !q('date_to') || entry.entry_date <= q('date_to'))
+      .sort(
+        (a, b) =>
+          b.entry_date.localeCompare(a.entry_date) || b.entry_number.localeCompare(a.entry_number),
+      )
+      .flatMap((entry) =>
+        entry.lines.map((line) => {
+          const account = accounts.find((item) => item.public_id === line.account.public_id);
+          const partner = partners.find((item) => item.public_id === line.partner?.public_id);
+          return {
+            public_id: line.public_id,
+            entry: {
+              public_id: entry.public_id,
+              entry_number: entry.entry_number,
+              status: entry.status,
+              entry_date: entry.entry_date,
+              description: entry.description,
+              document_reference: entry.document_reference,
+            },
+            journal: { public_id: entry.journal.public_id, code: entry.journal.code },
+            sequence: line.sequence,
+            account: {
+              public_id: line.account.public_id,
+              code: line.account.code,
+              name: account?.name ?? '',
+            },
+            partner: partner
+              ? { public_id: partner.public_id, code: partner.code, name: partner.name }
+              : null,
+            label: line.label,
+            debit: line.debit,
+            credit: line.credit,
+            currency: entry.currency,
+            reference_debit: line.reference_debit,
+            reference_credit: line.reference_credit,
+            reference_currency: entry.reference_currency,
+            lettering: null,
+          };
+        }),
+      )
+      .filter(
+        (row) =>
+          !search ||
+          `${row.label} ${row.entry.entry_number} ${row.entry.description} ${row.partner?.name ?? ''}`
+            .toLowerCase()
+            .includes(search),
+      );
+    this.context.calls.push(request);
+    if (url.pathname.endsWith('/classes/')) {
+      const counts = new Map<string, number>();
+      for (const row of rows) {
+        const prefix = row.account.code.charAt(0);
+        counts.set(prefix, (counts.get(prefix) ?? 0) + 1);
+      }
+      const classes = [...counts.entries()]
+        .sort(([a], [b]) => a.localeCompare(b))
+        .map(([prefix, count]) => ({ prefix, count }));
+      return route.fulfill({ status: 200, json: classes });
+    }
+    const shown = rows.filter((row) => row.account.code.startsWith(q('account_prefix')));
+    const size = Number(q('page_size')) || 50;
+    const page = Number(q('page')) || 1;
+    return route.fulfill({
+      status: 200,
+      json: {
+        count: shown.length,
+        next: null,
+        previous: null,
+        results: shown.slice((page - 1) * size, page * size),
+      },
+    });
   }
 
   // ---- Seed ----------------------------------------------------------------------------

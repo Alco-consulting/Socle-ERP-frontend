@@ -106,6 +106,7 @@ export class ProductFormPage {
     sale_account: new FormControl('', { nonNullable: true }),
     purchase_account: new FormControl('', { nonNullable: true }),
     tax: new FormControl('', { nonNullable: true, validators: [Validators.required] }),
+    unit: new FormControl('', { nonNullable: true, validators: [Validators.maxLength(32)] }),
     active: new FormControl(true, { nonNullable: true }),
   });
 
@@ -225,6 +226,7 @@ export class ProductFormPage {
       sale_account: value.sale_account || null,
       purchase_account: value.purchase_account || null,
       tax: value.tax,
+      unit: value.unit.trim(),
     };
   }
 
@@ -238,6 +240,7 @@ export class ProductFormPage {
       sale_account: product.sale_account?.public_id ?? '',
       purchase_account: product.purchase_account?.public_id ?? '',
       tax: product.tax.public_id,
+      unit: product.unit,
       active: product.status === 'active',
     });
     this.form.markAsPristine();

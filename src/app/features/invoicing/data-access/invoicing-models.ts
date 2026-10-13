@@ -23,6 +23,8 @@ export interface Product {
   readonly sale_account: NamedReference | null;
   readonly purchase_account: NamedReference | null;
   readonly tax: TaxReference;
+  /** « Unité » of its lines (Utilisateur, Société, kg…); may be empty. */
+  readonly unit: string;
   readonly status: RecordStatus;
   readonly created_at: string;
   readonly updated_at: string;
@@ -36,6 +38,7 @@ export interface ProductWrite {
   readonly sale_account?: string | null;
   readonly purchase_account?: string | null;
   readonly tax: string;
+  readonly unit?: string;
 }
 
 export interface ProductQuery {
@@ -48,15 +51,19 @@ export type InvoiceKind =
   'customer_invoice' | 'customer_credit_note' | 'supplier_invoice' | 'supplier_credit_note';
 export type InvoiceStatus = 'draft' | 'posted' | 'cancelled';
 export type PaymentState = 'not_paid' | 'partial' | 'paid';
+/** A product line; a section (a title over the lines below it) or a note (a text). */
+export type LineType = 'product' | 'section' | 'note';
 
-/** `InvoicingInvoiceLine`. */
+/** `InvoicingInvoiceLine`: a section or a note has its text only. */
 export interface InvoiceLine {
   readonly sequence: number;
-  readonly product: NamedReference;
+  readonly display_type: LineType;
+  readonly product: NamedReference | null;
   readonly description: string;
   readonly quantity: string;
+  readonly unit: string;
   readonly unit_price: string;
-  readonly tax: TaxReference;
+  readonly tax: TaxReference | null;
   readonly amount_untaxed: string;
   /** The account posted; on a draft, the product's account of the side. */
   readonly account: NamedReference | null;
@@ -136,8 +143,9 @@ export interface Invoice extends Omit<InvoiceSummary, 'partner'> {
 
 /** `InvoicingLineWriteRequest`: absent price, description, tax: the product's. */
 export interface InvoiceLineWrite {
-  readonly product: string;
-  readonly quantity: string;
+  readonly display_type?: LineType;
+  readonly product?: string | null;
+  readonly quantity?: string;
   readonly unit_price?: string | null;
   readonly description?: string;
   readonly tax?: string | null;
@@ -167,4 +175,33 @@ export interface InvoiceQuery {
   readonly status?: InvoiceStatus | null;
   readonly search?: string;
   readonly page?: number;
+}
+
+/** `InvoicingPreviewRequest`: the draft as typed (note backend 0041). */
+export interface PreviewRequest {
+  readonly kind: InvoiceKind;
+  readonly partner?: string | null;
+  readonly lines: readonly InvoiceLineWrite[];
+}
+
+/** `InvoicingPreview`: the amounts as typed and the entry posting would make; nothing stored. */
+export interface Preview {
+  /** One per line sent; null for a section or a note. */
+  readonly lines: readonly { readonly amount_untaxed: string | null }[];
+  readonly taxes: readonly {
+    readonly tax: TaxReference;
+    readonly base: string;
+    readonly amount: string;
+  }[];
+  readonly amount_untaxed: string;
+  readonly amount_tax: string;
+  readonly amount_total: string;
+  /** Empty while an account is missing. */
+  readonly entry_lines: readonly {
+    readonly account: NamedReference;
+    readonly partner: NamedReference | null;
+    readonly label: string;
+    readonly debit: string;
+    readonly credit: string;
+  }[];
 }

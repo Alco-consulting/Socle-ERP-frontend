@@ -307,18 +307,22 @@ supprime ce qui ne sert plus.
   Factures (`ventes/factures`), Avoirs (`ventes/avoirs`), Fournisseurs ▾ › Factures
   (`achats/factures`), Avoirs (`achats/avoirs`) et Produits (`produits`, `invoicing.read`).
   Liste par nature (route `data.kind`) : Numéro, tiers, Date, totaux, État, Paiement, comme le
-  serveur les donne. Brouillon : tiers (autocomplétion), date, numéro du fournisseur, journal
-  s'il y en a plusieurs, lignes (produit, description, quantité, prix HT, TVA du côté) ;
-  **aucun montant calculé à l'écran** : la fiche montre ceux du serveur après « Enregistrer le
-  brouillon ». Fiche comme Odoo (note backend 0040) : « Nouveau » ; les boutons en ligne
-  (brouillon : « Comptabiliser », « Modifier », « Supprimer » ou, numéroté, « Annuler » ;
-  comptabilisée : « Avoir », « Remettre en brouillon ») et les états « Brouillon ›
-  Comptabilisé » ; la nature, le numéro en grand, le ruban « Partiel » / « Payé » /
-  « Extourné » ; le tiers et son adresse, la date courte ; onglets Lignes de facture (Produit,
-  Compte, Quantité, Prix, Taxes, Montant ; totaux, « Extourné le » / « Payé le », Montant dû),
-  Écritures comptables (`entry-lines/?entry=`, à l'ouverture), Autres informations.
-  Produit : une page (Nom, Référence interne, Prix de vente HT, TVA, Compte de vente des
-  comptes de produits, Compte d'achat des comptes de charges, Actif). Faux serveur :
+  serveur les donne. Un seul écran comme Odoo (`InvoiceSheetPage`, notes backend 0040,
+  0041) : nouvelle facture et brouillon modifiés sur place, document comptabilisé en lecture
+  seule ; « Nouveau », ⚙ « Supprimer » (brouillon sans numéro), ☁ « Enregistrer » et
+  « Ignorer les modifications » tant que ce n'est pas enregistré ; boutons en ligne
+  (brouillon : « Confirmer » = enregistrer puis comptabiliser, « Annuler » ; comptabilisée :
+  « Avoir », « Remettre en brouillon ») et états « Brouillon › Comptabilisé » ; la nature, le
+  numéro (« Brouillon » avant), le ruban « Partiel » / « Payé » / « Extourné » ; le tiers et
+  son adresse, la date ; champs soulignés (`.alco-controls-underlined`). Onglets Lignes de
+  facture (Produit, Compte, Quantité, Unité, Prix, Taxes, Montant ; « Ajouter une ligne,
+  une section, une note », « Catalogue » ; totaux, « Extourné le » / « Payé le », Montant dû),
+  Écritures comptables (brouillon : l'écriture à venir ; ensuite `entry-lines/?entry=`),
+  Autres informations. Montants pendant la saisie calculés par le serveur
+  (`invoices/preview/`, 300 ms après la frappe, rien d'enregistré). Catalogue : dialogue
+  `product-catalog.ts`. Produit : une page (Nom, Référence interne, Prix de vente HT, Unité,
+  TVA, Compte de vente des comptes de produits, Compte d'achat des comptes de charges, Actif).
+  Faux serveur :
   `e2e/support/fake-invoicing.ts` ; e2e : `e2e/invoicing.spec.ts`.
 - **Écritures comptables** (note backend 0039) : Comptabilité ▾ › Écritures
   (`/app/comptabilite/ecritures`, `EntryLinesPage` sur `accounting/entry-lines/`) = une ligne

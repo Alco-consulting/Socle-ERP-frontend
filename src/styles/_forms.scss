@@ -138,3 +138,25 @@ input[type='date'].alco-control {
     opacity: 0.6;
   }
 }
+
+// A sheet edited in place, as Odoo's (the invoice): the fields underlined, framed once focused.
+.alco-controls-underlined .alco-control:not(textarea) {
+  border-color: transparent;
+  border-bottom-color: var(--color-border-strong);
+  border-radius: 0;
+  background-color: transparent;
+
+  &:hover {
+    border-bottom-color: var(--color-text-subtle);
+  }
+
+  &:focus-visible {
+    border-color: var(--color-focus-ring);
+    border-radius: var(--radius-sm);
+  }
+
+  &[aria-invalid='true'] {
+    border-bottom-color: var(--color-danger);
+    background-color: var(--color-danger-soft);
+  }
+}

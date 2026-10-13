@@ -5,7 +5,7 @@ import { unsavedChangesGuard } from '../../core/navigation/unsaved-changes';
 import { InvoiceKind } from './data-access/invoicing-models';
 import { KINDS } from './invoicing-presentation';
 
-const invoiceForm = () => import('./invoice-form').then((m) => m.InvoiceFormPage);
+const invoiceSheet = () => import('./invoice-sheet').then((m) => m.InvoiceSheetPage);
 const productForm = () => import('./product-form').then((m) => m.ProductFormPage);
 
 /** A list of one kind of document, its creation (invoices only) and its records. */
@@ -23,7 +23,7 @@ function documents(kind: InvoiceKind): Route {
               data: { breadcrumb: 'Nouvelle facture' },
               canActivate: [permissionGuard('invoicing.create')],
               canDeactivate: [unsavedChangesGuard],
-              loadComponent: invoiceForm,
+              loadComponent: invoiceSheet,
             },
           ]
         : []),
@@ -32,17 +32,9 @@ function documents(kind: InvoiceKind): Route {
         // Named after the document once loaded (BreadcrumbService.nameCurrent).
         data: { breadcrumb: spec.word },
         children: [
-          {
-            path: '',
-            loadComponent: () => import('./invoice-detail').then((m) => m.InvoiceDetailPage),
-          },
-          {
-            path: 'modifier',
-            data: { breadcrumb: 'Modifier' },
-            canActivate: [permissionGuard('invoicing.update')],
-            canDeactivate: [unsavedChangesGuard],
-            loadComponent: invoiceForm,
-          },
+          // A draft is edited in place, as in Odoo (note backend 0041).
+          { path: '', canDeactivate: [unsavedChangesGuard], loadComponent: invoiceSheet },
+          { path: 'modifier', redirectTo: '' },
         ],
       },
     ],

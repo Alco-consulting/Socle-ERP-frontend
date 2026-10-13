@@ -10,7 +10,8 @@ import { FakePartners, PartnersContext } from './fake-partners';
  * the server's rule, for a currency without decimals (GNF): line = quantity x unit price,
  * tax by rate on its lines' total, rounded half up. Posting gives the number and an entry
  * in the fake ledger; a credit note settles its invoice; « Remettre en brouillon » keeps the
- * number (note backend 0040). Only the rules the tests need.
+ * number (note backend 0040); sections and notes, the units and the amounts as typed (note
+ * backend 0041). Only the rules the tests need.
  */
 
 interface Reference {
@@ -29,17 +30,21 @@ interface ProductJson {
   sale_account: Reference | null;
   purchase_account: Reference | null;
   tax: TaxReference;
+  unit: string;
   status: 'active' | 'inactive';
   created_at: string;
   updated_at: string;
 }
+type LineType = 'product' | 'section' | 'note';
 interface LineJson {
   sequence: number;
-  product: Reference;
+  display_type: LineType;
+  product: Reference | null;
   description: string;
   quantity: string;
+  unit: string;
   unit_price: string;
-  tax: TaxReference;
+  tax: TaxReference | null;
   amount_untaxed: string;
   account: Reference | null;
 }
@@ -222,6 +227,7 @@ export class FakeInvoicing {
         sale_account: this.account(company, body['sale_account'] as string),
         purchase_account: this.account(company, body['purchase_account'] as string),
         tax,
+        unit: String(body['unit'] ?? '').trim(),
         status: 'active',
         created_at: STAMP,
         updated_at: STAMP,
@@ -255,30 +261,60 @@ export class FakeInvoicing {
       product.purchase_account = this.account(company, body['purchase_account'] as string);
     }
     if ('tax' in body) product.tax = this.tax(company, body['tax'] as string) ?? product.tax;
+    if ('unit' in body) product.unit = String(body['unit']).trim();
     return this.answer(route, 200, product);
   }
 
   // ---- Invoices ------------------------------------------------------------------------
-  private lines(company: string, kind: Kind, rows: Record<string, unknown>[]): LineJson[] | null {
+  private lines(
+    company: string,
+    kind: Kind,
+    rows: Record<string, unknown>[],
+    lenient = false,
+  ): LineJson[] | null {
     const products = this.products[company] ?? [];
     const lines: LineJson[] = [];
     for (const [index, row] of rows.entries()) {
+      const type = (row['display_type'] as LineType | undefined) ?? 'product';
+      if (type !== 'product') {
+        const description = String(row['description'] ?? '').trim();
+        if (!description) {
+          return null;
+        }
+        lines.push({
+          sequence: index + 1,
+          display_type: type,
+          product: null,
+          account: null,
+          description,
+          quantity: '0.000000',
+          unit: '',
+          unit_price: '0.000000',
+          tax: null,
+          amount_untaxed: '0.000000',
+        });
+        continue;
+      }
       const product = products.find((item) => item.public_id === row['product']);
       if (!product) {
         return null;
       }
       const price =
-        (row['unit_price'] as string | null) ?? (customer(kind) ? product.sale_price : null);
+        (row['unit_price'] as string | null) ??
+        (customer(kind) ? product.sale_price : null) ??
+        (lenient ? '0' : null);
       if (price === null) {
         return null;
       }
       const amount = roundUnits(units(String(row['quantity'])) * units(price), SCALE * SCALE);
       lines.push({
         sequence: index + 1,
+        display_type: 'product',
         product: { public_id: product.public_id, code: product.code, name: product.name },
         account: customer(kind) ? product.sale_account : product.purchase_account,
         description: String(row['description'] ?? '').trim() || product.name,
         quantity: text(units(String(row['quantity']))),
+        unit: product.unit,
         unit_price: text(units(price)),
         tax: this.tax(company, row['tax'] as string) ?? product.tax,
         amount_untaxed: text(amount),
@@ -290,6 +326,9 @@ export class FakeInvoicing {
   private totals(invoice: InvoiceJson): void {
     const bases = new Map<string, { tax: TaxReference; base: bigint }>();
     for (const line of invoice.lines) {
+      if (!line.tax) {
+        continue;
+      }
       const known = bases.get(line.tax.public_id) ?? { tax: line.tax, base: 0n };
       bases.set(line.tax.public_id, {
         tax: line.tax,
@@ -346,6 +385,9 @@ export class FakeInvoicing {
       }
       return this.create(route, company, list, body);
     }
+    if (id === 'preview' && method === 'POST') {
+      return this.preview(route, company, body);
+    }
     const invoice = list.find((item) => item.public_id === id);
     if (!invoice) {
       return this.answer(route, 404, error('not_found'));
@@ -397,8 +439,8 @@ export class FakeInvoicing {
       if (!can('invoicing.cancel')) {
         return this.answer(route, 403, error('company_permission_denied'));
       }
-      const numberedDraft = invoice.status === 'draft' && !!invoice.number;
-      if (invoice.status !== 'posted' && !(command === 'cancel' && numberedDraft)) {
+      const draft = invoice.status === 'draft';
+      if (invoice.status !== 'posted' && !(command === 'cancel' && draft)) {
         return this.answer(route, 400, error('invoicing_invoice_not_posted'));
       }
       const credited = list.some(
@@ -419,7 +461,7 @@ export class FakeInvoicing {
       }
       invoice.status = 'cancelled';
       invoice.cancellation_reason = String(body['reason'] ?? '');
-      invoice.cancellation_entry = numberedDraft
+      invoice.cancellation_entry = draft
         ? null
         : { public_id: uuid(), entry_number: this.entryNumber(invoice) };
       invoice.payment_state = null;
@@ -452,6 +494,67 @@ export class FakeInvoicing {
       return this.answer(route, 201, note);
     }
     return this.answer(route, 405, error('method_not_allowed'));
+  }
+
+  /** The amounts as typed and the entry to come; a missing price counts zero. */
+  private async preview(
+    route: Route,
+    company: string,
+    body: Record<string, unknown>,
+  ): Promise<void> {
+    const kind = body['kind'] as Kind;
+    const lines = this.lines(
+      company,
+      kind,
+      (body['lines'] ?? []) as Record<string, unknown>[],
+      true,
+    );
+    if (!lines) {
+      return this.answer(route, 400, error('validation_error', { lines: ['Incomplète.'] }));
+    }
+    const draft = { lines, taxes: [] } as unknown as InvoiceJson;
+    this.totals(draft);
+    const found = this.partners.list(company).find((item) => item.public_id === body['partner']);
+    const collective = this.accounting
+      .books(company)
+      .accounts.find((item) => item.code.startsWith(customer(kind) ? '411' : '401'));
+    const debitPartner = kind === 'customer_invoice' || kind === 'supplier_credit_note';
+    const side = (amount: string, debit: boolean) => ({
+      debit: debit ? amount : '0.000000',
+      credit: debit ? '0.000000' : amount,
+    });
+    const sold = lines.filter((line) => line.display_type === 'product');
+    const complete = found && collective && sold.length > 0 && sold.every((line) => line.account);
+    const entry = complete
+      ? [
+          {
+            account: {
+              public_id: collective.public_id,
+              code: collective.code,
+              name: collective.name,
+            },
+            partner: { public_id: found.public_id, code: found.code, name: found.name },
+            label: found.name,
+            ...side(draft.amount_total, debitPartner),
+          },
+          ...sold.map((line) => ({
+            account: line.account!,
+            partner: null,
+            label: line.description,
+            ...side(line.amount_untaxed, !debitPartner),
+          })),
+        ]
+      : [];
+    return this.answer(route, 200, {
+      lines: lines.map((line) => ({
+        amount_untaxed: line.display_type === 'product' ? line.amount_untaxed : null,
+      })),
+      taxes: draft.taxes.map((item) => ({ tax: item.tax, base: item.base, amount: item.amount })),
+      amount_untaxed: draft.amount_untaxed,
+      amount_tax: draft.amount_tax,
+      amount_total: draft.amount_total,
+      entry_lines: entry,
+    });
   }
 
   private async create(
@@ -527,15 +630,15 @@ export class FakeInvoicing {
       return this.answer(route, 400, error('invoicing_invoice_not_draft'));
     }
     const products = this.products[company] ?? [];
-    for (const line of invoice.lines) {
-      const product = products.find((item) => item.public_id === line.product.public_id);
+    for (const line of invoice.lines.filter((item) => item.display_type === 'product')) {
+      const product = products.find((item) => item.public_id === line.product?.public_id);
       const account = customer(invoice.kind) ? product?.sale_account : product?.purchase_account;
       if (!account) {
         return this.answer(
           route,
           400,
           error('invoicing_product_account_missing', {
-            product: line.product.code || line.product.name,
+            product: line.product?.code || line.product?.name,
             side: customer(invoice.kind) ? 'sale' : 'purchase',
           }),
         );

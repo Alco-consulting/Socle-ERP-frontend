@@ -4,7 +4,7 @@ import { Page } from '@playwright/test';
 import { expect, test } from './support/fake-api';
 import { openMenuItem } from './support/navigation';
 
-/** Facturation on the fake API (notes backend 0038, 0040); nothing reaches the real API. */
+/** Facturation on the fake API (notes backend 0038, 0040, 0041); nothing reaches the real API. */
 
 async function axe(page: Page): Promise<string[]> {
   const results = await new AxeBuilder({ page })
@@ -32,18 +32,21 @@ async function newSupplierInvoice(page: Page, product: string): Promise<void> {
   await page.goto('/app/comptabilite/achats/factures/nouvelle');
   await page.getByRole('combobox', { name: 'Fournisseur' }).fill('Diallo');
   await page.getByRole('option', { name: /Diallo et Cie/ }).click();
-  await page.getByRole('textbox', { name: 'Numéro du fournisseur' }).fill('F-77');
+  await page.getByRole('textbox', { name: 'Référence de la facture' }).fill('F-77');
+  await page.getByRole('button', { name: 'Ajouter une ligne' }).click();
   const line = page.locator('[data-line="0"]');
   await line.getByRole('combobox', { name: 'Produit' }).selectOption({ label: product });
   await line.getByRole('textbox', { name: 'Quantité' }).fill('2');
-  await line.getByRole('textbox', { name: 'Prix unitaire HT' }).fill('500000');
-  await page.getByRole('button', { name: 'Enregistrer le brouillon' }).click();
+  await line.getByRole('textbox', { name: 'Prix' }).fill('500000');
+  // ☁ as in Odoo: the draft saved, its record opened in its place.
+  await page.getByRole('button', { name: 'Enregistrer', exact: true }).click();
   await expect(page.getByText('Brouillon enregistré.')).toBeVisible();
+  await expect(page).toHaveURL(/\/achats\/factures\/[\w-]+$/);
 }
 
 async function post(page: Page): Promise<void> {
-  await page.getByRole('button', { name: 'Comptabiliser' }).click();
-  await page.getByRole('alertdialog').getByRole('button', { name: 'Comptabiliser' }).click();
+  await page.getByRole('button', { name: 'Confirmer' }).click();
+  await page.getByRole('alertdialog').getByRole('button', { name: 'Confirmer' }).click();
 }
 
 async function resetToDraft(page: Page): Promise<void> {
@@ -88,7 +91,8 @@ test.describe('Facturation', () => {
     await expect(heading(page)).toHaveText('FA-2026-0001');
     await expect(step(page)).toHaveText(/Comptabilisé/);
     await expect(total(page, 'Montant dû')).toContainText('1 180 000 GNF');
-    await expect(page.getByRole('button', { name: 'Comptabiliser' })).toHaveCount(0);
+    await expect(page.getByRole('button', { name: 'Confirmer' })).toHaveCount(0);
+    await expect(page.getByRole('textbox', { name: 'Quantité' })).toHaveCount(0);
 
     // « Écritures comptables »: the lines of its entry.
     await page.getByRole('tab', { name: 'Écritures comptables' }).click();
@@ -116,7 +120,9 @@ test.describe('Facturation', () => {
     ).toBeVisible();
     await expect(heading(page)).toHaveText('FA-2026-0001');
     await expect(step(page)).toHaveText('Brouillon');
-    await expect(page.getByRole('tab', { name: 'Écritures comptables' })).toHaveCount(0);
+    // Editable again, in place.
+    await page.getByRole('tab', { name: 'Lignes de facture' }).click();
+    await expect(page.getByRole('textbox', { name: 'Quantité' })).toBeVisible();
     await expect(page.getByRole('button', { name: 'Annuler' })).toBeVisible();
     await expect(page.getByRole('button', { name: 'Supprimer' })).toHaveCount(0);
     await post(page);
@@ -152,7 +158,6 @@ test.describe('Facturation', () => {
 
     await page.getByRole('button', { name: 'Avoir' }).click();
     await expect(page.getByText('Avoir créé en brouillon')).toBeVisible();
-    await page.getByRole('button', { name: 'Enregistrer le brouillon' }).click();
     await expect(page.getByText('Avoir fournisseur', { exact: true })).toBeVisible();
     await post(page);
     await expect(heading(page)).toHaveText('AF-2026-0001');
@@ -168,5 +173,55 @@ test.describe('Facturation', () => {
     await expect(
       page.getByText('Ce document est réglé ou a un avoir, en tout ou en partie.'),
     ).toBeVisible();
+  });
+
+  test('sections, notes, units and the catalogue, as in Odoo; the amounts as typed', async ({
+    page,
+  }) => {
+    test.slow(); // a document built line by line, with an accessibility scan
+    await newProduct(page, 'Licence', '601 — Achats de marchandises');
+    await page.goto('/app/comptabilite/achats/factures/nouvelle');
+    await expect(heading(page)).toHaveText('Brouillon');
+    await expect(page.getByRole('tab')).toHaveText([
+      'Lignes de facture',
+      'Écritures comptables',
+      'Autres informations',
+    ]);
+    await page.getByRole('combobox', { name: 'Fournisseur' }).fill('Diallo');
+    await page.getByRole('option', { name: /Diallo et Cie/ }).click();
+
+    await page.getByRole('button', { name: 'Ajouter une section' }).click();
+    await page.getByRole('textbox', { name: 'Section' }).fill('Logiciels');
+    await page.getByRole('button', { name: 'Ajouter une note' }).click();
+    await page.getByRole('textbox', { name: 'Note' }).fill('Livré à Conakry');
+
+    // The catalogue fills the empty product line.
+    await page.getByRole('button', { name: 'Catalogue' }).click();
+    const catalog = page.getByRole('dialog', { name: 'Catalogue' });
+    await catalog.getByRole('button', { name: 'Ajouter Licence' }).click();
+    await catalog.getByRole('button', { name: 'Ajouter un Licence' }).click();
+    await expect(catalog.getByRole('group', { name: 'Quantité de Licence' })).toContainText('2');
+    expect(await axe(page)).toEqual([]);
+    await catalog.getByRole('button', { name: 'Retour au document' }).click();
+    const line = page.locator('tr', { has: page.getByRole('combobox', { name: 'Produit' }) });
+    await expect(line).toHaveCount(1);
+    await expect(line.getByRole('textbox', { name: 'Quantité' })).toHaveValue('2');
+    await line.getByRole('textbox', { name: 'Prix' }).fill('750000');
+
+    // The server computes as typed: « Montant », the totals, the entry to come.
+    await expect(line).toContainText('1 500 000 GNF');
+    await expect(total(page, 'Total')).toContainText('1 770 000 GNF');
+    await page.getByRole('tab', { name: 'Écritures comptables' }).click();
+    await expect(
+      page.getByRole('table', { name: 'Lignes de l’écriture à venir' }).getByRole('row'),
+    ).toHaveCount(3);
+    await page.getByRole('tab', { name: 'Lignes de facture' }).click();
+
+    await post(page);
+    await expect(page.getByText('Facture fournisseur FA-2026-0001 comptabilisée')).toBeVisible();
+    await expect(heading(page)).toHaveText('FA-2026-0001');
+    await expect(page.locator('tr.section')).toHaveText('Logiciels');
+    await expect(page.locator('tr.text-note')).toHaveText('Livré à Conakry');
+    expect(await axe(page)).toEqual([]);
   });
 });

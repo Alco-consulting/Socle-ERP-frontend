@@ -64,6 +64,13 @@
         >
           <input alcoInput [numeric]="true" inputmode="decimal" formControlName="sale_price" />
         </alco-form-field>
+        <alco-form-field
+          label="Unité"
+          [optional]="true"
+          hint="Affichée sur ses lignes de facture : Utilisateur, Société, kg…"
+        >
+          <input alcoInput formControlName="unit" maxlength="32" autocomplete="off" />
+        </alco-form-field>
         <alco-form-field label="TVA" [required]="true" hint="Reprise sur chaque ligne de facture.">
           <select alcoSelect formControlName="tax">
             <option value="">Choisir une TVA</option>

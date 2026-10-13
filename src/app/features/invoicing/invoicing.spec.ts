@@ -11,9 +11,10 @@ import { SessionStore } from '../../core/session/session.store';
 import { openTestSession } from '../../core/session/testing';
 import { AlcoConfirmService } from '../../shared/ui/confirm-dialog/confirm-dialog';
 import { InvoicingApi } from './data-access/invoicing-api';
-import { Invoice } from './data-access/invoicing-models';
-import { InvoiceDetailPage } from './invoice-detail';
+import { Invoice, Product } from './data-access/invoicing-models';
 import { InvoiceListPage } from './invoice-list';
+import { InvoiceSheetPage } from './invoice-sheet';
+import { ProductCatalogService } from './product-catalog';
 import { ProductFormPage } from './product-form';
 
 registerLocaleData(localeFr); // the app's locale (app.config.ts): « 12 oct. »
@@ -25,6 +26,7 @@ const page = (results: unknown[] = [], count = results.length) => ({
   results,
 });
 const settle = () => new Promise((resolve) => setTimeout(resolve, 0));
+const wait = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 const ALL = [
   'invoicing.read',
   'invoicing.create',
@@ -38,6 +40,19 @@ const ALL = [
 const VAT = { public_id: 't-vat', code: 'TVA_18', name: 'TVA 18 %', rate: '18.0000' };
 const ref = (code: string, name: string) => ({ public_id: `r-${code}`, code, name });
 
+const PRODUCT: Product = {
+  public_id: 'r-MAR',
+  code: 'MAR',
+  name: 'Marchandise',
+  sale_price: '1000000.000000',
+  sale_account: ref('701100', 'Ventes de marchandises'),
+  purchase_account: null,
+  tax: VAT,
+  unit: 'Utilisateur',
+  status: 'active',
+  created_at: '2026-10-12T09:00:00Z',
+  updated_at: '2026-10-12T09:00:00Z',
+};
 const DRAFT: Invoice = {
   public_id: 'i-1',
   kind: 'customer_invoice',
@@ -63,9 +78,11 @@ const DRAFT: Invoice = {
   lines: [
     {
       sequence: 1,
+      display_type: 'product',
       product: ref('MAR', 'Marchandise'),
       description: 'Marchandise',
       quantity: '1.0000',
+      unit: 'Utilisateur',
       unit_price: '1000000.000000',
       tax: VAT,
       amount_untaxed: '1000000.000000',
@@ -98,13 +115,25 @@ const POSTED: Invoice = {
   payment_state: 'not_paid',
   amount_residual: '1180000.000000',
   entry: { public_id: 'e-1', entry_number: 'VT-2026-000001' },
-  lines: [{ ...DRAFT.lines[0], account: ref('701100', 'Ventes de marchandises') }],
   taxes: [{ ...DRAFT.taxes[0], account: ref('443100', 'TVA facturée') }],
 };
 
 /** Side requests (history): answered empty. */
 function answerSideRequests(): void {
   for (const request of httpMock().match((req) => req.url.includes('/audit/'))) {
+    request.flush(page());
+  }
+}
+
+/** What the sheet reads to edit a draft: the products, the taxes, the journals. */
+function answerOptions(): void {
+  for (const request of httpMock().match((req) => req.url === '/api/v1/invoicing/products/')) {
+    request.flush(page([PRODUCT]));
+  }
+  for (const request of httpMock().match((req) => req.url === '/api/v1/taxes/')) {
+    request.flush(page([{ ...VAT, withholding: false, type_tax_use: 'both', status: 'active' }]));
+  }
+  for (const request of httpMock().match((req) => req.url === '/api/v1/accounting/journals/')) {
     request.flush(page());
   }
 }
@@ -121,17 +150,21 @@ function text(element: Element | null): string {
   }
   return parts.join(' ').replace(/\s+/g, ' ').trim();
 }
-/** The document's action buttons, as Odoo's (and « Nouveau »). */
+/** The document's buttons, as Odoo's (and « Nouveau »). */
 const buttons = (element: HTMLElement) =>
   Array.from(element.querySelectorAll('.control a, .actions button')).map((item) => text(item));
 const button = (element: HTMLElement, label: string) =>
-  Array.from(element.querySelectorAll<HTMLButtonElement>('.actions button')).find(
+  Array.from(element.querySelectorAll<HTMLButtonElement>('button')).find(
     (item) => text(item) === label,
   )!;
 const tab = (element: HTMLElement, label: string) =>
   Array.from(element.querySelectorAll<HTMLButtonElement>('[role=tab]')).find(
     (item) => text(item) === label,
   )!;
+const type = (input: HTMLInputElement, value: string) => {
+  input.value = value;
+  input.dispatchEvent(new Event('input'));
+};
 
 describe('Facturation (invoicing/)', () => {
   async function open(url: string, permissions = ALL) {
@@ -145,7 +178,8 @@ describe('Facturation (invoicing/)', () => {
             data: { breadcrumb: 'Factures clients', kind: 'customer_invoice' },
             children: [
               { path: '', component: InvoiceListPage },
-              { path: ':id', data: { breadcrumb: 'Facture' }, component: InvoiceDetailPage },
+              { path: 'nouvelle', component: InvoiceSheetPage },
+              { path: ':id', data: { breadcrumb: 'Facture' }, component: InvoiceSheetPage },
             ],
           },
           { path: 'produits/nouveau', component: ProductFormPage },
@@ -164,8 +198,17 @@ describe('Facturation (invoicing/)', () => {
     return { element, stable };
   }
 
+  async function openDraft(invoice: Invoice = DRAFT) {
+    const opened = await open(`/ventes/factures/${invoice.public_id}`);
+    httpMock().expectOne(`/api/v1/invoicing/invoices/${invoice.public_id}/`).flush(invoice);
+    answerOptions();
+    await opened.stable();
+    return opened;
+  }
+
   afterEach(() => {
     answerSideRequests();
+    answerOptions();
     httpMock().verify();
     clearCookie('XSRF-TOKEN');
   });
@@ -185,8 +228,12 @@ describe('Facturation (invoicing/)', () => {
       [() => api.cancel('i-1', 'Doublon'), '/api/v1/invoicing/invoices/i-1/cancel/'],
       [() => api.resetToDraft('i-1'), '/api/v1/invoicing/invoices/i-1/reset-to-draft/'],
       [() => api.creditNote('i-1'), '/api/v1/invoicing/invoices/i-1/credit-note/'],
+      [
+        () => api.preview({ kind: 'customer_invoice', lines: [] }),
+        '/api/v1/invoicing/invoices/preview/',
+      ],
     ] as const) {
-      void firstValueFrom(call());
+      void firstValueFrom<unknown>(call());
       const request = httpMock().expectOne(url);
       expect(request.request.method).toBe('POST');
       expect(request.request.headers.get('X-XSRF-TOKEN')).toBe('tok');
@@ -223,50 +270,143 @@ describe('Facturation (invoicing/)', () => {
     expect(element.textContent).toContain('Nouvelle facture');
   });
 
-  it('a draft: « Comptabiliser » after a confirmation, then its number and entry', async () => {
-    const { element, stable } = await open('/ventes/factures/i-1');
-    httpMock().expectOne('/api/v1/invoicing/invoices/i-1/').flush(DRAFT);
-    await stable();
-    // As in Odoo: the kind, then the number (« Brouillon » before), the partner's address.
+  it('a draft is edited in place, as in Odoo: its fields, account, unit and buttons', async () => {
+    const { element } = await openDraft();
     expect(text(element.querySelector('.kind'))).toBe('Facture client');
     expect(element.querySelector('h1')?.textContent?.trim()).toBe('Brouillon');
-    expect(text(element.querySelector('.party'))).toContain(
-      'Client Recette 01 +224 611 178 615 Soloprimo Conakry Guinée',
-    );
-    expect(text(element.querySelector('.dates'))).toContain('Date de facturation 12 oct.');
-    expect(buttons(element)).toEqual(['Nouveau', 'Comptabiliser', 'Modifier', 'Supprimer']);
+    expect(buttons(element)).toEqual(['Nouveau', 'Confirmer', 'Annuler']);
     expect(text(element.querySelector('[aria-current=step]'))).toBe('Brouillon');
-    // On a draft, each line shows the product's account already.
-    expect(text(element.querySelector('tbody'))).toContain('701100 Ventes de marchandises');
-    expect(text(element.querySelector('.totals'))).toContain('Total : 1 180 000 GNF');
-    expect(text(element.querySelector('.totals'))).not.toContain('Montant dû');
-    const confirm = vi.spyOn(TestBed.inject(AlcoConfirmService), 'confirm').mockResolvedValue(true);
-    const button = Array.from(element.querySelectorAll<HTMLButtonElement>('button')).find(
-      (item) => item.textContent?.trim() === 'Comptabiliser',
-    )!;
-    button.click();
+    // ⚙: a draft without number is deleted from there.
+    expect(element.querySelector('alco-dropdown')).not.toBeNull();
+    expect(text(element.querySelector('.party'))).toContain(
+      '+224 611 178 615 Soloprimo Conakry Guinée',
+    );
+    expect(element.querySelector<HTMLInputElement>('input[type=date]')?.value).toBe('2026-10-12');
+    const row = element.querySelector('[data-line="0"]')!;
+    expect(row.querySelector<HTMLSelectElement>('select[aria-label="Produit"]')?.value).toBe(
+      'r-MAR',
+    );
+    expect(text(row)).toContain('701100 Ventes de marchandises');
+    expect(text(row)).toContain('Utilisateur');
+    expect(text(row)).toContain('1 000 000 GNF');
+    expect(Array.from(element.querySelectorAll('.add-links button')).map(text)).toEqual([
+      'Ajouter une ligne',
+      'Ajouter une section',
+      'Ajouter une note',
+      'Catalogue',
+    ]);
+    const totals = text(element.querySelector('.totals'));
+    expect(totals).toContain('Montant hors taxes : 1 000 000 GNF');
+    expect(totals).toContain('TVA 18 % : 180 000 GNF');
+    expect(totals).toContain('Total : 1 180 000 GNF');
+    expect(totals).toContain('Montant dû : 1 180 000 GNF');
+    // Nothing asked while nothing changes.
+    await wait(350);
+    httpMock().expectNone('/api/v1/invoicing/invoices/preview/');
+  });
+
+  it('as typed: the server computes the amounts, nothing stored; « Confirmer » saves then posts', async () => {
+    const { element, stable } = await openDraft();
+    const row = element.querySelector('[data-line="0"]')!;
+    type(row.querySelector<HTMLInputElement>('input[aria-label="Quantité"]')!, '2');
+    await wait(350);
     await stable();
-    expect(confirm).toHaveBeenCalled();
-    const post = httpMock().expectOne('/api/v1/invoicing/invoices/i-1/post/');
-    expect(post.request.method).toBe('POST');
-    post.flush(POSTED);
+    const preview = httpMock().expectOne('/api/v1/invoicing/invoices/preview/');
+    expect(preview.request.body).toEqual({
+      kind: 'customer_invoice',
+      partner: 'r-CLI-00001',
+      lines: [
+        { product: 'r-MAR', quantity: '2', unit_price: '1000000', description: '', tax: 't-vat' },
+      ],
+    });
+    preview.flush({
+      lines: [{ amount_untaxed: '2000000.000000' }],
+      taxes: [{ tax: VAT, base: '2000000.000000', amount: '360000.000000' }],
+      amount_untaxed: '2000000.000000',
+      amount_tax: '360000.000000',
+      amount_total: '2360000.000000',
+      entry_lines: [],
+    });
+    await stable();
+    expect(text(row)).toContain('2 000 000 GNF');
+    expect(text(element.querySelector('.totals'))).toContain('Total : 2 360 000 GNF');
+    // ☁ and « Ignorer les modifications » while it is not saved.
+    expect(button(element, 'Enregistrer')).toBeDefined();
+
+    vi.spyOn(TestBed.inject(AlcoConfirmService), 'confirm').mockResolvedValue(true);
+    button(element, 'Confirmer').click();
+    await stable();
+    const saved = httpMock().expectOne(
+      (req) => req.url === '/api/v1/invoicing/invoices/i-1/' && req.method === 'PATCH',
+    );
+    expect(saved.request.body.lines[0].quantity).toBe('2');
+    saved.flush(DRAFT);
+    await stable();
+    httpMock().expectOne('/api/v1/invoicing/invoices/i-1/post/').flush(POSTED);
     await stable();
     httpMock().expectOne('/api/v1/invoicing/invoices/i-1/').flush(POSTED);
+    answerOptions();
     await stable();
     expect(element.querySelector('h1')?.textContent?.trim()).toBe('FV-2026-0001');
+    expect(buttons(element)).toEqual(['Nouveau', 'Avoir', 'Remettre en brouillon']);
+    expect(element.querySelector('input[aria-label="Quantité"]')).toBeNull();
     expect(text(element.querySelector('[aria-current=step]'))).toBe('Comptabilisé');
-    expect(text(element.querySelector('.totals'))).toContain('Montant dû : 1 180 000 GNF');
-    tab(element, 'Autres informations').click();
+  });
+
+  it('sections, notes and the catalogue, as in Odoo', async () => {
+    const { element, stable } = await openDraft();
+    button(element, 'Ajouter une section').click();
     await stable();
-    const entry = element.querySelector<HTMLAnchorElement>('a.mono');
-    expect(entry?.textContent?.trim()).toBe('VT-2026-000001');
-    expect(entry?.getAttribute('href')).toBe('/app/comptabilite/ecritures/e-1');
+    const section = element.querySelector<HTMLInputElement>('[data-line="1"] input')!;
+    expect(section.getAttribute('aria-label')).toBe('Section');
+    type(section, 'Logiciels');
+    button(element, 'Ajouter une note').click();
+    await stable();
+    expect(element.querySelector('[data-line="2"] input')?.getAttribute('aria-label')).toBe('Note');
+
+    const open = vi
+      .spyOn(TestBed.inject(ProductCatalogService), 'open')
+      .mockResolvedValue(new Map([['r-MAR', 3]]));
+    button(element, 'Catalogue').click();
+    await stable();
+    expect(open.mock.calls[0][0].quantities.get('r-MAR')).toBe(1);
+    expect(
+      element.querySelector<HTMLInputElement>('[data-line="0"] input[aria-label="Quantité"]')
+        ?.value,
+    ).toBe('3');
+    await wait(350);
+    const preview = httpMock().expectOne('/api/v1/invoicing/invoices/preview/');
+    // The note has no text yet: it waits.
+    expect(
+      preview.request.body.lines.map((line: { display_type?: string }) => line.display_type),
+    ).toEqual([undefined, 'section']);
+    preview.flush({
+      lines: [{ amount_untaxed: '3000000.000000' }, { amount_untaxed: null }],
+      taxes: [],
+      amount_untaxed: '3000000.000000',
+      amount_tax: '0.000000',
+      amount_total: '3000000.000000',
+      entry_lines: [],
+    });
+    await stable();
+  });
+
+  it('a new invoice: the same sheet; « Annuler » leaves without saving', async () => {
+    const { element, stable } = await open('/ventes/factures/nouvelle');
+    answerOptions();
+    await stable();
+    expect(element.querySelector('h1')?.textContent?.trim()).toBe('Brouillon');
+    expect(buttons(element)).toEqual(['Nouveau', 'Confirmer', 'Annuler']);
+    // As in Odoo, no line yet.
+    expect(element.querySelectorAll('tbody tr')).toHaveLength(0);
+    const navigate = vi.spyOn(TestBed.inject(Router), 'navigateByUrl').mockResolvedValue(true);
+    button(element, 'Annuler').click();
+    await stable();
+    expect(navigate).toHaveBeenCalledWith('/app/comptabilite/ventes/factures');
   });
 
   it('the tab « Écritures comptables »: the lines of its entry, asked when opened', async () => {
-    const { element, stable } = await open('/ventes/factures/i-1');
-    httpMock().expectOne('/api/v1/invoicing/invoices/i-1/').flush(POSTED);
-    await stable();
+    const { element, stable } = await openDraft(POSTED);
     httpMock().expectNone((req) => req.url.includes('entry-lines'));
     tab(element, 'Écritures comptables').click();
     await stable();
@@ -288,41 +428,32 @@ describe('Facturation (invoicing/)', () => {
       ]),
     );
     await stable();
-    expect(text(element.querySelector('tbody'))).toContain('411100 Clients');
-    expect(text(element.querySelector('tbody'))).toContain('1 180 000 GNF');
+    expect(text(element.querySelector('alco-table tbody'))).toContain('411100 Clients');
     expect(element.textContent).toContain('Ouvrir l’écriture VT-2026-000001');
   });
 
   it('paid in part by a credit note: the ribbon, « Extourné le », what is still due', async () => {
-    const { element, stable } = await open('/ventes/factures/i-1');
-    httpMock()
-      .expectOne('/api/v1/invoicing/invoices/i-1/')
-      .flush({
-        ...POSTED,
-        payment_state: 'partial',
-        amount_residual: '880000.000000',
-        settlements: [
-          {
-            lettering: 'LET-000001',
-            date: '2026-10-12',
-            amount: '300000.000000',
-            credit_note: { public_id: 'n-1', kind: 'customer_credit_note', number: 'AV-2026-0001' },
-          },
-        ],
-      });
-    await stable();
+    const { element } = await openDraft({
+      ...POSTED,
+      payment_state: 'partial',
+      amount_residual: '880000.000000',
+      settlements: [
+        {
+          lettering: 'LET-000001',
+          date: '2026-10-12',
+          amount: '300000.000000',
+          credit_note: { public_id: 'n-1', kind: 'customer_credit_note', number: 'AV-2026-0001' },
+        },
+      ],
+    });
     expect(text(element.querySelector('.ribbon'))).toBe('Partiel');
     const totals = text(element.querySelector('.totals'));
     expect(totals).toContain('Extourné le 12/10/2026 AV-2026-0001 300 000 GNF');
     expect(totals).toContain('Montant dû : 880 000 GNF');
-    expect(buttons(element)).toEqual(['Nouveau', 'Avoir', 'Remettre en brouillon']);
   });
 
-  it('« Remettre en brouillon »: confirmed, its number kept, then cancelled, not deleted', async () => {
-    const { element, stable } = await open('/ventes/factures/i-1');
-    httpMock().expectOne('/api/v1/invoicing/invoices/i-1/').flush(POSTED);
-    await stable();
-    expect(buttons(element)).toEqual(['Nouveau', 'Avoir', 'Remettre en brouillon']);
+  it('« Remettre en brouillon »: confirmed, its number kept, editable again, cancelled not deleted', async () => {
+    const { element, stable } = await openDraft(POSTED);
     const confirm = vi.spyOn(TestBed.inject(AlcoConfirmService), 'confirm').mockResolvedValue(true);
     button(element, 'Remettre en brouillon').click();
     await stable();
@@ -333,9 +464,13 @@ describe('Facturation (invoicing/)', () => {
     reset.flush(numbered);
     await stable();
     httpMock().expectOne('/api/v1/invoicing/invoices/i-1/').flush(numbered);
+    answerOptions();
     await stable();
     expect(element.querySelector('h1')?.textContent?.trim()).toBe('FV-2026-0001');
-    expect(buttons(element)).toEqual(['Nouveau', 'Comptabiliser', 'Modifier', 'Annuler']);
+    expect(buttons(element)).toEqual(['Nouveau', 'Confirmer', 'Annuler']);
+    // A numbered draft is never deleted: no ⚙ « Supprimer ».
+    expect(element.querySelector('alco-dropdown')).toBeNull();
+    expect(element.querySelector('input[aria-label="Quantité"]')).not.toBeNull();
   });
 
   it('product: created with its accounts and tax by their ids', async () => {
@@ -378,6 +513,7 @@ describe('Facturation (invoicing/)', () => {
       sale_account: 'a-701',
       purchase_account: 'a-601',
       tax: 't-vat',
+      unit: '',
     });
     create.flush({ public_id: 'p-1', name: 'Marchandise', status: 'active' });
     await stable();

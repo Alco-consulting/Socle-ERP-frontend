@@ -1,0 +1,590 @@
+@if (loadError(); as failure) {
+  <alco-error-state
+    [title]="failure.title"
+    [message]="failure.message"
+    [code]="failure.code"
+    [correlationId]="failure.correlationId ?? ''"
+  />
+  <div class="center">
+    <a alcoButton icon="arrow-left" routerLink="..">Retour à la liste</a>
+  </div>
+} @else if (!ready()) {
+  <alco-loading [rows]="8" label="Chargement du document…" />
+} @else {
+  <div class="control">
+    @if (newUrl(); as url) {
+      <a alcoButton [routerLink]="url">Nouveau</a>
+    }
+    @if (gear().length > 0) {
+      <alco-dropdown
+        [items]="gear()"
+        icon="settings"
+        [iconOnly]="true"
+        [showChevron]="false"
+        trigger="ghost"
+        ariaLabel="Actions du document"
+        (selected)="onGear($event)"
+      >
+        Actions
+      </alco-dropdown>
+    }
+    @if (editable() && (isNew || form.dirty)) {
+      <button
+        alcoButton
+        type="button"
+        variant="ghost"
+        icon="upload"
+        [iconOnly]="true"
+        title="Enregistrer"
+        [disabled]="busy()"
+        (click)="save()"
+      >
+        Enregistrer
+      </button>
+      <button
+        alcoButton
+        type="button"
+        variant="ghost"
+        icon="reverse"
+        [iconOnly]="true"
+        title="Ignorer les modifications"
+        [disabled]="busy()"
+        (click)="discard()"
+      >
+        Ignorer les modifications
+      </button>
+    }
+  </div>
+
+  <div class="bar">
+    <div class="actions" role="group" aria-label="Actions du document">
+      @for (action of actions(); track action.id) {
+        <button
+          alcoButton
+          type="button"
+          [variant]="action.variant"
+          [loading]="busy() && action.variant === 'primary'"
+          loadingLabel="En cours…"
+          [disabled]="busy()"
+          (click)="act(action.id)"
+        >
+          {{ action.label }}
+        </button>
+      }
+    </div>
+    <alco-workflow-steps [steps]="steps()" [current]="status()" label="État du document" />
+  </div>
+
+  @if (actionError(); as failure) {
+    <alco-error-state
+      [inline]="true"
+      [title]="failure.title"
+      [message]="failure.message"
+      [help]="failure.help ?? ''"
+      [code]="failure.code"
+      [correlationId]="failure.correlationId ?? ''"
+    />
+  }
+  @if (invalidSubmit() && form.invalid) {
+    <alco-error-state
+      [inline]="true"
+      title="Certaines informations sont manquantes ou incorrectes."
+      message="Corrigez les champs signalés (une ligne de produit au moins), puis recommencez."
+    />
+  }
+  @if (invoice()?.status === 'cancelled') {
+    <p class="note" role="note">
+      Annulé le {{ invoice()?.cancelled_at | date: 'dd/MM/yyyy' }} :
+      {{ invoice()?.cancellation_reason }}
+    </p>
+  }
+
+  <form
+    class="sheet paper"
+    [class.alco-controls-underlined]="editable()"
+    aria-labelledby="document-number"
+    [formGroup]="form"
+    (ngSubmit)="save()"
+    novalidate
+  >
+    @if (ribbon(); as mark) {
+      <div [class]="'ribbon ' + mark.tone">{{ mark.label }}</div>
+    }
+    <div class="heading">
+      <p class="kind">{{ kindLabel() }}</p>
+      <h1 id="document-number" class="number">{{ invoice()?.number || 'Brouillon' }}</h1>
+    </div>
+
+    <div class="head">
+      <div class="party">
+        <span class="field-label" id="partner-label">{{ spec().partnerLabel }}</span>
+        <div class="party-value">
+          @if (editable() && !isCreditNote()) {
+            <alco-autocomplete
+              formControlName="partner"
+              [search]="searchPartners"
+              [label]="spec().partnerLabel"
+              placeholder="Rechercher un nom ou un code…"
+              emptyText="Aucun tiers actif ne correspond."
+            />
+          } @else if (invoice(); as document) {
+            @if (canOpenPartners()) {
+              <a
+                class="partner-name"
+                [routerLink]="[
+                  accounting,
+                  spec().side === 'customer' ? 'clients' : 'fournisseurs',
+                  document.partner.public_id,
+                ]"
+                >{{ document.partner.name }}</a
+              >
+            } @else {
+              <span class="partner-name">{{ document.partner.name }}</span>
+            }
+          }
+          @for (item of address(); track $index) {
+            <span>{{ item }}</span>
+          }
+        </div>
+      </div>
+      <dl class="dates">
+        <div>
+          <dt>{{ isCreditNote() ? 'Date de l’avoir' : 'Date de facturation' }}</dt>
+          <dd>
+            @if (editable()) {
+              <input
+                alcoDatePicker
+                type="date"
+                formControlName="invoice_date"
+                aria-label="Date de facturation"
+              />
+            } @else {
+              {{ shortDate(invoice()?.invoice_date ?? '') }}
+            }
+          </dd>
+        </div>
+        @if (!customerSide()) {
+          <div>
+            <dt>Référence de la facture</dt>
+            <dd>
+              @if (editable()) {
+                <input
+                  alcoInput
+                  formControlName="reference"
+                  maxlength="64"
+                  autocomplete="off"
+                  aria-label="Référence de la facture"
+                  placeholder="Le numéro du fournisseur"
+                />
+              } @else {
+                {{ invoice()?.reference }}
+              }
+            </dd>
+          </div>
+        }
+        @if (originUrl(); as url) {
+          <div>
+            <dt>Facture d’origine</dt>
+            <dd><a [routerLink]="url">Ouvrir la facture</a></dd>
+          </div>
+        }
+      </dl>
+    </div>
+
+    <alco-tabs [tabs]="tabs()" [(selected)]="tab" label="Contenu du document">
+      <ng-template alcoTabPanel="lines">
+        @if (editable() && products().length === 0) {
+          <p class="note">Aucun produit actif : créez-en dans Clients ▾ › Produits.</p>
+        }
+        <div class="lines-frame" tabindex="0" role="region" aria-label="Lignes du document">
+          <table class="lines-table">
+            <caption class="alco-sr-only">
+              Lignes du document
+            </caption>
+            <thead>
+              <tr>
+                <th scope="col" class="product">Produit</th>
+                <th scope="col" class="hide-below-tablet">Compte</th>
+                <th scope="col" class="num">Quantité</th>
+                <th scope="col" class="hide-below-tablet">Unité</th>
+                <th scope="col" class="num">Prix</th>
+                <th scope="col" class="hide-below-tablet">Taxes</th>
+                <th scope="col" class="num">Montant</th>
+                @if (editable()) {
+                  <th scope="col"><span class="alco-sr-only">Retirer</span></th>
+                }
+              </tr>
+            </thead>
+            <tbody formArrayName="lines">
+              @for (line of lines.controls; track line; let i = $index) {
+                @switch (line.controls.display_type.value) {
+                  @case ('section') {
+                    <tr class="section" [formGroupName]="i" [attr.data-line]="i">
+                      <td colspan="7">
+                        @if (editable()) {
+                          <input
+                            alcoInput
+                            formControlName="description"
+                            maxlength="255"
+                            aria-label="Section"
+                            placeholder="Titre de la section"
+                          />
+                        } @else {
+                          {{ line.controls.description.value }}
+                        }
+                      </td>
+                      @if (editable()) {
+                        <td>
+                          <button
+                            alcoButton
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            icon="trash"
+                            [iconOnly]="true"
+                            (click)="removeLine(i)"
+                          >
+                            Retirer la ligne {{ i + 1 }}
+                          </button>
+                        </td>
+                      }
+                    </tr>
+                  }
+                  @case ('note') {
+                    <tr class="text-note" [formGroupName]="i" [attr.data-line]="i">
+                      <td colspan="7">
+                        @if (editable()) {
+                          <input
+                            alcoInput
+                            formControlName="description"
+                            maxlength="255"
+                            aria-label="Note"
+                            placeholder="Une note"
+                          />
+                        } @else {
+                          {{ line.controls.description.value }}
+                        }
+                      </td>
+                      @if (editable()) {
+                        <td>
+                          <button
+                            alcoButton
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            icon="trash"
+                            [iconOnly]="true"
+                            (click)="removeLine(i)"
+                          >
+                            Retirer la ligne {{ i + 1 }}
+                          </button>
+                        </td>
+                      }
+                    </tr>
+                  }
+                  @default {
+                    @let saved = invoice()?.lines?.[i];
+                    <tr [formGroupName]="i" [attr.data-line]="i">
+                      <td class="product">
+                        @if (editable()) {
+                          <select
+                            alcoSelect
+                            formControlName="product"
+                            aria-label="Produit"
+                            (change)="productChosen(i)"
+                          >
+                            <option value="">Choisir un produit</option>
+                            @for (
+                              choice of productChoices(line.controls.product.value);
+                              track choice.id
+                            ) {
+                              <option [value]="choice.id">{{ choice.label }}</option>
+                            }
+                          </select>
+                          <input
+                            alcoInput
+                            class="description"
+                            formControlName="description"
+                            maxlength="255"
+                            aria-label="Description"
+                            placeholder="Description (facultatif)"
+                          />
+                        } @else if (saved?.product; as product) {
+                          <a [routerLink]="productUrl(product.public_id)">{{ product.name }}</a>
+                          @if (saved?.description !== product.name) {
+                            <span class="alco-caption cut">{{ saved?.description }}</span>
+                          }
+                        }
+                      </td>
+                      <td class="hide-below-tablet">
+                        @if (accountOf(i); as account) {
+                          @let name = account.code + ' ' + account.name;
+                          <span class="cut account" [title]="name">{{ name }}</span>
+                        }
+                      </td>
+                      <td class="num">
+                        @if (editable()) {
+                          <input
+                            alcoInput
+                            [numeric]="true"
+                            inputmode="decimal"
+                            formControlName="quantity"
+                            aria-label="Quantité"
+                          />
+                        } @else {
+                          {{ saved?.quantity | alcoAmount: 2 }}
+                        }
+                      </td>
+                      <td class="hide-below-tablet">{{ unitOf(i) }}</td>
+                      <td class="num">
+                        @if (editable()) {
+                          <input
+                            alcoInput
+                            [numeric]="true"
+                            inputmode="decimal"
+                            formControlName="unit_price"
+                            aria-label="Prix"
+                          />
+                        } @else {
+                          {{ saved?.unit_price | alcoAmount: 2 }}
+                        }
+                      </td>
+                      <td class="hide-below-tablet">
+                        @if (editable()) {
+                          <select alcoSelect formControlName="tax" aria-label="Taxes">
+                            <option value="">TVA du produit</option>
+                            @for (tax of sideTaxes(); track tax.public_id) {
+                              <option [value]="tax.public_id">{{ tax.name }}</option>
+                            }
+                          </select>
+                        } @else {
+                          {{ saved?.tax?.name }}
+                        }
+                      </td>
+                      <td class="num amount">
+                        @if (amountOf(i); as amount) {
+                          {{ amount | alcoAmount: 0 }} {{ invoice()?.currency ?? 'GNF' }}
+                        }
+                      </td>
+                      @if (editable()) {
+                        <td>
+                          <button
+                            alcoButton
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            icon="trash"
+                            [iconOnly]="true"
+                            (click)="removeLine(i)"
+                          >
+                            Retirer la ligne {{ i + 1 }}
+                          </button>
+                        </td>
+                      }
+                    </tr>
+                  }
+                }
+              }
+            </tbody>
+          </table>
+        </div>
+        @if (editable()) {
+          <div class="add-links">
+            <button type="button" class="link" (click)="addLine('product')">
+              Ajouter une ligne
+            </button>
+            <button type="button" class="link" (click)="addLine('section')">
+              Ajouter une section
+            </button>
+            <button type="button" class="link" (click)="addLine('note')">Ajouter une note</button>
+            <button type="button" class="link" (click)="openCatalog()">Catalogue</button>
+          </div>
+        }
+
+        @let sums = totals();
+        <dl class="totals">
+          <div>
+            <dt>Montant hors taxes :</dt>
+            <dd>{{ sums.untaxed | alcoAmount: 0 }} {{ invoice()?.currency ?? 'GNF' }}</dd>
+          </div>
+          @for (tax of sums.taxes; track tax.name) {
+            <div>
+              <dt>{{ tax.name }} :</dt>
+              <dd>{{ tax.amount | alcoAmount: 0 }} {{ invoice()?.currency ?? 'GNF' }}</dd>
+            </div>
+          }
+          <div class="total">
+            <dt>Total :</dt>
+            <dd>{{ sums.total | alcoAmount: 0 }} {{ invoice()?.currency ?? 'GNF' }}</dd>
+          </div>
+          @for (item of invoice()?.settlements ?? []; track item.lettering) {
+            <div class="settlement">
+              <dt>
+                <alco-icon name="info" [size]="16" />
+                @if (item.credit_note; as note) {
+                  Extourné le {{ item.date | date: 'dd/MM/yyyy' }}
+                  <a [routerLink]="creditNoteUrl(note.kind, note.public_id)">{{ note.number }}</a>
+                } @else {
+                  Payé le {{ item.date | date: 'dd/MM/yyyy' }}
+                }
+              </dt>
+              <dd>{{ item.amount | alcoAmount: 0 }} {{ invoice()?.currency ?? 'GNF' }}</dd>
+            </div>
+          }
+          @if (sums.due !== null) {
+            <div class="due">
+              <dt>Montant dû :</dt>
+              <dd>{{ sums.due | alcoAmount: 0 }} {{ invoice()?.currency ?? 'GNF' }}</dd>
+            </div>
+          }
+        </dl>
+      </ng-template>
+
+      <ng-template alcoTabPanel="entries">
+        @if (editable()) {
+          @if (preview()?.entry_lines?.length) {
+            <alco-table
+              caption="Lignes de l’écriture à venir"
+              [columns]="entryColumns"
+              [rows]="preview()?.entry_lines ?? []"
+              [rowId]="previewEntryId"
+              [rowLabel]="previewEntryLabel"
+            >
+              <ng-template alcoCell="account" let-row>
+                @let name = row.account.code + ' ' + row.account.name;
+                <span class="cut account" [title]="name">{{ name }}</span>
+              </ng-template>
+              <ng-template alcoCell="partner" let-row>{{ row.partner?.name ?? '' }}</ng-template>
+              <ng-template alcoCell="label" let-row>
+                <span class="cut account" [title]="row.label">{{ row.label }}</span>
+              </ng-template>
+              <ng-template alcoCell="debit" let-row
+                >{{ row.debit | alcoAmount: 0 }} {{ invoice()?.currency ?? 'GNF' }}</ng-template
+              >
+              <ng-template alcoCell="credit" let-row
+                >{{ row.credit | alcoAmount: 0 }} {{ invoice()?.currency ?? 'GNF' }}</ng-template
+              >
+            </alco-table>
+            <p class="alco-caption entry-link">L’écriture est créée à la confirmation.</p>
+          } @else {
+            <p class="alco-caption">
+              L’écriture apparaît ici dès que le tiers, les produits et leurs comptes sont
+              renseignés.
+            </p>
+          }
+        } @else if (entryLines.value(); as found) {
+          <alco-table
+            caption="Lignes de l’écriture du document"
+            [columns]="entryColumns"
+            [rows]="found.results"
+            [rowId]="entryLineId"
+            [rowLabel]="entryLineLabel"
+          >
+            <ng-template alcoCell="account" let-row>
+              @let name = row.account.code + ' ' + row.account.name;
+              <span class="cut account" [title]="name">{{ name }}</span>
+            </ng-template>
+            <ng-template alcoCell="partner" let-row>{{ row.partner?.name ?? '' }}</ng-template>
+            <ng-template alcoCell="label" let-row>
+              <span class="cut account" [title]="row.label">{{ row.label }}</span>
+            </ng-template>
+            <ng-template alcoCell="debit" let-row
+              >{{ row.reference_debit | alcoAmount: 0 }} {{ row.reference_currency }}</ng-template
+            >
+            <ng-template alcoCell="credit" let-row
+              >{{ row.reference_credit | alcoAmount: 0 }} {{ row.reference_currency }}</ng-template
+            >
+          </alco-table>
+          @if (invoice()?.entry; as entry) {
+            <p class="entry-link">
+              <a [routerLink]="[accounting, 'ecritures', entry.public_id]"
+                >Ouvrir l’écriture {{ entry.entry_number }}</a
+              >
+            </p>
+          }
+        } @else if (entryLines.error()) {
+          <p class="alco-caption">Les lignes de l’écriture n’ont pas pu être lues.</p>
+        } @else {
+          <alco-loading
+            variant="table"
+            [rows]="4"
+            [columns]="5"
+            label="Chargement de l’écriture…"
+          />
+        }
+      </ng-template>
+
+      <ng-template alcoTabPanel="other">
+        <dl class="facts">
+          <div>
+            <dt>Journal</dt>
+            <dd>
+              @if (editable() && journals().length > 1) {
+                <select alcoSelect formControlName="journal" aria-label="Journal">
+                  <option value="">Journal par défaut</option>
+                  @for (journal of journals(); track journal.public_id) {
+                    <option [value]="journal.public_id">
+                      {{ journal.code }} — {{ journal.name }}
+                    </option>
+                  }
+                </select>
+              } @else if (invoice(); as document) {
+                {{ document.journal.code }} — {{ document.journal.name }}
+              } @else if (journals()[0]; as journal) {
+                {{ journal.code }} — {{ journal.name }}
+              }
+            </dd>
+          </div>
+          <div>
+            <dt>Écriture</dt>
+            <dd>
+              @if (invoice()?.entry; as entry) {
+                @if (canOpenEntries()) {
+                  <a class="mono" [routerLink]="[accounting, 'ecritures', entry.public_id]">{{
+                    entry.entry_number
+                  }}</a>
+                } @else {
+                  <span class="mono">{{ entry.entry_number }}</span>
+                }
+              } @else {
+                Créée à la confirmation
+              }
+            </dd>
+          </div>
+          @if (invoice()?.posted_at; as posted) {
+            <div>
+              <dt>Comptabilisé le</dt>
+              <dd>{{ posted | date: 'dd/MM/yyyy' }}</dd>
+            </div>
+          }
+          @if (invoice()?.cancellation_entry; as entry) {
+            <div>
+              <dt>Extourne de l’annulation</dt>
+              <dd>
+                @if (canOpenEntries()) {
+                  <a class="mono" [routerLink]="[accounting, 'ecritures', entry.public_id]">{{
+                    entry.entry_number
+                  }}</a>
+                } @else {
+                  <span class="mono">{{ entry.entry_number }}</span>
+                }
+              </dd>
+            </div>
+          }
+          @if (invoice()?.created_at; as created) {
+            <div>
+              <dt>Créé le</dt>
+              <dd>{{ created | date: 'dd/MM/yyyy' }}</dd>
+            </div>
+          }
+        </dl>
+      </ng-template>
+    </alco-tabs>
+  </form>
+
+  @if (canSeeHistory() && invoice(); as document) {
+    <section id="historique" class="section" aria-label="Historique">
+      <alco-object-history [objectType]="auditType" [objectId]="document.public_id" />
+    </section>
+  }
+}

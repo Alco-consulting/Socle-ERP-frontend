@@ -42,10 +42,10 @@ type SearchState = 'idle' | 'searching' | 'done' | 'failed';
 let nextId = 0;
 
 /**
- * A text field that searches the server and keeps one of its answers (ARIA 1.2 combobox
- * with a listbox). The form's value is the chosen `AutocompleteOption`, or `null`; typing
- * again forgets the choice, and a text that is not a choice is invalid (`format`).
- * Keyboard: ↓/↑ move in the answers, Entrée chooses, Échap closes.
+ * A selection field over the server's list, as Odoo's (ARIA 1.2 combobox with a listbox): a
+ * click or ↓ opens the list, typing searches it. The form's value is the chosen
+ * `AutocompleteOption`, or `null`; typing again forgets the choice, and a text that is not a
+ * choice is invalid (`format`). Keyboard: ↓/↑ move, Entrée chooses, Échap closes.
  */
 @Component({
   selector: 'alco-autocomplete',
@@ -54,10 +54,11 @@ let nextId = 0;
     <div class="field" cdkOverlayOrigin #origin="cdkOverlayOrigin">
       <input
         #input
-        class="alco-control"
+        class="alco-control alco-control--select"
         type="text"
         role="combobox"
         autocomplete="off"
+        aria-haspopup="listbox"
         aria-autocomplete="list"
         [attr.id]="field?.controlId ?? null"
         [attr.aria-label]="field ? null : label()"
@@ -71,6 +72,7 @@ let nextId = 0;
         [value]="text()"
         [disabled]="disabled()"
         (input)="onInput($event)"
+        (click)="onClick()"
         (keydown)="onKeydown($event)"
         (blur)="onBlur()"
       />
@@ -315,11 +317,20 @@ export class AlcoAutocomplete
       this.selected.set(null);
     }
     this.onChange(null);
-    if (text.trim() === '') {
+    // An empty text shows the whole list again, as a selection field.
+    this.openWith(text.trim());
+  }
+
+  /** A click opens the list (all of it once a choice is shown), or closes it. */
+  protected onClick(): void {
+    if (this.disabled()) {
+      return;
+    }
+    if (this.open()) {
       this.close();
       return;
     }
-    this.openWith(text.trim());
+    this.openWith(this.selected() ? '' : this.text().trim());
   }
 
   protected onKeydown(event: KeyboardEvent): void {

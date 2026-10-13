@@ -15,8 +15,8 @@ import { Observable, catchError, forkJoin, map, of } from 'rxjs';
 import { toUserError } from '../../../core/errors/user-error';
 import { requestState } from '../../../core/http/request-state';
 import { AlcoFilterBar } from '../../../shared/filters/filter-bar';
+import { AlcoAutocomplete, AutocompleteOption } from '../../../shared/forms/autocomplete';
 import { AlcoFormField } from '../../../shared/forms/form-field';
-import { AlcoInput } from '../../../shared/forms/input';
 import { AlcoButton } from '../../../shared/ui/button/button';
 import { AlcoEmptyState } from '../../../shared/ui/empty-state/empty-state';
 import { AlcoErrorState } from '../../../shared/ui/error-state/error-state';
@@ -25,6 +25,7 @@ import { AlcoPageHeader } from '../../../shared/ui/page-header/page-header';
 import { AlcoTabPanel, AlcoTabs, TabItem } from '../../../shared/ui/tabs/tabs';
 import { PartnersApi } from '../../partners/data-access/partners-api';
 import { AccountingApi } from '../data-access/accounting-api';
+import { accountCodeSearch, codeOption, partnerCodeSearch } from '../data-access/code-searches';
 import { DueItemStatus, DueRole } from '../data-access/due-models';
 import { EntriesApi } from '../data-access/entries-api';
 import { AlcoDueItems } from './due-items';
@@ -70,8 +71,8 @@ interface Found {
     AlcoEmptyState,
     AlcoErrorState,
     AlcoFilterBar,
+    AlcoAutocomplete,
     AlcoFormField,
-    AlcoInput,
     AlcoLoading,
     AlcoPageHeader,
     AlcoPendingLines,
@@ -85,6 +86,8 @@ interface Found {
 export class DuePage {
   private readonly accounting = inject(AccountingApi);
   private readonly entries = inject(EntriesApi);
+  protected readonly searchAccounts = accountCodeSearch(this.accounting);
+  protected readonly searchPartners = partnerCodeSearch(this.entries);
   private readonly router = inject(Router);
   private readonly route = inject(ActivatedRoute);
 
@@ -168,8 +171,8 @@ export class DuePage {
   protected readonly decimals = signal<ReadonlyMap<string, number>>(new Map());
 
   protected readonly filterForm = new FormGroup({
-    partner: new FormControl('', { nonNullable: true }),
-    account: new FormControl('', { nonNullable: true }),
+    partner: new FormControl<AutocompleteOption | null>(null),
+    account: new FormControl<AutocompleteOption | null>(null),
     role: new FormControl('', { nonNullable: true }),
     status: new FormControl('', { nonNullable: true }),
     dateFrom: new FormControl('', { nonNullable: true }),
@@ -190,8 +193,8 @@ export class DuePage {
     });
     effect(() => {
       this.filterForm.setValue({
-        partner: this.partnerCode() ?? '',
-        account: this.accountCode() ?? '',
+        partner: codeOption(this.partnerCode()),
+        account: codeOption(this.accountCode()),
         role: this.role() ?? '',
         status: this.status() ?? '',
         dateFrom: this.dateFrom() ?? '',
@@ -215,8 +218,8 @@ export class DuePage {
   protected applyFilters(): void {
     const value = this.filterForm.getRawValue();
     this.navigate({
-      [PARAM.partner]: value.partner.trim() || null,
-      [PARAM.account]: value.account.trim() || null,
+      [PARAM.partner]: value.partner?.id ?? null,
+      [PARAM.account]: value.account?.id ?? null,
       [PARAM.role]: value.role || null,
       [PARAM.state]: this.view() === 'echeances' ? value.status || null : null,
       [PARAM.from]: value.dateFrom || null,

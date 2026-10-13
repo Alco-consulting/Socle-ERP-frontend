@@ -15,6 +15,7 @@ import { Observable, catchError, forkJoin, map, of } from 'rxjs';
 import { toUserError } from '../../../core/errors/user-error';
 import { requestState } from '../../../core/http/request-state';
 import { AlcoFilterBar } from '../../../shared/filters/filter-bar';
+import { AlcoAutocomplete, AutocompleteOption } from '../../../shared/forms/autocomplete';
 import { AlcoFormField } from '../../../shared/forms/form-field';
 import { AlcoInput } from '../../../shared/forms/input';
 import { AlcoButton } from '../../../shared/ui/button/button';
@@ -25,6 +26,7 @@ import { AlcoPageHeader } from '../../../shared/ui/page-header/page-header';
 import { AlcoTabPanel, AlcoTabs, TabItem } from '../../../shared/ui/tabs/tabs';
 import { PartnersApi } from '../../partners/data-access/partners-api';
 import { AccountingApi } from '../data-access/accounting-api';
+import { accountCodeSearch, codeOption, partnerCodeSearch } from '../data-access/code-searches';
 import { EntriesApi } from '../data-access/entries-api';
 import { LetteringStatus } from '../data-access/lettering-models';
 import { AlcoLetterableLines } from './letterable-lines';
@@ -74,6 +76,7 @@ interface Found {
     AlcoEmptyState,
     AlcoErrorState,
     AlcoFilterBar,
+    AlcoAutocomplete,
     AlcoFormField,
     AlcoInput,
     AlcoLetterableLines,
@@ -91,6 +94,8 @@ interface Found {
 export class LetteringPage {
   private readonly accounting = inject(AccountingApi);
   private readonly entries = inject(EntriesApi);
+  protected readonly searchAccounts = accountCodeSearch(this.accounting);
+  protected readonly searchPartners = partnerCodeSearch(this.entries);
   private readonly router = inject(Router);
   private readonly route = inject(ActivatedRoute);
 
@@ -187,8 +192,8 @@ export class LetteringPage {
   protected readonly decimals = signal<ReadonlyMap<string, number>>(new Map());
 
   protected readonly filterForm = new FormGroup({
-    account: new FormControl('', { nonNullable: true }),
-    partner: new FormControl('', { nonNullable: true }),
+    account: new FormControl<AutocompleteOption | null>(null),
+    partner: new FormControl<AutocompleteOption | null>(null),
     dateFrom: new FormControl('', { nonNullable: true }),
     dateTo: new FormControl('', { nonNullable: true }),
     lineView: new FormControl<string>('open', { nonNullable: true }),
@@ -211,8 +216,8 @@ export class LetteringPage {
     });
     effect(() => {
       this.filterForm.setValue({
-        account: this.accountCode() ?? '',
-        partner: this.partnerCode() ?? '',
+        account: codeOption(this.accountCode()),
+        partner: codeOption(this.partnerCode()),
         dateFrom: this.dateFrom() ?? '',
         dateTo: this.dateTo() ?? '',
         lineView: this.lineView(),
@@ -247,8 +252,8 @@ export class LetteringPage {
           ? value.letteringStatus || null
           : null;
     this.navigate({
-      [PARAM.account]: value.account.trim() || null,
-      [PARAM.partner]: value.partner.trim() || null,
+      [PARAM.account]: value.account?.id ?? null,
+      [PARAM.partner]: value.partner?.id ?? null,
       [PARAM.from]: view === 'propositions' ? this.dateFrom() : value.dateFrom || null,
       [PARAM.to]: view === 'propositions' ? this.dateTo() : value.dateTo || null,
       [PARAM.state]: state,

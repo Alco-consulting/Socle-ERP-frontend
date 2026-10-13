@@ -17,8 +17,8 @@ import { Paginated } from '../../../core/http/api-client';
 import { requestState } from '../../../core/http/request-state';
 import { SessionStore } from '../../../core/session/session.store';
 import { AlcoFilterBar, FavoriteOption } from '../../../shared/filters/filter-bar';
+import { AlcoAutocomplete, AutocompleteOption } from '../../../shared/forms/autocomplete';
 import { AlcoFormField } from '../../../shared/forms/form-field';
-import { AlcoInput } from '../../../shared/forms/input';
 import { AlcoAmountPipe } from '../../../shared/pipes/amount.pipe';
 import { AlcoCell, AlcoTable, TableColumn } from '../../../shared/tables/table';
 import { AlcoBadge } from '../../../shared/ui/badge/badge';
@@ -33,6 +33,7 @@ import { PartnersApi } from '../../partners/data-access/partners-api';
 import { AlcoDomainTransfers } from '../../transfers/domain-transfers';
 import { EntryStatus, FiscalYear, Journal } from '../data-access/accounting-models';
 import { AccountingApi } from '../data-access/accounting-api';
+import { accountCodeSearch, codeOption, partnerCodeSearch } from '../data-access/code-searches';
 import { ENTRY_PAGE_SIZE, EntriesApi } from '../data-access/entries-api';
 import { Entry, EntryKind } from '../data-access/entry-models';
 import {
@@ -93,8 +94,8 @@ interface ListQuery {
     AlcoEmptyState,
     AlcoErrorState,
     AlcoFilterBar,
+    AlcoAutocomplete,
     AlcoFormField,
-    AlcoInput,
     AlcoLoading,
     AlcoPageHeader,
     AlcoPagination,
@@ -107,6 +108,8 @@ interface ListQuery {
 export class EntryListPage {
   private readonly api = inject(EntriesApi);
   private readonly accounting = inject(AccountingApi);
+  protected readonly searchAccounts = accountCodeSearch(this.accounting);
+  protected readonly searchPartners = partnerCodeSearch(this.api);
   private readonly router = inject(Router);
   private readonly route = inject(ActivatedRoute);
   protected readonly session = inject(SessionStore);
@@ -208,8 +211,8 @@ export class EntryListPage {
     fiscalYear: new FormControl('', { nonNullable: true }),
     dateFrom: new FormControl('', { nonNullable: true }),
     dateTo: new FormControl('', { nonNullable: true }),
-    account: new FormControl('', { nonNullable: true }),
-    partner: new FormControl('', { nonNullable: true }),
+    account: new FormControl<AutocompleteOption | null>(null),
+    partner: new FormControl<AutocompleteOption | null>(null),
   });
 
   constructor() {
@@ -246,8 +249,8 @@ export class EntryListPage {
         fiscalYear: this.fiscalYear() ?? '',
         dateFrom: this.dateFrom() ?? '',
         dateTo: this.dateTo() ?? '',
-        account: this.accountCode() ?? '',
-        partner: this.partnerCode() ?? '',
+        account: codeOption(this.accountCode()),
+        partner: codeOption(this.partnerCode()),
       });
     });
   }
@@ -278,8 +281,8 @@ export class EntryListPage {
       [PARAM.fiscalYear]: value.fiscalYear || null,
       [PARAM.from]: value.dateFrom || null,
       [PARAM.to]: value.dateTo || null,
-      [PARAM.account]: value.account.trim() || null,
-      [PARAM.partner]: value.partner.trim() || null,
+      [PARAM.account]: value.account?.id ?? null,
+      [PARAM.partner]: value.partner?.id ?? null,
       [PARAM.page]: null,
     });
   }

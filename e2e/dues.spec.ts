@@ -35,7 +35,8 @@ test.describe('Échéances', () => {
 
     await page.getByRole('button', { name: 'Filtres' }).click();
     const filters = page.getByRole('dialog', { name: 'Filtres' });
-    await filters.getByRole('textbox', { name: 'Tiers' }).fill('CLI-001');
+    await filters.getByRole('combobox', { name: 'Tiers' }).fill('CLI-001');
+    await page.getByRole('option', { name: /^CLI-001\b/ }).click();
     await filters.getByRole('button', { name: 'Appliquer' }).click();
     await expect(page).toHaveURL(/tiers=CLI-001/);
     await expect(rows(page)).toHaveCount(1);

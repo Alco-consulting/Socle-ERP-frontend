@@ -54,6 +54,7 @@ describe('AlcoAutocomplete (server search, ARIA combobox)', () => {
   it('is a combobox labelled by its field', async () => {
     const { input } = await setup();
     expect(input.getAttribute('role')).toBe('combobox');
+    expect(input.getAttribute('aria-haspopup')).toBe('listbox');
     expect(input.getAttribute('aria-expanded')).toBe('false');
     expect(document.getElementById(input.id + '-label')?.textContent).toContain('Compte');
   });
@@ -74,6 +75,27 @@ describe('AlcoAutocomplete (server search, ARIA combobox)', () => {
     expect(host.account.value).toEqual(ACCOUNTS[1]);
     expect(input.value).toBe('411100');
     expect(input.getAttribute('aria-expanded')).toBe('false');
+  });
+
+  it('a selection field: a click opens the whole list, a second click closes it', async () => {
+    const { fixture, host, input, options } = await setup();
+    input.click();
+    await wait(300);
+    await fixture.whenStable();
+    expect(host.terms).toEqual(['']);
+    expect(input.getAttribute('aria-expanded')).toBe('true');
+    expect(options()).toHaveLength(2);
+    options()[1].click();
+    await fixture.whenStable();
+    // Once chosen, a click shows the whole list again, not only the choice.
+    input.click();
+    await wait(300);
+    await fixture.whenStable();
+    expect(host.terms).toEqual(['', '']);
+    input.click();
+    await fixture.whenStable();
+    expect(input.getAttribute('aria-expanded')).toBe('false');
+    expect(host.account.value?.id).toBe('a-411');
   });
 
   it('a click chooses too; typing again forgets the choice', async () => {

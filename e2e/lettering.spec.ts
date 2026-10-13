@@ -43,7 +43,8 @@ test.describe('Lettrage — lignes ouvertes', () => {
     await page.goto(URL_);
     await page.getByRole('button', { name: 'Filtres' }).click();
     const filters = page.getByRole('dialog', { name: 'Filtres' });
-    await filters.getByRole('textbox', { name: 'Compte' }).fill('401');
+    await filters.getByRole('combobox', { name: 'Compte' }).fill('401');
+    await page.getByRole('option', { name: /^401\b/ }).click();
     await filters.getByRole('combobox', { name: 'État des lignes' }).selectOption('lettered');
     await filters.getByRole('button', { name: 'Appliquer' }).click();
     await expect(page).toHaveURL(/compte=401/);

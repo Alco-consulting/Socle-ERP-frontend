@@ -12,11 +12,21 @@
     >
       <div alcoFilterFields class="filter-fields" [formGroup]="filterForm">
         <div class="pair">
-          <alco-form-field label="Tiers" hint="Code exact du tiers">
-            <input alcoInput formControlName="partner" maxlength="32" autocomplete="off" />
+          <alco-form-field label="Tiers">
+            <alco-autocomplete
+              formControlName="partner"
+              [search]="searchPartners"
+              placeholder="Tous les tiers"
+              emptyText="Aucun tiers actif ne correspond."
+            />
           </alco-form-field>
-          <alco-form-field label="Compte" hint="Code exact (ex. 411100)">
-            <input alcoInput formControlName="account" maxlength="32" autocomplete="off" />
+          <alco-form-field label="Compte">
+            <alco-autocomplete
+              formControlName="account"
+              [search]="searchAccounts"
+              placeholder="Tous les comptes"
+              emptyText="Aucun compte ne correspond."
+            />
           </alco-form-field>
         </div>
         <div class="pair">

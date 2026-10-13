@@ -77,8 +77,9 @@ test.describe('Écritures — liste', () => {
     // The API has no text search for entries: no search box.
     await expect(page.getByRole('searchbox')).toHaveCount(0);
 
-    let panel = await openFilters(page);
-    await panel.getByRole('textbox', { name: 'Compte' }).fill('411');
+    const panel = await openFilters(page);
+    await panel.getByRole('combobox', { name: 'Compte' }).fill('411');
+    await page.getByRole('option', { name: /^411\b/ }).click();
     await panel.getByRole('button', { name: 'Appliquer' }).click();
     await expect(page).toHaveURL(/compte=411/);
     const account = api.accounting.books('A').accounts.find((item) => item.code === '411');
@@ -88,9 +89,8 @@ test.describe('Écritures — liste', () => {
       )
       .toBe(account?.public_id);
 
-    panel = await openFilters(page);
-    await panel.getByRole('textbox', { name: 'Compte' }).fill('999');
-    await panel.getByRole('button', { name: 'Appliquer' }).click();
+    // A link with an unknown code: said, not invented.
+    await page.goto(`${LIST}?compte=999`);
     await expect(
       page.getByText('Aucun compte de cette société n’a le code « 999 ».'),
     ).toBeVisible();

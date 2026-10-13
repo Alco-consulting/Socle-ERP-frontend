@@ -109,6 +109,11 @@ export class InvoicingApi {
     return this.api.post<Invoice>(`${base}invoices/${id(invoiceId)}/post/`);
   }
 
+  /** « Remettre en brouillon » (note backend 0040): its entry reversed, its number kept. */
+  resetToDraft(invoiceId: string): Observable<Invoice> {
+    return this.api.post<Invoice>(`${base}invoices/${id(invoiceId)}/reset-to-draft/`);
+  }
+
   cancel(invoiceId: string, reason: string): Observable<Invoice> {
     return this.api.post<Invoice>(`${base}invoices/${id(invoiceId)}/cancel/`, { reason });
   }

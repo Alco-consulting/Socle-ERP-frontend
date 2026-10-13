@@ -44,6 +44,8 @@ export interface LineClass {
 }
 
 export interface EntryLineQuery {
+  /** The lines of one entry (the tab « Écritures comptables » of an invoice). */
+  readonly entry?: string | null;
   readonly state?: LineState;
   readonly journal?: string | null;
   readonly accountPrefix?: string | null;
@@ -79,6 +81,7 @@ export class EntryLinesApi {
 
   private filters(query: EntryLineQuery) {
     return {
+      entry: query.entry || null,
       state: query.state && query.state !== 'posted' ? query.state : null,
       journal: query.journal || null,
       date_from: query.dateFrom || null,

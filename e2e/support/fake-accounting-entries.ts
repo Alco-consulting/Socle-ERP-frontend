@@ -233,6 +233,7 @@ export class FakeAccountingEntries {
     const search = q('search').toLowerCase();
     const rows = this.ledger(company)
       .entries.filter((entry) => state === 'all' || states[state]?.includes(entry.status))
+      .filter((entry) => !q('entry') || entry.public_id === q('entry'))
       .filter((entry) => !q('journal') || entry.journal.public_id === q('journal'))
       .filter((entry) => !q('date_from') || entry.entry_date >= q('date_from'))
       .filter((entry) => !q('date_to') || entry.entry_date <= q('date_to'))

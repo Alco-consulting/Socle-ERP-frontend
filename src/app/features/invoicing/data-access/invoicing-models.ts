@@ -58,7 +58,7 @@ export interface InvoiceLine {
   readonly unit_price: string;
   readonly tax: TaxReference;
   readonly amount_untaxed: string;
-  /** The product's account of the side, from posting on. */
+  /** The account posted; on a draft, the product's account of the side. */
   readonly account: NamedReference | null;
 }
 
@@ -96,13 +96,38 @@ export interface InvoiceSummary {
   readonly amount_residual: string | null;
 }
 
+/** `InvoicingInvoicePartner`: the partner of the record, with its address. */
+export interface InvoicePartner extends NamedReference {
+  readonly address: string;
+  readonly city: string;
+  /** ISO 3166-1 alpha-2 (GN). */
+  readonly country: string;
+  readonly phone: string;
+}
+
+/** `InvoicingSettlement`: a payment or a credit note lettered with the invoice. */
+export interface Settlement {
+  readonly lettering: string;
+  readonly date: string;
+  /** Settled on this invoice. */
+  readonly amount: string;
+  readonly credit_note: {
+    readonly public_id: string;
+    readonly kind: InvoiceKind;
+    readonly number: string;
+  } | null;
+}
+
 /** `InvoicingInvoice`. */
-export interface Invoice extends InvoiceSummary {
+export interface Invoice extends Omit<InvoiceSummary, 'partner'> {
+  readonly partner: InvoicePartner;
   readonly lines: readonly InvoiceLine[];
   readonly taxes: readonly InvoiceTax[];
   readonly entry: EntryReference | null;
   readonly cancellation_entry: EntryReference | null;
   readonly cancellation_reason: string;
+  /** Posted only: oldest first. */
+  readonly settlements: readonly Settlement[];
   readonly created_at: string;
   readonly updated_at: string;
   readonly posted_at: string | null;

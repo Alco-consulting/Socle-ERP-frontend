@@ -310,9 +310,13 @@ supprime ce qui ne sert plus.
   serveur les donne. Brouillon : tiers (autocomplétion), date, numéro du fournisseur, journal
   s'il y en a plusieurs, lignes (produit, description, quantité, prix HT, TVA du côté) ;
   **aucun montant calculé à l'écran** : la fiche montre ceux du serveur après « Enregistrer le
-  brouillon ». Fiche : « Comptabiliser » (confirmé : le numéro et l'écriture, lien vers elle),
-  Actions ▾ « Modifier », « Supprimer le brouillon », puis « Créer un avoir » (brouillon à
-  ajuster) et « Annuler le document » (motif) ; reste dû et état du paiement du serveur.
+  brouillon ». Fiche comme Odoo (note backend 0040) : « Nouveau » ; les boutons en ligne
+  (brouillon : « Comptabiliser », « Modifier », « Supprimer » ou, numéroté, « Annuler » ;
+  comptabilisée : « Avoir », « Remettre en brouillon ») et les états « Brouillon ›
+  Comptabilisé » ; la nature, le numéro en grand, le ruban « Partiel » / « Payé » /
+  « Extourné » ; le tiers et son adresse, la date courte ; onglets Lignes de facture (Produit,
+  Compte, Quantité, Prix, Taxes, Montant ; totaux, « Extourné le » / « Payé le », Montant dû),
+  Écritures comptables (`entry-lines/?entry=`, à l'ouverture), Autres informations.
   Produit : une page (Nom, Référence interne, Prix de vente HT, TVA, Compte de vente des
   comptes de produits, Compte d'achat des comptes de charges, Actif). Faux serveur :
   `e2e/support/fake-invoicing.ts` ; e2e : `e2e/invoicing.spec.ts`.

@@ -132,12 +132,21 @@ export const INVOICING_ERRORS: ErrorCatalog = {
     message: 'Ajoutez une ligne avec un montant.',
   },
   invoicing_invoice_not_posted: {
-    title: 'Seul un document comptabilisé s’annule ou reçoit un avoir.',
+    title: 'Seul un document comptabilisé se remet en brouillon ou reçoit un avoir.',
     message: 'La fiche est rechargée.',
   },
   invoicing_invoice_settled: {
     title: 'Ce document est réglé ou a un avoir, en tout ou en partie.',
-    message: 'Il ne s’annule plus : défaites d’abord le règlement ou l’avoir.',
+    message:
+      'Il ne se remet plus en brouillon et ne s’annule plus : défaites d’abord le règlement ou l’avoir.',
+  },
+  invoicing_invoice_numbered: {
+    title: 'Ce brouillon a déjà son numéro.',
+    message: 'Il ne se supprime pas, pour ne pas laisser de trou : annulez-le.',
+  },
+  invoicing_invoice_number_year: {
+    title: 'Ce document est numéroté pour son année.',
+    message: 'Choisissez une date de la même année.',
   },
   invoicing_credit_note_origin: {
     title: 'Un avoir se fait depuis une facture comptabilisée.',

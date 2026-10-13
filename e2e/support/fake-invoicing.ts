@@ -9,7 +9,8 @@ import { FakePartners, PartnersContext } from './fake-partners';
  * backend 0038): products, invoices and credit notes in memory, per company. The amounts are
  * the server's rule, for a currency without decimals (GNF): line = quantity x unit price,
  * tax by rate on its lines' total, rounded half up. Posting gives the number and an entry
- * reference; only the rules the tests need.
+ * in the fake ledger; a credit note settles its invoice; « Remettre en brouillon » keeps the
+ * number (note backend 0040). Only the rules the tests need.
  */
 
 interface Reference {
@@ -52,12 +53,24 @@ interface TaxLineJson {
 }
 type Kind =
   'customer_invoice' | 'customer_credit_note' | 'supplier_invoice' | 'supplier_credit_note';
+interface PartnerJson extends Reference {
+  address: string;
+  city: string;
+  country: string;
+  phone: string;
+}
+interface SettlementJson {
+  lettering: string;
+  date: string;
+  amount: string;
+  credit_note: { public_id: string; kind: Kind; number: string } | null;
+}
 interface InvoiceJson {
   public_id: string;
   kind: Kind;
   status: 'draft' | 'posted' | 'cancelled';
   number: string;
-  partner: Reference;
+  partner: PartnerJson;
   invoice_date: string;
   journal: Reference;
   currency: string;
@@ -73,6 +86,7 @@ interface InvoiceJson {
   entry: { public_id: string; entry_number: string } | null;
   cancellation_entry: { public_id: string; entry_number: string } | null;
   cancellation_reason: string;
+  settlements: SettlementJson[];
   created_at: string;
   updated_at: string;
   posted_at: string | null;
@@ -262,12 +276,12 @@ export class FakeInvoicing {
       lines.push({
         sequence: index + 1,
         product: { public_id: product.public_id, code: product.code, name: product.name },
+        account: customer(kind) ? product.sale_account : product.purchase_account,
         description: String(row['description'] ?? '').trim() || product.name,
         quantity: text(units(String(row['quantity']))),
         unit_price: text(units(price)),
         tax: this.tax(company, row['tax'] as string) ?? product.tax,
         amount_untaxed: text(amount),
-        account: null,
       });
     }
     return lines;
@@ -347,8 +361,19 @@ export class FakeInvoicing {
         return this.answer(route, 400, error('invoicing_invoice_not_draft'));
       }
       if (method === 'DELETE') {
+        if (invoice.number) {
+          return this.answer(route, 400, error('invoicing_invoice_numbered'));
+        }
         list.splice(list.indexOf(invoice), 1);
         return this.answer(route, 204);
+      }
+      const date = body['invoice_date'];
+      if (
+        typeof date === 'string' &&
+        invoice.number &&
+        !invoice.number.includes(date.slice(0, 4))
+      ) {
+        return this.answer(route, 400, error('invoicing_invoice_number_year'));
       }
       if (typeof body['invoice_date'] === 'string') invoice.invoice_date = body['invoice_date'];
       if (typeof body['reference'] === 'string') invoice.reference = body['reference'].trim();
@@ -368,13 +393,35 @@ export class FakeInvoicing {
       }
       return this.post(route, company, invoice);
     }
-    if (command === 'cancel') {
-      if (invoice.status !== 'posted') {
+    if (command === 'cancel' || command === 'reset-to-draft') {
+      if (!can('invoicing.cancel')) {
+        return this.answer(route, 403, error('company_permission_denied'));
+      }
+      const numberedDraft = invoice.status === 'draft' && !!invoice.number;
+      if (invoice.status !== 'posted' && !(command === 'cancel' && numberedDraft)) {
         return this.answer(route, 400, error('invoicing_invoice_not_posted'));
+      }
+      const credited = list.some(
+        (item) => item.origin === invoice.public_id && item.status === 'posted',
+      );
+      if (invoice.settlements.length > 0 || credited) {
+        return this.answer(route, 400, error('invoicing_invoice_settled'));
+      }
+      if (command === 'reset-to-draft') {
+        Object.assign(invoice, {
+          status: 'draft',
+          entry: null,
+          payment_state: null,
+          amount_residual: null,
+          posted_at: null,
+        });
+        return this.answer(route, 200, invoice);
       }
       invoice.status = 'cancelled';
       invoice.cancellation_reason = String(body['reason'] ?? '');
-      invoice.cancellation_entry = { public_id: uuid(), entry_number: this.entryNumber(invoice) };
+      invoice.cancellation_entry = numberedDraft
+        ? null
+        : { public_id: uuid(), entry_number: this.entryNumber(invoice) };
       invoice.payment_state = null;
       invoice.amount_residual = null;
       invoice.cancelled_at = STAMP;
@@ -395,8 +442,9 @@ export class FakeInvoicing {
         reference: '',
         payment_state: null,
         amount_residual: null,
-        lines: invoice.lines.map((line) => ({ ...line, account: null })),
+        lines: invoice.lines.map((line) => ({ ...line })),
         entry: null,
+        settlements: [],
         posted_at: null,
       };
       this.totals(note);
@@ -415,7 +463,15 @@ export class FakeInvoicing {
     const kind = body['kind'] as Kind;
     const found = this.partners.list(company).find((item) => item.public_id === body['partner']);
     const partner = found
-      ? { public_id: found.public_id, code: found.code, name: found.name }
+      ? {
+          public_id: found.public_id,
+          code: found.code,
+          name: found.name,
+          address: found.address,
+          city: found.city,
+          country: found.country,
+          phone: found.phone,
+        }
       : null;
     const journal = this.journal(company, kind);
     if (!partner) {
@@ -449,6 +505,7 @@ export class FakeInvoicing {
       entry: null,
       cancellation_entry: null,
       cancellation_reason: '',
+      settlements: [],
       created_at: STAMP,
       updated_at: STAMP,
       posted_at: null,
@@ -485,15 +542,104 @@ export class FakeInvoicing {
       }
       line.account = account;
     }
-    const year = invoice.invoice_date.slice(0, 4);
-    const key = `${PREFIX[invoice.kind]}-${year}`;
-    this.numbers[key] = (this.numbers[key] ?? 0) + 1;
-    invoice.number = `${key}-${String(this.numbers[key]).padStart(4, '0')}`;
+    if (!invoice.number) {
+      // Reset to draft, it keeps its number.
+      const key = `${PREFIX[invoice.kind]}-${invoice.invoice_date.slice(0, 4)}`;
+      this.numbers[key] = (this.numbers[key] ?? 0) + 1;
+      invoice.number = `${key}-${String(this.numbers[key]).padStart(4, '0')}`;
+    }
     invoice.status = 'posted';
-    invoice.entry = { public_id: uuid(), entry_number: this.entryNumber(invoice) };
+    invoice.entry = this.ledgerEntry(company, invoice);
     invoice.payment_state = 'not_paid';
     invoice.amount_residual = invoice.amount_total;
     invoice.posted_at = STAMP;
+    const origin = (this.invoices[company] ?? []).find((item) => item.public_id === invoice.origin);
+    if (origin?.amount_residual) {
+      // The credit note settles what is open on its invoice, as the server's lettering.
+      const settled =
+        units(invoice.amount_total) < units(origin.amount_residual)
+          ? units(invoice.amount_total)
+          : units(origin.amount_residual);
+      const left = units(origin.amount_residual) - settled;
+      origin.settlements.push({
+        lettering: `LET-${String(origin.settlements.length + 1).padStart(6, '0')}`,
+        date: invoice.invoice_date,
+        amount: text(settled),
+        credit_note: { public_id: invoice.public_id, kind: invoice.kind, number: invoice.number },
+      });
+      origin.amount_residual = text(left);
+      origin.payment_state = left === 0n ? 'paid' : 'partial';
+      invoice.amount_residual = text(0n);
+      invoice.payment_state = 'paid';
+    }
     return this.answer(route, 200, invoice);
+  }
+
+  /** The posting's entry in the fake ledger: partner and product lines (no tax account here). */
+  private ledgerEntry(
+    company: string,
+    invoice: InvoiceJson,
+  ): { public_id: string; entry_number: string } {
+    const ledger = this.entries.ledger(company);
+    const template = ledger.entries[0];
+    const reference = { public_id: uuid(), entry_number: this.entryNumber(invoice) };
+    const accounts = this.accounting.books(company).accounts;
+    const collective = accounts.find((item) =>
+      item.code.startsWith(customer(invoice.kind) ? '411' : '401'),
+    );
+    const debitPartner =
+      invoice.kind === 'customer_invoice' || invoice.kind === 'supplier_credit_note';
+    const side = (amount: string, debit: boolean) => ({
+      debit: debit ? amount : '0.000000',
+      credit: debit ? '0.000000' : amount,
+      reference_debit: debit ? amount : '0.000000',
+      reference_credit: debit ? '0.000000' : amount,
+    });
+    const rows = [
+      ...(collective
+        ? [
+            {
+              account: { public_id: collective.public_id, code: collective.code },
+              label: `${invoice.number} - ${invoice.partner.name}`,
+              partner: { public_id: invoice.partner.public_id, code: invoice.partner.code },
+              ...side(invoice.amount_total, debitPartner),
+            },
+          ]
+        : []),
+      ...invoice.lines
+        .filter((line) => line.account)
+        .map((line) => ({
+          account: { public_id: line.account!.public_id, code: line.account!.code },
+          label: line.description,
+          partner: null,
+          ...side(line.amount_untaxed, !debitPartner),
+        })),
+    ];
+    if (template) {
+      ledger.entries.push({
+        ...template,
+        public_id: reference.public_id,
+        entry_number: reference.entry_number,
+        status: 'validated',
+        kind: 'standard',
+        entry_date: invoice.invoice_date,
+        description: `${invoice.number} - ${invoice.partner.name}`,
+        document_reference: invoice.number,
+        origin: 'system',
+        source_type: 'invoicing.invoice',
+        source_id: invoice.public_id,
+        related_entry: null,
+        lines: rows.map((row, index) => ({
+          public_id: uuid(),
+          sequence: index + 1,
+          tax: null,
+          tax_rule: null,
+          tax_base_amount: null,
+          analytic_allocation: null,
+          ...row,
+        })),
+      });
+    }
+    return reference;
   }
 }

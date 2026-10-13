@@ -1,3 +1,6 @@
+import { registerLocaleData } from '@angular/common';
+import localeFr from '@angular/common/locales/fr';
+import { LOCALE_ID } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { Router, provideRouter } from '@angular/router';
 import { RouterTestingHarness } from '@angular/router/testing';
@@ -12,6 +15,8 @@ import { Invoice } from './data-access/invoicing-models';
 import { InvoiceDetailPage } from './invoice-detail';
 import { InvoiceListPage } from './invoice-list';
 import { ProductFormPage } from './product-form';
+
+registerLocaleData(localeFr); // the app's locale (app.config.ts): « 12 oct. »
 
 const page = (results: unknown[] = [], count = results.length) => ({
   count,
@@ -38,7 +43,13 @@ const DRAFT: Invoice = {
   kind: 'customer_invoice',
   status: 'draft',
   number: '',
-  partner: ref('CLI-00001', 'Client Recette 01'),
+  partner: {
+    ...ref('CLI-00001', 'Client Recette 01'),
+    address: 'Soloprimo',
+    city: 'Conakry',
+    country: 'GN',
+    phone: '+224 611 178 615',
+  },
   invoice_date: '2026-10-12',
   journal: ref('VT', 'Ventes'),
   currency: 'GNF',
@@ -58,7 +69,7 @@ const DRAFT: Invoice = {
       unit_price: '1000000.000000',
       tax: VAT,
       amount_untaxed: '1000000.000000',
-      account: null,
+      account: ref('701100', 'Ventes de marchandises'),
     },
   ],
   taxes: [
@@ -74,6 +85,7 @@ const DRAFT: Invoice = {
   entry: null,
   cancellation_entry: null,
   cancellation_reason: '',
+  settlements: [],
   created_at: '2026-10-12T09:00:00Z',
   updated_at: '2026-10-12T09:00:00Z',
   posted_at: null,
@@ -97,11 +109,36 @@ function answerSideRequests(): void {
   }
 }
 
+/** The text of an element, its pieces separated by a space (as on screen). */
+function text(element: Element | null): string {
+  if (!element) {
+    return '';
+  }
+  const walker = document.createTreeWalker(element, NodeFilter.SHOW_TEXT);
+  const parts: string[] = [];
+  while (walker.nextNode()) {
+    parts.push(walker.currentNode.textContent ?? '');
+  }
+  return parts.join(' ').replace(/\s+/g, ' ').trim();
+}
+/** The document's action buttons, as Odoo's (and « Nouveau »). */
+const buttons = (element: HTMLElement) =>
+  Array.from(element.querySelectorAll('.control a, .actions button')).map((item) => text(item));
+const button = (element: HTMLElement, label: string) =>
+  Array.from(element.querySelectorAll<HTMLButtonElement>('.actions button')).find(
+    (item) => text(item) === label,
+  )!;
+const tab = (element: HTMLElement, label: string) =>
+  Array.from(element.querySelectorAll<HTMLButtonElement>('[role=tab]')).find(
+    (item) => text(item) === label,
+  )!;
+
 describe('Facturation (invoicing/)', () => {
   async function open(url: string, permissions = ALL) {
     TestBed.configureTestingModule({
       providers: [
         ...provideHttpTesting(),
+        { provide: LOCALE_ID, useValue: 'fr-FR' },
         provideRouter([
           {
             path: 'ventes/factures',
@@ -146,6 +183,7 @@ describe('Facturation (invoicing/)', () => {
     for (const [call, url] of [
       [() => api.post('i-1'), '/api/v1/invoicing/invoices/i-1/post/'],
       [() => api.cancel('i-1', 'Doublon'), '/api/v1/invoicing/invoices/i-1/cancel/'],
+      [() => api.resetToDraft('i-1'), '/api/v1/invoicing/invoices/i-1/reset-to-draft/'],
       [() => api.creditNote('i-1'), '/api/v1/invoicing/invoices/i-1/credit-note/'],
     ] as const) {
       void firstValueFrom(call());
@@ -189,8 +227,19 @@ describe('Facturation (invoicing/)', () => {
     const { element, stable } = await open('/ventes/factures/i-1');
     httpMock().expectOne('/api/v1/invoicing/invoices/i-1/').flush(DRAFT);
     await stable();
-    expect(element.querySelector('h1')?.textContent).toContain('Facture (brouillon)');
-    expect(element.textContent).toContain('Créée à la comptabilisation');
+    // As in Odoo: the kind, then the number (« Brouillon » before), the partner's address.
+    expect(text(element.querySelector('.kind'))).toBe('Facture client');
+    expect(element.querySelector('h1')?.textContent?.trim()).toBe('Brouillon');
+    expect(text(element.querySelector('.party'))).toContain(
+      'Client Recette 01 +224 611 178 615 Soloprimo Conakry Guinée',
+    );
+    expect(text(element.querySelector('.dates'))).toContain('Date de facturation 12 oct.');
+    expect(buttons(element)).toEqual(['Nouveau', 'Comptabiliser', 'Modifier', 'Supprimer']);
+    expect(text(element.querySelector('[aria-current=step]'))).toBe('Brouillon');
+    // On a draft, each line shows the product's account already.
+    expect(text(element.querySelector('tbody'))).toContain('701100 Ventes de marchandises');
+    expect(text(element.querySelector('.totals'))).toContain('Total : 1 180 000 GNF');
+    expect(text(element.querySelector('.totals'))).not.toContain('Montant dû');
     const confirm = vi.spyOn(TestBed.inject(AlcoConfirmService), 'confirm').mockResolvedValue(true);
     const button = Array.from(element.querySelectorAll<HTMLButtonElement>('button')).find(
       (item) => item.textContent?.trim() === 'Comptabiliser',
@@ -204,28 +253,89 @@ describe('Facturation (invoicing/)', () => {
     await stable();
     httpMock().expectOne('/api/v1/invoicing/invoices/i-1/').flush(POSTED);
     await stable();
-    expect(element.querySelector('h1')?.textContent).toContain('Facture FV-2026-0001');
+    expect(element.querySelector('h1')?.textContent?.trim()).toBe('FV-2026-0001');
+    expect(text(element.querySelector('[aria-current=step]'))).toBe('Comptabilisé');
+    expect(text(element.querySelector('.totals'))).toContain('Montant dû : 1 180 000 GNF');
+    tab(element, 'Autres informations').click();
+    await stable();
     const entry = element.querySelector<HTMLAnchorElement>('a.mono');
     expect(entry?.textContent?.trim()).toBe('VT-2026-000001');
     expect(entry?.getAttribute('href')).toBe('/app/comptabilite/ecritures/e-1');
-    expect(element.textContent).toContain('701100');
-    expect(element.textContent).toContain('Reste dû');
   });
 
-  it('a posted invoice: a credit note or its cancellation, no « Comptabiliser »', async () => {
+  it('the tab « Écritures comptables »: the lines of its entry, asked when opened', async () => {
     const { element, stable } = await open('/ventes/factures/i-1');
     httpMock().expectOne('/api/v1/invoicing/invoices/i-1/').flush(POSTED);
     await stable();
-    const buttons = Array.from(element.querySelectorAll('button')).map((item) =>
-      item.textContent?.trim(),
-    );
-    expect(buttons).not.toContain('Comptabiliser');
-    element.querySelector<HTMLButtonElement>('alco-dropdown button')!.click();
+    httpMock().expectNone((req) => req.url.includes('entry-lines'));
+    tab(element, 'Écritures comptables').click();
     await stable();
-    const items = Array.from(document.querySelectorAll('[role=menuitem]')).map((item) =>
-      item.textContent?.trim(),
+    const lines = httpMock().expectOne((req) => req.url === '/api/v1/accounting/entry-lines/');
+    expect(lines.request.params.get('entry')).toBe('e-1');
+    expect(lines.request.params.get('state')).toBe('all');
+    lines.flush(
+      page([
+        {
+          public_id: 'l-1',
+          entry: { public_id: 'e-1', entry_number: 'VT-2026-000001' },
+          account: ref('411100', 'Clients'),
+          partner: ref('CLI-00001', 'Client Recette 01'),
+          label: 'Facture FV-2026-0001',
+          reference_debit: '1180000.000000',
+          reference_credit: '0.000000',
+          reference_currency: 'GNF',
+        },
+      ]),
     );
-    expect(items).toEqual(['Créer un avoir', 'Annuler le document']);
+    await stable();
+    expect(text(element.querySelector('tbody'))).toContain('411100 Clients');
+    expect(text(element.querySelector('tbody'))).toContain('1 180 000 GNF');
+    expect(element.textContent).toContain('Ouvrir l’écriture VT-2026-000001');
+  });
+
+  it('paid in part by a credit note: the ribbon, « Extourné le », what is still due', async () => {
+    const { element, stable } = await open('/ventes/factures/i-1');
+    httpMock()
+      .expectOne('/api/v1/invoicing/invoices/i-1/')
+      .flush({
+        ...POSTED,
+        payment_state: 'partial',
+        amount_residual: '880000.000000',
+        settlements: [
+          {
+            lettering: 'LET-000001',
+            date: '2026-10-12',
+            amount: '300000.000000',
+            credit_note: { public_id: 'n-1', kind: 'customer_credit_note', number: 'AV-2026-0001' },
+          },
+        ],
+      });
+    await stable();
+    expect(text(element.querySelector('.ribbon'))).toBe('Partiel');
+    const totals = text(element.querySelector('.totals'));
+    expect(totals).toContain('Extourné le 12/10/2026 AV-2026-0001 300 000 GNF');
+    expect(totals).toContain('Montant dû : 880 000 GNF');
+    expect(buttons(element)).toEqual(['Nouveau', 'Avoir', 'Remettre en brouillon']);
+  });
+
+  it('« Remettre en brouillon »: confirmed, its number kept, then cancelled, not deleted', async () => {
+    const { element, stable } = await open('/ventes/factures/i-1');
+    httpMock().expectOne('/api/v1/invoicing/invoices/i-1/').flush(POSTED);
+    await stable();
+    expect(buttons(element)).toEqual(['Nouveau', 'Avoir', 'Remettre en brouillon']);
+    const confirm = vi.spyOn(TestBed.inject(AlcoConfirmService), 'confirm').mockResolvedValue(true);
+    button(element, 'Remettre en brouillon').click();
+    await stable();
+    expect(confirm.mock.calls[0][0].message).toContain('VT-2026-000001 est extournée');
+    const reset = httpMock().expectOne('/api/v1/invoicing/invoices/i-1/reset-to-draft/');
+    expect(reset.request.method).toBe('POST');
+    const numbered: Invoice = { ...DRAFT, number: 'FV-2026-0001' };
+    reset.flush(numbered);
+    await stable();
+    httpMock().expectOne('/api/v1/invoicing/invoices/i-1/').flush(numbered);
+    await stable();
+    expect(element.querySelector('h1')?.textContent?.trim()).toBe('FV-2026-0001');
+    expect(buttons(element)).toEqual(['Nouveau', 'Comptabiliser', 'Modifier', 'Annuler']);
   });
 
   it('product: created with its accounts and tax by their ids', async () => {

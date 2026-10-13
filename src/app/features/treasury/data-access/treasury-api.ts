@@ -11,7 +11,6 @@ import {
   ProposalChoice,
   Reconciliation,
   ReconciliationProposal,
-  RecordStatus,
   RoundingMode,
   Statement,
   StatementLine,
@@ -20,9 +19,7 @@ import {
   Transfer,
   TransferWrite,
   TreasuryAccount,
-  TreasuryAccountType,
   TreasuryAccountWrite,
-  TreasuryBalance,
   TreasuryOperation,
 } from './reconciliation-models';
 
@@ -37,14 +34,6 @@ export interface TreasuryOperationSummary {
   readonly amount: string;
   readonly currency: string;
   readonly reference: string;
-}
-
-/** Filters of `GET treasury/accounts/` (the API's own). */
-export interface AccountFilters {
-  readonly accountType?: TreasuryAccountType | null;
-  readonly status?: RecordStatus | null;
-  readonly search?: string | null;
-  readonly page?: number;
 }
 
 /** Filters of `GET treasury/operations/` (the API's own). */
@@ -91,24 +80,17 @@ export class TreasuryApi {
     });
   }
 
-  accountList(filters: AccountFilters = {}): Observable<Paginated<TreasuryAccount>> {
-    return this.api.get<Paginated<TreasuryAccount>>('treasury/accounts/', {
-      params: {
-        account_type: filters.accountType ?? null,
-        status: filters.status ?? null,
-        search: filters.search ?? null,
-        page: page(filters.page),
-        page_size: TREASURY_PAGE_SIZE,
-      },
-    });
-  }
-
   account(accountId: string): Observable<TreasuryAccount> {
     return this.api.get<TreasuryAccount>(`treasury/accounts/${id(accountId)}/`);
   }
 
-  createAccount(write: TreasuryAccountWrite): Observable<TreasuryAccount> {
-    return this.api.post<TreasuryAccount>('treasury/accounts/', write);
+  /** A bank or cash journal's own account (note backend 0043), or `null`. */
+  journalAccount(journalId: string): Observable<TreasuryAccount | null> {
+    return this.api
+      .get<Paginated<TreasuryAccount>>('treasury/accounts/', {
+        params: { journal: journalId, page_size: 1 },
+      })
+      .pipe(map((found) => found.results[0] ?? null));
   }
 
   updateAccount(
@@ -116,18 +98,6 @@ export class TreasuryApi {
     changes: Partial<TreasuryAccountWrite>,
   ): Observable<TreasuryAccount> {
     return this.api.patch<TreasuryAccount>(`treasury/accounts/${id(accountId)}/`, changes);
-  }
-
-  setAccountActive(accountId: string, active: boolean): Observable<TreasuryAccount> {
-    const command = active ? 'reactivate' : 'deactivate';
-    return this.api.post<TreasuryAccount>(`treasury/accounts/${id(accountId)}/${command}/`);
-  }
-
-  /** The server's balance of the account (today when `on` is not given). */
-  balance(accountId: string, on: string | null = null): Observable<TreasuryBalance> {
-    return this.api.get<TreasuryBalance>(`treasury/accounts/${id(accountId)}/balance/`, {
-      params: { on },
-    });
   }
 
   // ---- Operations ------------------------------------------------------------------------

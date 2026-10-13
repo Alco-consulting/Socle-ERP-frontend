@@ -69,13 +69,13 @@ test.describe('Règles de mise en page', () => {
     const groups = () => page.getByRole('menu').getByRole('group');
     if (testInfo.project.name === 'desktop') {
       await nav.getByRole('button', { name: 'Configuration', exact: true }).click();
-      await expect(groups()).toHaveCount(8);
+      await expect(groups()).toHaveCount(7);
     } else if (testInfo.project.name === 'tablet') {
       // keep = 4: Tableau de bord, Clients, Fournisseurs, Comptabilité ▾, then « Plus ▾ ».
       await expect(nav.getByRole('button', { name: 'Comptabilité', exact: true })).toBeVisible();
       await nav.getByRole('button', { name: 'Plus', exact: true }).click();
       await expect(groups().first()).toHaveAccessibleName('Analyse · Rapports financiers');
-      await expect(page.getByRole('group', { name: 'Configuration · Banques' })).toBeVisible();
+      await expect(page.getByRole('group', { name: 'Configuration · Paiements' })).toBeVisible();
     } else {
       // One menu named after the current screen, still grouped under titles.
       await page.getByRole('button', { name: 'Navigation Comptabilité : Tableau de bord' }).click();

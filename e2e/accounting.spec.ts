@@ -201,16 +201,26 @@ test.describe('Comptabilité — journaux', () => {
     await expect(page.locator('.facts')).toContainText('ACHL');
   });
 
-  test('le compte de trésorerie choisit son journal parmi la banque et la caisse', async ({
+  test('un journal de banque est son compte : coordonnées bancaires et solde d’ouverture', async ({
     page,
+    api,
   }) => {
-    await page.goto('/app/comptabilite/tresorerie/comptes/nouveau');
-    const journals = page.getByRole('combobox', { name: 'Journal par défaut' });
-    await expect(journals.locator('option')).toHaveText([
-      'Aucun journal',
-      'BQ1 — Banque principale',
-      'CAI — Caisse',
-    ]);
+    const bank = api.accounting.books('A').journals.find((item) => item.code === 'BQ1')!;
+    await page.goto(`/app/comptabilite/journaux/${bank.public_id}`);
+    const section = page.getByRole('region', { name: 'Compte bancaire' });
+    await expect(section).toContainText('Banque test');
+    await expect(section).toContainText('GN00TEST00012345678');
+    await expect(section).toContainText(/Solde d’ouverture\s*1\s000\s000 GNF/);
+
+    await page.locator('alco-page-header').getByRole('link', { name: 'Modifier' }).click();
+    await expect(page.getByRole('group', { name: 'Compte bancaire' })).toBeVisible();
+    await page.getByRole('textbox', { name: 'IBAN' }).fill('GN00TEST99');
+    await page.getByRole('button', { name: 'Enregistrer' }).click();
+    await expect(page.getByText('Modifications enregistrées.')).toBeVisible();
+    await expect(page.getByRole('region', { name: 'Compte bancaire' })).toContainText('GN00TEST99');
+    // The former treasury account screens lead to the journals.
+    await page.goto('/app/comptabilite/tresorerie/comptes');
+    await expect(page).toHaveURL(/\/app\/comptabilite\/journaux$/);
   });
 });
 

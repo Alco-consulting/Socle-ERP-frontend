@@ -72,7 +72,6 @@ describe('Application catalogue', () => {
     expect(groupsOf('Configuration')).toEqual([
       'Général',
       'Comptabilité',
-      'Banques',
       'Paiements',
       'Taxes',
       'Immobilisations',
@@ -85,10 +84,8 @@ describe('Application catalogue', () => {
       'Journaux',
       'Plan comptable',
       'Tiers',
-      'Trésorerie',
       'Lettrage',
       'Échéances',
-      'Rapprochement',
       'Clôture',
     ]);
   });
@@ -175,8 +172,9 @@ describe('NavigationService', () => {
     const urls = navigation
       .menu(accounting())
       .flatMap((entry) => (entry.children ?? [entry]).map((link) => link.url));
+    // No « Trésorerie » tab, as Odoo (note backend 0043): the dashboard's cards open it.
+    expect(urls.some((url) => url?.includes('/tresorerie/'))).toBe(false);
     for (const path of [
-      'tresorerie/operations',
       'immobilisations/actifs',
       'emprunts/liste',
       'taxes/liste',
@@ -224,7 +222,6 @@ describe('NavigationService', () => {
   it('hides the domains the user may not read', () => {
     const navigation = signIn(['accounting.read', 'treasury.read', 'taxes.read']);
     const visible = flatLabels(navigation);
-    expect(visible).toContain('Trésorerie');
     expect(visible).toContain('Taxes');
     for (const hidden of [
       'Tiers',
@@ -252,7 +249,7 @@ describe('NavigationService', () => {
       ['treasury', 'taxes'],
     );
     const visible = flatLabels(navigation);
-    expect(visible).toEqual(expect.arrayContaining(['Trésorerie', 'Taxes']));
+    expect(visible).toEqual(expect.arrayContaining(['Taxes']));
     for (const hidden of ['Immobilisations', 'Emprunts', 'Analytique']) {
       expect(visible).not.toContain(hidden);
     }
@@ -271,16 +268,14 @@ describe('NavigationService', () => {
   it('builds the menu of a section and its first screen', () => {
     const navigation = signIn(['accounting.read', 'treasury.read']);
     const treasury = findSection(accounting(), 'tresorerie')!;
-    expect(labels(navigation.sectionMenu(accounting(), treasury))).toEqual([
-      'Comptes de trésorerie',
-      'Opérations',
-      'Virements',
-      'Relevés',
-      'Rapprochements',
-      'Plus',
-    ]);
+    // No section bar, as Odoo has no « Trésorerie » tab (note backend 0043).
+    expect(navigation.sectionMenu(accounting(), treasury)).toEqual([]);
+    const taxes = findSection(accounting(), 'taxes')!;
+    expect(
+      labels(signIn(['accounting.read', 'taxes.read']).sectionMenu(accounting(), taxes)),
+    ).toContain('Déclarations');
     expect(navigation.sectionHomeUrl(accounting(), treasury)).toBe(
-      '/app/comptabilite/tresorerie/comptes',
+      '/app/comptabilite/tresorerie/operations',
     );
     expect(
       navigation.sectionOfUrl(accounting(), '/app/comptabilite/tresorerie/operations?x=1')?.label,

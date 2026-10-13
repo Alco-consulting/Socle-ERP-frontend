@@ -5,53 +5,25 @@ import { unsavedChangesGuard } from '../../core/navigation/unsaved-changes';
 // The import's description only: the routes stay light (loaded with the application).
 import { STATEMENT_TRANSFER } from './statement-transfer';
 
-const accountForm = () => import('./accounts/account-form').then((m) => m.TreasuryAccountFormPage);
 const operationForm = () =>
   import('./operations/operation-form').then((m) => m.TreasuryOperationFormPage);
 
 /**
- * Comptabilité › Trésorerie (Module 6) on the API: treasury accounts, operations, transfers,
- * statements (and their import) and the bank reconciliation (V2.1 A6). Paths are relative to
+ * Trésorerie (Module 6) on the API: operations, transfers, statements (and their import) and
+ * the bank reconciliation (V2.1 A6), opened from the bank and cash cards of the dashboard, as
+ * Odoo (note backend 0043); a bank or cash journal is its treasury account. Paths are relative to
  * Comptabilité and start with the section's (`tresorerie/…`): they are served among the
  * section's routes (placeholder-routes.ts), its home and breadcrumb staying the section's.
  * The section's guard checks `treasury.read`; each write screen checks its own permission.
  */
 export const TREASURY_ROUTES: Routes = [
+  // A bank or cash journal is its treasury account (note backend 0043): the former account
+  // screens lead to the journals.
   {
     path: 'tresorerie/comptes',
-    data: { breadcrumb: 'Comptes de trésorerie' },
     children: [
-      {
-        path: '',
-        loadComponent: () =>
-          import('./accounts/account-list').then((m) => m.TreasuryAccountListPage),
-      },
-      {
-        path: 'nouveau',
-        data: { breadcrumb: 'Nouveau compte' },
-        canActivate: [permissionGuard('treasury.manage_accounts')],
-        canDeactivate: [unsavedChangesGuard],
-        loadComponent: accountForm,
-      },
-      {
-        path: ':id',
-        // Named after the account once loaded (BreadcrumbService.nameCurrent).
-        data: { breadcrumb: 'Compte' },
-        children: [
-          {
-            path: '',
-            loadComponent: () =>
-              import('./accounts/account-detail').then((m) => m.TreasuryAccountDetailPage),
-          },
-          {
-            path: 'modifier',
-            data: { breadcrumb: 'Modifier' },
-            canActivate: [permissionGuard('treasury.manage_accounts')],
-            canDeactivate: [unsavedChangesGuard],
-            loadComponent: accountForm,
-          },
-        ],
-      },
+      { path: '', pathMatch: 'full', redirectTo: '/app/comptabilite/journaux' },
+      { path: '**', redirectTo: '/app/comptabilite/journaux' },
     ],
   },
   {

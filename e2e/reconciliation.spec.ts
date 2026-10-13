@@ -2,7 +2,7 @@ import AxeBuilder from '@axe-core/playwright';
 import { Page } from '@playwright/test';
 
 import { COMPANY_A, PROFILES, expect, test } from './support/fake-api';
-import { fixToday, openMenuItem } from './support/navigation';
+import { fixToday } from './support/navigation';
 
 /**
  * Comptabilité › Trésorerie › Rapprochements (V2.1, lots A6, A6.1, A6.2) against the fake
@@ -31,12 +31,13 @@ const axe = async (page: Page) =>
 test.beforeEach(async ({ page }) => fixToday(page));
 
 test.describe('Rapprochement — lignes', () => {
-  test('1. ouvrir Rapprochement depuis le menu, choisir le compte : les lignes du serveur', async ({
+  test('1. ouvrir Rapprochement depuis la carte de la banque, choisir le compte : les lignes du serveur', async ({
     page,
     api,
   }) => {
+    // No « Trésorerie » tab, as Odoo (note backend 0043): the bank's card opens it.
     await page.goto('/app/comptabilite/tableau-de-bord');
-    await openMenuItem(page, 'Comptabilité', 'Rapprochement');
+    await page.getByRole('link', { name: 'Rapprocher 3 éléments' }).click();
     await expect(page).toHaveURL(/\/app\/comptabilite\/tresorerie\/rapprochements$/);
     await expect(page.getByRole('heading', { level: 1 })).toHaveText('Rapprochement bancaire');
     await expect(page.getByText('Choisissez le compte de trésorerie à rapprocher.')).toBeVisible();

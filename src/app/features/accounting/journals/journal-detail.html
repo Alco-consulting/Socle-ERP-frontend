@@ -111,6 +111,43 @@
       </dl>
     </section>
 
+    <!-- A bank or cash journal is its treasury account (note backend 0043). -->
+    @if (bankAccount(); as account) {
+      <section class="section" aria-labelledby="bank-title">
+        <h2 id="bank-title" class="alco-section-title">
+          {{ journal.journal_type === 'bank' ? 'Compte bancaire' : 'Caisse' }}
+        </h2>
+        <dl class="facts">
+          @if (journal.journal_type === 'bank') {
+            <div>
+              <dt>Banque</dt>
+              <dd>{{ account.bank_name || '—' }}</dd>
+            </div>
+            <div>
+              <dt>Agence</dt>
+              <dd>{{ account.bank_branch || '—' }}</dd>
+            </div>
+            <div>
+              <dt>Numéro de compte</dt>
+              <dd class="mono">{{ account.account_number || '—' }}</dd>
+            </div>
+            <div>
+              <dt>IBAN</dt>
+              <dd class="mono">{{ account.iban || '—' }}</dd>
+            </div>
+            <div>
+              <dt>BIC</dt>
+              <dd class="mono">{{ account.bic || '—' }}</dd>
+            </div>
+          }
+          <div>
+            <dt>Solde d’ouverture</dt>
+            <dd>{{ account.opening_balance | alcoAmount: 0 }} {{ account.currency }}</dd>
+          </div>
+        </dl>
+      </section>
+    }
+
     @if (canSeeHistory()) {
       <section id="historique" class="section" aria-labelledby="history-title">
         <alco-object-history [objectType]="auditType" [objectId]="journal.public_id" />

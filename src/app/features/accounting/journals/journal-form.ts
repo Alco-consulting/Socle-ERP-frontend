@@ -26,6 +26,7 @@ import { UserError, toUserError } from '../../../core/errors/user-error';
 import { ApiError, toApiError } from '../../../core/http/api-error';
 import { BreadcrumbService } from '../../../core/navigation/route-trail';
 import { UnsavedChangesService } from '../../../core/navigation/unsaved-changes';
+import { SessionStore } from '../../../core/session/session.store';
 import { AlcoFormField } from '../../../shared/forms/form-field';
 import { AlcoInput } from '../../../shared/forms/input';
 import { AlcoButton } from '../../../shared/ui/button/button';
@@ -33,8 +34,12 @@ import { AlcoErrorState } from '../../../shared/ui/error-state/error-state';
 import { AlcoLoading } from '../../../shared/ui/loading/loading';
 import { AlcoPageHeader } from '../../../shared/ui/page-header/page-header';
 import { AlcoToastService } from '../../../shared/ui/toast/toast.service';
+import { normalizeDecimalInput } from '../../../shared/utils/decimal';
 import { PartnersApi } from '../../partners/data-access/partners-api';
 import { CurrencyOption } from '../../partners/data-access/partner-models';
+import { TreasuryAccount } from '../../treasury/data-access/reconciliation-models';
+import { TreasuryApi } from '../../treasury/data-access/treasury-api';
+import { TREASURY_ERRORS } from '../../treasury/treasury-presentation';
 import {
   ACCOUNTING_FIELD_MESSAGES,
   ACCOUNTING_REFERENTIAL_ERRORS,
@@ -71,7 +76,28 @@ const FIELD_OF_CODE: Readonly<Record<string, [string, string]>> = {
     'Ce compte ne reçoit pas d’écritures : choisissez un compte sans sous-compte.',
   ],
   currency_inactive: ['default_currency', 'Cette devise est inactive.'],
+  treasury_account_currency_locked: [
+    'default_currency',
+    'Ce journal a déjà des opérations de trésorerie : sa devise ne change plus.',
+  ],
 };
+
+/** Refusals of the journal's treasury account that belong to one field. */
+const BANK_FIELD_OF_CODE: Readonly<Record<string, [string, string]>> = {
+  treasury_opening_balance_locked: [
+    'bank.opening_balance',
+    'Des opérations sont déjà comptées sur ce journal : le solde d’ouverture ne change plus.',
+  ],
+  treasury_amount_invalid: [
+    'bank.opening_balance',
+    'Montant non valable : respectez les décimales de la devise.',
+  ],
+};
+
+/** A bank or cash journal is its treasury account (note backend 0043). */
+const TREASURY_TYPES: readonly string[] = ['bank', 'cash'];
+/** The bank's details, a bank journal's only. */
+const BANK_FIELDS = ['bank_name', 'bank_branch', 'account_number', 'iban', 'bic'] as const;
 
 /**
  * A journal as Odoo shows it, to create it (`…/journaux/nouveau`) or change it
@@ -82,7 +108,8 @@ const FIELD_OF_CODE: Readonly<Record<string, [string, string]>> = {
  * accounts, optional (« Aucun compte »). The
  * numbering's prefix is an advanced option; its number of digits stays the server's. A
  * modification sends only the fields changed. The server decides; its errors go under their
- * field.
+ * field. A bank or cash journal is its treasury account (note backend 0043): its bank details
+ * and opening balance are that account's (`treasury.manage_accounts`), saved after the journal.
  */
 @Component({
   selector: 'alco-journal-form',
@@ -108,6 +135,8 @@ export class JournalFormPage {
   private readonly breadcrumbs = inject(BreadcrumbService);
   private readonly host = inject<ElementRef<HTMLElement>>(ElementRef);
   private readonly injector = inject(Injector);
+  private readonly treasury = inject(TreasuryApi);
+  private readonly session = inject(SessionStore);
 
   protected readonly id = this.route.snapshot.paramMap.get('id');
   protected readonly isNew = this.id === null;
@@ -133,7 +162,25 @@ export class JournalFormPage {
       nonNullable: true,
       validators: [Validators.maxLength(32)],
     }),
+    /** The journal's treasury account: never sent with the journal. */
+    bank: new FormGroup({
+      bank_name: new FormControl('', { nonNullable: true, validators: Validators.maxLength(100) }),
+      bank_branch: new FormControl('', {
+        nonNullable: true,
+        validators: Validators.maxLength(100),
+      }),
+      account_number: new FormControl('', {
+        nonNullable: true,
+        validators: Validators.maxLength(64),
+      }),
+      iban: new FormControl('', { nonNullable: true, validators: Validators.maxLength(64) }),
+      bic: new FormControl('', { nonNullable: true, validators: Validators.maxLength(32) }),
+      opening_balance: new FormControl('', { nonNullable: true }),
+    }),
   });
+
+  /** The journal's treasury account, once read (`null`: none yet, or not readable). */
+  private readonly bankAccount = signal<TreasuryAccount | null>(null);
 
   protected readonly journal = signal<Journal | null>(null);
   protected readonly loadError = signal<UserError | null>(null);
@@ -156,6 +203,12 @@ export class JournalFormPage {
     { requireSync: true },
   );
   private readonly type = computed(() => this.value().journal_type as JournalType);
+  /** Bank details and opening balance: a bank or cash journal, for an account manager. */
+  protected readonly bankFields = computed(() =>
+    TREASURY_TYPES.includes(this.type()) && this.session.can('treasury.manage_accounts')
+      ? { bank: this.type() === 'bank' }
+      : null,
+  );
   /** The « Compte par défaut » of the chosen type, in Odoo's words; none for OD. */
   protected readonly accountField = computed(() => JOURNAL_ACCOUNT_FIELDS[this.type()] ?? null);
   /** Every account of the chosen type, by code; read again when the type changes. */
@@ -228,11 +281,17 @@ export class JournalFormPage {
     }
     this.saving.set(true);
     try {
-      const saved = await firstValueFrom(
-        journal
-          ? this.api.updateJournal(journal.public_id, this.changes())
-          : this.api.createJournal(this.creation()),
-      );
+      const changes = this.changes();
+      const saved =
+        journal && Object.keys(changes).length === 0
+          ? journal
+          : await firstValueFrom(
+              journal
+                ? this.api.updateJournal(journal.public_id, changes)
+                : this.api.createJournal(this.creation()),
+            );
+      this.journal.set(saved);
+      await this.saveBankAccount(saved);
       this.form.markAsPristine();
       if (journal) {
         this.toast.success('Modifications enregistrées.');
@@ -269,6 +328,34 @@ export class JournalFormPage {
     };
   }
 
+  /** The bank details and opening balance changed, on the journal's own account. */
+  private async saveBankAccount(journal: Journal): Promise<void> {
+    const group = this.form.controls.bank;
+    if (!group.dirty || !this.bankFields()) {
+      return;
+    }
+    const account =
+      this.bankAccount() ?? (await firstValueFrom(this.treasury.journalAccount(journal.public_id)));
+    if (!account) {
+      return;
+    }
+    const value = group.getRawValue();
+    const changes: Record<string, string> = {};
+    for (const field of BANK_FIELDS) {
+      if (group.controls[field].dirty) {
+        changes[field] = value[field].trim();
+      }
+    }
+    const opening = value.opening_balance.trim();
+    if (group.controls.opening_balance.dirty && opening) {
+      changes['opening_balance'] = normalizeDecimalInput(opening) ?? opening;
+    }
+    this.bankAccount.set(
+      await firstValueFrom(this.treasury.updateAccount(account.public_id, changes)),
+    );
+    group.markAsPristine();
+  }
+
   private changes(): Partial<JournalWrite> {
     const creation = this.creation() as unknown as Record<string, unknown>;
     const changes: Record<string, unknown> = {};
@@ -283,7 +370,7 @@ export class JournalFormPage {
   private fill(journal: Journal): void {
     this.journal.set(journal);
     this.breadcrumbs.nameCurrent(`${journal.code} — ${journal.name}`, 1);
-    this.form.setValue(
+    this.form.patchValue(
       {
         name: journal.name,
         journal_type: journal.journal_type,
@@ -297,6 +384,35 @@ export class JournalFormPage {
     this.form.updateValueAndValidity();
     this.form.markAsPristine();
     afterNextRender(() => this.focus('name'), { injector: this.injector });
+    if (
+      TREASURY_TYPES.includes(journal.journal_type) &&
+      this.session.can('treasury.manage_accounts')
+    ) {
+      this.treasury
+        .journalAccount(journal.public_id)
+        .pipe(
+          // The list masks the bank identifiers: the record shows them to an account manager.
+          switchMap((found) => (found ? this.treasury.account(found.public_id) : of(null))),
+          catchError(() => of(null)),
+        )
+        .subscribe((account) => this.fillBank(account));
+    }
+  }
+
+  private fillBank(account: TreasuryAccount | null): void {
+    this.bankAccount.set(account);
+    if (!account) {
+      return;
+    }
+    this.form.controls.bank.setValue({
+      bank_name: account.bank_name ?? '',
+      bank_branch: account.bank_branch ?? '',
+      account_number: account.account_number ?? '',
+      iban: account.iban ?? '',
+      bic: account.bic ?? '',
+      opening_balance: account.opening_balance ?? '',
+    });
+    this.form.controls.bank.markAsPristine();
   }
 
   private showFailure(error: ApiError): void {
@@ -306,7 +422,9 @@ export class JournalFormPage {
     const fields: Record<string, string> = {
       ...serverFieldErrors(error, ACCOUNTING_FIELD_MESSAGES),
     };
-    const business = error.code ? FIELD_OF_CODE[error.code] : undefined;
+    const business = error.code
+      ? (FIELD_OF_CODE[error.code] ?? BANK_FIELD_OF_CODE[error.code])
+      : undefined;
     if (business) {
       fields[business[0]] = business[1];
     }
@@ -319,7 +437,7 @@ export class JournalFormPage {
       this.focus(names[0]);
       return;
     }
-    this.error.set(toUserError(error, ACCOUNTING_REFERENTIAL_ERRORS));
+    this.error.set(toUserError(error, { ...ACCOUNTING_REFERENTIAL_ERRORS, ...TREASURY_ERRORS }));
   }
 
   private focusFirstInvalid(): void {
@@ -329,7 +447,9 @@ export class JournalFormPage {
     }
   }
 
+  /** A field by its name, or its path in a group (`bank.opening_balance`). */
   private focus(name: string): void {
-    this.host.nativeElement.querySelector<HTMLElement>(`[formControlName="${name}"]`)?.focus();
+    const field = name.split('.').pop();
+    this.host.nativeElement.querySelector<HTMLElement>(`[formControlName="${field}"]`)?.focus();
   }
 }

@@ -98,7 +98,8 @@ export class TreasuryTransferDetailPage {
   protected readonly busy = signal(false);
   protected readonly actionError = signal<UserError | null>(null);
 
-  protected readonly accountsUrl = `${TREASURY}/comptes`;
+  /** An account's « Transactions », as Odoo (note backend 0043). */
+  protected readonly transactionsUrl = `${TREASURY}/operations`;
   protected readonly operationsUrl = `${TREASURY}/operations`;
   protected readonly day = isoDay;
   protected readonly auditType = TREASURY_AUDIT_TYPES.transfer;

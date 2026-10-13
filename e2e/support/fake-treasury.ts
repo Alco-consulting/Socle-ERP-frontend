@@ -1,6 +1,7 @@
 import { Route } from '@playwright/test';
 
 import { ACCOUNT_IMPORT_FIELDS } from './fake-account-import';
+import { FakeAccounting } from './fake-accounting';
 import { FakeLettering } from './fake-lettering';
 import { IMPORT_FIELDS, PartnersContext } from './fake-partners';
 import {
@@ -301,7 +302,14 @@ export class FakeTreasury {
   constructor(
     private readonly context: PartnersContext,
     private readonly lettering: FakeLettering,
+    private readonly accounting?: FakeAccounting,
   ) {}
+
+  /** A bank or cash journal is its treasury account (note backend 0043): BQ1 and CAI. */
+  private journalOf(company: string, code: string): { public_id: string; code: string } | null {
+    const journal = this.accounting?.books(company).journals.find((item) => item.code === code);
+    return journal ? { public_id: journal.public_id, code: journal.code } : null;
+  }
 
   /** The fixture line of a key (`B1`), for the tests. */
   line(company: string, key: string): LineJson {
@@ -368,7 +376,7 @@ export class FakeTreasury {
       account_type: type,
       currency,
       ledger_account: type === 'bank' ? { public_id: uuid(), code: '521100' } : null,
-      journal: type === 'bank' ? { public_id: uuid(), code: 'BQ1' } : null,
+      journal: this.journalOf(company, type === 'bank' ? 'BQ1' : 'CAI'),
       bank_name: bankName,
       bank_branch: bankName ? 'Kaloum' : '',
       account_number: bankName ? '00012345678' : '',
@@ -791,6 +799,7 @@ export class FakeTreasury {
               (item) =>
                 (!params.get('account_type') || item.account_type === params.get('account_type')) &&
                 (!params.get('status') || item.status === params.get('status')) &&
+                (!params.get('journal') || item.journal?.public_id === params.get('journal')) &&
                 (!search ||
                   item.code.toLowerCase().includes(search) ||
                   item.name.toLowerCase().includes(search)),
@@ -848,6 +857,9 @@ export class FakeTreasury {
           if (name in data) {
             (account as unknown as Record<string, unknown>)[name] = data[name];
           }
+        }
+        if ('opening_balance' in data) {
+          account.opening_balance = D(String(data['opening_balance']));
         }
         this.event(desk, account.public_id, 'update', NOW, 'treasury.treasuryaccount');
         return reply(200, account);

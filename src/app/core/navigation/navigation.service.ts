@@ -152,7 +152,7 @@ export class NavigationService {
 
   /** Menu of a section (« Trésorerie »: Comptes, Opérations…). */
   sectionMenu(app: AlcoApplication, section: AppSection): readonly NavEntry[] {
-    return this.buildMenu(app, section.nav, section.path);
+    return section.withoutBar ? [] : this.buildMenu(app, section.nav, section.path);
   }
 
   /** The section an URL belongs to (`/app/comptabilite/tresorerie/operations` → Trésorerie). */

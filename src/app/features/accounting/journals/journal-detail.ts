@@ -11,13 +11,14 @@ import {
 } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, RouterLink } from '@angular/router';
-import { firstValueFrom, forkJoin, map } from 'rxjs';
+import { catchError, firstValueFrom, forkJoin, map, of, switchMap } from 'rxjs';
 
 import { UserError, toUserError } from '../../../core/errors/user-error';
 import { toApiError } from '../../../core/http/api-error';
 import { requestState } from '../../../core/http/request-state';
 import { BreadcrumbService } from '../../../core/navigation/route-trail';
 import { SessionStore } from '../../../core/session/session.store';
+import { AlcoAmountPipe } from '../../../shared/pipes/amount.pipe';
 import { AlcoBadge } from '../../../shared/ui/badge/badge';
 import { AlcoButton } from '../../../shared/ui/button/button';
 import { AlcoConfirmService } from '../../../shared/ui/confirm-dialog/confirm-dialog';
@@ -37,18 +38,23 @@ import { AccountingApi } from '../data-access/accounting-api';
 import { AlcoSmartButton } from '../../../shared/ui/smart-button/smart-button';
 import { AUDIT_TYPES, AlcoObjectHistory } from '../../audit/object-history';
 import { RelationsApi } from '../../relations/data-access/relations-api';
+import { TreasuryAccount } from '../../treasury/data-access/reconciliation-models';
+import { TreasuryApi } from '../../treasury/data-access/treasury-api';
 
 /**
  * A journal (`GET accounting/journals/{id}/`). Actions: those of the API, allowed by
  * `accounting.manage_journals` — Modifier, Désactiver or Réactiver (the server's status).
  * Smart buttons: its entries (all, drafts, submitted: `count` of the entry list, one
- * request each, never computed) and its history (Audit, `audit.read`).
+ * request each, never computed) and its history (Audit, `audit.read`). A bank or cash
+ * journal is its treasury account (note backend 0043): its bank details and opening balance
+ * (`treasury.read`; the bank identifiers masked by the server but for an account manager).
  */
 @Component({
   selector: 'alco-journal-detail',
   imports: [
     DatePipe,
     RouterLink,
+    AlcoAmountPipe,
     AlcoBadge,
     AlcoButton,
     AlcoDropdown,
@@ -68,7 +74,11 @@ export class JournalDetailPage {
   private readonly breadcrumbs = inject(BreadcrumbService);
   private readonly confirm = inject(AlcoConfirmService);
   private readonly toast = inject(AlcoToastService);
+  private readonly treasury = inject(TreasuryApi);
   protected readonly session = inject(SessionStore);
+
+  /** The bank or cash journal's own treasury account, once read. */
+  protected readonly bankAccount = signal<TreasuryAccount | null>(null);
 
   private readonly id = toSignal(
     inject(ActivatedRoute).paramMap.pipe(map((params) => params.get('id') ?? '')),
@@ -173,5 +183,20 @@ export class JournalDetailPage {
   private show(journal: Journal): void {
     this.journal.set(journal);
     this.breadcrumbs.nameCurrent(`${journal.code} — ${journal.name}`);
+    if (journal.journal_type !== 'bank' && journal.journal_type !== 'cash') {
+      this.bankAccount.set(null);
+      return;
+    }
+    if (!this.session.can('treasury.read')) {
+      return;
+    }
+    // The list masks the bank identifiers: the record shows them to an account manager.
+    this.treasury
+      .journalAccount(journal.public_id)
+      .pipe(
+        switchMap((found) => (found ? this.treasury.account(found.public_id) : of(null))),
+        catchError(() => of(null)),
+      )
+      .subscribe((account) => this.bankAccount.set(account));
   }
 }

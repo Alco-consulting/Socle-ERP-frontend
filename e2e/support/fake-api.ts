@@ -237,7 +237,7 @@ export class FakeApi {
     this.reporting = new FakeReporting(context, this.accounting, this.entries, this.partners);
     this.lettering = new FakeLettering(context, this.accounting, this.partners, this.entries);
     this.dues = new FakeDues(context, this.accounting, this.partners, this.entries, this.lettering);
-    this.treasury = new FakeTreasury(context, this.lettering);
+    this.treasury = new FakeTreasury(context, this.lettering, this.accounting);
     this.accountImport = new FakeAccountImport(context, this.accounting);
     this.currencies = new FakeCurrencies(context, () => this.globalPermissions);
     this.closing = new FakeClosing(context, this.accounting);

@@ -72,10 +72,8 @@ test.describe('Affichage selon les permissions (confort d’interface ; l’API 
       'Pièces comptables',
       'Journaux',
       'Plan comptable',
-      'Trésorerie',
       /Lettrage/,
       'Échéances',
-      'Rapprochement',
     ]);
     await page.keyboard.press('Escape');
     // reporting.read only: the accounting reports, not the others.
@@ -89,7 +87,6 @@ test.describe('Affichage selon les permissions (confort d’interface ; l’API 
     await expect(page.getByRole('menu').getByRole('group')).toHaveText([
       /^\s*Général/,
       /^\s*Comptabilité/,
-      /^\s*Banques/,
       /^\s*Taxes/,
     ]);
   });

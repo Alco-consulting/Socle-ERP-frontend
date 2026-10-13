@@ -218,12 +218,32 @@ export class AccountingDashboardPage {
         icon: 'eye',
         route: `${ACCOUNTING}/ecritures/pieces?journal=${id}`,
       },
+      ...this.treasuryActions(journal),
       {
         id: 'settings',
         label: 'Configuration du journal',
         icon: 'settings',
         route: `${ACCOUNTING}/journaux/${id}`,
       },
+    ];
+  }
+
+  /** No « Trésorerie » tab, as Odoo (note backend 0043): a bank or cash card opens them. */
+  private treasuryActions(journal: JournalSummary): DropdownItem[] {
+    const accounts = journal.treasury_accounts ?? [];
+    if (accounts.length === 0) {
+      return [];
+    }
+    const code = accounts.length === 1 ? `?compte=${encodeURIComponent(accounts[0].code)}` : '';
+    const statements = this.screen('tresorerie/releves');
+    const transfers = this.screen('tresorerie/virements');
+    return [
+      ...(statements && journal.journal_type === 'bank'
+        ? [{ id: 'statements', label: 'Relevés', icon: 'file' as const, route: statements + code }]
+        : []),
+      ...(transfers
+        ? [{ id: 'transfers', label: 'Virements', icon: 'transfers' as const, route: transfers }]
+        : []),
     ];
   }
 

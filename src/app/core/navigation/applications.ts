@@ -41,6 +41,8 @@ export interface AppSection {
   /** Optional domain the company must use (`SessionStore.features`). */
   readonly feature?: string;
   readonly nav: readonly AppNavEntry[];
+  /** No menu bar: its screens open from elsewhere (Trésorerie: the dashboard's cards). */
+  readonly withoutBar?: boolean;
 }
 
 export interface AlcoApplication {
@@ -143,10 +145,8 @@ export const APPLICATIONS: readonly AlcoApplication[] = [
           { label: 'Journaux', path: 'journaux' },
           { label: 'Plan comptable', path: 'plan-comptable' },
           { label: 'Tiers', path: 'tiers', permission: 'partners.read' },
-          { label: 'Trésorerie', path: 'tresorerie/operations' },
           { label: 'Lettrage', path: 'lettrage' },
           { label: 'Échéances', path: 'echeances' },
-          { label: 'Rapprochement', path: 'tresorerie/rapprochements' },
           { label: 'Clôture', path: 'cloture', permission: 'closing.read' },
         ],
       },
@@ -213,10 +213,6 @@ export const APPLICATIONS: readonly AlcoApplication[] = [
               permission: 'currencies.read',
             },
           ]),
-          ...group('Banques', [
-            { label: 'Comptes de trésorerie', path: 'tresorerie/comptes' },
-            { label: 'Paramètres de trésorerie', path: 'tresorerie/configuration' },
-          ]),
           ...group('Paiements', [
             {
               label: 'Conditions de paiement',
@@ -247,18 +243,19 @@ export const APPLICATIONS: readonly AlcoApplication[] = [
       },
     ],
     sections: [
+      // No « Trésorerie » tab, as Odoo (note backend 0043): its screens open from the bank
+      // and cash cards of the dashboard.
       {
         label: 'Trésorerie',
         path: 'tresorerie',
         permission: 'treasury.read',
         feature: 'treasury',
+        withoutBar: true,
         nav: [
-          { label: 'Comptes de trésorerie', path: 'comptes' },
-          { label: 'Opérations', path: 'operations' },
+          { label: 'Transactions', path: 'operations' },
           { label: 'Virements', path: 'virements' },
           { label: 'Relevés', path: 'releves' },
           { label: 'Rapprochements', path: 'rapprochements' },
-          { label: 'Plus', children: [{ label: 'Configuration', path: 'configuration' }] },
         ],
       },
       {

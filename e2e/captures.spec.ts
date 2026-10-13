@@ -102,7 +102,7 @@ test('regroupement: applications and domains of Comptabilité', async ({ page, a
   await page.keyboard.press('Escape');
 
   const domains: [string, string][] = [
-    ['/app/comptabilite/tresorerie/comptes', '42-domain-treasury'],
+    ['/app/comptabilite/tresorerie/operations', '42-domain-treasury'],
     ['/app/comptabilite/emprunts/liste', '44-domain-loans'],
     ['/app/comptabilite/taxes/declarations', '45-domain-taxes'],
     ['/app/comptabilite/analytique/axes', '46-domain-analytics'],

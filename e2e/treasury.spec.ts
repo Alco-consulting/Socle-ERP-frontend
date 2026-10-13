@@ -2,7 +2,7 @@ import AxeBuilder from '@axe-core/playwright';
 import { Page } from '@playwright/test';
 
 import { COMPANY_A, PROFILES, expect, test } from './support/fake-api';
-import { fixToday, openMenuItem } from './support/navigation';
+import { fixToday } from './support/navigation';
 
 /**
  * Comptabilité › Trésorerie (Module 6) against the fake API: treasury accounts, operations and
@@ -22,7 +22,6 @@ const axe = async (page: Page) =>
     (violation) =>
       `${violation.id}: ${violation.nodes.map((node) => node.target.join(' ')).join(', ')}`,
   );
-const sectionNav = (page: Page) => page.getByRole('navigation', { name: /Trésorerie/ });
 
 async function importFile(page: Page, name: string) {
   await page.goto(`${ROOT}/releves`);
@@ -47,45 +46,18 @@ async function importFile(page: Page, name: string) {
 
 test.beforeEach(async ({ page }) => fixToday(page));
 
-test.describe('Trésorerie — comptes', () => {
-  test('1-3. ouvrir Trésorerie, ses comptes, un compte : solde et relations du serveur', async ({
+test.describe('Trésorerie — sans onglet, comme Odoo', () => {
+  test('1-3. un journal de banque est son compte : les anciennes adresses mènent aux journaux', async ({
     page,
   }) => {
-    await page.goto('/app/comptabilite/tableau-de-bord');
-    await openMenuItem(page, 'Comptabilité', 'Trésorerie');
-    await expect(page).toHaveURL(/\/tresorerie\/operations$/);
-    await expect(page.getByRole('heading', { level: 1 })).toHaveText('Opérations de trésorerie');
-    await sectionNav(page).getByRole('link', { name: 'Comptes de trésorerie' }).click();
-    await expect(page).toHaveURL(/\/tresorerie\/comptes$/);
-    await expect(rows(page)).toHaveCount(2);
-    await expect(rows(page).first()).toContainText('BQ-GNF');
-    await expect(rows(page).first()).toContainText('Banque');
-    await expect(rows(page).nth(1)).toContainText('Caisse');
-    await page.getByRole('link', { name: 'BQ-GNF' }).click();
-    await expect(page.getByRole('heading', { level: 1 })).toHaveText('Banque principale A (test)');
-    await expect(page.getByText('4 115 000 GNF')).toBeVisible();
-    // treasury.manage_accounts: the bank details in full.
-    await expect(page.getByText('GN00TEST00012345678')).toBeVisible();
-    await expect(page.getByRole('link', { name: /^Opérations : / })).toHaveAttribute(
-      'href',
-      `${ROOT}/operations?compte=BQ-GNF`,
-    );
-    await expect(page.getByRole('link', { name: 'Lignes à rapprocher : 3' })).toHaveAttribute(
-      'href',
-      `${ROOT}/rapprochements?compte=BQ-GNF`,
-    );
-  });
-
-  test('filtrer les comptes par type : le filtre au serveur, dans l’URL', async ({ page, api }) => {
+    // Note backend 0043: no « Comptes de trésorerie » screen, no « Trésorerie » bar.
     await page.goto(`${ROOT}/comptes`);
-    await page.getByRole('button', { name: 'Filtres' }).click();
-    const filters = page.getByRole('dialog', { name: 'Filtres' });
-    await filters.getByRole('combobox', { name: 'Type' }).selectOption('cash');
-    await filters.getByRole('button', { name: 'Appliquer' }).click();
-    await expect(page).toHaveURL(/type=cash/);
-    await expect(rows(page)).toHaveCount(1);
-    const call = api.callsTo('treasury/accounts/').at(-1)!;
-    expect(new URL(call.url()).searchParams.get('account_type')).toBe('cash');
+    await expect(page).toHaveURL(/\/app\/comptabilite\/journaux$/);
+    await page.goto(`${ROOT}/comptes/t-bq`);
+    await expect(page).toHaveURL(/\/app\/comptabilite\/journaux$/);
+    await page.goto(`${ROOT}/operations?compte=BQ-GNF`);
+    await expect(page.getByRole('heading', { level: 1 })).toHaveText('Opérations de trésorerie');
+    await expect(page.getByRole('navigation', { name: /Trésorerie/ })).toHaveCount(0);
   });
 });
 
@@ -93,10 +65,7 @@ test.describe('Trésorerie — opérations', () => {
   test('4-5. les opérations d’un compte, puis une opération : ses relations et ses commandes', async ({
     page,
   }) => {
-    await page.goto(`${ROOT}/comptes`);
-    await page.getByRole('link', { name: 'BQ-GNF' }).click();
-    await page.getByRole('link', { name: /^Opérations : / }).click();
-    await expect(page).toHaveURL(/\/operations\?compte=BQ-GNF$/);
+    await page.goto(`${ROOT}/operations?compte=BQ-GNF`);
     await expect(rows(page)).toHaveCount(6);
     await page.getByRole('link', { name: 'VIR-201' }).click();
     await expect(page.getByRole('heading', { level: 1 })).toHaveText('VIR-201');
@@ -262,9 +231,6 @@ test.describe('Trésorerie — permissions, sociétés, session, URL', () => {
     api,
   }) => {
     api.withPermissions(COMPANY_A.public_id, PROFILES.viewer);
-    await page.goto(`${ROOT}/comptes`);
-    await expect(rows(page)).toHaveCount(2);
-    await expect(page.getByRole('link', { name: 'Nouveau compte' })).toHaveCount(0);
     await page.goto(`${ROOT}/operations`);
     await expect(page.getByRole('link', { name: 'Nouvelle opération' })).toHaveCount(0);
     await page.getByRole('link', { name: 'VIR-201' }).click();
@@ -276,9 +242,9 @@ test.describe('Trésorerie — permissions, sociétés, session, URL', () => {
     await expect(page.getByRole('button', { name: /^Exclure la ligne/ })).toHaveCount(0);
 
     api.withPermissions(COMPANY_A.public_id, ['accounting.read']);
-    await page.goto(`${ROOT}/comptes`);
+    await page.goto(`${ROOT}/operations`);
     await expect(
-      page.getByRole('heading', { name: 'Comptes de trésorerie', level: 1 }),
+      page.getByRole('heading', { name: 'Opérations de trésorerie', level: 1 }),
     ).toHaveCount(0);
   });
 
@@ -297,10 +263,10 @@ test.describe('Trésorerie — permissions, sociétés, session, URL', () => {
   });
 
   test('22. session expirée : retour à la connexion', async ({ page, api }) => {
-    await page.goto(`${ROOT}/comptes`);
-    await expect(rows(page)).toHaveCount(2);
+    await page.goto(`${ROOT}/operations`);
+    await expect(rows(page).first()).toBeVisible();
     api.treasury.expireSession();
-    await page.getByRole('link', { name: 'BQ-GNF' }).click();
+    await page.getByRole('link', { name: 'VIR-201' }).click();
     await expect(page).toHaveURL(/\/login\?raison=session-expiree/);
   });
 
@@ -327,7 +293,7 @@ test.describe('Trésorerie — tailles d’écran et accessibilité', () => {
     ['tablette', 820, 1180],
     ['téléphone', 390, 844],
   ] as const) {
-    test(`25. ${name} : comptes, opération, relevé, import sans défilement horizontal`, async ({
+    test(`25. ${name} : opérations, relevé, import sans défilement horizontal`, async ({
       page,
     }) => {
       await page.setViewportSize({ width, height });
@@ -335,7 +301,7 @@ test.describe('Trésorerie — tailles d’écran et accessibilité', () => {
         page.evaluate(
           () => document.documentElement.scrollWidth - document.documentElement.clientWidth,
         );
-      for (const url of [`${ROOT}/comptes`, `${ROOT}/operations`, `${ROOT}/releves`]) {
+      for (const url of [`${ROOT}/operations`, `${ROOT}/releves`]) {
         await page.goto(url);
         await expect(rows(page).first()).toBeVisible();
         expect(await overflow(), url).toBeLessThanOrEqual(0);
@@ -347,7 +313,6 @@ test.describe('Trésorerie — tailles d’écran et accessibilité', () => {
   }
 
   for (const [name, path] of [
-    ['comptes', 'comptes'],
     ['opérations', 'operations'],
     ['virements', 'virements'],
     ['relevés', 'releves'],
@@ -379,14 +344,6 @@ test.describe('Trésorerie — tailles d’écran et accessibilité', () => {
     expect(await axe(page)).toEqual([]);
     await page.keyboard.press('Escape');
     await expect(dialog).toHaveCount(0);
-  });
-
-  test('26. axe sans violation : fiche d’un compte', async ({ page }) => {
-    await page.goto(`${ROOT}/comptes`);
-    await page.getByRole('link', { name: 'BQ-GNF' }).click();
-    await expect(page.getByText('4 115 000 GNF')).toBeVisible();
-    await page.waitForLoadState('networkidle');
-    expect(await axe(page)).toEqual([]);
   });
 
   test('26. axe sans violation : fiche d’une opération', async ({ page }) => {

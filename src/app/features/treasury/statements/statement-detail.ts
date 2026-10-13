@@ -148,7 +148,6 @@ export class TreasuryStatementDetailPage {
   protected readonly steps = STEPS;
   protected readonly day = isoDay;
   protected readonly lineStates = LINE_STATES.map((id) => ({ id, label: LINE_STATUS[id].label }));
-  protected readonly accountsUrl = `${TREASURY}/comptes`;
   protected readonly reconciliationUrl = `${TREASURY}/rapprochements`;
   protected readonly auditType = TREASURY_AUDIT_TYPES.statement;
   protected readonly canSeeHistory = computed(() => this.session.can('audit.read'));

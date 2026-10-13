@@ -103,10 +103,8 @@ test.describe('Comptabilité : un lien et cinq menus groupés', () => {
       'Journaux',
       'Plan comptable',
       'Tiers',
-      'Trésorerie',
       'Lettrage',
       'Échéances',
-      'Rapprochement',
       'Clôture',
     ]);
     const lettering = menu.getByRole('menuitemradio', { name: 'Lettrage' });
@@ -141,11 +139,10 @@ test.describe('Comptabilité : un lien et cinq menus groupés', () => {
     await page.goto('/app/comptabilite/tableau-de-bord');
     const menu = await openMenu(page, 'Configuration');
     const titles = menu.getByRole('group');
-    await expect(titles).toHaveCount(8);
+    await expect(titles).toHaveCount(7);
     for (const title of [
       'Général',
       'Comptabilité',
-      'Banques',
       'Paiements',
       'Taxes',
       'Immobilisations',
@@ -162,13 +159,11 @@ test.describe('Comptabilité : un lien et cinq menus groupés', () => {
     await expect(page.getByText('Écran prévu, pas encore construit.')).toBeVisible();
   });
 
-  test('Trésorerie opens from Comptabilité ▾, with its own navigation', async ({ page }) => {
+  test('no « Trésorerie » tab, as Odoo: a bank card opens its transactions', async ({ page }) => {
     await page.goto('/app/comptabilite/tableau-de-bord');
-    await openFrom(page, 'Comptabilité', 'Trésorerie');
-    await expect(page).toHaveURL(/\/app\/comptabilite\/tresorerie\/operations$/);
-    const sectionNav = page.getByRole('navigation', { name: 'Navigation Trésorerie' });
-    await expect(sectionNav).toBeVisible();
-    await expect(breadcrumb(page)).toHaveText(/Comptabilité\s*Trésorerie\s*Opérations/);
+    await page.getByRole('link', { name: 'Transactions — Banque principale' }).click();
+    await expect(page).toHaveURL(/\/app\/comptabilite\/tresorerie\/operations\?compte=/);
+    await expect(page.getByRole('navigation', { name: 'Navigation Trésorerie' })).toHaveCount(0);
     await expect(page.getByRole('heading', { level: 1 })).toHaveText('Opérations de trésorerie');
   });
 

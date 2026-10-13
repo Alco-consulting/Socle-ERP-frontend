@@ -211,11 +211,11 @@ describe('Comptabilité › Trésorerie (Module 6)', () => {
     const session = TestBed.inject(SessionStore);
     const navigation = TestBed.inject(NavigationService);
     openTestSession(session, { permissions: ['accounting.read'] });
-    for (const screen of ['comptes', 'operations', 'virements', 'releves', 'rapprochements']) {
+    for (const screen of ['operations', 'virements', 'releves', 'rapprochements']) {
       expect(navigation.canOpenUrl(`${ROOT}/${screen}`)).toBe(false);
     }
     openTestSession(session, { permissions: READ });
-    for (const screen of ['comptes', 'operations', 'virements', 'releves', 'rapprochements']) {
+    for (const screen of ['operations', 'virements', 'releves', 'rapprochements']) {
       expect(navigation.canOpenUrl(`${ROOT}/${screen}`)).toBe(true);
     }
   });
@@ -224,142 +224,10 @@ describe('Comptabilité › Trésorerie (Module 6)', () => {
     TestBed.configureTestingModule({ providers: [...provideHttpTesting()] });
     openTestSession(TestBed.inject(SessionStore), { permissions: READ });
     const navigation = TestBed.inject(NavigationService);
-    expect(navigation.landingUrl(`${ROOT}/comptes/t-bq`)).toBe(`${ROOT}/comptes`);
     expect(navigation.landingUrl(`${ROOT}/operations?compte=BQ-GNF&etat=draft`)).toBe(
       `${ROOT}/operations`,
     );
     expect(navigation.landingUrl(`${ROOT}/releves/st-9`)).toBe(`${ROOT}/releves`);
-  });
-
-  // ---- Accounts ---------------------------------------------------------------------------------
-
-  it('accounts: the server’s list, its filters from the URL and its pages', async () => {
-    const { element, stable } = await open(
-      `${ROOT}/comptes?type=bank&etat=active&recherche=BQ&page=2`,
-    );
-    const request = httpMock().expectOne(is('treasury/accounts/'));
-    expect(request.request.params.get('account_type')).toBe('bank');
-    expect(request.request.params.get('status')).toBe('active');
-    expect(request.request.params.get('search')).toBe('BQ');
-    expect(request.request.params.get('page')).toBe('2');
-    request.flush(page([BANK], 26));
-    await stable();
-    const row = element().querySelector('alco-table tbody tr')!;
-    expect(text(row)).toContain('BQ-GNF');
-    expect(text(row)).toContain('Banque');
-    expect(text(row)).toContain('GNF');
-    expect(text(row)).toContain('Actif');
-    expect(row.querySelector('a')!.getAttribute('href')).toBe(`${ROOT}/comptes/t-bq`);
-  });
-
-  it('accounts: a failure is said with a retry; an empty company says so', async () => {
-    const { element, stable, button } = await open(`${ROOT}/comptes`);
-    httpMock()
-      .expectOne(is('treasury/accounts/'))
-      .flush(envelope('server_error'), { status: 500, statusText: 'x' });
-    await stable();
-    button('Réessayer')!.click();
-    await stable();
-    httpMock().expectOne(is('treasury/accounts/')).flush(page([]));
-    await stable();
-    expect(text(element())).toContain('Aucun compte de trésorerie dans cette société.');
-    // treasury.manage_accounts: the creation is offered.
-    expect(text(element())).toContain('Créer un compte');
-  });
-
-  it('accounts: without treasury.manage_accounts, no creation', async () => {
-    const { element, stable } = await open(`${ROOT}/comptes`, READ);
-    httpMock()
-      .expectOne(is('treasury/accounts/'))
-      .flush(page([BANK]));
-    await stable();
-    expect(text(element())).not.toContain('Nouveau compte');
-  });
-
-  it('account record: its balance and relations by the API’s own filters', async () => {
-    const { element, stable } = await open(`${ROOT}/comptes/t-bq`);
-    currencies();
-    httpMock().expectOne(is('treasury/accounts/t-bq/')).flush(BANK);
-    httpMock()
-      .expectOne(is('treasury/accounts/t-bq/balance/'))
-      .flush({
-        account: { public_id: 't-bq', code: 'BQ-GNF' },
-        on: null,
-        currency: 'GNF',
-        opening_balance: '1000000.000000',
-        inflows: '3000000.000000',
-        outflows: '250000.000000',
-        balance: '3750000.000000',
-      });
-    const operations = httpMock().expectOne(is('treasury/operations/'));
-    expect(operations.request.params.get('account')).toBe('t-bq');
-    expect(operations.request.params.get('page_size')).toBe('1');
-    operations.flush(page([{}], 12));
-    httpMock()
-      .expectOne(is('treasury/statements/'))
-      .flush(page([{}], 3));
-    const lines = httpMock().expectOne(is('treasury/statement-lines/'));
-    expect(lines.request.params.get('status')).toBe('unreconciled');
-    lines.flush(page([{}], 4));
-    await stable();
-    httpMock()
-      .expectOne((req) => req.url === '/api/v1/audit/objects/treasury.treasuryaccount/t-bq/')
-      .flush(page([]));
-    await stable();
-    expect(text(element())).toContain('3 750 000 GNF');
-    expect(text(element())).toContain('••••5678');
-    const links = Array.from(element().querySelectorAll<HTMLAnchorElement>('a.smart')).map(
-      (item) => [item.getAttribute('aria-label'), item.getAttribute('href')],
-    );
-    expect(links).toContainEqual(['Opérations : 12', `${ROOT}/operations?compte=BQ-GNF`]);
-    expect(links).toContainEqual(['Relevés : 3', `${ROOT}/releves?compte=BQ-GNF`]);
-    expect(links).toContainEqual([
-      'Lignes à rapprocher : 4',
-      `${ROOT}/rapprochements?compte=BQ-GNF`,
-    ]);
-  });
-
-  it('account record: deactivation is confirmed, then the server’s record is read again', async () => {
-    const { element, stable, toasts } = await open(`${ROOT}/comptes/t-bq`);
-    currencies();
-    httpMock().expectOne(is('treasury/accounts/t-bq/')).flush(BANK);
-    httpMock()
-      .match(is('treasury/accounts/t-bq/balance/'))
-      .forEach((r) => r.flush(null));
-    httpMock()
-      .match(is('treasury/operations/'))
-      .forEach((r) => r.flush(page([])));
-    httpMock()
-      .match(is('treasury/statements/'))
-      .forEach((r) => r.flush(page([])));
-    httpMock()
-      .match(is('treasury/statement-lines/'))
-      .forEach((r) => r.flush(page([])));
-    await stable();
-    httpMock()
-      .match((req) => req.url.startsWith('/api/v1/audit/'))
-      .forEach((r) => r.flush(page([])));
-    vi.spyOn(TestBed.inject(AlcoConfirmService), 'confirm').mockResolvedValue(true);
-    element().querySelector<HTMLButtonElement>('alco-dropdown button')!.click();
-    await stable();
-    const item = Array.from(document.querySelectorAll<HTMLElement>('[role="menuitem"]')).find(
-      (node) => text(node).includes('Désactiver le compte'),
-    )!;
-    item.click();
-    await stable();
-    httpMock()
-      .expectOne(is('treasury/accounts/t-bq/deactivate/', 'POST'))
-      .flush({ ...BANK, status: 'inactive' });
-    await stable();
-    expect(toasts()).toContain('Compte désactivé.');
-    httpMock()
-      .expectOne(is('treasury/accounts/t-bq/'))
-      .flush({ ...BANK, status: 'inactive' });
-    httpMock()
-      .match((req) => req.url.startsWith('/api/v1/audit/'))
-      .forEach((r) => r.flush(page([])));
-    await stable();
-    expect(text(element())).toContain('Ce compte est inactif');
   });
 
   // ---- Operations ---------------------------------------------------------------------------------

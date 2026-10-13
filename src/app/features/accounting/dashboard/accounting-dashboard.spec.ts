@@ -227,13 +227,13 @@ describe('AccountingDashboardPage (dashboards/journals/, as Odoo)', () => {
     expect(text(bank)).not.toContain('Transactions');
   });
 
-  it('a bank journal without treasury account: said, nothing invented', async () => {
+  it('a bank journal without its account (before the migration): no balance, nothing said', async () => {
     const { element, stable } = await open();
     await answer(stable, journals([{ ...BANK, treasury_accounts: [] }]));
 
-    expect(text(card(element, 'Coris bank'))).toContain(
-      'Aucun compte de trésorerie n’utilise ce journal.',
-    );
+    const bank = card(element, 'Coris bank')!;
+    expect(bank.querySelector('.figures')).toBeNull();
+    expect(text(bank)).not.toContain('Aucun compte de trésorerie');
   });
 
   it('sales: « Nouveau », drafts and unpaid with their lists, the six due bars', async () => {
@@ -321,6 +321,24 @@ describe('AccountingDashboardPage (dashboards/journals/, as Odoo)', () => {
     const items = Array.from(document.querySelectorAll('[role="menuitem"]'));
     expect(items.map((item) => text(item))).toEqual([
       'Voir les écritures',
+      'Configuration du journal',
+    ]);
+  });
+
+  it('no « Trésorerie » tab: a bank card’s menu opens its statements and the transfers', async () => {
+    const { element, stable, harness } = await open();
+    await answer(stable, journals([BANK]));
+
+    card(element, 'Coris bank')!
+      .querySelector<HTMLButtonElement>('button[aria-label="Actions du journal Coris bank"]')!
+      .click();
+    harness.fixture.detectChanges();
+    await stable();
+    const items = Array.from(document.querySelectorAll('[role="menuitem"]'));
+    expect(items.map((item) => text(item))).toEqual([
+      'Voir les écritures',
+      'Relevés',
+      'Virements',
       'Configuration du journal',
     ]);
   });

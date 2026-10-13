@@ -46,7 +46,11 @@
         <div>
           <dt>Compte d’origine</dt>
           <dd>
-            <a class="mono" [routerLink]="[accountsUrl, transfer.source_account.public_id]">
+            <a
+              class="mono"
+              [routerLink]="transactionsUrl"
+              [queryParams]="{ compte: transfer.source_account.code }"
+            >
               {{ transfer.source_account.code }}
             </a>
           </dd>
@@ -54,7 +58,11 @@
         <div>
           <dt>Compte de destination</dt>
           <dd>
-            <a class="mono" [routerLink]="[accountsUrl, transfer.destination_account.public_id]">
+            <a
+              class="mono"
+              [routerLink]="transactionsUrl"
+              [queryParams]="{ compte: transfer.destination_account.code }"
+            >
               {{ transfer.destination_account.code }}
             </a>
           </dd>

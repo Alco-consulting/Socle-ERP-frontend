@@ -97,6 +97,46 @@
       </div>
     </div>
 
+    <!-- A bank or cash journal is its treasury account, as Odoo's (note backend 0043). -->
+    @if (bankFields(); as bank) {
+      <fieldset class="bank" formGroupName="bank">
+        <legend class="alco-section-title">
+          {{ bank.bank ? 'Compte bancaire' : 'Caisse' }}
+        </legend>
+        <div class="alco-form-grid">
+          @if (bank.bank) {
+            <alco-form-field label="Banque" [optional]="true">
+              <input alcoInput formControlName="bank_name" maxlength="100" autocomplete="off" />
+            </alco-form-field>
+            <alco-form-field label="Agence" [optional]="true">
+              <input alcoInput formControlName="bank_branch" maxlength="100" autocomplete="off" />
+            </alco-form-field>
+            <alco-form-field label="Numéro de compte" [optional]="true">
+              <input alcoInput formControlName="account_number" maxlength="64" autocomplete="off" />
+            </alco-form-field>
+            <alco-form-field label="IBAN" [optional]="true">
+              <input alcoInput formControlName="iban" maxlength="64" autocomplete="off" />
+            </alco-form-field>
+            <alco-form-field label="BIC" [optional]="true">
+              <input alcoInput formControlName="bic" maxlength="32" autocomplete="off" />
+            </alco-form-field>
+          }
+          <alco-form-field
+            label="Solde d’ouverture"
+            [optional]="true"
+            hint="L’argent déjà présent au départ. Il ne change plus une fois des opérations comptées."
+          >
+            <input
+              alcoInput
+              formControlName="opening_balance"
+              inputmode="decimal"
+              autocomplete="off"
+            />
+          </alco-form-field>
+        </div>
+      </fieldset>
+    }
+
     <details class="more">
       <summary>Numérotation : options avancées</summary>
       <div class="alco-form-grid">

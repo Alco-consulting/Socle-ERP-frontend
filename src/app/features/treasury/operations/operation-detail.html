@@ -108,7 +108,11 @@
         <div>
           <dt>Compte de trésorerie</dt>
           <dd>
-            <a class="mono" [routerLink]="[accountsUrl, operation.treasury_account.public_id]">
+            <a
+              class="mono"
+              [routerLink]="transactionsUrl"
+              [queryParams]="{ compte: operation.treasury_account.code }"
+            >
               {{ operation.treasury_account.code }}
             </a>
           </dd>

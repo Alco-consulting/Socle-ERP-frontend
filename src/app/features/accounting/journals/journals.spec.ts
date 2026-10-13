@@ -266,6 +266,54 @@ describe('Journaux (accounting/journals/)', () => {
       expect(element.textContent).toContain('Inactif');
     });
 
+    it('a bank journal is its treasury account: its bank details and opening balance', async () => {
+      const bank = {
+        ...JOURNAL,
+        public_id: 'j-bq',
+        code: 'BQ',
+        name: 'Coris',
+        journal_type: 'bank',
+      };
+      const { element, stable } = await open('/journaux/j-bq', [...READ, 'treasury.read']);
+      httpMock().expectOne('/api/v1/accounting/journals/j-bq/').flush(bank);
+      answerCounts();
+      await stable();
+      const found = httpMock().expectOne((req) => req.url === '/api/v1/treasury/accounts/');
+      expect(found.request.params.get('journal')).toBe('j-bq');
+      found.flush(page([{ public_id: 't-bq', code: 'BQ', status: 'active' }]));
+      await stable();
+      httpMock().expectOne('/api/v1/treasury/accounts/t-bq/').flush({
+        public_id: 't-bq',
+        code: 'BQ',
+        name: 'Coris',
+        account_type: 'bank',
+        currency: 'GNF',
+        bank_name: 'Coris Bank',
+        bank_branch: '',
+        account_number: '****5678',
+        iban: '',
+        bic: 'CORIGNGN',
+        opening_balance: '1500000.000000',
+        status: 'active',
+      });
+      await stable();
+      const section = element.querySelector('[aria-labelledby="bank-title"]')!;
+      expect(section.querySelector('h2')?.textContent).toContain('Compte bancaire');
+      const facts = Array.from(section.querySelectorAll('dl > div')).map((fact) =>
+        [fact.querySelector('dt'), fact.querySelector('dd')].map((cell) =>
+          (cell?.textContent ?? '').replace(/\s+/g, ' ').trim(),
+        ),
+      );
+      expect(facts).toEqual([
+        ['Banque', 'Coris Bank'],
+        ['Agence', '—'],
+        ['Numéro de compte', '****5678'],
+        ['IBAN', '—'],
+        ['BIC', 'CORIGNGN'],
+        ['Solde d’ouverture', '1 500 000 GNF'],
+      ]);
+    });
+
     it('read only: no Modifier, no Actions', async () => {
       const { element, stable } = await open('/journaux/j-ach', READ);
       httpMock().expectOne('/api/v1/accounting/journals/j-ach/').flush(JOURNAL);
@@ -454,6 +502,50 @@ describe('Journaux (accounting/journals/)', () => {
       expect(element.textContent).toContain(
         'Des écritures validées sont déjà numérotées avec ce code : il ne change plus.',
       );
+    });
+
+    it('a bank journal: its bank details and opening balance go to its treasury account', async () => {
+      const { element, stable, currencies } = await open('/journaux/j-bq/modifier', [
+        ...MANAGE,
+        'treasury.manage_accounts',
+      ]);
+      currencies();
+      httpMock().expectOne('/api/v1/accounting/journals/j-bq/').flush(BANK);
+      await stable();
+      accounts([BANK_ACCOUNT]);
+      httpMock()
+        .expectOne((req) => req.url === '/api/v1/treasury/accounts/')
+        .flush(page([{ public_id: 't-bq', code: 'BQ', status: 'active' }]));
+      await stable();
+      httpMock().expectOne('/api/v1/treasury/accounts/t-bq/').flush({
+        public_id: 't-bq',
+        code: 'BQ',
+        name: 'Banque BICIGUI',
+        account_type: 'bank',
+        currency: 'GNF',
+        iban: '',
+        opening_balance: '0.000000',
+        status: 'active',
+      });
+      await stable();
+      expect(element.querySelector('legend')?.textContent).toContain('Compte bancaire');
+      fill(element, 'iban', 'GN00 1234');
+      fill(element, 'opening_balance', '1 500 000');
+      submit(element);
+      await stable();
+
+      // Nothing changed on the journal itself: only its account is written.
+      httpMock().expectNone(
+        (req) => req.url === '/api/v1/accounting/journals/j-bq/' && req.method === 'PATCH',
+      );
+      const patch = httpMock().expectOne('/api/v1/treasury/accounts/t-bq/');
+      expect(patch.request.method).toBe('PATCH');
+      expect(patch.request.body).toEqual({ iban: 'GN00 1234', opening_balance: '1500000' });
+      patch.flush({ public_id: 't-bq', code: 'BQ', status: 'active' });
+      await stable();
+      for (const request of httpMock().match(() => true)) {
+        request.flush(request.request.url.endsWith('/journals/j-bq/') ? BANK : page([]));
+      }
     });
 
     it('modification: only the changes; a numbering in use is said', async () => {

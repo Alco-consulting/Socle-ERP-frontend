@@ -109,7 +109,8 @@ export class TreasuryOperationDetailPage {
   protected readonly actionError = signal<UserError | null>(null);
 
   protected readonly accounting = `${APP_ROOT}/comptabilite`;
-  protected readonly accountsUrl = `${TREASURY}/comptes`;
+  /** An account's « Transactions », as Odoo (note backend 0043). */
+  protected readonly transactionsUrl = `${TREASURY}/operations`;
   protected readonly operationsUrl = `${TREASURY}/operations`;
   protected readonly transfersUrl = `${TREASURY}/virements`;
   protected readonly reconciliationUrl = `${TREASURY}/rapprochements`;

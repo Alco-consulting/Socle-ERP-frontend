@@ -25,6 +25,12 @@ export interface JournalEntryCounts {
   readonly locked: number;
 }
 
+/** `DashboardsBalancePoint`: the balance on a day it changed. */
+export interface BalancePoint {
+  readonly date: string;
+  readonly balance: string;
+}
+
 /** `DashboardsJournalTreasury`: a treasury account whose default journal is the journal. */
 export interface JournalTreasuryAccount {
   readonly public_id: string;
@@ -36,6 +42,24 @@ export interface JournalTreasuryAccount {
   /** Treasury's balance at the request's `on`. */
   readonly balance: string;
   readonly unreconciled_statement_lines: number;
+  /** With `on`: the last 30 days, its first and last points included; `null` without. */
+  readonly history: readonly BalancePoint[] | null;
+}
+
+/** `DashboardsOpenDocuments`: a sales or purchase journal's documents (reference currency). */
+export interface JournalDocuments {
+  readonly drafts: number;
+  /** `null`: a draft in a currency without rate. */
+  readonly draft_amount: string | null;
+  readonly unpaid: number;
+  readonly unpaid_amount: string;
+}
+
+/** `DashboardsDueWeek`: no `date_from`, overdue before; no `date_to`, not due yet. */
+export interface DueWeek {
+  readonly date_from: string | null;
+  readonly date_to: string | null;
+  readonly amount: string;
 }
 
 /** `DashboardsJournalSummary`. */
@@ -48,6 +72,10 @@ export interface JournalSummary {
   readonly entries: JournalEntryCounts;
   /** `null`: the treasury is not readable (`restricted` has `cash`); `[]`: none linked. */
   readonly treasury_accounts: readonly JournalTreasuryAccount[] | null;
+  /** Sales and purchase journals with `invoicing.read`; `null` otherwise. */
+  readonly invoices: JournalDocuments | null;
+  /** Odoo's six bars, with `invoices` and `on`; `null` otherwise. */
+  readonly due_weeks: readonly DueWeek[] | null;
 }
 
 /** `DashboardsJournalsResponse` (`GET dashboards/journals/`). */
@@ -57,40 +85,4 @@ export interface JournalsDashboard {
   readonly on: string | null;
   readonly restricted: readonly 'cash'[];
   readonly journals: readonly JournalSummary[];
-}
-
-/** `ReportingScope`. */
-export interface DashboardScope {
-  readonly fiscal_year: CodeReference;
-  readonly period: CodeReference | null;
-  readonly date_from: string;
-  readonly date_to: string;
-}
-
-/** `DashboardsAlert`: a closing check raised in a closing in progress. */
-export interface DashboardAlert {
-  readonly source: string;
-  readonly code: string;
-  readonly level: string;
-  /** The server's text (not stable, not translated): never shown, the `code` is. */
-  readonly message: string;
-  readonly details: Readonly<Record<string, unknown>>;
-}
-
-/** `DashboardsIndicator`: a fact of a domain, counted, without any level decided yet. */
-export interface DashboardIndicator {
-  readonly source: string;
-  readonly code: string;
-  readonly count: number;
-  readonly level: string | null;
-}
-
-/** `DashboardsAlertsResponse` (`GET dashboards/alerts/`). */
-export interface DashboardAlerts {
-  readonly company: DashboardCompany;
-  readonly scope: DashboardScope;
-  readonly alerts: readonly DashboardAlert[];
-  readonly indicators: readonly DashboardIndicator[];
-  /** The sources the reader may read: the others are not consulted. */
-  readonly sources: readonly string[];
 }

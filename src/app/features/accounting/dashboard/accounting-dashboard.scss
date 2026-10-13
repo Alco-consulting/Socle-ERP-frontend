@@ -1,183 +1,129 @@
+@use 'breakpoints' as bp;
+
 :host {
   display: flex;
   flex-direction: column;
   gap: var(--space-5);
 }
 
-.grid {
-  display: grid;
-  gap: var(--space-4);
-}
-
-.grid--journals {
-  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-
-.note,
 .empty {
   margin: var(--space-2) 0 0;
   color: var(--color-text-muted);
 }
 
-.journals {
+// Odoo's kanban: three cards a row, two on a tablet, one on a phone.
+.cards {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--space-4);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+
+  @include bp.below-laptop {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  @include bp.below-tablet {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+.card {
   display: flex;
   flex-direction: column;
   gap: var(--space-3);
-}
-
-.journal {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-2);
+  min-width: 0;
   padding: var(--space-4);
   border: var(--border-width) solid var(--color-border);
-  border-radius: var(--radius-lg);
+  border-left: 3px solid var(--color-border-strong);
+  border-radius: var(--radius-md);
   background: var(--color-surface);
   box-shadow: var(--shadow-sm);
 }
 
-.journal-head {
+// The colour of the journal's side, by type.
+.card--cash {
+  border-left-color: var(--color-danger);
+}
+
+.card--bank {
+  border-left-color: var(--color-info);
+}
+
+.card--sales,
+.card--purchase {
+  border-left-color: var(--color-primary);
+}
+
+.card-head {
   display: flex;
   align-items: center;
   gap: var(--space-2);
 }
 
-.journal-code {
-  padding: 2px var(--space-2);
-  border-radius: var(--radius-sm);
-  background: var(--color-primary-soft);
-  color: var(--color-primary-text);
-  font-family: var(--font-family-mono);
-  font-size: var(--font-size-caption);
-  font-weight: var(--font-weight-semibold);
-}
-
-.journal-name {
+.card-title {
   flex: 1;
   min-width: 0;
   margin: 0;
   overflow-wrap: anywhere;
   font-size: var(--font-size-subtitle);
   font-weight: var(--font-weight-semibold);
-}
 
-.journal-actions {
-  display: flex;
-  gap: var(--space-2);
-  margin-top: auto;
-  padding-top: var(--space-2);
-}
+  a {
+    color: var(--color-primary-text);
+    text-decoration: none;
 
-.journal-menu {
-  margin-left: auto;
-}
-
-.counters {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-2);
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-
-.counter {
-  display: flex;
-  flex-direction: column;
-  min-width: 4.5rem;
-  padding: var(--space-1) var(--space-2);
-  border: var(--border-width) solid var(--color-border);
-  border-radius: var(--radius-md);
-  color: var(--color-text);
-  text-decoration: none;
-
-  &:hover {
-    background: var(--color-surface-sunken);
+    &:hover {
+      text-decoration: underline;
+    }
   }
 }
 
-.counter--total {
-  border-color: var(--color-primary-soft);
-  background: var(--color-primary-soft);
-}
-
-.counter-count {
-  font-size: var(--font-size-subtitle);
-  font-weight: var(--font-weight-semibold);
-  font-variant-numeric: tabular-nums;
-  color: var(--color-primary-text);
-}
-
-.counter-label {
-  font-size: var(--font-size-caption);
-  color: var(--color-text-muted);
-}
-
-.treasury {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-2);
-  margin: 0;
-  padding: var(--space-2) 0 0;
-  border-top: var(--border-width) solid var(--color-border);
-  list-style: none;
-}
-
-.treasury-account {
+.card-top {
   display: flex;
   flex-wrap: wrap;
-  align-items: baseline;
-  gap: var(--space-1) var(--space-3);
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-3);
 }
 
-.treasury-name {
-  display: inline-flex;
-  align-items: center;
+.card-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.figures {
+  display: flex;
+  flex-direction: column;
   gap: var(--space-1);
-  min-width: 0;
-  overflow-wrap: anywhere;
+  margin: 0 0 0 auto;
 }
 
-.treasury-balance {
-  margin-left: auto;
-  font-weight: var(--font-weight-semibold);
-  font-variant-numeric: tabular-nums;
-}
-
-.treasury-lines {
-  flex-basis: 100%;
-  font-size: var(--font-size-caption);
-}
-
-.watches {
+.figure {
   display: flex;
-  flex-direction: column;
-  gap: var(--space-2);
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
+  align-items: baseline;
+  justify-content: flex-end;
+  gap: var(--space-5);
 
-.watch {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: var(--space-1) var(--space-3);
-}
+  dt {
+    color: var(--color-primary-text);
 
-.watch-label {
-  font-weight: var(--font-weight-medium);
-}
+    a {
+      color: inherit;
+      text-decoration: none;
 
-.watch-count {
-  margin-left: auto;
-  font-weight: var(--font-weight-semibold);
-  font-variant-numeric: tabular-nums;
-}
+      &:hover {
+        text-decoration: underline;
+      }
+    }
+  }
 
-.scope {
-  margin: var(--space-3) 0 0;
+  dd {
+    margin: 0;
+    font-variant-numeric: tabular-nums;
+    text-align: right;
+    white-space: nowrap;
+  }
 }

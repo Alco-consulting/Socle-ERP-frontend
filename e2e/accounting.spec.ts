@@ -37,32 +37,28 @@ test.describe('Comptabilité — tableau de bord réel', () => {
     await expect(page.locator('alco-page-header')).not.toContainText('Exercice');
     await expect(page.getByRole('note', { name: 'Démonstration' })).toHaveCount(0);
 
-    // Entries waiting, per journal, as dashboards/journals/ counts them (12 drafts, 4 submitted).
-    const total = async (label: string) => {
-      const links = page.getByRole('link', { name: new RegExp(`^${label} : \\d+$`) });
-      await expect(links).toHaveCount(5);
-      const names = await links.evaluateAll((all) => all.map((link) => link.ariaLabel ?? ''));
-      return names.reduce((sum, name) => sum + Number(name.split(': ')[1]), 0);
-    };
-    expect(await total('Brouillons')).toBe(12);
-    expect(await total('Soumises')).toBe(4);
+    // As Odoo's (note backend 0042): one card per active journal, bank and cash first.
+    await expect(page.locator('.card-title')).toHaveText([
+      'Caisse',
+      'Banque principale',
+      'Ventes',
+      'Achats',
+      'Opérations diverses',
+    ]);
     // No fiscal year nor chart of accounts block: the menu opens the chart.
     await expect(page.locator('alco-card', { hasText: 'Exercice et périodes' })).toHaveCount(0);
     await expect(page.locator('alco-card', { hasText: 'Plan comptable' })).toHaveCount(0);
-    const journals = page.locator('.journal-code');
-    await expect(journals).toHaveText(['ACH', 'BQ1', 'CAI', 'OD', 'VTE']);
 
-    // A fixed number of requests: no request per journal. Accounting: the open fiscal years
-    // only (the alerts' scope); the journals: one dashboards call.
-    const accounting = () =>
-      api.calls.filter((call) => new URL(call.url()).pathname.startsWith('/api/v1/accounting/'));
-    await expect.poll(() => accounting().length).toBe(1);
+    // A fixed number of requests: no request per journal, nothing read from Accounting;
+    // the journals: one dashboards call.
     await page.waitForLoadState('networkidle');
-    expect(accounting()).toHaveLength(1);
-    expect(api.callsTo('dashboards/journals/')).toHaveLength(1);
-    for (const call of accounting()) {
-      expect(await call.headerValue('x-company-id')).toBe(COMPANY_A.public_id);
-    }
+    const accounting = api.calls.filter((call) =>
+      new URL(call.url()).pathname.startsWith('/api/v1/accounting/'),
+    );
+    expect(accounting).toHaveLength(0);
+    const journals = api.callsTo('dashboards/journals/');
+    expect(journals).toHaveLength(1);
+    expect(await journals[0].headerValue('x-company-id')).toBe(COMPANY_A.public_id);
     expect(await axe(page)).toEqual([]);
   });
 });
@@ -382,7 +378,7 @@ test.describe('Comptabilité — exercices, société, permissions, téléphone'
     await expect(codes(page)).toHaveText(['Ventes Dakar']);
     await moduleNav(page).getByRole('link', { name: 'Tableau de bord' }).click();
     await expect(page.locator('alco-page-header')).toContainText('FILIALE SÉNÉGAL (test)');
-    await expect(page.locator('.journal-code')).toHaveText(['SN-VTE']);
+    await expect(page.locator('.card-title')).toHaveText(['Ventes Dakar']);
     const last = api.callsTo('accounting/journals/').at(-1)!;
     expect(await last.headerValue('x-company-id')).toBe(COMPANY_B.public_id);
   });

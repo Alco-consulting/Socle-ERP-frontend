@@ -5,13 +5,14 @@ import { FakeAccountingEntries } from './fake-accounting-entries';
 import { PartnersContext } from './fake-partners';
 
 /**
- * The dashboards of the fake API (`dashboards/journals/`, `dashboards/alerts/`) and the
- * treasury operations an entry accounts (`treasury/operations/?accounting_entry=`), shaped
- * like the OpenAPI schemas (`DashboardsJournalsResponse`, `DashboardsAlertsResponse`,
- * `TreasuryPaginatedOperationList`). The permissions are the contract's (`x-permissions` and
- * the treasury part's `dashboards.read_treasury` + `treasury.read`). Figures are fixtures:
- * the entry counts are those of the fake entries (so that a counter opens a list of the
- * same size), balances and alerts are given as such, never computed by a rule.
+ * The accounting dashboard of the fake API (`dashboards/journals/`) and the treasury
+ * operations an entry accounts (`treasury/operations/?accounting_entry=`), shaped like the
+ * OpenAPI schemas (`DashboardsJournalsResponse`, `TreasuryPaginatedOperationList`). The
+ * permissions are the contract's (`x-permissions`, the treasury part's
+ * `dashboards.read_treasury` + `treasury.read`, the documents' `invoicing.read`). Figures are
+ * fixtures: the entry counts are those of the fake entries (so that a figure opens a list of
+ * the same size); balances, their curve and the documents are given as such. Only the weeks'
+ * bounds follow `on`, as the contract says (note backend 0042).
  */
 
 interface TreasuryFixture {
@@ -48,35 +49,68 @@ const TREASURY: Readonly<Record<string, readonly TreasuryFixture[]>> = {
   ],
 };
 
-/** Alerts and indicators of each company, by source. */
-const ALERTS: Readonly<
-  Record<
-    string,
-    {
-      alerts: { source: string; code: string; level: string; target: string }[];
-      indicators: { source: string; code: string; count: number }[];
-    }
-  >
-> = {
+/** A balance curve: the balance some days before `on` (0: on `on`). */
+const HISTORY: Readonly<Record<string, readonly (readonly [days: number, balance: string])[]>> = {
+  'BANK-GNF': [
+    [30, '20000000.000000'],
+    [3, '25480000.000000'],
+    [0, '25480000.000000'],
+  ],
+  CAISSE: [
+    [30, '1250000.000000'],
+    [0, '1250000.000000'],
+  ],
+};
+
+interface DocumentsFixture {
+  readonly drafts: number;
+  readonly draft_amount: string;
+  readonly unpaid: number;
+  readonly unpaid_amount: string;
+  /** Overdue, last week, this week, the next two weeks, not due yet. */
+  readonly weeks: readonly string[];
+}
+
+const ZERO = '0.000000';
+
+/** The documents of each company's sales and purchase journals, by journal code. */
+const DOCUMENTS: Readonly<Record<string, Readonly<Record<string, DocumentsFixture>>>> = {
   A: {
-    alerts: [{ source: 'closing', code: 'pending_entries', level: 'blocking', target: '2026-09' }],
-    indicators: [
-      { source: 'taxes', code: 'declarations_not_validated', count: 2 },
-      { source: 'treasury', code: 'statement_lines_unreconciled', count: 3 },
-      { source: 'loans', code: 'installments_overdue', count: 0 },
-      { source: 'imports_exports', code: 'imports_failed', count: 1 },
-    ],
+    VTE: {
+      drafts: 1,
+      draft_amount: '1180000.000000',
+      unpaid: 2,
+      unpaid_amount: '60331200.000000',
+      weeks: ['50000000.000000', ZERO, '10331200.000000', ZERO, ZERO, ZERO],
+    },
   },
 };
 
-/** The permission that reads each source of the alerts (backend's `ALERT_PERMISSIONS`). */
-const SOURCE_PERMISSIONS: Readonly<Record<string, string>> = {
-  closing: 'closing.read',
-  taxes: 'taxes.read',
-  treasury: 'treasury.read',
-  loans: 'loans.read',
-  imports_exports: 'imports_exports.read',
+const NO_DOCUMENT: DocumentsFixture = {
+  drafts: 0,
+  draft_amount: ZERO,
+  unpaid: 0,
+  unpaid_amount: ZERO,
+  weeks: [ZERO, ZERO, ZERO, ZERO, ZERO, ZERO],
 };
+
+/** `on` moved by some days, as an ISO date. */
+function shifted(on: string, days: number): string {
+  const day = new Date(`${on}T00:00:00Z`);
+  day.setUTCDate(day.getUTCDate() + days);
+  return day.toISOString().slice(0, 10);
+}
+
+/** The six weeks' bounds around `on` (Monday first), as the contract gives them. */
+function weekBounds(on: string): [string | null, string | null][] {
+  const monday = shifted(on, -((new Date(`${on}T00:00:00Z`).getUTCDay() + 6) % 7));
+  const starts = [-7, 0, 7, 14].map((days) => shifted(monday, days));
+  return [
+    [null, shifted(starts[0], -1)],
+    ...starts.map((start): [string, string] => [start, shifted(start, 6)]),
+    [shifted(starts[3], 7), null],
+  ];
+}
 
 const COMPANY: Readonly<Record<string, { legal_name: string; reference_currency: string }>> = {
   A: { legal_name: 'Alco Guinée SARL (test)', reference_currency: 'GNF' },
@@ -121,12 +155,6 @@ export class FakeDashboards {
       }
       return this.answer(route, 200, this.journals(company, permissions, header, url));
     }
-    if (resource === 'alerts') {
-      if (!permissions.includes('dashboards.read')) {
-        return this.answer(route, 403, error('company_permission_denied'));
-      }
-      return this.answer(route, 200, this.alerts(company, permissions, header, url));
-    }
     return this.answer(route, 404, error('not_found'));
   }
 
@@ -138,6 +166,8 @@ export class FakeDashboards {
   ): object {
     const cash =
       permissions.includes('dashboards.read_treasury') && permissions.includes('treasury.read');
+    const invoicing = permissions.includes('invoicing.read');
+    const on = url.searchParams.get('on');
     const books = this.accounting.books(company);
     const entries = this.entries.entries(company);
     const journals = books.journals
@@ -171,8 +201,15 @@ export class FakeDashboards {
                   currency: account.currency,
                   balance: account.balance,
                   unreconciled_statement_lines: account.unreconciled_statement_lines,
+                  history: on
+                    ? (HISTORY[account.code] ?? []).map(([days, balance]) => ({
+                        date: shifted(on, -days),
+                        balance,
+                      }))
+                    : null,
                 }))
             : null,
+          ...this.documents(company, journal.code, journal.journal_type, invoicing, on),
         };
       });
     return {
@@ -184,34 +221,26 @@ export class FakeDashboards {
     };
   }
 
-  private alerts(
+  private documents(
     company: string,
-    permissions: readonly string[],
-    header: object,
-    url: URL,
+    code: string,
+    type: string,
+    invoicing: boolean,
+    on: string | null,
   ): object {
-    const readable = (source: string) => permissions.includes(SOURCE_PERMISSIONS[source] ?? '');
-    const year = this.accounting.books(company).years.find((item) => item.status === 'open');
-    const fixture = ALERTS[company] ?? { alerts: [], indicators: [] };
+    if (!invoicing || (type !== 'sales' && type !== 'purchase')) {
+      return { invoices: null, due_weeks: null };
+    }
+    const { weeks, ...invoices } = DOCUMENTS[company]?.[code] ?? NO_DOCUMENT;
     return {
-      company: header,
-      scope: {
-        fiscal_year: { public_id: year?.public_id ?? '', code: year?.code ?? '' },
-        period: null,
-        date_from: url.searchParams.get('date_from'),
-        date_to: url.searchParams.get('date_to'),
-      },
-      alerts: fixture.alerts
-        .filter((alert) => readable(alert.source))
-        .map(({ target, ...alert }) => ({
-          ...alert,
-          message: 'Server text (never shown).',
-          details: { run: 'run-e2e', scope: 'period', target },
-        })),
-      indicators: fixture.indicators
-        .filter((indicator) => readable(indicator.source))
-        .map((indicator) => ({ ...indicator, level: null })),
-      sources: Object.keys(SOURCE_PERMISSIONS).filter(readable),
+      invoices,
+      due_weeks: on
+        ? weekBounds(on).map(([date_from, date_to], index) => ({
+            date_from,
+            date_to,
+            amount: weeks[index],
+          }))
+        : null,
     };
   }
 

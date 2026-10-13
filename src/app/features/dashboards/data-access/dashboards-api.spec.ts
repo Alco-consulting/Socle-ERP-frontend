@@ -31,14 +31,6 @@ describe('DashboardsApi (dashboards/, read only)', () => {
     expect(await answer).toEqual({ journals: [] });
   });
 
-  it('alerts: the scope is given, never implied', () => {
-    void firstValueFrom(api.alerts('2026-01-01', '2026-10-04'));
-    const request = httpMock().expectOne((req) => req.url === '/api/v1/dashboards/alerts/');
-    expect(request.request.params.get('date_from')).toBe('2026-01-01');
-    expect(request.request.params.get('date_to')).toBe('2026-10-04');
-    request.flush({});
-  });
-
   it('follows the active company: another company, another X-Company-ID', () => {
     void firstValueFrom(api.journals('2026-10-04'));
     httpMock()

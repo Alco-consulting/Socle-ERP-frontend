@@ -64,7 +64,7 @@ test.describe('Règles de mise en page', () => {
     page,
   }, testInfo) => {
     await page.goto('/app/comptabilite/tableau-de-bord');
-    await expect(page.locator('.journal').first()).toBeVisible();
+    await expect(page.locator('.card').first()).toBeVisible();
     const nav = page.getByRole('navigation', { name: 'Navigation Comptabilité' });
     const groups = () => page.getByRole('menu').getByRole('group');
     if (testInfo.project.name === 'desktop') {
@@ -108,12 +108,16 @@ test.describe('Règles de mise en page', () => {
     expect(overflow).toBeLessThanOrEqual(0);
   });
 
-  test('the dashboard cards: counters reachable at every width', async ({ page }) => {
+  test('the dashboard cards: figures reachable, no overflow at every width', async ({ page }) => {
     await page.goto('/app/comptabilite/tableau-de-bord');
+    await expect(page.locator('alco-due-bars .bar')).toHaveCount(12);
+    const overflow = await page.evaluate(
+      () => document.documentElement.scrollWidth - document.documentElement.clientWidth,
+    );
+    expect(overflow).toBeLessThanOrEqual(0);
     const drafts = page
-      .locator('.journal')
-      .first()
-      .getByRole('link', { name: /^Brouillons : / });
+      .locator('.card', { has: page.locator('.card-title', { hasText: 'Ventes' }) })
+      .getByRole('link', { name: '1 À valider' });
     await drafts.scrollIntoViewIfNeeded();
     await drafts.click();
     await expect(page).toHaveURL(/etat=draft$/);

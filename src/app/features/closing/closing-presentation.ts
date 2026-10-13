@@ -1,7 +1,6 @@
 import { ErrorCatalog } from '../../core/errors/user-error';
 import { BadgeTone } from '../../shared/ui/badge/badge';
 import { IconName } from '../../shared/ui/icon/icons';
-import { CLOSING_CHECKS } from '../accounting/dashboard/dashboard-presentation';
 import {
   CheckLevel,
   ClosingRun,
@@ -11,6 +10,31 @@ import {
 } from './data-access/closing-models';
 
 /** Words and look of the values the closing API gives. Labels only: no state is decided here. */
+
+/** Checks of a closing in progress (Closing's codes). */
+const CLOSING_CHECKS: Readonly<Record<string, string>> = {
+  company_inactive: 'La société est désactivée',
+  scope_closed: 'La période est déjà clôturée',
+  pending_entries: 'Écritures non validées',
+  unbalanced_entries: 'Écritures déséquilibrées',
+  numbering_gaps: 'Trous dans la numérotation',
+  earlier_periods_open: 'Périodes antérieures encore ouvertes',
+  unclassified_accounts: 'Comptes non classés',
+  fx_rate_missing: 'Taux de clôture manquant',
+  treasury_unposted_operations: 'Opérations de trésorerie non comptabilisées',
+  treasury_draft_operations: 'Opérations de trésorerie en brouillon',
+  treasury_unreconciled_lines: 'Lignes de relevé non rapprochées',
+  treasury_open_statements: 'Relevés bancaires encore ouverts',
+  loans_unposted_events: 'Événements d’emprunt non comptabilisés',
+  loans_overdue_installments: 'Échéances d’emprunt en retard',
+  loans_schedule_inconsistent: 'Échéancier d’emprunt incohérent',
+  loans_accrued_interest: 'Intérêts courus à déterminer',
+  assets_depreciation_due: 'Dotations aux amortissements à enregistrer',
+  assets_depreciation_unposted: 'Dotations non comptabilisées',
+  assets_acquisitions_unposted: 'Acquisitions d’immobilisations non comptabilisées',
+  assets_impairments_draft: 'Dépréciations en brouillon',
+  tax_declarations_open: 'Déclarations de taxes non clôturées',
+};
 
 export interface Look {
   readonly label: string;

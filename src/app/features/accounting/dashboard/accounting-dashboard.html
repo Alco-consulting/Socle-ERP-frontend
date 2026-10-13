@@ -1,178 +1,133 @@
 <alco-page-header title="Tableau de bord" [subtitle]="subtitle()" />
 
-<!-- Alerts and indicators of dashboards/alerts/, over the open fiscal year up to today -->
-<alco-card title="À surveiller" icon="alert-triangle">
-  @if (yearsRead() && !alertYear()) {
-    <p class="empty">Les alertes commencent avec la première écriture de l’année.</p>
-  } @else if (alerts.error(); as error) {
-    @let text = failure(error);
-    <alco-error-state
-      [inline]="true"
-      [title]="text?.title ?? ''"
-      [message]="text?.message ?? ''"
-      [code]="text?.code ?? ''"
-      retryLabel="Réessayer"
-      (retry)="alerts.reload()"
-    />
-  } @else if (alerts.value(); as body) {
-    @if (watches().length === 0) {
-      <p class="empty">Rien à signaler.</p>
-    } @else {
-      <ul class="watches" role="list">
-        @for (watch of watches(); track watch.key) {
-          <li class="watch">
-            @if (watch.url) {
-              <a class="watch-label" [routerLink]="watch.url">{{ watch.label }}</a>
-            } @else {
-              <span class="watch-label">{{ watch.label }}</span>
-            }
-            @if (watch.detail) {
-              <span class="alco-caption">{{ watch.detail }}</span>
-            }
-            @if (watch.level; as level) {
-              <alco-badge [tone]="level.tone" [icon]="level.icon">{{ level.label }}</alco-badge>
-            }
-            @if (watch.count !== null) {
-              <span class="watch-count">{{ watch.count }}</span>
-            }
-          </li>
-        }
-      </ul>
-    }
-    <p class="alco-caption scope">
-      Du {{ body.scope.date_from | date: 'dd/MM/yyyy' }} au
-      {{ body.scope.date_to | date: 'dd/MM/yyyy' }}
-    </p>
-  } @else {
-    <alco-loading [rows]="2" label="Chargement des alertes…" />
-  }
-</alco-card>
+<!-- One card per active journal, as Odoo's: dashboards/journals/ -->
+@if (journals.error(); as error) {
+  @let text = failure(error);
+  <alco-error-state
+    [inline]="true"
+    [title]="text?.title ?? ''"
+    [message]="text?.message ?? ''"
+    [code]="text?.code ?? ''"
+    retryLabel="Réessayer"
+    (retry)="journals.reload()"
+  />
+} @else if (journals.status() === 'empty') {
+  <p class="empty">Aucun journal actif dans cette société.</p>
+} @else if (journals.value()) {
+  <ul class="cards" role="list" aria-label="Journaux">
+    @for (card of cards(); track card.journal.public_id) {
+      @let journal = card.journal;
+      <li class="card" [class]="'card--' + journal.journal_type">
+        <div class="card-head">
+          <h2 class="card-title">
+            <a
+              [routerLink]="accounting + '/ecritures/pieces'"
+              [queryParams]="{ journal: journal.public_id }"
+              >{{ journal.name }}</a
+            >
+          </h2>
+          <alco-dropdown
+            trigger="ghost"
+            size="sm"
+            icon="more"
+            align="end"
+            [iconOnly]="true"
+            [showChevron]="false"
+            [items]="card.actions"
+            [ariaLabel]="'Actions du journal ' + journal.name"
+          />
+        </div>
 
-<!-- One card per active journal: dashboards/journals/ -->
-<section class="journals" aria-labelledby="journals-title">
-  <h2 id="journals-title" class="alco-section-title">Journaux</h2>
-  @if (journals.error(); as error) {
-    @let text = failure(error);
-    <alco-error-state
-      [inline]="true"
-      [title]="text?.title ?? ''"
-      [message]="text?.message ?? ''"
-      [code]="text?.code ?? ''"
-      retryLabel="Réessayer"
-      (retry)="journals.reload()"
-    />
-  } @else if (journals.status() === 'empty') {
-    <p class="empty">Aucun journal actif dans cette société.</p>
-  } @else if (journals.value()) {
-    <ul class="grid grid--journals" role="list">
-      @for (card of cards(); track card.journal.public_id) {
-        @let journal = card.journal;
-        <li class="journal">
-          <div class="journal-head">
-            <span class="journal-code">{{ journal.code }}</span>
-            <h3 class="journal-name" [id]="'journal-' + journal.public_id">{{ journal.name }}</h3>
-            <alco-dropdown
-              class="journal-menu"
-              trigger="ghost"
-              size="sm"
-              icon="more"
-              align="end"
-              [iconOnly]="true"
-              [showChevron]="false"
-              [items]="card.actions"
-              [ariaLabel]="'Actions du journal ' + journal.code"
-            />
-          </div>
-          <p class="alco-caption">
-            {{ journalTypeLabel(journal.journal_type) }} ·
-            {{ journal.default_currency ?? 'Devise de la société' }}
-          </p>
-
-          <ul
-            class="counters"
-            role="list"
-            [attr.aria-label]="'Écritures du journal ' + journal.code"
-          >
-            @for (counter of card.counters; track counter.key) {
-              <li>
-                <a
-                  class="counter"
-                  [class.counter--total]="counter.key === 'total'"
-                  [routerLink]="accounting + '/ecritures/pieces'"
-                  [queryParams]="counter.query"
-                  [attr.aria-label]="counter.label + ' : ' + counter.count"
-                >
-                  <span class="counter-count">{{ counter.count }}</span>
-                  <span class="counter-label">{{ counter.label }}</span>
-                </a>
-              </li>
-            }
-          </ul>
-
-          @if (journal.treasury_accounts; as accounts) {
-            @if (accounts.length > 0) {
-              <ul
-                class="treasury"
-                role="list"
-                [attr.aria-label]="'Trésorerie du journal ' + journal.code"
-              >
-                @for (account of accounts; track account.public_id) {
-                  <li class="treasury-account">
-                    <span class="treasury-name">
-                      <alco-icon
-                        [name]="account.account_type === 'cash' ? 'inbox' : 'treasury'"
-                        [size]="16"
-                      />
-                      {{ account.name }}
-                      @if (account.status === 'inactive') {
-                        <span class="alco-caption">(désactivé)</span>
-                      }
-                    </span>
-                    <span class="treasury-balance">
-                      <span class="alco-sr-only">Solde du jour :</span>
-                      {{ account.balance | alcoAmount: decimals(account.currency) }}
-                      {{ account.currency }}
-                    </span>
-                    @if (account.unreconciled_statement_lines > 0) {
-                      @if (reconcileUrl(); as url) {
-                        <a class="treasury-lines" [routerLink]="url">
-                          {{ account.unreconciled_statement_lines }} à rapprocher
-                        </a>
-                      } @else {
-                        <span class="treasury-lines">
-                          {{ account.unreconciled_statement_lines }} à rapprocher
-                        </span>
-                      }
-                    }
-                  </li>
-                }
-              </ul>
-            } @else if (journal.journal_type === 'bank' || journal.journal_type === 'cash') {
-              <p class="alco-caption">Aucun compte de trésorerie n’utilise ce journal.</p>
-            }
-          }
-
-          @if (canEnter(journal)) {
-            <div class="journal-actions">
+        <div class="card-top">
+          <div class="card-buttons">
+            @if (card.main; as main) {
               <a
                 alcoButton
-                size="sm"
-                icon="plus"
-                [routerLink]="accounting + '/ecritures/nouvelle'"
-                [queryParams]="{ journal: journal.public_id }"
-                [attr.aria-label]="'Nouvelle écriture dans le journal ' + journal.code"
+                variant="primary"
+                [routerLink]="main.url"
+                [queryParams]="main.query"
+                [attr.aria-label]="main.label + ' — ' + journal.name"
+                >{{ main.label }}</a
               >
-                Nouvelle écriture
-              </a>
-            </div>
+            }
+            @if (card.kind === 'treasury') {
+              @for (account of journal.treasury_accounts ?? []; track account.public_id) {
+                @if (account.unreconciled_statement_lines > 0 && reconcileUrl(); as url) {
+                  <a alcoButton [routerLink]="url">
+                    Rapprocher {{ account.unreconciled_statement_lines }}
+                    {{ account.unreconciled_statement_lines > 1 ? 'éléments' : 'élément' }}
+                  </a>
+                }
+              }
+            }
+          </div>
+
+          @if (card.kind === 'treasury') {
+            @if (journal.treasury_accounts; as accounts) {
+              @if (accounts.length > 0) {
+                <dl class="figures">
+                  @for (account of accounts; track account.public_id) {
+                    <div class="figure">
+                      <dt>Solde{{ accounts.length > 1 ? ' ' + account.name : '' }}</dt>
+                      <dd>
+                        {{ account.balance | alcoAmount: decimals(account.currency) }}
+                        {{ account.currency }}
+                      </dd>
+                    </div>
+                  }
+                </dl>
+              } @else {
+                <p class="alco-caption">Aucun compte de trésorerie n’utilise ce journal.</p>
+              }
+            }
+          } @else if (card.figures.length > 0) {
+            <dl class="figures">
+              @for (figure of card.figures; track figure.key) {
+                <div class="figure">
+                  <dt>
+                    @if (figure.url) {
+                      <a [routerLink]="figure.url" [queryParams]="figure.query">{{
+                        figure.label
+                      }}</a>
+                    } @else {
+                      {{ figure.label }}
+                    }
+                  </dt>
+                  @if (card.kind === 'documents') {
+                    <dd>
+                      @if (figure.amount !== null) {
+                        {{ figure.amount | alcoAmount: decimals(reference()) }} {{ reference() }}
+                      }
+                    </dd>
+                  }
+                </div>
+              }
+            </dl>
           }
-        </li>
-      }
-    </ul>
-    @if (showsTreasury()) {
-      <p class="alco-caption">Soldes de trésorerie au {{ today | date: 'dd/MM/yyyy' }}.</p>
+        </div>
+
+        @if (card.kind === 'treasury' && journal.treasury_accounts?.length === 1) {
+          @let account = journal.treasury_accounts![0];
+          @if (account.history; as history) {
+            <alco-balance-curve
+              [points]="history"
+              [decimals]="decimals(account.currency)"
+              [currency]="account.currency"
+            />
+          }
+        }
+        @if (journal.due_weeks; as weeks) {
+          <alco-due-bars
+            [weeks]="weeks"
+            [today]="today"
+            [decimals]="decimals(reference())"
+            [currency]="reference()"
+            [label]="'Montants dus par semaine — ' + journal.name"
+          />
+        }
+      </li>
     }
-  } @else {
-    <alco-loading variant="cards" [rows]="3" label="Chargement des journaux…" />
-  }
-</section>
+  </ul>
+} @else {
+  <alco-loading variant="cards" [rows]="3" label="Chargement des journaux…" />
+}

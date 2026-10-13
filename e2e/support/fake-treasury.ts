@@ -297,6 +297,8 @@ interface Desk {
 
 export class FakeTreasury {
   private readonly desks: Record<string, Desk> = {};
+  /** What each transaction settled (note backend 0044). */
+  private readonly settled = new Map<string, string[]>();
   private expireNext = false;
 
   constructor(
@@ -575,6 +577,94 @@ export class FakeTreasury {
   private async answer(route: Route, status: number, json: unknown): Promise<void> {
     this.context.calls.push(route.request());
     await route.fulfill({ status, json });
+  }
+
+  /** Note backend 0044: the journal's lines, and one recorded, posted and lettered at once. */
+  private async transactions(
+    desk: Desk,
+    account: AccountJson,
+    method: string,
+    body: () => Record<string, unknown>,
+    reply: (status: number, json: unknown) => Promise<void>,
+    can: (permission: string) => boolean,
+  ): Promise<true> {
+    const json = (operation: OperationJson) => ({
+      public_id: operation.public_id,
+      operation_date: operation.operation_date,
+      description: operation.description,
+      reference: operation.reference,
+      direction: operation.direction,
+      amount: operation.amount,
+      currency: operation.currency,
+      status: operation.status,
+      counterparty: operation.counterparty
+        ? (this.lettering.partnerOf(desk.company, operation.counterparty.public_id) ?? {
+            ...operation.counterparty,
+            name: operation.counterparty.code,
+          })
+        : null,
+      counterparty_name: operation.counterparty_name,
+      offset_account: operation.offset_account ? { ...operation.offset_account, name: '' } : null,
+      accounting_entry: operation.accounting_entry,
+      settled: this.settled.get(operation.public_id) ?? [],
+    });
+    if (method === 'GET') {
+      const rows = [...desk.operations.values()]
+        .filter(
+          (item) =>
+            item.treasury_account.public_id === account.public_id && item.status !== 'cancelled',
+        )
+        .sort((a, b) => b.operation_date.localeCompare(a.operation_date));
+      await reply(200, { count: rows.length, next: null, previous: null, results: rows.map(json) });
+      return true;
+    }
+    if (!can('treasury.account')) {
+      await reply(403, error('company_permission_denied'));
+      return true;
+    }
+    const data = body();
+    const lineId = data['settled_line'] as string | null;
+    const partnerId = data['partner'] as string | null;
+    const partner = partnerId ? this.lettering.partnerOf(desk.company, partnerId) : null;
+    const created: OperationJson = {
+      public_id: uuid(),
+      treasury_account: { public_id: account.public_id, code: account.code },
+      operation_type: data['direction'] === 'inflow' ? 'deposit' : 'withdrawal',
+      direction: data['direction'] as Direction,
+      status: 'accounted',
+      operation_date: String(data['operation_date']),
+      value_date: null,
+      amount: D(String(data['amount'])),
+      currency: account.currency,
+      reference: '',
+      description: String(data['description'] ?? ''),
+      counterparty: partner ? { public_id: partner.public_id, code: partner.code } : null,
+      counterparty_name: '',
+      offset_account: data['offset_account']
+        ? { public_id: String(data['offset_account']), code: 'compte' }
+        : null,
+      transfer: null,
+      related_operation: null,
+      reason: '',
+      accounting_entry: uuid(),
+      confirmed_at: NOW,
+      accounted_at: NOW,
+      cancelled_at: null,
+      created_at: NOW,
+    };
+    if (lineId) {
+      const settled = this.lettering.settle(desk.company, lineId, String(data['amount']));
+      if (!settled) {
+        await reply(400, error('validation_error', { settled_line: [{ code: 'unknown' }] }));
+        return true;
+      }
+      created.offset_account = settled.line.account;
+      created.counterparty ??= settled.line.partner;
+      this.settled.set(created.public_id, [settled.reference]);
+    }
+    desk.operations.set(`T${desk.operations.size + 1}`, created);
+    await reply(201, json(created));
+    return true;
   }
 
   private paged<T>(route: Route, items: readonly T[]): Promise<void> {
@@ -880,6 +970,9 @@ export class FakeTreasury {
           outflows: D(outflows),
           balance: D(balance),
         });
+      }
+      if (parts[2] === 'transactions') {
+        return this.transactions(desk, account, method, body, reply, can);
       }
       if (parts[2] === 'deactivate' || parts[2] === 'reactivate') {
         if (!full) {

@@ -26,6 +26,12 @@ export const TREASURY_ROUTES: Routes = [
       { path: '**', redirectTo: '/app/comptabilite/journaux' },
     ],
   },
+  // Odoo's « Réconciliation bancaire » of a journal (note backend 0044).
+  {
+    path: 'tresorerie/transactions',
+    data: { breadcrumb: 'Réconciliation bancaire' },
+    loadComponent: () => import('./transactions/transactions-page').then((m) => m.TransactionsPage),
+  },
   {
     path: 'tresorerie/operations',
     data: { breadcrumb: 'Opérations' },

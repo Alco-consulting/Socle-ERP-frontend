@@ -35,7 +35,7 @@ describe('Application access guards (UX only: the API checks every call)', () =>
 
   it('the home of a section: its first screen open', () => {
     expect(String(run(sectionHome('accounting', 'tresorerie'), ['treasury.read']))).toBe(
-      '/app/comptabilite/tresorerie/operations',
+      '/app/comptabilite/tresorerie/transactions',
     );
   });
 

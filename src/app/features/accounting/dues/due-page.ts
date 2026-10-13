@@ -17,6 +17,7 @@ import { requestState } from '../../../core/http/request-state';
 import { AlcoFilterBar } from '../../../shared/filters/filter-bar';
 import { AlcoAutocomplete, AutocompleteOption } from '../../../shared/forms/autocomplete';
 import { AlcoFormField } from '../../../shared/forms/form-field';
+import { AlcoInput } from '../../../shared/forms/input';
 import { AlcoButton } from '../../../shared/ui/button/button';
 import { AlcoEmptyState } from '../../../shared/ui/empty-state/empty-state';
 import { AlcoErrorState } from '../../../shared/ui/error-state/error-state';
@@ -73,6 +74,7 @@ interface Found {
     AlcoFilterBar,
     AlcoAutocomplete,
     AlcoFormField,
+    AlcoInput,
     AlcoLoading,
     AlcoPageHeader,
     AlcoPendingLines,

@@ -197,7 +197,7 @@ describe('AccountingDashboardPage (dashboards/journals/, as Odoo)', () => {
     const bank = card(element, 'Coris bank')!;
     const transactions = bank.querySelector<HTMLAnchorElement>('a[aria-label^="Transactions"]');
     expect(transactions?.getAttribute('href')).toBe(
-      '/app/comptabilite/tresorerie/operations?compte=BANK1',
+      '/app/comptabilite/tresorerie/transactions?compte=BANK1',
     );
     expect(text(bank.querySelector('.figures'))).toMatch(/^Solde 20 000 000 GNF$/);
     const reconcile = Array.from(bank.querySelectorAll('a')).find((link) =>

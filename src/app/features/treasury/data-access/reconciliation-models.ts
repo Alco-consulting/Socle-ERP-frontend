@@ -68,6 +68,43 @@ export interface TreasuryBalance {
   readonly balance: string;
 }
 
+/** A reference with its name (partner, account). */
+export interface NamedReference extends CodeReference {
+  readonly name: string;
+}
+
+/** `TreasuryTransaction`: a line of a bank or cash journal, as Odoo's (note backend 0044). */
+export interface TreasuryTransaction {
+  readonly public_id: string;
+  readonly operation_date: string;
+  readonly description: string;
+  readonly reference: string;
+  readonly direction: Direction;
+  readonly amount: string;
+  readonly currency: string;
+  readonly status: OperationStatus;
+  readonly counterparty: NamedReference | null;
+  readonly counterparty_name: string;
+  readonly offset_account: NamedReference | null;
+  readonly accounting_entry: string | null;
+  /** The invoices (or entries) it settled, by reference or number. */
+  readonly settled: readonly string[];
+}
+
+/** `TreasuryTransactionWriteRequest`: recorded, posted and lettered at once. */
+export interface TransactionWrite {
+  readonly operation_date: string;
+  readonly description: string;
+  readonly direction: Direction;
+  readonly amount: string;
+  readonly partner: string | null;
+  /** An open line of the partner (an invoice), lettered with the transaction. */
+  readonly settled_line: string | null;
+  /** The counterpart account when no line is settled. */
+  readonly offset_account: string | null;
+  readonly idempotency_key: string;
+}
+
 export type StatementLineStatus = 'unreconciled' | 'reconciled' | 'excluded';
 
 /** `TreasuryStatementLine`. No partner, no account: the line is the bank's own record. */

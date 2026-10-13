@@ -60,7 +60,7 @@ test.describe('Tableau de bord comptable — comme Odoo', () => {
     await expect(card(page, 'Caisse').getByRole('link', { name: /^Rapprocher/ })).toHaveCount(0);
 
     await bank.getByRole('link', { name: 'Transactions — Banque principale' }).click();
-    await expect(page).toHaveURL(/\/app\/comptabilite\/tresorerie\/operations\?compte=BANK-GNF$/);
+    await expect(page).toHaveURL(/\/app\/comptabilite\/tresorerie\/transactions\?compte=BANK-GNF$/);
   });
 
   test('ventes : Nouveau, À valider, Non payés et les six semaines d’échéance', async ({

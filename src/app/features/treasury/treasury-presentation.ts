@@ -89,6 +89,15 @@ export const OPERATION_DOCUMENTS = 'treasury.operation';
 /** Errors of the treasury, by their stable code (backend apps/treasury). */
 export const TREASURY_ERRORS: ErrorCatalog = {
   ...RECONCILIATION_ERRORS,
+  treasury_transaction_line: {
+    title: 'Cette facture ne correspond pas.',
+    message:
+      'Une entrée d’argent règle une facture client, une sortie une facture fournisseur, du même partenaire.',
+  },
+  treasury_transaction_counterpart_missing: {
+    title: 'Contrepartie manquante.',
+    message: 'Choisissez une facture du partenaire, ou le compte de contrepartie.',
+  },
   treasury_account_code_exists: {
     title: 'Ce code est déjà utilisé.',
     message: 'Un autre compte de trésorerie de la société porte ce code.',

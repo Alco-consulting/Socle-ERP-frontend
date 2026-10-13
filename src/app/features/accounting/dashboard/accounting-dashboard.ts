@@ -127,7 +127,7 @@ export class AccountingDashboardPage {
       case 'bank':
       case 'cash': {
         const accounts = journal.treasury_accounts ?? [];
-        const operations = this.screen('tresorerie/operations');
+        const operations = this.screen('tresorerie/transactions');
         return {
           journal,
           kind: 'treasury',

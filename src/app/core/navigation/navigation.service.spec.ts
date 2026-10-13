@@ -275,7 +275,7 @@ describe('NavigationService', () => {
       labels(signIn(['accounting.read', 'taxes.read']).sectionMenu(accounting(), taxes)),
     ).toContain('Déclarations');
     expect(navigation.sectionHomeUrl(accounting(), treasury)).toBe(
-      '/app/comptabilite/tresorerie/operations',
+      '/app/comptabilite/tresorerie/transactions',
     );
     expect(
       navigation.sectionOfUrl(accounting(), '/app/comptabilite/tresorerie/operations?x=1')?.label,

@@ -14,7 +14,11 @@ export async function openMenuItem(page: Page, menu: string, label: string): Pro
     .click();
 }
 
-/** The day the e2e run in (an open fiscal year of the fake API holds it): stable balances. */
+/**
+ * The day the e2e run in (an open fiscal year of the fake API holds it): stable balances.
+ * Time then flows from it, so that the searches waiting for a pause in typing answer.
+ */
 export async function fixToday(page: Page): Promise<void> {
-  await page.clock.setFixedTime(new Date('2026-10-04T10:00:00'));
+  await page.clock.install({ time: new Date('2026-10-04T10:00:00') });
+  await page.clock.resume();
 }

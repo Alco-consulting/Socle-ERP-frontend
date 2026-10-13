@@ -1,0 +1,173 @@
+@use 'breakpoints' as bp;
+
+// Odoo's « Réconciliation bancaire »: the balance, the line typed at the top, the lines.
+:host {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.empty {
+  margin: var(--space-3) 0 0;
+  color: var(--color-text-muted);
+}
+
+.journal {
+  display: inline-flex;
+  align-self: flex-start;
+  align-items: center;
+  gap: var(--space-2);
+  color: var(--color-text-muted);
+
+  select {
+    width: auto;
+    min-width: 14rem;
+  }
+}
+
+.balance {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  background: var(--color-surface-muted);
+}
+
+.balance-label {
+  font-size: var(--font-size-subtitle);
+  font-weight: var(--font-weight-semibold);
+}
+
+.balance-amount {
+  color: var(--color-primary-text);
+  font-size: var(--font-size-subtitle);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.entry {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding: var(--space-2) var(--space-4) var(--space-3);
+  border-bottom: var(--border-width) solid var(--color-border);
+  background: var(--color-surface);
+}
+
+.entry-fields {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: var(--space-2) var(--space-4);
+}
+
+.field {
+  min-width: 0;
+}
+
+.field--date {
+  flex: 0 0 9.5rem;
+}
+
+.field--label {
+  flex: 2 1 14rem;
+}
+
+.field--partner,
+.field--account {
+  flex: 2 1 13rem;
+}
+
+.field--invoice {
+  flex: 3 1 20rem;
+}
+
+.field--amount {
+  flex: 0 1 9rem;
+  text-align: right;
+}
+
+.entry-error {
+  margin: 0;
+  color: var(--color-danger-text);
+}
+
+.entry-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.rows {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.row {
+  display: grid;
+  grid-template-columns: 5.5rem minmax(0, 1fr) minmax(0, 0.8fr) 11rem 2rem;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  border-bottom: var(--border-width) solid var(--color-border);
+  background: var(--color-surface);
+
+  @include bp.below-tablet {
+    grid-template-columns: 4.5rem minmax(0, 1fr) auto;
+    row-gap: var(--space-1);
+  }
+}
+
+.row-label,
+.row-counterpart {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.row-partner {
+  color: var(--color-primary-text);
+}
+
+.row-counterpart {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  color: var(--color-text-muted);
+
+  @include bp.below-tablet {
+    grid-column: 2 / -1;
+    grid-row: 2;
+  }
+}
+
+.row-counterpart--pending {
+  font-style: italic;
+}
+
+.row-check {
+  flex: none;
+  color: var(--color-success);
+}
+
+.row-amount {
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+  white-space: nowrap;
+}
+
+.row-amount--out {
+  color: var(--color-danger-text);
+}
+
+.row-open {
+  display: inline-flex;
+  justify-content: center;
+  color: var(--color-text-muted);
+
+  @include bp.below-tablet {
+    display: none;
+  }
+}

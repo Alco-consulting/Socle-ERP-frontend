@@ -1,0 +1,210 @@
+<alco-page-header title="Réconciliation bancaire" [subtitle]="account()?.name ?? ''">
+  <div alcoPageActions>
+    @if (canRecord() && account()) {
+      <button alcoButton type="button" variant="primary" (click)="open()">Nouveau</button>
+    }
+    @if (importUrl(); as url) {
+      <a alcoButton [routerLink]="url">Charger</a>
+    }
+  </div>
+</alco-page-header>
+
+@if (accounts.error()) {
+  <alco-error-state
+    [inline]="true"
+    title="Les journaux de banque et de caisse n’ont pas pu être chargés."
+    message="Vérifiez la connexion, puis réessayez."
+    retryLabel="Réessayer"
+    (retry)="accounts.reload()"
+  />
+} @else if (accounts.value() && !account()) {
+  <p class="empty">Aucun journal de banque ou de caisse dans cette société.</p>
+} @else if (account(); as current) {
+  @if ((accounts.value()?.length ?? 0) > 1) {
+    <label class="journal">
+      <span>Journal</span>
+      <select
+        alcoSelect
+        [value]="current.code"
+        (change)="chooseAccount($any($event.target).value)"
+        aria-label="Journal"
+      >
+        @for (item of accounts.value(); track item.public_id) {
+          <option [value]="item.code">{{ item.name }}</option>
+        }
+      </select>
+    </label>
+  }
+
+  <div class="balance" role="status">
+    <span class="balance-label">Solde actuel</span>
+    <span class="balance-amount">
+      @if (balance.value(); as found) {
+        {{ money(found.balance) }} {{ found.currency }}
+      }
+    </span>
+  </div>
+
+  <!-- The line typed at the top, as Odoo's: recorded, posted and lettered at once. -->
+  @if (canRecord() && editing()) {
+    <form
+      class="entry alco-controls-underlined"
+      [formGroup]="form"
+      (ngSubmit)="add(false)"
+      aria-label="Nouvelle transaction"
+      novalidate
+    >
+      <div class="entry-fields">
+        <input
+          alcoDatePicker
+          type="date"
+          class="field field--date"
+          formControlName="date"
+          aria-label="Date"
+        />
+        <input
+          alcoInput
+          class="field field--label"
+          formControlName="description"
+          maxlength="255"
+          placeholder="Écrire un libellé…"
+          aria-label="Libellé"
+        />
+        <alco-autocomplete
+          class="field field--partner"
+          formControlName="partner"
+          [search]="searchPartners"
+          label="Partenaire"
+          placeholder="Partenaire"
+          emptyText="Aucun partenaire actif ne correspond."
+        />
+        @if (hasPartner()) {
+          <select
+            alcoSelect
+            class="field field--invoice"
+            formControlName="line"
+            aria-label="Facture non payée"
+          >
+            <option value="">
+              {{ openLines().length ? 'Aucune facture' : 'Aucune facture non payée' }}
+            </option>
+            @for (line of openLines(); track line.public_id) {
+              <option [value]="line.public_id">{{ lineLabel(line) }}</option>
+            }
+          </select>
+        }
+        @if (needsAccount()) {
+          <alco-autocomplete
+            class="field field--account"
+            formControlName="account"
+            [search]="searchAccounts"
+            label="Compte de contrepartie"
+            placeholder="Compte de contrepartie"
+            emptyText="Aucun compte ne correspond."
+          />
+        }
+        <input
+          alcoInput
+          class="field field--amount"
+          formControlName="amountIn"
+          inputmode="decimal"
+          placeholder="Entrée"
+          aria-label="Entrée"
+          autocomplete="off"
+        />
+        <input
+          alcoInput
+          class="field field--amount"
+          formControlName="amountOut"
+          inputmode="decimal"
+          placeholder="Sortie"
+          aria-label="Sortie"
+          autocomplete="off"
+        />
+      </div>
+
+      @if (invalid(); as message) {
+        <p class="entry-error" role="alert">{{ message }}</p>
+      }
+      @if (error(); as failure) {
+        <alco-error-state
+          [inline]="true"
+          [title]="failure.title"
+          message="Vérifiez la connexion, puis réessayez."
+          [code]="failure.code"
+          [correlationId]="failure.correlationId ?? ''"
+        />
+      }
+
+      <div class="entry-actions">
+        <button
+          alcoButton
+          type="submit"
+          variant="primary"
+          [loading]="saving()"
+          loadingLabel="Ajout…"
+        >
+          Ajouter &amp; Nouveau
+        </button>
+        <button alcoButton type="button" [disabled]="saving()" (click)="add(true)">
+          Ajouter &amp; Fermer
+        </button>
+        <button alcoButton type="button" variant="ghost" (click)="ignore()">Ignorer</button>
+      </div>
+    </form>
+  }
+
+  @if (lines.error()) {
+    <alco-error-state
+      [inline]="true"
+      title="Les transactions n’ont pas pu être chargées."
+      message="Vérifiez la connexion, puis réessayez."
+      retryLabel="Réessayer"
+      (retry)="lines.reload()"
+    />
+  } @else if (lines.value(); as found) {
+    @if (rows().length === 0) {
+      <p class="empty">Aucune transaction dans ce journal.</p>
+    } @else {
+      <ul class="rows" role="list" aria-label="Transactions">
+        @for (row of rows(); track row.transaction.public_id) {
+          <li class="row">
+            <span class="row-date">{{ row.day }}</span>
+            <span class="row-label">
+              @if (row.partner) {
+                <span class="row-partner">{{ row.partner }}</span>
+              }
+              {{ row.label }}
+            </span>
+            <span class="row-counterpart" [class.row-counterpart--pending]="!row.done">
+              @if (row.done) {
+                <alco-icon name="check-circle" [size]="18" class="row-check" />
+              }
+              {{ row.counterpart }}
+            </span>
+            <span class="row-amount" [class.row-amount--out]="row.out">{{ row.amount }}</span>
+            <a
+              class="row-open"
+              [routerLink]="[operationsUrl, row.transaction.public_id]"
+              [attr.aria-label]="'Détails de la transaction du ' + row.day"
+            >
+              <alco-icon name="chevron-down" [size]="18" />
+            </a>
+          </li>
+        }
+      </ul>
+      @if (found.count > pageSize) {
+        <alco-pagination
+          [page]="page()"
+          [pageSize]="pageSize"
+          [total]="found.count"
+          (pageChange)="goTo($event)"
+        />
+      }
+    }
+  } @else {
+    <alco-loading [rows]="5" label="Chargement des transactions…" />
+  }
+} @else {
+  <alco-loading [rows]="3" label="Chargement du journal…" />
+}

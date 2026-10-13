@@ -19,6 +19,7 @@ import { SessionStore } from '../../../core/session/session.store';
 import { AlcoFilterBar, FavoriteOption } from '../../../shared/filters/filter-bar';
 import { AlcoAutocomplete, AutocompleteOption } from '../../../shared/forms/autocomplete';
 import { AlcoFormField } from '../../../shared/forms/form-field';
+import { AlcoInput } from '../../../shared/forms/input';
 import { AlcoAmountPipe } from '../../../shared/pipes/amount.pipe';
 import { AlcoCell, AlcoTable, TableColumn } from '../../../shared/tables/table';
 import { AlcoBadge } from '../../../shared/ui/badge/badge';
@@ -96,6 +97,7 @@ interface ListQuery {
     AlcoFilterBar,
     AlcoAutocomplete,
     AlcoFormField,
+    AlcoInput,
     AlcoLoading,
     AlcoPageHeader,
     AlcoPagination,

@@ -359,3 +359,55 @@ test.describe('Trésorerie — tailles d’écran et accessibilité', () => {
     expect(await axe(page)).toEqual([]);
   });
 });
+
+test.describe('Réconciliation bancaire — comme Odoo (note backend 0044)', () => {
+  test('une ligne : le partenaire, sa facture non payée, l’entrée ; ajoutée et lettrée', async ({
+    page,
+  }) => {
+    await page.goto(`${ROOT}/transactions?compte=BQ-GNF`);
+    await expect(page.getByRole('heading', { level: 1 })).toHaveText('Réconciliation bancaire');
+    await expect(page.locator('.balance')).toContainText('Solde actuel');
+    const form = page.getByRole('form', { name: 'Nouvelle transaction' });
+    await form.getByRole('combobox', { name: 'Partenaire' }).fill('CLI-002');
+    await page.getByRole('option', { name: /CLI-002/ }).click();
+
+    // The partner's unpaid invoices, then what remains on the one chosen comes in.
+    const invoices = form.getByRole('combobox', { name: 'Facture non payée' });
+    await expect(invoices.locator('option')).toHaveCount(3);
+    await expect(invoices.locator('option').nth(1)).toHaveText(
+      /FAC-103 · 06\/09\/2026 · reste 750\s000 GNF/,
+    );
+    await invoices.selectOption({ index: 1 });
+    await expect(form.getByRole('textbox', { name: 'Entrée' })).toHaveValue('750000');
+    await expect(form.getByRole('textbox', { name: 'Libellé' })).toHaveValue('Règlement FAC-103');
+    await expect(form.getByRole('combobox', { name: 'Compte de contrepartie' })).toHaveCount(0);
+    await form.getByRole('button', { name: 'Ajouter & Nouveau' }).click();
+
+    const first = page.locator('.row').first();
+    await expect(first).toContainText('Règlement FAC-103');
+    await expect(first.locator('.row-counterpart')).toHaveText('FAC-103');
+    await expect(first.locator('.row-amount')).toHaveText(/^750\s000 GNF$/);
+    // Lettered at once: the invoice is no longer offered.
+    await form.getByRole('combobox', { name: 'Partenaire' }).fill('CLI-002');
+    await page.getByRole('option', { name: /CLI-002/ }).click();
+    await expect(invoices.locator('option')).toHaveCount(2);
+    expect(await axe(page)).toEqual([]);
+  });
+
+  test('une dépense sans partenaire : son compte, la sortie', async ({ page, api }) => {
+    await page.goto(`${ROOT}/transactions?compte=BQ-GNF`);
+    const form = page.getByRole('form', { name: 'Nouvelle transaction' });
+    await form.getByRole('textbox', { name: 'Libellé' }).fill('frais achat d’eau');
+    await form.getByRole('combobox', { name: 'Compte de contrepartie' }).fill('6');
+    await page.getByRole('listbox').getByRole('option').first().click();
+    await form.getByRole('textbox', { name: 'Sortie' }).fill('25000');
+    await form.getByRole('button', { name: 'Ajouter & Fermer' }).click();
+    await expect(page.locator('.row').first()).toContainText('frais achat d’eau');
+    await expect(page.locator('.row-amount').first()).toHaveText(/^-25\s000 GNF$/);
+    await expect(form).toHaveCount(0);
+    const post = api.calls.filter(
+      (call) => call.method() === 'POST' && call.url().includes('/transactions/'),
+    );
+    expect(post[0].postDataJSON()).toMatchObject({ direction: 'outflow', amount: '25000' });
+  });
+});

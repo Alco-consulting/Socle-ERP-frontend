@@ -252,7 +252,8 @@ export const APPLICATIONS: readonly AlcoApplication[] = [
         feature: 'treasury',
         withoutBar: true,
         nav: [
-          { label: 'Transactions', path: 'operations' },
+          { label: 'Transactions', path: 'transactions' },
+          { label: 'Opérations', path: 'operations' },
           { label: 'Virements', path: 'virements' },
           { label: 'Relevés', path: 'releves' },
           { label: 'Rapprochements', path: 'rapprochements' },

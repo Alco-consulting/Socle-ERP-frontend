@@ -162,9 +162,9 @@ test.describe('Comptabilité : un lien et cinq menus groupés', () => {
   test('no « Trésorerie » tab, as Odoo: a bank card opens its transactions', async ({ page }) => {
     await page.goto('/app/comptabilite/tableau-de-bord');
     await page.getByRole('link', { name: 'Transactions — Banque principale' }).click();
-    await expect(page).toHaveURL(/\/app\/comptabilite\/tresorerie\/operations\?compte=/);
+    await expect(page).toHaveURL(/\/app\/comptabilite\/tresorerie\/transactions\?compte=/);
     await expect(page.getByRole('navigation', { name: 'Navigation Trésorerie' })).toHaveCount(0);
-    await expect(page.getByRole('heading', { level: 1 })).toHaveText('Opérations de trésorerie');
+    await expect(page.getByRole('heading', { level: 1 })).toHaveText('Réconciliation bancaire');
   });
 
   const DOMAINS = [

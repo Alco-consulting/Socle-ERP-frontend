@@ -258,6 +258,37 @@ export class FakeLettering {
     return this.desk(company).letterings;
   }
 
+  /** A partner of the company by its public id, with its name (note backend 0044). */
+  partnerOf(
+    company: string,
+    publicId: string,
+  ): { public_id: string; code: string; name: string } | null {
+    const found = this.partners.list(company).find((item) => item.public_id === publicId);
+    return found ? { public_id: found.public_id, code: found.code, name: found.name } : null;
+  }
+
+  /** A line settled by a treasury transaction: what it lettered (note backend 0044). */
+  settle(
+    company: string,
+    linePublicId: string,
+    amount: string,
+  ): { line: LineJson; reference: string } | null {
+    const line = [...this.desk(company).lines.values()].find(
+      (item) => item.public_id === linePublicId,
+    );
+    if (!line) {
+      return null;
+    }
+    const units = (value: string) => BigInt(value.split('.')[0]);
+    const settled =
+      units(amount) < units(line.open_amount) ? units(amount) : units(line.open_amount);
+    const open = units(line.open_amount) - settled;
+    line.open_amount = D(String(open));
+    line.lettered_amount = D(String(units(line.amount) - open));
+    line.status = open === 0n ? 'lettered' : 'partial';
+    return { line, reference: line.document_reference || line.entry.entry_number };
+  }
+
   /** Another user letters these lines first (the screen then shows stale lines). */
   letterBehind(company: string, keys: readonly string[]): void {
     const desk = this.desk(company);

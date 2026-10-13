@@ -17,10 +17,13 @@ import {
   StatementLineStatus,
   StatementState,
   Transfer,
+  TransactionWrite,
   TransferWrite,
   TreasuryAccount,
   TreasuryAccountWrite,
+  TreasuryBalance,
   TreasuryOperation,
+  TreasuryTransaction,
 } from './reconciliation-models';
 
 /** The fields of `TreasuryOperation` this front end shows (the rest is not read). */
@@ -82,6 +85,27 @@ export class TreasuryApi {
 
   account(accountId: string): Observable<TreasuryAccount> {
     return this.api.get<TreasuryAccount>(`treasury/accounts/${id(accountId)}/`);
+  }
+
+  /** The server's balance of the account (every booked operation). */
+  balance(accountId: string): Observable<TreasuryBalance> {
+    return this.api.get<TreasuryBalance>(`treasury/accounts/${id(accountId)}/balance/`);
+  }
+
+  /** The journal's lines, newest first (note backend 0044). */
+  transactions(accountId: string, pageNumber = 1): Observable<Paginated<TreasuryTransaction>> {
+    return this.api.get<Paginated<TreasuryTransaction>>(
+      `treasury/accounts/${id(accountId)}/transactions/`,
+      { params: { page: page(pageNumber), page_size: TREASURY_PAGE_SIZE } },
+    );
+  }
+
+  /** A line recorded, posted and, with an invoice, lettered at once. */
+  recordTransaction(accountId: string, write: TransactionWrite): Observable<TreasuryTransaction> {
+    return this.api.post<TreasuryTransaction>(
+      `treasury/accounts/${id(accountId)}/transactions/`,
+      write,
+    );
   }
 
   /** A bank or cash journal's own account (note backend 0043), or `null`. */

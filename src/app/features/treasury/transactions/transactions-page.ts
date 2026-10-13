@@ -57,15 +57,17 @@ interface Row {
   readonly label: string;
   readonly counterpart: string;
   readonly done: boolean;
-  readonly amount: string;
-  readonly out: boolean;
+  readonly inflow: string;
+  readonly outflow: string;
+  readonly running: string;
 }
 
 /**
- * Odoo's « Réconciliation bancaire » of a bank or cash journal (note backend 0044): its
- * balance, a line typed at the top (date, label, partner and one of its unpaid invoices, or
- * the counterpart account; the money in or out), then the journal's lines. A line is
- * recorded, posted and lettered by the server at once: no lettering to do afterwards.
+ * Odoo's « Réconciliation bancaire » of a bank or cash journal, as its list (note backend
+ * 0044): the line typed in the table, every field on one row (date, label, the partner and one
+ * of its unpaid invoices, or none for an advance on its account; the money in or out; the
+ * balance after it), then the journal's lines with their running balance. A line is recorded,
+ * posted and lettered by the server at once: no lettering to do afterwards.
  */
 @Component({
   selector: 'alco-transactions-page',
@@ -160,7 +162,6 @@ export class TransactionsPage {
     partner: new FormControl<AutocompleteOption | null>(null),
     /** The public id of the partner's open line (an invoice); '' : none. */
     line: new FormControl('', { nonNullable: true }),
-    account: new FormControl<AutocompleteOption | null>(null),
     amountIn: new FormControl('', { nonNullable: true }),
     amountOut: new FormControl('', { nonNullable: true }),
   });
@@ -173,7 +174,17 @@ export class TransactionsPage {
   /** The partner's unpaid invoices (its open lines), read when the partner is chosen. */
   protected readonly openLines = signal<readonly LetterableLine[]>([]);
   protected readonly hasPartner = computed(() => this.value().partner !== null);
-  protected readonly needsAccount = computed(() => this.value().line === '');
+  /** The balance after the line typed, as Odoo's « Solde courant » of the new row. */
+  protected readonly preview = computed(() => {
+    const found = this.balance.value();
+    if (!found) {
+      return '';
+    }
+    const value = this.value();
+    const amount = (text: string) => Number(normalizeDecimalInput(text.trim()) || 0);
+    const after = Number(found.balance) + amount(value.amountIn) - amount(value.amountOut);
+    return `${this.money(after.toFixed(this.decimals()))} ${found.currency}`;
+  });
 
   protected readonly searchPartners: AutocompleteSearch = (term) =>
     this.entries.partners(term).pipe(
@@ -182,16 +193,6 @@ export class TransactionsPage {
           id: partner.public_id,
           label: partner.name,
           detail: partner.code,
-        })),
-      ),
-    );
-  protected readonly searchAccounts: AutocompleteSearch = (term) =>
-    this.entries.postableAccounts(term).pipe(
-      map((found) =>
-        found.map((account) => ({
-          id: account.public_id,
-          label: account.code,
-          detail: account.name,
         })),
       ),
     );
@@ -222,7 +223,7 @@ export class TransactionsPage {
   protected lineLabel(line: LetterableLine): string {
     const name = line.document_reference || line.entry.entry_number;
     const day = formatDate(line.entry_date, 'dd/MM/yyyy', this.locale);
-    return `${name} · ${day} · reste ${this.money(line.open_amount)} ${line.currency}`;
+    return `${name} · ${day} · ${this.money(line.open_amount)} ${line.currency}`;
   }
 
   protected money(value: string): string {
@@ -244,7 +245,16 @@ export class TransactionsPage {
     this.editing.set(false);
   }
 
-  /** « Ajouter & Nouveau » (`close` false) or « Ajouter & Fermer ». */
+  /** Entrée in the row: the line saved, a new one to type (a choice in a list stays a choice). */
+  protected onEnter(event: Event): void {
+    if (event.defaultPrevented) {
+      return;
+    }
+    event.preventDefault();
+    void this.add(false);
+  }
+
+  /** « Enregistrer » (`close`), or Entrée in the row (a new line to type). */
   protected async add(close: boolean): Promise<void> {
     const account = this.account();
     if (!account || this.saving()) {
@@ -260,12 +270,8 @@ export class TransactionsPage {
       this.focus(value.date ? 'amountIn' : 'date');
       return;
     }
-    if (!value.line && !value.account) {
-      this.invalid.set(
-        value.partner
-          ? 'Choisissez une facture du partenaire, ou le compte de contrepartie.'
-          : 'Choisissez un partenaire et sa facture, ou le compte de contrepartie.',
-      );
+    if (!value.partner) {
+      this.invalid.set('Choisissez le partenaire.');
       return;
     }
     this.invalid.set(null);
@@ -279,7 +285,7 @@ export class TransactionsPage {
           amount,
           partner: value.partner?.id ?? null,
           settled_line: value.line || null,
-          offset_account: value.line ? null : (value.account?.id ?? null),
+          offset_account: null,
           idempotency_key: this.idempotencyKey,
         }),
       );
@@ -313,7 +319,6 @@ export class TransactionsPage {
       description: '',
       partner: null,
       line: '',
-      account: null,
       amountIn: '',
       amountOut: '',
     });
@@ -358,6 +363,7 @@ export class TransactionsPage {
   private rowOf(transaction: TreasuryTransaction): Row {
     const out = transaction.direction === 'outflow';
     const done = transaction.status === 'accounted';
+    const money = (value: string) => `${this.money(value)} ${transaction.currency}`;
     const account = transaction.offset_account;
     const counterpart = transaction.settled.length
       ? transaction.settled.join(', ')
@@ -371,8 +377,9 @@ export class TransactionsPage {
       label: transaction.description || transaction.reference,
       counterpart: done ? counterpart : 'À comptabiliser',
       done,
-      amount: `${out ? '-' : ''}${this.money(transaction.amount)} ${transaction.currency}`,
-      out,
+      inflow: out ? '' : money(transaction.amount),
+      outflow: out ? money(transaction.amount) : '',
+      running: transaction.running_balance === null ? '' : money(transaction.running_balance),
     };
   }
 

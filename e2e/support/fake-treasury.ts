@@ -588,6 +588,20 @@ export class FakeTreasury {
     reply: (status: number, json: unknown) => Promise<void>,
     can: (permission: string) => boolean,
   ): Promise<true> {
+    // Odoo's « Solde courant »: the balance after each line, in date order (drafts aside).
+    const units = (value: string) => BigInt(value.split('.')[0]);
+    const running = new Map<string, string>();
+    let total = units(account.opening_balance);
+    for (const item of [...desk.operations.values()]
+      .filter(
+        (row) => row.treasury_account.public_id === account.public_id && row.status !== 'cancelled',
+      )
+      .sort((a, b) => a.operation_date.localeCompare(b.operation_date))) {
+      if (item.status === 'confirmed' || item.status === 'accounted') {
+        total += item.direction === 'inflow' ? units(item.amount) : -units(item.amount);
+      }
+      running.set(item.public_id, D(String(total)));
+    }
     const json = (operation: OperationJson) => ({
       public_id: operation.public_id,
       operation_date: operation.operation_date,
@@ -607,6 +621,7 @@ export class FakeTreasury {
       offset_account: operation.offset_account ? { ...operation.offset_account, name: '' } : null,
       accounting_entry: operation.accounting_entry,
       settled: this.settled.get(operation.public_id) ?? [],
+      running_balance: running.get(operation.public_id) ?? null,
     });
     if (method === 'GET') {
       const rows = [...desk.operations.values()]
@@ -663,7 +678,7 @@ export class FakeTreasury {
       this.settled.set(created.public_id, [settled.reference]);
     }
     desk.operations.set(`T${desk.operations.size + 1}`, created);
-    await reply(201, json(created));
+    await reply(201, { ...json(created), running_balance: null });
     return true;
   }
 

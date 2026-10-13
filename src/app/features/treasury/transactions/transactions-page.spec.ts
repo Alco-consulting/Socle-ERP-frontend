@@ -42,6 +42,7 @@ const ROWS = [
     offset_account: { public_id: 'a-605', code: '605100', name: 'Fournitures non stockables' },
     accounting_entry: 'e-2',
     settled: [],
+    running_balance: '6108500.000000',
   },
   {
     public_id: 'o-1',
@@ -57,6 +58,7 @@ const ROWS = [
     offset_account: { public_id: 'a-411', code: '411100', name: 'Clients' },
     accounting_entry: 'e-1',
     settled: ['FV-2026-0001'],
+    running_balance: '6133500.000000',
   },
 ];
 const INVOICE = {
@@ -126,24 +128,55 @@ describe('Réconciliation bancaire (treasury/accounts/{id}/transactions/, note b
     return { component, element, stable, harness };
   }
 
-  it('the journal of `?compte=`: its balance and its lines, as Odoo', async () => {
+  const row = (element: HTMLElement) => element.querySelector<HTMLTableRowElement>('tr.entry')!;
+  const enter = (element: HTMLElement) =>
+    row(element).dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
+
+  it('as Odoo’s list: the header, the line typed on one row, the lines and their running balance', async () => {
     const { element } = await open();
 
-    expect(text(element.querySelector('.balance'))).toBe('Solde actuel 6 108 500 GNF');
-    const rows = Array.from(element.querySelectorAll('.row')).map((row) =>
-      ['.row-date', '.row-label', '.row-counterpart', '.row-amount'].map((cell) =>
-        text(row.querySelector(cell)),
-      ),
-    );
-    expect(rows).toEqual([
-      ['10 oct.', 'frais achat d’eau', '605100 Fournitures non stockables', '-25 000 GNF'],
-      ['5 oct.', 'Société Kaloum SARL Règlement FV-2026-0001', 'FV-2026-0001', '5 900 000 GNF'],
+    expect(Array.from(element.querySelectorAll('thead th')).map((cell) => text(cell))).toEqual([
+      'Date',
+      'Libellé',
+      'Partenaire',
+      'Facture',
+      'Entrée',
+      'Sortie',
+      'Solde courant',
+      'Détails',
     ]);
-    expect(element.querySelector('.row-amount--out')).not.toBeNull();
-    expect(element.querySelectorAll('.row-check').length).toBe(2);
+    // The new row: every field in its cell, the balance after it.
+    expect(row(element).querySelectorAll('td').length).toBe(8);
+    expect(text(row(element).querySelector('.running'))).toBe('6 108 500 GNF');
+    const lines = Array.from(element.querySelectorAll('tbody tr:not(.entry)')).map((line) =>
+      Array.from(line.querySelectorAll('td'))
+        .slice(0, 7)
+        .map((cell) => text(cell)),
+    );
+    expect(lines).toEqual([
+      [
+        '10 oct.',
+        'frais achat d’eau',
+        '',
+        '605100 Fournitures non stockables',
+        '',
+        '25 000 GNF',
+        '6 108 500 GNF',
+      ],
+      [
+        '5 oct.',
+        'Règlement FV-2026-0001',
+        'Société Kaloum SARL',
+        'FV-2026-0001',
+        '5 900 000 GNF',
+        '',
+        '6 133 500 GNF',
+      ],
+    ]);
+    expect(element.querySelectorAll('.check').length).toBe(2);
   });
 
-  it('a partner chosen: its unpaid invoices; one chosen, what remains comes in', async () => {
+  it('a partner chosen: its unpaid invoices in the same cell; one chosen, what remains comes in', async () => {
     const { component, element, stable } = await open();
     const form = component['form'];
 
@@ -156,9 +189,12 @@ describe('Réconciliation bancaire (treasury/accounts/{id}/transactions/, note b
     request.flush(page([INVOICE]));
     await stable();
     const options = Array.from(
-      element.querySelectorAll<HTMLOptionElement>('select[formControlName="line"] option'),
+      row(element).querySelectorAll<HTMLOptionElement>('select[formControlName="line"] option'),
     ).map((option) => text(option));
-    expect(options).toEqual(['Aucune facture', 'FV-2026-0002 · 01/10/2026 · reste 5 900 000 GNF']);
+    expect(options).toEqual([
+      'Aucune facture (avance)',
+      'FV-2026-0002 · 01/10/2026 · 5 900 000 GNF',
+    ]);
 
     form.controls.line.setValue('l-fv1');
     await stable();
@@ -167,21 +203,23 @@ describe('Réconciliation bancaire (treasury/accounts/{id}/transactions/, note b
       amountIn: '5900000',
       amountOut: '',
     });
-    // An invoice settled: no counterpart account to choose.
-    expect(element.querySelector('alco-autocomplete[formControlName="account"]')).toBeNull();
+    expect(text(row(element).querySelector('.running'))).toBe('12 008 500 GNF');
   });
 
-  it('« Ajouter & Nouveau »: one request, then the balance and the lines read again', async () => {
+  it('Entrée in the row: one request, the lines read again, a new line to type', async () => {
     const { component, element, stable } = await open();
     const form = component['form'];
+    form.controls.partner.setValue({ id: 'p-9', label: 'Fournisseurs Divers' });
+    httpMock()
+      .expectOne((req) => req.url === '/api/v1/accounting/letterable-lines/')
+      .flush(page([]));
     form.patchValue({
       date: '2026-10-13',
       description: 'frais de transport',
-      account: { id: 'a-618', label: '618200' },
       amountOut: '100 000',
     });
     await stable();
-    element.querySelector('form')!.dispatchEvent(new Event('submit'));
+    enter(element);
     await stable();
 
     const post = httpMock().expectOne('/api/v1/treasury/accounts/t-css/transactions/');
@@ -191,9 +229,9 @@ describe('Réconciliation bancaire (treasury/accounts/{id}/transactions/, note b
       description: 'frais de transport',
       direction: 'outflow',
       amount: '100000',
-      partner: null,
+      partner: 'p-9',
       settled_line: null,
-      offset_account: 'a-618',
+      offset_account: null,
       idempotency_key: expect.any(String),
     });
     post.flush(ROWS[0]);
@@ -205,35 +243,67 @@ describe('Réconciliation bancaire (treasury/accounts/{id}/transactions/, note b
       .expectOne((req) => req.url === '/api/v1/treasury/accounts/t-css/transactions/')
       .flush(page(ROWS));
     await stable();
-    // A new line to type, on the same date.
     expect(form.getRawValue()).toMatchObject({
       date: '2026-10-13',
       description: '',
       amountOut: '',
     });
-    expect(element.querySelector('form.entry')).not.toBeNull();
+    expect(row(element)).not.toBeNull();
   });
 
-  it('nothing sent without an amount, nor without an invoice or an account', async () => {
+  it('a partner without invoice: an advance on its account, nothing else to choose', async () => {
     const { component, element, stable } = await open();
-    element.querySelector('form')!.dispatchEvent(new Event('submit'));
+    const form = component['form'];
+    form.controls.partner.setValue({ id: 'p-1', label: 'Société Kaloum SARL' });
+    httpMock()
+      .expectOne((req) => req.url === '/api/v1/accounting/letterable-lines/')
+      .flush(page([]));
+    form.patchValue({ amountIn: '300000' });
+    await stable();
+    // « Enregistrer »: saved, then the line closes.
+    Array.from(element.querySelectorAll<HTMLButtonElement>('alco-page-header button'))
+      .find((button) => text(button) === 'Enregistrer')!
+      .click();
+    await stable();
+
+    const post = httpMock().expectOne('/api/v1/treasury/accounts/t-css/transactions/');
+    expect(post.request.body).toMatchObject({
+      direction: 'inflow',
+      amount: '300000',
+      partner: 'p-1',
+      settled_line: null,
+      offset_account: null,
+    });
+    post.flush(ROWS[1]);
+    await stable();
+    httpMock()
+      .expectOne('/api/v1/treasury/accounts/t-css/balance/')
+      .flush({ balance: '0', currency: 'GNF' });
+    httpMock()
+      .expectOne((req) => req.url === '/api/v1/treasury/accounts/t-css/transactions/')
+      .flush(page(ROWS));
+    await stable();
+    expect(element.querySelector('tr.entry')).toBeNull();
+  });
+
+  it('nothing sent without an amount, nor without a partner', async () => {
+    const { component, element, stable } = await open();
+    enter(element);
     await stable();
     expect(text(element.querySelector('.entry-error'))).toBe(
       'Saisissez la date et un montant en entrée ou en sortie.',
     );
     component['form'].patchValue({ amountIn: '1000' });
-    element.querySelector('form')!.dispatchEvent(new Event('submit'));
+    enter(element);
     await stable();
-    expect(text(element.querySelector('.entry-error'))).toBe(
-      'Choisissez un partenaire et sa facture, ou le compte de contrepartie.',
-    );
+    expect(text(element.querySelector('.entry-error'))).toBe('Choisissez le partenaire.');
     httpMock().expectNone((req) => req.method === 'POST');
   });
 
   it('read only: the lines, no line to type nor « Nouveau »', async () => {
     const { element } = await open(['treasury.read', 'accounting.read']);
-    expect(element.querySelector('form.entry')).toBeNull();
+    expect(element.querySelector('tr.entry')).toBeNull();
     expect(text(element.querySelector('alco-page-header'))).not.toContain('Nouveau');
-    expect(element.querySelectorAll('.row').length).toBe(2);
+    expect(element.querySelectorAll('tbody tr').length).toBe(2);
   });
 });

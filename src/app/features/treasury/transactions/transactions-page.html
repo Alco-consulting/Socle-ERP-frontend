@@ -1,7 +1,21 @@
 <alco-page-header title="Réconciliation bancaire" [subtitle]="account()?.name ?? ''">
   <div alcoPageActions>
     @if (canRecord() && account()) {
-      <button alcoButton type="button" variant="primary" (click)="open()">Nouveau</button>
+      @if (editing()) {
+        <button
+          alcoButton
+          type="button"
+          variant="primary"
+          [loading]="saving()"
+          loadingLabel="Enregistrement…"
+          (click)="add(true)"
+        >
+          Enregistrer
+        </button>
+        <button alcoButton type="button" (click)="ignore()">Ignorer</button>
+      } @else {
+        <button alcoButton type="button" variant="primary" (click)="open()">Nouveau</button>
+      }
     }
     @if (importUrl(); as url) {
       <a alcoButton [routerLink]="url">Charger</a>
@@ -36,122 +50,17 @@
     </label>
   }
 
-  <div class="balance" role="status">
-    <span class="balance-label">Solde actuel</span>
-    <span class="balance-amount">
-      @if (balance.value(); as found) {
-        {{ money(found.balance) }} {{ found.currency }}
-      }
-    </span>
-  </div>
-
-  <!-- The line typed at the top, as Odoo's: recorded, posted and lettered at once. -->
-  @if (canRecord() && editing()) {
-    <form
-      class="entry alco-controls-underlined"
-      [formGroup]="form"
-      (ngSubmit)="add(false)"
-      aria-label="Nouvelle transaction"
-      novalidate
-    >
-      <div class="entry-fields">
-        <input
-          alcoDatePicker
-          type="date"
-          class="field field--date"
-          formControlName="date"
-          aria-label="Date"
-        />
-        <input
-          alcoInput
-          class="field field--label"
-          formControlName="description"
-          maxlength="255"
-          placeholder="Écrire un libellé…"
-          aria-label="Libellé"
-        />
-        <alco-autocomplete
-          class="field field--partner"
-          formControlName="partner"
-          [search]="searchPartners"
-          label="Partenaire"
-          placeholder="Partenaire"
-          emptyText="Aucun partenaire actif ne correspond."
-        />
-        @if (hasPartner()) {
-          <select
-            alcoSelect
-            class="field field--invoice"
-            formControlName="line"
-            aria-label="Facture non payée"
-          >
-            <option value="">
-              {{ openLines().length ? 'Aucune facture' : 'Aucune facture non payée' }}
-            </option>
-            @for (line of openLines(); track line.public_id) {
-              <option [value]="line.public_id">{{ lineLabel(line) }}</option>
-            }
-          </select>
-        }
-        @if (needsAccount()) {
-          <alco-autocomplete
-            class="field field--account"
-            formControlName="account"
-            [search]="searchAccounts"
-            label="Compte de contrepartie"
-            placeholder="Compte de contrepartie"
-            emptyText="Aucun compte ne correspond."
-          />
-        }
-        <input
-          alcoInput
-          class="field field--amount"
-          formControlName="amountIn"
-          inputmode="decimal"
-          placeholder="Entrée"
-          aria-label="Entrée"
-          autocomplete="off"
-        />
-        <input
-          alcoInput
-          class="field field--amount"
-          formControlName="amountOut"
-          inputmode="decimal"
-          placeholder="Sortie"
-          aria-label="Sortie"
-          autocomplete="off"
-        />
-      </div>
-
-      @if (invalid(); as message) {
-        <p class="entry-error" role="alert">{{ message }}</p>
-      }
-      @if (error(); as failure) {
-        <alco-error-state
-          [inline]="true"
-          [title]="failure.title"
-          message="Vérifiez la connexion, puis réessayez."
-          [code]="failure.code"
-          [correlationId]="failure.correlationId ?? ''"
-        />
-      }
-
-      <div class="entry-actions">
-        <button
-          alcoButton
-          type="submit"
-          variant="primary"
-          [loading]="saving()"
-          loadingLabel="Ajout…"
-        >
-          Ajouter &amp; Nouveau
-        </button>
-        <button alcoButton type="button" [disabled]="saving()" (click)="add(true)">
-          Ajouter &amp; Fermer
-        </button>
-        <button alcoButton type="button" variant="ghost" (click)="ignore()">Ignorer</button>
-      </div>
-    </form>
+  @if (invalid(); as message) {
+    <p class="entry-error" role="alert">{{ message }}</p>
+  }
+  @if (error(); as failure) {
+    <alco-error-state
+      [inline]="true"
+      [title]="failure.title"
+      [message]="failure.message"
+      [code]="failure.code"
+      [correlationId]="failure.correlationId ?? ''"
+    />
   }
 
   @if (lines.error()) {
@@ -163,44 +72,131 @@
       (retry)="lines.reload()"
     />
   } @else if (lines.value(); as found) {
-    @if (rows().length === 0) {
-      <p class="empty">Aucune transaction dans ce journal.</p>
-    } @else {
-      <ul class="rows" role="list" aria-label="Transactions">
-        @for (row of rows(); track row.transaction.public_id) {
-          <li class="row">
-            <span class="row-date">{{ row.day }}</span>
-            <span class="row-label">
-              @if (row.partner) {
-                <span class="row-partner">{{ row.partner }}</span>
-              }
-              {{ row.label }}
-            </span>
-            <span class="row-counterpart" [class.row-counterpart--pending]="!row.done">
-              @if (row.done) {
-                <alco-icon name="check-circle" [size]="18" class="row-check" />
-              }
-              {{ row.counterpart }}
-            </span>
-            <span class="row-amount" [class.row-amount--out]="row.out">{{ row.amount }}</span>
-            <a
-              class="row-open"
-              [routerLink]="[operationsUrl, row.transaction.public_id]"
-              [attr.aria-label]="'Détails de la transaction du ' + row.day"
+    <!-- As Odoo's list: the line typed in the table, every field on one row. -->
+    <div class="table-wrap">
+      <table class="lines">
+        <thead>
+          <tr>
+            <th scope="col" class="col-date">Date</th>
+            <th scope="col">Libellé</th>
+            <th scope="col" class="col-partner">Partenaire</th>
+            <th scope="col" class="col-counterpart">Facture</th>
+            <th scope="col" class="col-amount num">Entrée</th>
+            <th scope="col" class="col-amount num">Sortie</th>
+            <th scope="col" class="col-balance num">Solde courant</th>
+            <th scope="col" class="col-open"><span class="alco-sr-only">Détails</span></th>
+          </tr>
+        </thead>
+        <tbody>
+          @if (canRecord() && editing()) {
+            <tr
+              class="entry alco-controls-underlined"
+              [formGroup]="form"
+              aria-label="Nouvelle transaction"
+              (keydown.enter)="onEnter($event)"
             >
-              <alco-icon name="chevron-down" [size]="18" />
-            </a>
-          </li>
-        }
-      </ul>
-      @if (found.count > pageSize) {
-        <alco-pagination
-          [page]="page()"
-          [pageSize]="pageSize"
-          [total]="found.count"
-          (pageChange)="goTo($event)"
-        />
-      }
+              <td>
+                <input alcoDatePicker type="date" formControlName="date" aria-label="Date" />
+              </td>
+              <td>
+                <input
+                  alcoInput
+                  formControlName="description"
+                  maxlength="255"
+                  placeholder="Écrire un libellé…"
+                  aria-label="Libellé"
+                />
+              </td>
+              <td>
+                <alco-autocomplete
+                  formControlName="partner"
+                  [search]="searchPartners"
+                  label="Partenaire"
+                  placeholder="Partenaire"
+                  emptyText="Aucun partenaire actif ne correspond."
+                />
+              </td>
+              <td>
+                @if (hasPartner()) {
+                  <select alcoSelect formControlName="line" aria-label="Facture non payée">
+                    <option value="">
+                      {{
+                        openLines().length ? 'Aucune facture (avance)' : 'Aucune facture non payée'
+                      }}
+                    </option>
+                    @for (line of openLines(); track line.public_id) {
+                      <option [value]="line.public_id">{{ lineLabel(line) }}</option>
+                    }
+                  </select>
+                }
+              </td>
+              <td>
+                <input
+                  alcoInput
+                  class="num"
+                  formControlName="amountIn"
+                  inputmode="decimal"
+                  placeholder="0"
+                  aria-label="Entrée"
+                  autocomplete="off"
+                />
+              </td>
+              <td>
+                <input
+                  alcoInput
+                  class="num"
+                  formControlName="amountOut"
+                  inputmode="decimal"
+                  placeholder="0"
+                  aria-label="Sortie"
+                  autocomplete="off"
+                />
+              </td>
+              <td class="num running">{{ preview() }}</td>
+              <td></td>
+            </tr>
+          }
+          @for (row of rows(); track row.transaction.public_id) {
+            <tr>
+              <td class="col-date">{{ row.day }}</td>
+              <td class="ellipsis">{{ row.label }}</td>
+              <td class="ellipsis partner">{{ row.partner }}</td>
+              <td class="ellipsis counterpart" [class.counterpart--pending]="!row.done">
+                @if (row.done) {
+                  <alco-icon name="check-circle" [size]="16" class="check" />
+                }
+                {{ row.counterpart }}
+              </td>
+              <td class="num">{{ row.inflow }}</td>
+              <td class="num out">{{ row.outflow }}</td>
+              <td class="num running">{{ row.running }}</td>
+              <td class="col-open">
+                <a
+                  class="open"
+                  [routerLink]="[operationsUrl, row.transaction.public_id]"
+                  [attr.aria-label]="'Détails de la transaction du ' + row.day"
+                >
+                  <alco-icon name="chevron-right" [size]="16" />
+                </a>
+              </td>
+            </tr>
+          } @empty {
+            @if (!editing()) {
+              <tr>
+                <td colspan="8" class="empty-row">Aucune transaction dans ce journal.</td>
+              </tr>
+            }
+          }
+        </tbody>
+      </table>
+    </div>
+    @if (found.count > pageSize) {
+      <alco-pagination
+        [page]="page()"
+        [pageSize]="pageSize"
+        [total]="found.count"
+        (pageChange)="goTo($event)"
+      />
     }
   } @else {
     <alco-loading [rows]="5" label="Chargement des transactions…" />

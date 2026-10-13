@@ -89,6 +89,8 @@ export interface TreasuryTransaction {
   readonly accounting_entry: string | null;
   /** The invoices (or entries) it settled, by reference or number. */
   readonly settled: readonly string[];
+  /** Odoo's « Solde courant »: the balance after this line, in date order. */
+  readonly running_balance: string | null;
 }
 
 /** `TreasuryTransactionWriteRequest`: recorded, posted and lettered at once. */

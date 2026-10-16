@@ -104,6 +104,13 @@ export class AccountingApi {
     return this.allAccounts({ accountType: nature });
   }
 
+  /** A partner's collective accounts to choose from: customers' or suppliers' (note backend 0045). */
+  collectiveAccounts(side: 'customer' | 'supplier'): Observable<readonly Account[]> {
+    return this.allAccounts({
+      detailedType: side === 'customer' ? 'asset_receivable' : 'liability_payable',
+    });
+  }
+
   /** Every active postable account of a nature or a type, all pages. */
   private allAccounts(filter: {
     accountType?: AccountType;

@@ -7,6 +7,7 @@ import {
   Partner,
   PartnerQuery,
   PartnerSummary,
+  PartnerTag,
   PartnerUpdate,
   PartnerWrite,
   PaymentTerm,
@@ -32,6 +33,7 @@ export class PartnersApi {
         search: query.search || null,
         role: query.role ?? null,
         status: query.status ?? null,
+        tag: query.tag ?? null,
         country: query.country || null,
         page: query.page && query.page > 1 ? query.page : null,
         page_size: query.pageSize ?? PARTNER_PAGE_SIZE,
@@ -65,6 +67,20 @@ export class PartnersApi {
 
   reactivate(id: string): Observable<Partner> {
     return this.api.post<Partner>(`partners/${encodeURIComponent(id)}/reactivate/`);
+  }
+
+  /** The company's tags, searched by name (note backend 0045). */
+  tags(search = ''): Observable<readonly PartnerTag[]> {
+    return this.api
+      .get<Paginated<PartnerTag>>('partners/tags/', {
+        params: { search: search || null, page_size: OPTIONS_PAGE_SIZE },
+      })
+      .pipe(map((page) => page.results));
+  }
+
+  /** A tag of this name, created when the company has none: Odoo's « Créer ». */
+  createTag(name: string): Observable<PartnerTag> {
+    return this.api.post<PartnerTag>('partners/tags/', { name });
   }
 
   paymentTerms(): Observable<Paginated<PaymentTerm>> {

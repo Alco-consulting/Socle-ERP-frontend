@@ -8,6 +8,7 @@ import {
   inject,
   signal,
 } from '@angular/core';
+import { toSignal } from '@angular/core/rxjs-interop';
 import { FormControl, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { catchError, firstValueFrom, map, of } from 'rxjs';
@@ -18,6 +19,11 @@ import { ApiError, toApiError } from '../../core/http/api-error';
 import { BreadcrumbService } from '../../core/navigation/route-trail';
 import { UnsavedChangesService } from '../../core/navigation/unsaved-changes';
 import { SessionStore } from '../../core/session/session.store';
+import {
+  AlcoAutocomplete,
+  AutocompleteOption,
+  AutocompleteSearch,
+} from '../../shared/forms/autocomplete';
 import { AlcoFormField } from '../../shared/forms/form-field';
 import { AlcoInput } from '../../shared/forms/input';
 import { decimalFormat } from '../../shared/forms/validators';
@@ -27,45 +33,61 @@ import { AlcoLoading } from '../../shared/ui/loading/loading';
 import { AlcoPageHeader } from '../../shared/ui/page-header/page-header';
 import { AlcoToastService } from '../../shared/ui/toast/toast.service';
 import { normalizeDecimalInput, trimDecimalZeros } from '../../shared/utils/decimal';
-import { AccountingApi } from '../accounting/data-access/accounting-api';
-import { Account } from '../accounting/data-access/accounting-models';
+import { EntriesApi } from '../accounting/data-access/entries-api';
 import { AUDIT_TYPES, AlcoObjectHistory } from '../audit/object-history';
 import { TaxesApi } from '../taxes/data-access/taxes-api';
 import { Tax } from '../taxes/data-access/taxes-models';
 import { InvoicingApi } from './data-access/invoicing-api';
-import { Product, ProductWrite } from './data-access/invoicing-models';
+import { Product, ProductWrite, UnitCategory, UnitReference } from './data-access/invoicing-models';
 import { ACCOUNTING, INVOICING_ERRORS } from './invoicing-presentation';
 
 const LIST = `${ACCOUNTING}/produits`;
+
+const unitId = (unit: UnitReference | null) => unit?.public_id ?? '';
 
 /** Business refusals that belong to one field (by their stable code). */
 const FIELD_OF_CODE: Readonly<Record<string, [string, string]>> = {
   invoicing_product_code_exists: ['code', 'Un produit de la société porte déjà cette référence.'],
   invoicing_tax_withholding_unsupported: ['tax', 'Une taxe retenue à la source ne se facture pas.'],
+  invoicing_unit_category_mismatch: [
+    'purchase_unit',
+    'L’unité d’achat est de la même catégorie que l’unité de vente.',
+  ],
 };
+
+/** A group of the unit lists: a category and its units offered. */
+interface UnitGroup {
+  readonly id: string;
+  readonly name: string;
+  readonly units: readonly Choice[];
+}
 
 interface Choice {
   readonly id: string;
   readonly label: string;
 }
 
-const accountChoice = (account: Pick<Account, 'public_id' | 'code' | 'name'>): Choice => ({
-  id: account.public_id,
-  label: `${account.code} — ${account.name}`,
-});
+/** An account of a selection field: its code, its name beside. */
+const accountOption = (account: {
+  readonly public_id: string;
+  readonly code: string;
+  readonly name: string;
+}): AutocompleteOption => ({ id: account.public_id, label: account.code, detail: account.name });
 
 /**
  * A product on one simple page, to create it (`…/produits/nouveau`) or change it
- * (`…/produits/:id`): Référence interne, Nom, Prix de vente HT, Compte de vente (the chart's
- * income accounts, class 7), Compte d'achat (expense accounts, class 6), TVA (the active
- * taxes) and « Actif » (its commands). An account may stay empty: an invoice that needs it
- * is refused at posting (note backend 0038).
+ * (`…/produits/:id`): Référence interne, Nom, Prix de vente HT, Compte de vente and Compte d'achat
+ * (any account of the chart that takes entries, searched: note backend 0045), TVA (the active
+ * taxes), « Unité de vente » and « Unité d'achat » (one category, note backend 0047) and
+ * « Actif » (its commands). An account may stay empty: an invoice that needs it is refused at
+ * posting (note backend 0038).
  */
 @Component({
   selector: 'alco-product-form',
   imports: [
     ReactiveFormsModule,
     RouterLink,
+    AlcoAutocomplete,
     AlcoButton,
     AlcoErrorState,
     AlcoFormField,
@@ -80,7 +102,7 @@ const accountChoice = (account: Pick<Account, 'public_id' | 'code' | 'name'>): C
 })
 export class ProductFormPage {
   private readonly api = inject(InvoicingApi);
-  private readonly accounting = inject(AccountingApi);
+  private readonly entries = inject(EntriesApi);
   private readonly router = inject(Router);
   private readonly route = inject(ActivatedRoute);
   private readonly toast = inject(AlcoToastService);
@@ -103,10 +125,11 @@ export class ProductFormPage {
       validators: [Validators.required, Validators.maxLength(255)],
     }),
     sale_price: new FormControl('', { nonNullable: true, validators: [decimalFormat(6)] }),
-    sale_account: new FormControl('', { nonNullable: true }),
-    purchase_account: new FormControl('', { nonNullable: true }),
+    sale_account: new FormControl<AutocompleteOption | null>(null),
+    purchase_account: new FormControl<AutocompleteOption | null>(null),
     tax: new FormControl('', { nonNullable: true, validators: [Validators.required] }),
-    unit: new FormControl('', { nonNullable: true, validators: [Validators.maxLength(32)] }),
+    sale_unit: new FormControl('', { nonNullable: true }),
+    purchase_unit: new FormControl('', { nonNullable: true }),
     active: new FormControl(true, { nonNullable: true }),
   });
 
@@ -118,8 +141,9 @@ export class ProductFormPage {
   protected readonly ready = computed(() => this.isNew || this.product() !== null);
   protected readonly title = computed(() => this.product()?.name ?? 'Nouveau produit');
 
-  private readonly income = signal<readonly Account[]>([]);
-  private readonly expense = signal<readonly Account[]>([]);
+  /** Every account of the chart that takes entries, searched by code or name (note backend 0045). */
+  protected readonly searchAccounts: AutocompleteSearch = (term) =>
+    this.entries.postableAccounts(term).pipe(map((found) => found.map(accountOption)));
   private readonly taxes = signal<readonly Tax[]>([]);
   protected readonly taxChoices = computed<readonly Choice[]>(() => {
     const current = this.product()?.tax;
@@ -131,16 +155,49 @@ export class ProductFormPage {
       : choices;
   });
 
+  private readonly categories = signal<readonly UnitCategory[]>([]);
+  private readonly saleUnit = toSignal(this.form.controls.sale_unit.valueChanges, {
+    initialValue: '',
+  });
+  /** The active units by category, with the product's own if retired since. */
+  protected readonly unitGroups = computed<readonly UnitGroup[]>(() => {
+    const product = this.product();
+    const own = [product?.sale_unit, product?.purchase_unit].map((unit) => unit?.public_id);
+    return this.categories().map((category) => ({
+      id: category.public_id,
+      name: category.name,
+      units: category.units
+        .filter((unit) => unit.status === 'active' || own.includes(unit.public_id))
+        .map((unit) => ({ id: unit.public_id, label: unit.name })),
+    }));
+  });
+  /** « Unité d'achat »: the units of the sale unit's category (bought by the bag, sold by the kg). */
+  protected readonly purchaseUnits = computed<readonly Choice[]>(() => {
+    const sale = this.saleUnit();
+    return (
+      this.unitGroups().find((group) => group.units.some((unit) => unit.id === sale))?.units ?? []
+    );
+  });
+
   constructor() {
     inject(UnsavedChangesService).track(() => this.form.dirty);
-    this.accounting
-      .accountsOfNature('income')
-      .pipe(catchError(() => of([] as readonly Account[])))
-      .subscribe((list) => this.income.set(list));
-    this.accounting
-      .accountsOfNature('expense')
-      .pipe(catchError(() => of([] as readonly Account[])))
-      .subscribe((list) => this.expense.set(list));
+    this.api
+      .unitCategories()
+      .pipe(
+        map((page) => page.results),
+        catchError(() => of([] as UnitCategory[])),
+      )
+      .subscribe((list) => {
+        this.categories.set(list);
+        this.proposeUnits();
+      });
+    // Another category for the sale: bought in the same unit, as Odoo's form.
+    this.form.controls.sale_unit.valueChanges.subscribe((sale) => {
+      const purchase = this.form.controls.purchase_unit;
+      if (!this.purchaseUnits().some((unit) => unit.id === purchase.value)) {
+        purchase.setValue(sale);
+      }
+    });
     inject(TaxesApi)
       .taxes({ status: 'active' })
       .pipe(
@@ -159,15 +216,6 @@ export class ProductFormPage {
     } else {
       afterNextRender(() => this.focus('name'), { injector: this.injector });
     }
-  }
-
-  /** The income or expense accounts, with the product's own one if the list lacks it. */
-  protected accountChoices(field: 'sale_account' | 'purchase_account'): readonly Choice[] {
-    const choices = (field === 'sale_account' ? this.income() : this.expense()).map(accountChoice);
-    const current = this.product()?.[field];
-    return current && !choices.some((choice) => choice.id === current.public_id)
-      ? [...choices, accountChoice(current)]
-      : choices;
   }
 
   protected async save(): Promise<void> {
@@ -223,11 +271,23 @@ export class ProductFormPage {
       sale_price: value.sale_price.trim()
         ? (normalizeDecimalInput(value.sale_price) ?? value.sale_price)
         : null,
-      sale_account: value.sale_account || null,
-      purchase_account: value.purchase_account || null,
+      sale_account: value.sale_account?.id ?? null,
+      purchase_account: value.purchase_account?.id ?? null,
       tax: value.tax,
-      unit: value.unit.trim(),
+      sale_unit: value.sale_unit || null,
+      purchase_unit: value.purchase_unit || null,
     };
+  }
+
+  /** A new product: « Unités », the reference of the default list's first category. */
+  private proposeUnits(): void {
+    const controls = this.form.controls;
+    const first = this.categories()[0]?.units.find((unit) => unit.unit_type === 'reference');
+    if (!this.isNew || !first || controls.sale_unit.value) {
+      return;
+    }
+    controls.sale_unit.setValue(first.public_id);
+    controls.purchase_unit.setValue(first.public_id);
   }
 
   private fill(product: Product): void {
@@ -237,10 +297,11 @@ export class ProductFormPage {
       code: product.code,
       name: product.name,
       sale_price: product.sale_price === null ? '' : trimDecimalZeros(product.sale_price, 0),
-      sale_account: product.sale_account?.public_id ?? '',
-      purchase_account: product.purchase_account?.public_id ?? '',
+      sale_account: product.sale_account ? accountOption(product.sale_account) : null,
+      purchase_account: product.purchase_account ? accountOption(product.purchase_account) : null,
       tax: product.tax.public_id,
-      unit: product.unit,
+      sale_unit: unitId(product.sale_unit),
+      purchase_unit: unitId(product.purchase_unit),
       active: product.status === 'active',
     });
     this.form.markAsPristine();
@@ -257,13 +318,6 @@ export class ProductFormPage {
     const business = error.code ? FIELD_OF_CODE[error.code] : undefined;
     if (business) {
       fields[business[0]] = business[1];
-    }
-    if (error.code === 'invoicing_product_account_nature') {
-      const account = (error.details as Record<string, unknown> | null)?.['expected'];
-      fields[account === 'expense' ? 'purchase_account' : 'sale_account'] =
-        account === 'expense'
-          ? 'Un compte de charges (classe 6) actif.'
-          : 'Un compte de produits (classe 7) actif.';
     }
     const names = Object.keys(fields).filter((name) => this.form.get(name));
     for (const name of names) {

@@ -47,6 +47,12 @@ function documents(kind: InvoiceKind): Route {
  * links (catalogue) check `invoicing.read`.
  */
 export const INVOICING_ROUTES: Routes = [
+  // Configuration › Unités de mesure (note backend 0047).
+  {
+    path: 'configuration/unites',
+    data: { breadcrumb: 'Unités de mesure' },
+    loadComponent: () => import('./units-page').then((m) => m.UnitsPage),
+  },
   documents('customer_invoice'),
   documents('customer_credit_note'),
   documents('supplier_invoice'),

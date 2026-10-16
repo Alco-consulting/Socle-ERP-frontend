@@ -14,6 +14,10 @@ import {
   Product,
   ProductQuery,
   ProductWrite,
+  Unit,
+  UnitCategory,
+  UnitUpdate,
+  UnitWrite,
 } from './invoicing-models';
 
 export const PRODUCT_PAGE_SIZE = 50;
@@ -42,6 +46,29 @@ export class InvoicingApi {
         page_size: PRODUCT_PAGE_SIZE,
       },
     });
+  }
+
+  /** Every category with its units, the default list first (note backend 0047). */
+  unitCategories(): Observable<Paginated<UnitCategory>> {
+    return this.api.get<Paginated<UnitCategory>>(`${base}unit-categories/`, {
+      params: { page_size: OPTIONS_PAGE_SIZE },
+    });
+  }
+
+  /** A category and its reference unit. */
+  createUnitCategory(name: string, referenceUnit: string): Observable<UnitCategory> {
+    return this.api.post<UnitCategory>(`${base}unit-categories/`, {
+      name,
+      reference_unit: referenceUnit,
+    });
+  }
+
+  createUnit(unit: UnitWrite): Observable<Unit> {
+    return this.api.post<Unit>(`${base}units/`, unit);
+  }
+
+  updateUnit(unitId: string, changes: UnitUpdate): Observable<Unit> {
+    return this.api.patch<Unit>(`${base}units/${id(unitId)}/`, changes);
   }
 
   /** The active products of a selection list (first page of 200, by name). */

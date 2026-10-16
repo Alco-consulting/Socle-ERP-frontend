@@ -71,6 +71,13 @@
           <label><input type="checkbox" formControlName="is_customer" /> Client</label>
           <label><input type="checkbox" formControlName="is_supplier" /> Fournisseur</label>
         </fieldset>
+        <alco-form-field
+          label="Étiquettes"
+          [optional]="true"
+          hint="Ex. Grossiste, BTP : tapez un nom pour le créer."
+        >
+          <alco-tags-field formControlName="tags" [search]="searchTags" [create]="createTag" />
+        </alco-form-field>
         <alco-form-field label="Identifiant fiscal">
           <input alcoInput formControlName="tax_identifier" maxlength="64" />
         </alco-form-field>
@@ -109,6 +116,29 @@
         </alco-form-field>
       </div>
     </section>
+
+    <!-- Odoo's « Comptabilité »: the partner's collective accounts (note backend 0045). -->
+    @if (customerAccounts().length > 0 || supplierAccounts().length > 0) {
+      <section class="section" aria-labelledby="accounting-title">
+        <h2 id="accounting-title" class="alco-section-title">Comptabilité</h2>
+        <div class="alco-form-grid">
+          <alco-form-field label="Compte client" hint="Ce qu’il doit à la société.">
+            <select alcoSelect formControlName="customer_account_code">
+              @for (code of accountCodes('customer'); track code) {
+                <option [value]="code">{{ code }} {{ accountName('customer', code) }}</option>
+              }
+            </select>
+          </alco-form-field>
+          <alco-form-field label="Compte fournisseur" hint="Ce que la société lui doit.">
+            <select alcoSelect formControlName="supplier_account_code">
+              @for (code of accountCodes('supplier'); track code) {
+                <option [value]="code">{{ code }} {{ accountName('supplier', code) }}</option>
+              }
+            </select>
+          </alco-form-field>
+        </div>
+      </section>
+    }
 
     <details class="section more" [open]="!isNew">
       <summary class="alco-section-title">Devise et conditions de paiement</summary>

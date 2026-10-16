@@ -225,6 +225,14 @@ export const APPLICATIONS: readonly AlcoApplication[] = [
               permission: 'reporting.read_auxiliary',
             },
           ]),
+          // As Odoo's « Produits » of its Configuration (note backend 0047).
+          ...group('Produits', [
+            {
+              label: 'Unités de mesure',
+              path: 'configuration/unites',
+              permission: 'invoicing.read',
+            },
+          ]),
           ...group('Taxes', [
             { label: 'Taxes', path: 'taxes/liste' },
             { label: 'Paramètres fiscaux', path: 'taxes/configuration' },

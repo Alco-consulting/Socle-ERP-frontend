@@ -74,7 +74,7 @@ function row(id: string, extra: Partial<EntryLineRow> = {}): EntryLineRow {
 }
 
 describe('Comptabilité › Écritures comptables (accounting/entry-lines/)', () => {
-  async function open(url: string) {
+  async function open(url: string, permissions: string[] = ['accounting.read']) {
     TestBed.configureTestingModule({
       providers: [
         ...provideHttpTesting(),
@@ -82,7 +82,7 @@ describe('Comptabilité › Écritures comptables (accounting/entry-lines/)', ()
         provideRouter([{ path: 'app/comptabilite/ecritures', component: EntryLinesPage }]),
       ],
     });
-    openTestSession(TestBed.inject(SessionStore), { permissions: ['accounting.read'] });
+    openTestSession(TestBed.inject(SessionStore), { permissions });
     setCookie('XSRF-TOKEN', 'tok');
     const harness = await RouterTestingHarness.create();
     await harness.navigateByUrl(url);
@@ -231,5 +231,25 @@ describe('Comptabilité › Écritures comptables (accounting/entry-lines/)', ()
     expect(text(second.element())).toContain(
       'Vous n’avez pas accès aux écritures de cette société.',
     );
+  });
+
+  it('« Nouveau » opens an entry of miscellaneous operations, with accounting.create', async () => {
+    const reader = await open(BASE);
+    await reader.stable();
+    httpMock().expectOne(is('accounting/entry-lines/')).flush(page());
+    httpMock().expectOne(is('accounting/entry-lines/classes/')).flush([]);
+    await reader.stable();
+    expect(text(reader.element().querySelector('alco-page-header')!)).not.toContain('Nouveau');
+    TestBed.resetTestingModule();
+
+    const writer = await open(BASE, ['accounting.read', 'accounting.create']);
+    await writer.stable();
+    httpMock().expectOne(is('accounting/entry-lines/')).flush(page());
+    httpMock().expectOne(is('accounting/entry-lines/classes/')).flush([]);
+    await writer.stable();
+    const create = Array.from(
+      writer.element().querySelectorAll<HTMLAnchorElement>('alco-page-header a'),
+    ).find((link) => text(link).trim() === 'Nouveau');
+    expect(create?.getAttribute('href')).toBe('/app/comptabilite/ecritures/nouvelle');
   });
 });

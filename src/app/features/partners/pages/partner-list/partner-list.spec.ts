@@ -46,6 +46,10 @@ describe('PartnerListPage (server-side list)', () => {
     openTestSession(TestBed.inject(SessionStore), { permissions });
     const harness = await RouterTestingHarness.create();
     await harness.navigateByUrl(url);
+    // The tags of the filter (note backend 0045).
+    httpMock()
+      .match((req) => req.url === '/api/v1/partners/tags/')
+      .forEach((request) => request.flush({ count: 0, next: null, previous: null, results: [] }));
     const element = harness.routeNativeElement as HTMLElement;
     const pending = (): TestRequest =>
       httpMock().expectOne((req) => req.url === '/api/v1/partners/');

@@ -297,7 +297,78 @@ describe('Réconciliation bancaire (treasury/accounts/{id}/transactions/, note b
     enter(element);
     await stable();
     expect(text(element.querySelector('.entry-error'))).toBe('Choisissez le partenaire.');
+    component['form'].controls.partner.setValue({
+      id: 'virement-interne',
+      label: 'Virement interne',
+    });
+    component['form'].controls.other.setValue('');
+    enter(element);
+    await stable();
+    expect(text(element.querySelector('.entry-error'))).toBe('Choisissez l’autre journal.');
     httpMock().expectNone((req) => req.method === 'POST');
+  });
+
+  it('« Virement interne » among the partners: the other journal chosen, both legs at once', async () => {
+    const { component, element, stable } = await open();
+    const form = component['form'];
+    const found: unknown[] = [];
+    component['searchPartners']('vir').subscribe((options) => found.push(...options));
+    httpMock()
+      .expectOne((req) => req.url === '/api/v1/partners/')
+      .flush(page([]));
+    expect(found).toEqual([{ id: 'virement-interne', label: 'Virement interne' }]);
+
+    form.controls.partner.setValue(found[0] as { id: string; label: string });
+    form.patchValue({ date: '2026-10-14', amountOut: '500000' });
+    await stable();
+    httpMock().expectNone((req) => req.url === '/api/v1/accounting/letterable-lines/');
+    const journals = row(element).querySelector<HTMLSelectElement>(
+      'select[aria-label="Autre journal"]',
+    )!;
+    expect(Array.from(journals.options).map((option) => text(option))).toEqual(['Coris bank']);
+    expect(form.controls.other.value).toBe('t-bq');
+    enter(element);
+    await stable();
+
+    const post = httpMock().expectOne('/api/v1/treasury/accounts/t-css/transactions/');
+    expect(post.request.body).toMatchObject({
+      operation_date: '2026-10-14',
+      direction: 'outflow',
+      amount: '500000',
+      partner: null,
+      settled_line: null,
+      internal_account: 't-bq',
+    });
+    post.flush({
+      ...ROWS[0],
+      public_id: 'o-3',
+      description: 'Virement interne Caisse Principale → Coris bank',
+      offset_account: null,
+      transfer_account: { public_id: 't-bq', code: 'BQ', name: 'Coris bank' },
+    });
+    await stable();
+    httpMock()
+      .expectOne('/api/v1/treasury/accounts/t-css/balance/')
+      .flush({ balance: '5608500.000000', currency: 'GNF' });
+    httpMock()
+      .expectOne((req) => req.url === '/api/v1/treasury/accounts/t-css/transactions/')
+      .flush(
+        page([
+          {
+            ...ROWS[0],
+            public_id: 'o-3',
+            offset_account: null,
+            transfer_account: { public_id: 't-bq', code: 'BQ', name: 'Coris bank' },
+          },
+        ]),
+      );
+    await stable();
+    const line = element.querySelector('tbody tr:not(.entry)')!;
+    expect(
+      Array.from(line.querySelectorAll('td'))
+        .slice(2, 4)
+        .map((cell) => text(cell)),
+    ).toEqual(['Virement interne', 'Coris bank']);
   });
 
   it('read only: the lines, no line to type nor « Nouveau »', async () => {

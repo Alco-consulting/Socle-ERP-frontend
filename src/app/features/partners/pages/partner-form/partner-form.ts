@@ -19,6 +19,7 @@ import { BreadcrumbService } from '../../../../core/navigation/route-trail';
 import { UnsavedChangesService } from '../../../../core/navigation/unsaved-changes';
 import { AlcoFormField } from '../../../../shared/forms/form-field';
 import { AlcoInput } from '../../../../shared/forms/input';
+import { AlcoTagsField, TagOption } from '../../../../shared/forms/tags-field';
 import { inputFormat } from '../../../../shared/forms/validators';
 import { AlcoButton } from '../../../../shared/ui/button/button';
 import { AlcoErrorState } from '../../../../shared/ui/error-state/error-state';
@@ -32,6 +33,8 @@ import {
   PartnerWrite,
   PaymentTerm,
 } from '../../data-access/partner-models';
+import { AccountingApi } from '../../../accounting/data-access/accounting-api';
+import { Account } from '../../../accounting/data-access/accounting-models';
 import { PartnersApi } from '../../data-access/partners-api';
 import { PARTNER_ERRORS, PARTNER_FIELD_MESSAGES } from '../../partner-presentation';
 
@@ -46,6 +49,9 @@ const TEXT_FIELDS = [
   'phone',
   'email',
 ] as const;
+
+/** The collective accounts: sent when chosen (else the server's defaults, note backend 0038). */
+const ACCOUNT_FIELDS = ['customer_account_code', 'supplier_account_code'] as const;
 
 /** References: an empty choice is sent as `null` (none). */
 const REFERENCE_FIELDS = [
@@ -84,6 +90,7 @@ function text(maxLength?: number, ...more: ReturnType<typeof inputFormat>[]) {
     AlcoInput,
     AlcoLoading,
     AlcoPageHeader,
+    AlcoTagsField,
   ],
   templateUrl: './partner-form.html',
   styleUrl: './partner-form.scss',
@@ -91,6 +98,7 @@ function text(maxLength?: number, ...more: ReturnType<typeof inputFormat>[]) {
 })
 export class PartnerFormPage {
   private readonly api = inject(PartnersApi);
+  private readonly accounting = inject(AccountingApi);
   private readonly router = inject(Router);
   private readonly route = inject(ActivatedRoute);
   private readonly toast = inject(AlcoToastService);
@@ -119,6 +127,11 @@ export class PartnerFormPage {
     default_currency: text(),
     customer_payment_term: text(),
     supplier_payment_term: text(),
+    /** Odoo's « Compte client » and « Compte fournisseur » (note backend 0045). */
+    customer_account_code: text(20),
+    supplier_account_code: text(20),
+    /** Odoo's « Étiquettes » (note backend 0045). */
+    tags: new FormControl<readonly TagOption[]>([], { nonNullable: true }),
   });
 
   /** Edition: the record being changed (its code is shown, never sent). */
@@ -129,6 +142,15 @@ export class PartnerFormPage {
   protected readonly invalidSubmit = signal(false);
 
   protected readonly currencies = signal<readonly CurrencyOption[] | null>(null);
+  /** The chart's customer and supplier accounts (none read: the server's defaults apply). */
+  protected readonly customerAccounts = signal<readonly Account[]>([]);
+  protected readonly supplierAccounts = signal<readonly Account[]>([]);
+  protected readonly searchTags = (term: string) =>
+    this.api
+      .tags(term)
+      .pipe(map((found) => found.map((tag) => ({ id: tag.public_id, label: tag.name }))));
+  protected readonly createTag = (name: string) =>
+    this.api.createTag(name).pipe(map((tag) => ({ id: tag.public_id, label: tag.name })));
   protected readonly paymentTerms = signal<readonly PaymentTerm[] | null>(null);
   protected readonly ready = computed(() => this.isNew || this.partner() !== null);
 
@@ -155,6 +177,12 @@ export class PartnerFormPage {
         catchError(() => of([])),
       )
       .subscribe((list) => this.currencies.set(list));
+    for (const side of ['customer', 'supplier'] as const) {
+      this.accounting
+        .collectiveAccounts(side)
+        .pipe(catchError(() => of([] as readonly Account[])))
+        .subscribe((list) => this.showAccounts(side, list));
+    }
     this.api
       .paymentTerms()
       .pipe(
@@ -231,6 +259,14 @@ export class PartnerFormPage {
     for (const field of REFERENCE_FIELDS) {
       write[field] = value[field] || null;
     }
+    for (const field of ACCOUNT_FIELDS) {
+      if (value[field]) {
+        write[field] = value[field];
+      }
+    }
+    if (value.tags.length > 0) {
+      write['tags'] = value.tags.map((tag) => tag.id);
+    }
     return write as unknown as PartnerWrite;
   }
 
@@ -242,6 +278,10 @@ export class PartnerFormPage {
       if (control.dirty) {
         changes[name] = creation[name];
       }
+    }
+    // Tags all removed: an empty list replaces them.
+    if (this.form.controls.tags.dirty) {
+      changes['tags'] = this.form.controls.tags.value.map((tag) => tag.id);
     }
     return changes as PartnerUpdate;
   }
@@ -255,6 +295,9 @@ export class PartnerFormPage {
       default_currency: partner.default_currency ?? '',
       customer_payment_term: partner.customer_payment_term?.public_id ?? '',
       supplier_payment_term: partner.supplier_payment_term?.public_id ?? '',
+      customer_account_code: partner.customer_account_code,
+      supplier_account_code: partner.supplier_account_code,
+      tags: (partner.tags ?? []).map((tag) => ({ id: tag.public_id, label: tag.name })),
     };
     for (const field of TEXT_FIELDS) {
       values[field] = partner[field as TextField];
@@ -262,6 +305,29 @@ export class PartnerFormPage {
     this.form.setValue(values as ReturnType<typeof this.form.getRawValue>);
     this.form.markAsPristine();
     afterNextRender(() => this.focus('name'), { injector: this.injector });
+  }
+
+  /** A new partner starts on the chart's first account, as the server would give it. */
+  private showAccounts(side: 'customer' | 'supplier', list: readonly Account[]): void {
+    (side === 'customer' ? this.customerAccounts : this.supplierAccounts).set(list);
+    const control = this.form.controls[`${side}_account_code`];
+    if (this.isNew && !control.dirty && !control.value && list.length > 0) {
+      control.setValue(list[0].code);
+    }
+  }
+
+  /** The accounts of a side, with the partner's own code if the chart no longer lists it. */
+  protected accountCodes(side: 'customer' | 'supplier'): readonly string[] {
+    const codes = (side === 'customer' ? this.customerAccounts() : this.supplierAccounts()).map(
+      (account) => account.code,
+    );
+    const own = this.form.controls[`${side}_account_code`].value;
+    return own && !codes.includes(own) ? [...codes, own] : codes;
+  }
+
+  protected accountName(side: 'customer' | 'supplier', code: string): string {
+    const list = side === 'customer' ? this.customerAccounts() : this.supplierAccounts();
+    return list.find((account) => account.code === code)?.name ?? '';
   }
 
   private showFailure(error: ApiError): void {

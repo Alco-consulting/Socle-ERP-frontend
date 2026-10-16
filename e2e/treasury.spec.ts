@@ -438,4 +438,31 @@ test.describe('Réconciliation bancaire — comme Odoo (note backend 0044)', () 
       offset_account: null,
     });
   });
+
+  test('un virement interne : la sortie de la banque, l’entrée dans la caisse, en une fois', async ({
+    page,
+  }) => {
+    // Note backend 0046: « Virement interne » in place of a partner, then the other journal.
+    await page.goto(`${ROOT}/transactions?compte=BQ-GNF`);
+    await entry(page).getByRole('combobox', { name: 'Partenaire' }).fill('vir');
+    await page.getByRole('option', { name: 'Virement interne' }).click();
+    const journal = entry(page).getByRole('combobox', { name: 'Autre journal' });
+    await expect(journal.locator('option:checked')).toHaveText('Caisse A (test)');
+    await expect(entry(page).getByRole('combobox', { name: 'Facture non payée' })).toHaveCount(0);
+    await entry(page).getByRole('textbox', { name: 'Sortie' }).fill('100000');
+    await entry(page).getByRole('textbox', { name: 'Sortie' }).press('Enter');
+
+    const out = lines(page).first();
+    await expect(out.locator('.partner')).toHaveText('Virement interne');
+    await expect(out.locator('.counterpart')).toHaveText('Caisse A (test)');
+    await expect(out.locator('td').nth(5)).toHaveText(/^100\s000 GNF$/);
+
+    await page.goto(`${ROOT}/transactions?compte=CAISSE`);
+    const into = lines(page).first();
+    await expect(into).toContainText(
+      'Virement interne Banque principale A (test) → Caisse A (test)',
+    );
+    await expect(into.locator('.counterpart')).toHaveText('Banque principale A (test)');
+    await expect(into.locator('td').nth(4)).toHaveText(/^100\s000 GNF$/);
+  });
 });

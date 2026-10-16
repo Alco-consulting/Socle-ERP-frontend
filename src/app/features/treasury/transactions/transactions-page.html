@@ -117,7 +117,13 @@
                 />
               </td>
               <td>
-                @if (hasPartner()) {
+                @if (isTransfer()) {
+                  <select alcoSelect formControlName="other" aria-label="Autre journal">
+                    @for (item of otherAccounts(); track item.public_id) {
+                      <option [value]="item.public_id">{{ item.name }}</option>
+                    }
+                  </select>
+                } @else if (hasPartner()) {
                   <select alcoSelect formControlName="line" aria-label="Facture non payée">
                     <option value="">
                       {{

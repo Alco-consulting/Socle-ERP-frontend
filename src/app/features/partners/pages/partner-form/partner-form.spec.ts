@@ -42,10 +42,19 @@ const PARTNER: Partner = {
 
 const EMPTY = { count: 0, next: null, previous: null, results: [] };
 
+const NO_ACCOUNTS: Record<string, object[]> = { asset_receivable: [], liability_payable: [] };
+const ACCOUNTS: Record<string, object[]> = {
+  asset_receivable: [
+    { public_id: 'a-411', code: '411100', name: 'Clients' },
+    { public_id: 'a-416', code: '416000', name: 'Clients douteux' },
+  ],
+  liability_payable: [{ public_id: 'a-401', code: '401100', name: 'Fournisseurs' }],
+};
+
 describe('PartnerFormPage (creation and modification)', () => {
   let navigate: ReturnType<typeof vi.spyOn>;
 
-  async function open(url: string) {
+  async function open(url: string, accounts: Record<string, object[]> = NO_ACCOUNTS) {
     TestBed.configureTestingModule({
       providers: [
         ...provideHttpTesting(),
@@ -73,6 +82,15 @@ describe('PartnerFormPage (creation and modification)', () => {
     httpMock()
       .expectOne((req) => req.url === '/api/v1/partners/payment-terms/')
       .flush(EMPTY);
+    // The chart's customer and supplier accounts (note backend 0045).
+    for (const [type, results] of Object.entries(accounts)) {
+      httpMock()
+        .expectOne(
+          (req) =>
+            req.url === '/api/v1/accounting/accounts/' && req.params.get('detailed_type') === type,
+        )
+        .flush({ ...EMPTY, results });
+    }
     navigate = vi.spyOn(TestBed.inject(Router), 'navigate').mockResolvedValue(true);
     const element = harness.routeNativeElement as HTMLElement;
     // The save is an async method: its promises settle first, then the view.
@@ -156,6 +174,64 @@ describe('PartnerFormPage (creation and modification)', () => {
     expect(TestBed.inject(AlcoToastService).toasts()[0]?.message).toBe(
       'Tiers « Diallo et Cie » créé.',
     );
+  });
+
+  it('as Odoo: the collective accounts to choose, the chart’s first ones by default', async () => {
+    const { element, stable, type, submit } = await open('/nouveau', ACCOUNTS);
+    const select = (name: string) =>
+      element.querySelector<HTMLSelectElement>(`select[formControlName="${name}"]`)!;
+    expect(select('customer_account_code').value).toBe('411100');
+    expect(select('supplier_account_code').value).toBe('401100');
+    expect(Array.from(select('customer_account_code').options).map((item) => item.text)).toEqual([
+      '411100 Clients',
+      '416000 Clients douteux',
+    ]);
+    select('customer_account_code').value = '416000';
+    select('customer_account_code').dispatchEvent(new Event('change'));
+    type('name', 'Client douteux');
+    submit();
+    await stable();
+    const request = httpMock().expectOne('/api/v1/partners/');
+    expect(request.request.body).toMatchObject({
+      customer_account_code: '416000',
+      supplier_account_code: '401100',
+    });
+    request.flush({ ...PARTNER, public_id: 'p-9' });
+    await stable();
+  });
+
+  it('tags as Odoo: searched, created on the fly, sent by their ids', async () => {
+    const { element, stable, type, submit } = await open('/nouveau');
+    const tags = element.querySelector<HTMLInputElement>('alco-tags-field input')!;
+    tags.value = 'Gross';
+    tags.dispatchEvent(new Event('input'));
+    await new Promise((resolve) => setTimeout(resolve, 250));
+    httpMock()
+      .expectOne((req) => req.url === '/api/v1/partners/tags/')
+      .flush({ ...EMPTY, results: [] });
+    await stable();
+    const create = Array.from(element.querySelectorAll('alco-tags-field [role="option"]')).find(
+      (option) => option.textContent?.includes('Créer « Gross »'),
+    ) as HTMLElement;
+    create.click();
+    await stable();
+    const created = httpMock().expectOne(
+      (req) => req.url === '/api/v1/partners/tags/' && req.method === 'POST',
+    );
+    expect(created.request.body).toEqual({ name: 'Gross' });
+    created.flush({ public_id: 't-1', name: 'Gross' });
+    await stable();
+    httpMock()
+      .match((req) => req.url === '/api/v1/partners/tags/')
+      .forEach((request) => request.flush({ ...EMPTY, results: [] }));
+    expect(element.querySelector('alco-tags-field .chip')?.textContent).toContain('Gross');
+    type('name', 'Grossiste Madina');
+    submit();
+    await stable();
+    const request = httpMock().expectOne('/api/v1/partners/');
+    expect(request.request.body).toMatchObject({ tags: ['t-1'] });
+    request.flush({ ...PARTNER, public_id: 'p-10' });
+    await stable();
   });
 
   it('a double click sends one request; the button says it is saving', async () => {

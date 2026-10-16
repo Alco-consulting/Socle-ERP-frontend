@@ -335,7 +335,23 @@
                           {{ saved?.quantity | alcoAmount: 2 }}
                         }
                       </td>
-                      <td class="hide-below-tablet">{{ unitOf(i) }}</td>
+                      <td class="hide-below-tablet">
+                        @let units = editable() ? unitChoices(i) : [];
+                        @if (units.length) {
+                          <select
+                            alcoSelect
+                            formControlName="unit"
+                            aria-label="Unité"
+                            (change)="unitChosen(i, $any($event.target).value)"
+                          >
+                            @for (unit of units; track unit.public_id) {
+                              <option [value]="unit.public_id">{{ unit.name }}</option>
+                            }
+                          </select>
+                        } @else {
+                          {{ saved?.unit?.name }}
+                        }
+                      </td>
                       <td class="num">
                         @if (editable()) {
                           <input

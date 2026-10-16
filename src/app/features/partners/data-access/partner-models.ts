@@ -8,6 +8,12 @@ export type PartnerStatus = 'active' | 'inactive';
 /** `role` filter of the list: customers, suppliers, or neither. */
 export type PartnerRole = 'customer' | 'supplier' | 'other';
 
+/** `PartnersPartnerTag`: Odoo's « Étiquette » (note backend 0045). */
+export interface PartnerTag {
+  readonly public_id: string;
+  readonly name: string;
+}
+
 /** `PartnersPartnerSummary`: a row of the list. */
 export interface PartnerSummary {
   readonly public_id: string;
@@ -19,6 +25,7 @@ export interface PartnerSummary {
   readonly country: string;
   readonly tax_identifier: string;
   readonly status: PartnerStatus;
+  readonly tags?: readonly PartnerTag[];
 }
 
 /** `PartnersPaymentTerm`. */
@@ -71,6 +78,8 @@ export interface PartnerWrite {
   readonly default_tax_code?: string;
   readonly customer_account_code?: string;
   readonly supplier_account_code?: string;
+  /** Public ids: they replace the partner's tags. */
+  readonly tags?: readonly string[];
 }
 
 /** The code is never changed after creation (the API ignores it in a PATCH). */
@@ -82,6 +91,7 @@ export interface PartnerQuery {
   readonly role?: PartnerRole | null;
   readonly status?: PartnerStatus | null;
   readonly country?: string | null;
+  readonly tag?: string | null;
   readonly page?: number;
   readonly pageSize?: number;
 }

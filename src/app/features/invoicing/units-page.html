@@ -1,0 +1,206 @@
+<alco-page-header title="Unités de mesure">
+  <div alcoPageActions>
+    @if (canManage && editing()) {
+      <button
+        alcoButton
+        type="button"
+        variant="primary"
+        [loading]="saving()"
+        loadingLabel="Enregistrement…"
+        (click)="save()"
+      >
+        Enregistrer
+      </button>
+      <button alcoButton type="button" (click)="cancel()">Annuler</button>
+    } @else if (canManage) {
+      <button alcoButton type="button" variant="primary" (click)="newCategory()">
+        Nouvelle catégorie
+      </button>
+    }
+  </div>
+</alco-page-header>
+
+@if (invalid(); as message) {
+  <p class="entry-error" role="alert">{{ message }}</p>
+}
+@if (error(); as failure) {
+  <alco-error-state
+    [inline]="true"
+    [title]="failure.title"
+    [message]="failure.message"
+    [code]="failure.code"
+    [correlationId]="failure.correlationId ?? ''"
+  />
+}
+
+@if (categories.error()) {
+  <alco-error-state
+    [inline]="true"
+    title="Les unités de mesure n’ont pas pu être chargées."
+    message="Vérifiez la connexion, puis réessayez."
+    retryLabel="Réessayer"
+    (retry)="categories.reload()"
+  />
+} @else if (categories.value(); as list) {
+  <div class="table-wrap">
+    <table class="units">
+      <thead>
+        <tr>
+          <th scope="col" class="col-name">Unité</th>
+          <th scope="col" class="col-type">Type</th>
+          <th scope="col" class="col-ratio num">Ratio</th>
+          <th scope="col" class="col-status">Statut</th>
+          <th scope="col" class="col-actions"><span class="alco-sr-only">Actions</span></th>
+        </tr>
+      </thead>
+      @if (editing()?.kind === 'category') {
+        <tbody>
+          <tr
+            class="entry alco-controls-underlined"
+            [formGroup]="categoryForm"
+            aria-label="Nouvelle catégorie"
+            (keydown.enter)="onEnter($event)"
+          >
+            <td>
+              <input
+                alcoInput
+                id="category-name"
+                formControlName="name"
+                maxlength="64"
+                placeholder="Catégorie (ex. Surface)"
+                aria-label="Nom de la catégorie"
+              />
+            </td>
+            <td colspan="2">
+              <input
+                alcoInput
+                formControlName="reference"
+                maxlength="32"
+                placeholder="Unité de référence (ex. m²)"
+                aria-label="Unité de référence"
+              />
+            </td>
+            <td colspan="2"></td>
+          </tr>
+        </tbody>
+      }
+      @for (category of list; track category.public_id) {
+        <tbody>
+          <tr class="group">
+            <th scope="rowgroup" colspan="4">{{ category.name }}</th>
+            <td class="col-actions">
+              @if (canManage && !editing()) {
+                <button
+                  alcoButton
+                  type="button"
+                  size="sm"
+                  variant="ghost"
+                  (click)="newUnit(category)"
+                >
+                  Ajouter une unité<span class="alco-sr-only"> à {{ category.name }}</span>
+                </button>
+              }
+            </td>
+          </tr>
+          @for (unit of category.units; track unit.public_id) {
+            @if (isEdited(unit)) {
+              <ng-container
+                *ngTemplateOutlet="row; context: { reference: unit.unit_type === 'reference' }"
+              />
+            } @else {
+              <tr [class.inactive]="unit.status === 'inactive'">
+                <td>{{ unit.name }}</td>
+                <td>{{ typeLabels[unit.unit_type] }}</td>
+                <td class="num">{{ ratio(unit) }}</td>
+                <td>{{ unit.status === 'active' ? 'Active' : 'Archivée' }}</td>
+                <td class="col-actions">
+                  @if (canManage && !editing()) {
+                    <button
+                      alcoButton
+                      type="button"
+                      size="sm"
+                      variant="ghost"
+                      [attr.aria-label]="'Modifier ' + unit.name"
+                      (click)="change(unit)"
+                    >
+                      Modifier
+                    </button>
+                    @if (unit.unit_type !== 'reference') {
+                      <button
+                        alcoButton
+                        type="button"
+                        size="sm"
+                        variant="ghost"
+                        [attr.aria-label]="
+                          (unit.status === 'active' ? 'Archiver ' : 'Réactiver ') + unit.name
+                        "
+                        (click)="setActive(unit, unit.status !== 'active')"
+                      >
+                        {{ unit.status === 'active' ? 'Archiver' : 'Réactiver' }}
+                      </button>
+                    }
+                  }
+                </td>
+              </tr>
+            }
+          }
+          @if (isAdding(category)) {
+            <ng-container *ngTemplateOutlet="row; context: { reference: false }" />
+          }
+        </tbody>
+      } @empty {
+        <tbody>
+          <tr>
+            <td colspan="5" class="empty-row">Aucune unité de mesure dans cette société.</td>
+          </tr>
+        </tbody>
+      }
+    </table>
+  </div>
+} @else {
+  <alco-loading [rows]="6" label="Chargement des unités de mesure…" />
+}
+
+<!-- A unit typed in its row: its name; its type and ratio, but for the reference. -->
+<ng-template #row let-reference="reference">
+  <tr
+    class="entry alco-controls-underlined"
+    [formGroup]="unitForm"
+    aria-label="Unité à enregistrer"
+    (keydown.enter)="onEnter($event)"
+  >
+    <td>
+      <input
+        alcoInput
+        id="unit-name"
+        formControlName="name"
+        maxlength="32"
+        placeholder="Unité (ex. Sac de 50 kg)"
+        aria-label="Nom de l’unité"
+      />
+    </td>
+    @if (reference) {
+      <td>{{ typeLabels.reference }}</td>
+      <td class="num">1</td>
+    } @else {
+      <td>
+        <select alcoSelect formControlName="unit_type" aria-label="Type">
+          <option value="bigger">{{ typeLabels.bigger }}</option>
+          <option value="smaller">{{ typeLabels.smaller }}</option>
+        </select>
+      </td>
+      <td>
+        <input
+          alcoInput
+          class="num"
+          formControlName="ratio"
+          inputmode="decimal"
+          placeholder="0"
+          aria-label="Ratio"
+          autocomplete="off"
+        />
+      </td>
+    }
+    <td colspan="2"></td>
+  </tr>
+</ng-template>

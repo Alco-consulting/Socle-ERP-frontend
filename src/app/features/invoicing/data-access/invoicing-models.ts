@@ -14,6 +14,49 @@ export interface TaxReference extends NamedReference {
   readonly rate: string;
 }
 
+/** `InvoicingUnitReference`: a unit of measure, as a product or a line names it (note backend 0047). */
+export interface UnitReference {
+  readonly public_id: string;
+  readonly name: string;
+  /** Its category's public id: a line's unit is of the product's category. */
+  readonly category: string;
+  /** Reference units in one of it (a dozen: 12; a gram: 0.001). */
+  readonly factor: string;
+}
+
+export type UnitType = 'reference' | 'bigger' | 'smaller';
+
+/** `InvoicingUnit`. */
+export interface Unit {
+  readonly public_id: string;
+  readonly name: string;
+  readonly unit_type: UnitType;
+  readonly ratio: string;
+  readonly factor: string;
+  readonly status: RecordStatus;
+}
+
+/** `InvoicingUnitCategory`: its units, the reference first. */
+export interface UnitCategory {
+  readonly public_id: string;
+  readonly name: string;
+  readonly units: readonly Unit[];
+}
+
+export interface UnitWrite {
+  readonly category: string;
+  readonly name: string;
+  readonly unit_type: Exclude<UnitType, 'reference'>;
+  readonly ratio: string;
+}
+
+export interface UnitUpdate {
+  readonly name?: string;
+  readonly unit_type?: UnitType;
+  readonly ratio?: string;
+  readonly status?: RecordStatus;
+}
+
 /** `InvoicingProduct`. */
 export interface Product {
   readonly public_id: string;
@@ -23,8 +66,9 @@ export interface Product {
   readonly sale_account: NamedReference | null;
   readonly purchase_account: NamedReference | null;
   readonly tax: TaxReference;
-  /** « Unité » of its lines (Utilisateur, Société, kg…); may be empty. */
-  readonly unit: string;
+  /** « Unité de vente » and « Unité d'achat », of one category (note backend 0047). */
+  readonly sale_unit: UnitReference | null;
+  readonly purchase_unit: UnitReference | null;
   readonly status: RecordStatus;
   readonly created_at: string;
   readonly updated_at: string;
@@ -38,7 +82,8 @@ export interface ProductWrite {
   readonly sale_account?: string | null;
   readonly purchase_account?: string | null;
   readonly tax: string;
-  readonly unit?: string;
+  readonly sale_unit?: string | null;
+  readonly purchase_unit?: string | null;
 }
 
 export interface ProductQuery {
@@ -61,7 +106,7 @@ export interface InvoiceLine {
   readonly product: NamedReference | null;
   readonly description: string;
   readonly quantity: string;
-  readonly unit: string;
+  readonly unit: UnitReference | null;
   readonly unit_price: string;
   readonly tax: TaxReference | null;
   readonly amount_untaxed: string;
@@ -147,6 +192,8 @@ export interface InvoiceLineWrite {
   readonly product?: string | null;
   readonly quantity?: string;
   readonly unit_price?: string | null;
+  /** Absent: the product's unit for the side. */
+  readonly unit?: string | null;
   readonly description?: string;
   readonly tax?: string | null;
 }

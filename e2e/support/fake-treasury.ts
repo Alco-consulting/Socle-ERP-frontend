@@ -602,6 +602,18 @@ export class FakeTreasury {
       }
       running.set(item.public_id, D(String(total)));
     }
+    // An internal transfer's other journal (note backend 0046).
+    const otherOf = (operation: OperationJson) => {
+      const leg = [...desk.operations.values()].find(
+        (item) => item.transfer === operation.transfer && item !== operation,
+      );
+      const other = desk.accounts.find(
+        (item) => item.public_id === leg?.treasury_account.public_id,
+      );
+      return operation.transfer && other
+        ? { public_id: other.public_id, code: other.code, name: other.name }
+        : null;
+    };
     const json = (operation: OperationJson) => ({
       public_id: operation.public_id,
       operation_date: operation.operation_date,
@@ -622,6 +634,7 @@ export class FakeTreasury {
       accounting_entry: operation.accounting_entry,
       settled: this.settled.get(operation.public_id) ?? [],
       running_balance: running.get(operation.public_id) ?? null,
+      transfer_account: otherOf(operation),
     });
     if (method === 'GET') {
       const rows = [...desk.operations.values()]
@@ -638,6 +651,9 @@ export class FakeTreasury {
       return true;
     }
     const data = body();
+    if (data['internal_account']) {
+      return this.internalTransfer(desk, account, data, json, reply);
+    }
     const lineId = data['settled_line'] as string | null;
     const partnerId = data['partner'] as string | null;
     const partner = partnerId ? this.lettering.partnerOf(desk.company, partnerId) : null;
@@ -679,6 +695,58 @@ export class FakeTreasury {
     }
     desk.operations.set(`T${desk.operations.size + 1}`, created);
     await reply(201, { ...json(created), running_balance: null });
+    return true;
+  }
+
+  /** « Virement interne » (note backend 0046): out here, in there, both accounted at once. */
+  private async internalTransfer(
+    desk: Desk,
+    account: AccountJson,
+    data: Record<string, unknown>,
+    json: (operation: OperationJson) => unknown,
+    reply: (status: number, json: unknown) => Promise<void>,
+  ): Promise<true> {
+    const other = desk.accounts.find((item) => item.public_id === data['internal_account']);
+    if (!other || other.public_id === account.public_id) {
+      await reply(400, error('validation_error', { internal_account: [{ code: 'unknown' }] }));
+      return true;
+    }
+    const out = data['direction'] === 'outflow';
+    const [source, destination] = out ? [account, other] : [other, account];
+    const transfer = uuid();
+    const entry = uuid();
+    const description =
+      String(data['description'] ?? '') || `Virement interne ${source.name} → ${destination.name}`;
+    const leg = (owner: AccountJson, direction: Direction): OperationJson => ({
+      public_id: uuid(),
+      treasury_account: { public_id: owner.public_id, code: owner.code },
+      operation_type: 'transfer',
+      direction,
+      status: 'accounted',
+      operation_date: String(data['operation_date']),
+      value_date: null,
+      amount: D(String(data['amount'])),
+      currency: owner.currency,
+      reference: '',
+      description,
+      counterparty: null,
+      counterparty_name: '',
+      offset_account: null,
+      transfer,
+      related_operation: null,
+      reason: '',
+      accounting_entry: entry,
+      confirmed_at: NOW,
+      accounted_at: NOW,
+      cancelled_at: null,
+      created_at: NOW,
+    });
+    const legs = [leg(source, 'outflow'), leg(destination, 'inflow')];
+    for (const item of legs) {
+      desk.operations.set(`T${desk.operations.size + 1}`, item);
+    }
+    const mine = legs.find((item) => item.treasury_account.public_id === account.public_id)!;
+    await reply(201, { ...(json(mine) as object), running_balance: null });
     return true;
   }
 

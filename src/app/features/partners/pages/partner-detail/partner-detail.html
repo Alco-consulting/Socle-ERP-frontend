@@ -125,6 +125,16 @@
           <dd>{{ role() }}</dd>
         </div>
         <div>
+          <dt>Étiquettes</dt>
+          <dd>
+            @for (tag of partner.tags ?? []; track tag.public_id) {
+              <span class="tag">{{ tag.name }}</span>
+            } @empty {
+              —
+            }
+          </dd>
+        </div>
+        <div>
           <dt>Pays</dt>
           <dd>{{ partner.country }}</dd>
         </div>

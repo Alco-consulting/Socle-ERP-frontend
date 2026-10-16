@@ -10,7 +10,7 @@ import {
 import { takeUntilDestroyed, toSignal } from '@angular/core/rxjs-interop';
 import { FormControl, FormGroup, ReactiveFormsModule } from '@angular/forms';
 import { ActivatedRoute, Params, Router, RouterLink } from '@angular/router';
-import { Subject, debounceTime, map } from 'rxjs';
+import { Subject, catchError, debounceTime, map, of } from 'rxjs';
 
 import { toUserError } from '../../../../core/errors/user-error';
 import { requestState } from '../../../../core/http/request-state';
@@ -29,7 +29,12 @@ import { AlcoLoading } from '../../../../shared/ui/loading/loading';
 import { AlcoPageHeader } from '../../../../shared/ui/page-header/page-header';
 import { AlcoPagination } from '../../../../shared/ui/pagination/pagination';
 import { AlcoDomainTransfers } from '../../../transfers/domain-transfers';
-import { PartnerRole, PartnerStatus, PartnerSummary } from '../../data-access/partner-models';
+import {
+  PartnerRole,
+  PartnerStatus,
+  PartnerSummary,
+  PartnerTag,
+} from '../../data-access/partner-models';
 import { PARTNER_PAGE_SIZE, PartnersApi } from '../../data-access/partners-api';
 import {
   PARTNER_ERRORS,
@@ -40,7 +45,14 @@ import {
 } from '../../partner-presentation';
 
 /** The list's state lives in the URL: « Retour » and a shared link restore it. */
-const PARAM = { search: 'q', role: 'role', status: 'etat', country: 'pays', page: 'page' } as const;
+const PARAM = {
+  search: 'q',
+  role: 'role',
+  status: 'etat',
+  country: 'pays',
+  tag: 'etiquette',
+  page: 'page',
+} as const;
 
 const STATUSES: readonly PartnerStatus[] = ['active', 'inactive'];
 
@@ -53,6 +65,7 @@ const NO_FILTER: Params = {
   [PARAM.role]: null,
   [PARAM.status]: null,
   [PARAM.country]: null,
+  [PARAM.tag]: null,
   [PARAM.page]: null,
 };
 
@@ -137,6 +150,9 @@ export class PartnerListPage {
     const value = this.params().get(PARAM.country)?.trim().toUpperCase() ?? '';
     return /^[A-Z]{2}$/.test(value) ? value : null;
   });
+  /** Odoo's « Étiquettes » (note backend 0045): the partners of one tag. */
+  protected readonly tag = computed(() => this.params().get(PARAM.tag) || null);
+  protected readonly tags = signal<readonly PartnerTag[]>([]);
   protected readonly page = computed(() => Math.max(1, Number(this.params().get(PARAM.page)) || 1));
 
   protected readonly searchText = signal(this.route.snapshot.queryParamMap.get(PARAM.search) ?? '');
@@ -144,7 +160,9 @@ export class PartnerListPage {
 
   protected readonly activeFilterCount = computed(
     () =>
-      [this.fixedRole ? null : this.role(), this.status(), this.country()].filter(Boolean).length,
+      [this.fixedRole ? null : this.role(), this.status(), this.country(), this.tag()].filter(
+        Boolean,
+      ).length,
   );
   protected readonly hasCriteria = computed(() => this.activeFilterCount() > 0 || !!this.search());
 
@@ -168,6 +186,11 @@ export class PartnerListPage {
     if (country) {
       facets.push({ id: 'country', kind: 'filter', label: 'Pays', value: country });
     }
+    const tag = this.tag();
+    if (tag) {
+      const name = this.tags().find((item) => item.public_id === tag)?.name ?? '…';
+      facets.push({ id: 'tag', kind: 'filter', label: 'Étiquette', value: name });
+    }
     return facets;
   });
 
@@ -177,6 +200,7 @@ export class PartnerListPage {
     role: this.role(),
     status: this.status(),
     country: this.country(),
+    tag: this.tag(),
     page: this.page(),
   }));
 
@@ -225,6 +249,7 @@ export class PartnerListPage {
     role: new FormControl<string>('', { nonNullable: true }),
     status: new FormControl<string>('', { nonNullable: true }),
     country: new FormControl<string>('', { nonNullable: true }),
+    tag: new FormControl<string>('', { nonNullable: true }),
   });
 
   constructor() {
@@ -245,8 +270,13 @@ export class PartnerListPage {
         role: this.fixedRole ? '' : (this.role() ?? ''),
         status: this.status() ?? '',
         country: this.country() ?? '',
+        tag: this.tag() ?? '',
       });
     });
+    this.api
+      .tags()
+      .pipe(catchError(() => of([] as readonly PartnerTag[])))
+      .subscribe((list) => this.tags.set(list));
     this.searchTyped
       .pipe(
         debounceTime(300),
@@ -269,6 +299,7 @@ export class PartnerListPage {
       [PARAM.role]: this.fixedRole ? null : value.role || null,
       [PARAM.status]: value.status || null,
       [PARAM.country]: value.country.trim().toUpperCase() || null,
+      [PARAM.tag]: value.tag || null,
       [PARAM.page]: null,
     });
   }
@@ -279,7 +310,12 @@ export class PartnerListPage {
   }
 
   protected removeFacet(facet: SearchFacet): void {
-    const param = { role: PARAM.role, status: PARAM.status, country: PARAM.country }[facet.id];
+    const param = {
+      role: PARAM.role,
+      status: PARAM.status,
+      country: PARAM.country,
+      tag: PARAM.tag,
+    }[facet.id];
     if (param) {
       this.navigate({ [param]: null, [PARAM.page]: null });
     }

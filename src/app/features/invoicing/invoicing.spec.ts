@@ -39,6 +39,35 @@ const ALL = [
 ];
 const VAT = { public_id: 't-vat', code: 'TVA_18', name: 'TVA 18 %', rate: '18.0000' };
 const ref = (code: string, name: string) => ({ public_id: `r-${code}`, code, name });
+const unit = (id: string, name: string, unitType: string, ratio: string, factor: string) => ({
+  public_id: id,
+  name,
+  unit_type: unitType,
+  ratio,
+  factor,
+  status: 'active',
+});
+/** Odoo's default list, in part (note backend 0047). */
+const CATEGORIES = [
+  {
+    public_id: 'c-u',
+    name: 'Unité',
+    units: [
+      unit('u-u', 'Unités', 'reference', '1.000000', '1.000000000000'),
+      unit('u-dz', 'Douzaines', 'bigger', '12.000000', '12.000000000000'),
+    ],
+  },
+  {
+    public_id: 'c-w',
+    name: 'Poids',
+    units: [
+      unit('u-kg', 'kg', 'reference', '1.000000', '1.000000000000'),
+      unit('u-g', 'g', 'smaller', '1000.000000', '0.001000000000'),
+      unit('u-t', 't', 'bigger', '1000.000000', '1000.000000000000'),
+    ],
+  },
+];
+const KG = { public_id: 'u-kg', name: 'kg', category: 'c-w', factor: '1.000000000000' };
 
 const PRODUCT: Product = {
   public_id: 'r-MAR',
@@ -48,7 +77,8 @@ const PRODUCT: Product = {
   sale_account: ref('701100', 'Ventes de marchandises'),
   purchase_account: null,
   tax: VAT,
-  unit: 'Utilisateur',
+  sale_unit: KG,
+  purchase_unit: KG,
   status: 'active',
   created_at: '2026-10-12T09:00:00Z',
   updated_at: '2026-10-12T09:00:00Z',
@@ -82,7 +112,7 @@ const DRAFT: Invoice = {
       product: ref('MAR', 'Marchandise'),
       description: 'Marchandise',
       quantity: '1.0000',
-      unit: 'Utilisateur',
+      unit: KG,
       unit_price: '1000000.000000',
       tax: VAT,
       amount_untaxed: '1000000.000000',
@@ -135,6 +165,11 @@ function answerOptions(): void {
   }
   for (const request of httpMock().match((req) => req.url === '/api/v1/accounting/journals/')) {
     request.flush(page());
+  }
+  for (const request of httpMock().match(
+    (req) => req.url === '/api/v1/invoicing/unit-categories/',
+  )) {
+    request.flush(page(CATEGORIES));
   }
 }
 
@@ -287,7 +322,10 @@ describe('Facturation (invoicing/)', () => {
       'r-MAR',
     );
     expect(text(row)).toContain('701100 Ventes de marchandises');
-    expect(text(row)).toContain('Utilisateur');
+    // The units of the product's category (note backend 0047).
+    const units = row.querySelector<HTMLSelectElement>('select[aria-label="Unité"]')!;
+    expect(units.value).toBe('u-kg');
+    expect(Array.from(units.options).map((option) => text(option))).toEqual(['kg', 'g', 't']);
     expect(text(row)).toContain('1 000 000 GNF');
     expect(Array.from(element.querySelectorAll('.add-links button')).map(text)).toEqual([
       'Ajouter une ligne',
@@ -316,7 +354,14 @@ describe('Facturation (invoicing/)', () => {
       kind: 'customer_invoice',
       partner: 'r-CLI-00001',
       lines: [
-        { product: 'r-MAR', quantity: '2', unit_price: '1000000', description: '', tax: 't-vat' },
+        {
+          product: 'r-MAR',
+          quantity: '2',
+          unit_price: '1000000',
+          description: '',
+          tax: 't-vat',
+          unit: 'u-kg',
+        },
       ],
     });
     preview.flush({
@@ -351,6 +396,33 @@ describe('Facturation (invoicing/)', () => {
     expect(buttons(element)).toEqual(['Nouveau', 'Avoir', 'Remettre en brouillon']);
     expect(element.querySelector('input[aria-label="Quantité"]')).toBeNull();
     expect(text(element.querySelector('[aria-current=step]'))).toBe('Comptabilisé');
+  });
+
+  it('another unit of the category: the price follows it, as in Odoo', async () => {
+    const { element, stable } = await openDraft();
+    const row = element.querySelector('[data-line="0"]')!;
+    const units = row.querySelector<HTMLSelectElement>('select[aria-label="Unité"]')!;
+    units.value = 'u-g';
+    units.dispatchEvent(new Event('change'));
+    await stable();
+    const price = row.querySelector<HTMLInputElement>('input[aria-label="Prix"]')!;
+    expect(price.value).toBe('1000');
+    units.value = 'u-t';
+    units.dispatchEvent(new Event('change'));
+    await stable();
+    expect(price.value).toBe('1000000000');
+    await wait(350);
+    const preview = httpMock().expectOne('/api/v1/invoicing/invoices/preview/');
+    expect(preview.request.body.lines[0]).toMatchObject({ unit: 'u-t', unit_price: '1000000000' });
+    preview.flush({
+      lines: [{ amount_untaxed: '1000000000.000000' }],
+      taxes: [],
+      amount_untaxed: '1000000000.000000',
+      amount_tax: '0',
+      amount_total: '1000000000.000000',
+      entry_lines: [],
+    });
+    await stable();
   });
 
   it('sections, notes and the catalogue, as in Odoo', async () => {
@@ -477,19 +549,12 @@ describe('Facturation (invoicing/)', () => {
     const navigate = vi.fn().mockResolvedValue(true);
     const { element, stable } = await open('/produits/nouveau');
     vi.spyOn(TestBed.inject(Router), 'navigateByUrl').mockImplementation(navigate);
-    for (const request of httpMock().match((req) => req.url === '/api/v1/accounting/accounts/')) {
-      const income = request.request.params.get('account_type') === 'income';
-      request.flush(
-        page([
-          income
-            ? { public_id: 'a-701', code: '701100', name: 'Ventes de marchandises' }
-            : { public_id: 'a-601', code: '601100', name: 'Achats de marchandises' },
-        ]),
-      );
-    }
     httpMock()
       .expectOne((req) => req.url === '/api/v1/taxes/')
       .flush(page([{ ...VAT, withholding: false, type_tax_use: 'both', status: 'active' }]));
+    httpMock()
+      .expectOne((req) => req.url === '/api/v1/invoicing/unit-categories/')
+      .flush(page(CATEGORIES));
     await stable();
     const fill = (name: string, value: string) => {
       const field = element.querySelector<HTMLInputElement | HTMLSelectElement>(
@@ -500,9 +565,47 @@ describe('Facturation (invoicing/)', () => {
     };
     fill('name', ' Marchandise ');
     fill('sale_price', '1 000 000');
-    fill('sale_account', 'a-701');
-    fill('purchase_account', 'a-601');
+    // Any account of the chart, searched by code or name (note backend 0045).
+    const choose = async (name: string, term: string, account: object) => {
+      const input = element.querySelector<HTMLInputElement>(
+        `alco-autocomplete[formControlName="${name}"] input`,
+      )!;
+      input.value = term;
+      input.dispatchEvent(new Event('input'));
+      await new Promise((resolve) => setTimeout(resolve, 300));
+      const search = httpMock().expectOne(
+        (req) => req.url === '/api/v1/accounting/accounts/' && req.params.get('search') === term,
+      );
+      expect(search.request.params.get('postable')).toBe('true');
+      search.flush(page([account]));
+      await stable();
+      document.querySelector<HTMLElement>('[role="option"]')!.click();
+      await stable();
+    };
+    await choose('sale_account', '701', {
+      public_id: 'a-701',
+      code: '701100',
+      name: 'Ventes de marchandises',
+    });
+    await choose('purchase_account', '601', {
+      public_id: 'a-601',
+      code: '601100',
+      name: 'Achats de marchandises',
+    });
     fill('tax', 't-vat');
+    // « Unités » proposed; sold by the kg, bought by the tonne (note backend 0047).
+    const purchase = () =>
+      Array.from(
+        element.querySelectorAll<HTMLOptionElement>('[formControlName="purchase_unit"] option'),
+      ).map((option) => text(option));
+    expect(element.querySelector<HTMLSelectElement>('[formControlName="sale_unit"]')!.value).toBe(
+      'u-u',
+    );
+    expect(purchase()).toEqual(['Aucune unité', 'Unités', 'Douzaines']);
+    fill('sale_unit', 'u-kg');
+    await stable();
+    expect(purchase()).toEqual(['Aucune unité', 'kg', 'g', 't']);
+    fill('purchase_unit', 'u-t');
     element.querySelector('form')!.dispatchEvent(new Event('submit'));
     await stable();
     const create = httpMock().expectOne('/api/v1/invoicing/products/');
@@ -513,7 +616,8 @@ describe('Facturation (invoicing/)', () => {
       sale_account: 'a-701',
       purchase_account: 'a-601',
       tax: 't-vat',
-      unit: '',
+      sale_unit: 'u-kg',
+      purchase_unit: 'u-t',
     });
     create.flush({ public_id: 'p-1', name: 'Marchandise', status: 'active' });
     await stable();

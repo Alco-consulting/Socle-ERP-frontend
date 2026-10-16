@@ -62,6 +62,8 @@ import {
   NamedReference,
   Preview,
   Product,
+  Unit,
+  UnitCategory,
 } from './data-access/invoicing-models';
 import {
   ACCOUNTING,
@@ -77,6 +79,8 @@ interface LineForm {
   product: FormControl<string>;
   description: FormControl<string>;
   quantity: FormControl<string>;
+  /** The line's unit (public id), of the product's category (note backend 0047). */
+  unit: FormControl<string>;
   unit_price: FormControl<string>;
   tax: FormControl<string>;
 }
@@ -199,6 +203,9 @@ export class InvoiceSheetPage {
   private readonly changes = signal(0);
 
   protected readonly products = signal<readonly Product[]>([]);
+  private readonly categories = signal<readonly UnitCategory[]>([]);
+  /** The unit each line had, to convert its price when another is chosen. */
+  private readonly lineUnits = new WeakMap<FormGroup<LineForm>, string>();
   private readonly taxes = signal<readonly Tax[]>([]);
   protected readonly journals = signal<readonly Journal[]>([]);
   protected readonly sideTaxes = computed(() => {
@@ -371,6 +378,13 @@ export class InvoiceSheetPage {
         catchError(() => of([] as Product[])),
       )
       .subscribe((list) => this.products.set(list));
+    this.api
+      .unitCategories()
+      .pipe(
+        map((page) => page.results),
+        catchError(() => of([] as UnitCategory[])),
+      )
+      .subscribe((list) => this.categories.set(list));
     inject(TaxesApi)
       .taxes({ status: 'active' })
       .pipe(
@@ -436,8 +450,29 @@ export class InvoiceSheetPage {
     return saved?.account ?? null;
   }
 
-  protected unitOf(index: number): string {
-    return this.productOf(index)?.unit ?? this.invoice()?.lines[index]?.unit ?? '';
+  /** The units a line may take: those of its product's category, active or its own. */
+  protected unitChoices(index: number): readonly Unit[] {
+    const product = this.productOf(index);
+    const own = product ? this.sideUnit(product) : null;
+    const current = this.lines.at(index)?.controls.unit.value;
+    const category = this.categories().find((item) => item.public_id === own?.category);
+    return (category?.units ?? []).filter(
+      (unit) => unit.status === 'active' || unit.public_id === current,
+    );
+  }
+
+  /** Another unit: the price follows it, as in Odoo (5 000 the kg is 5 the g). */
+  protected unitChosen(index: number, unitId: string): void {
+    const line = this.lines.at(index);
+    const before = this.unitById(this.lineUnits.get(line));
+    const after = this.unitById(unitId);
+    this.lineUnits.set(line, unitId);
+    const price = Number(normalizeDecimalInput(line.controls.unit_price.value.trim()) ?? '');
+    if (!before || !after || !price) {
+      return;
+    }
+    const converted = (price * Number(after.factor)) / Number(before.factor);
+    line.controls.unit_price.setValue(trimDecimalZeros(converted.toFixed(6), 0));
   }
 
   /** « Montant » of a line: as typed on a draft. */
@@ -490,6 +525,9 @@ export class InvoiceSheetPage {
     if (!product) {
       return;
     }
+    const unit = this.sideUnit(product)?.public_id ?? '';
+    line.controls.unit.setValue(unit);
+    this.lineUnits.set(line, unit);
     if (this.customerSide() && product.sale_price !== null && !line.controls.unit_price.value) {
       line.controls.unit_price.setValue(trimDecimalZeros(product.sale_price, 0));
     }
@@ -793,9 +831,30 @@ export class InvoiceSheetPage {
     }
   }
 
+  /** The product's « Unité » on a customer document, its « Unité d'achat » otherwise. */
+  private sideUnit(product: Product) {
+    return this.customerSide() ? product.sale_unit : product.purchase_unit;
+  }
+
+  private unitById(id: string | undefined): Unit | undefined {
+    return this.categories()
+      .flatMap((category) => category.units)
+      .find((unit) => unit.public_id === id);
+  }
+
   private line(values?: Partial<Record<keyof LineForm, string>>): FormGroup<LineForm> {
     const type = (values?.display_type ?? 'product') as LineType;
     const product = type === 'product';
+    const group = this.lineGroup(type, product, values);
+    this.lineUnits.set(group, values?.unit ?? '');
+    return group;
+  }
+
+  private lineGroup(
+    type: LineType,
+    product: boolean,
+    values?: Partial<Record<keyof LineForm, string>>,
+  ): FormGroup<LineForm> {
     return new FormGroup<LineForm>({
       display_type: new FormControl<LineType>(type, { nonNullable: true }),
       product: new FormControl(values?.product ?? '', {
@@ -812,6 +871,7 @@ export class InvoiceSheetPage {
         nonNullable: true,
         validators: product ? [Validators.required, decimalFormat(4)] : [],
       }),
+      unit: new FormControl(values?.unit ?? '', { nonNullable: true }),
       unit_price: new FormControl(values?.unit_price ?? '', {
         nonNullable: true,
         validators: !product
@@ -836,6 +896,7 @@ export class InvoiceSheetPage {
       unit_price: price ? (normalizeDecimalInput(price) ?? price) : null,
       description: value.description.trim(),
       tax: value.tax || null,
+      unit: value.unit || null,
     };
   }
 
@@ -943,6 +1004,7 @@ export class InvoiceSheetPage {
               ? ''
               : line.description,
           quantity: trimDecimalZeros(line.quantity, 0),
+          unit: line.unit?.public_id ?? '',
           unit_price: trimDecimalZeros(line.unit_price, 0),
           tax: line.tax?.public_id ?? '',
         }),

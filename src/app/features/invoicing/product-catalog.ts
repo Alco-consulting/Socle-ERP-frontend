@@ -54,8 +54,9 @@ const TITLE_ID = 'alco-catalog-title';
               @if (data.customer && product.sale_price !== null) {
                 {{ product.sale_price | alcoAmount: 0 }}
               }
-              @if (product.unit) {
-                <span class="alco-caption">/ {{ product.unit }}</span>
+              @let unit = data.customer ? product.sale_unit : product.purchase_unit;
+              @if (unit) {
+                <span class="alco-caption">/ {{ unit.name }}</span>
               }
             </span>
             @if (quantity > 0) {

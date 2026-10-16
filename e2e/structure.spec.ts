@@ -139,11 +139,12 @@ test.describe('Comptabilité : un lien et cinq menus groupés', () => {
     await page.goto('/app/comptabilite/tableau-de-bord');
     const menu = await openMenu(page, 'Configuration');
     const titles = menu.getByRole('group');
-    await expect(titles).toHaveCount(7);
+    await expect(titles).toHaveCount(8);
     for (const title of [
       'Général',
       'Comptabilité',
       'Paiements',
+      'Produits',
       'Taxes',
       'Immobilisations',
       'Analytique',

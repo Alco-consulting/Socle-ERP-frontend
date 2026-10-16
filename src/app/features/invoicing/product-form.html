@@ -65,11 +65,32 @@
           <input alcoInput [numeric]="true" inputmode="decimal" formControlName="sale_price" />
         </alco-form-field>
         <alco-form-field
-          label="Unité"
+          label="Unité de vente"
           [optional]="true"
-          hint="Affichée sur ses lignes de facture : Utilisateur, Société, kg…"
+          hint="Le prix de vente est pour cette unité. Liste : Configuration › Unités de mesure."
         >
-          <input alcoInput formControlName="unit" maxlength="32" autocomplete="off" />
+          <select alcoSelect formControlName="sale_unit">
+            <option value="">Aucune unité</option>
+            @for (group of unitGroups(); track group.id) {
+              <optgroup [label]="group.name">
+                @for (unit of group.units; track unit.id) {
+                  <option [value]="unit.id">{{ unit.label }}</option>
+                }
+              </optgroup>
+            }
+          </select>
+        </alco-form-field>
+        <alco-form-field
+          label="Unité d’achat"
+          [optional]="true"
+          hint="De la même catégorie : acheté par sac de 50 kg, vendu au kg."
+        >
+          <select alcoSelect formControlName="purchase_unit">
+            <option value="">Aucune unité</option>
+            @for (unit of purchaseUnits(); track unit.id) {
+              <option [value]="unit.id">{{ unit.label }}</option>
+            }
+          </select>
         </alco-form-field>
         <alco-form-field label="TVA" [required]="true" hint="Reprise sur chaque ligne de facture.">
           <select alcoSelect formControlName="tax">
@@ -84,26 +105,26 @@
         <alco-form-field
           label="Compte de vente"
           [optional]="true"
-          hint="Un compte de produits (classe 7), ex. 701100. Exigé pour le vendre."
+          hint="Tout compte du plan, par son code ou son nom (ex. 701100). Exigé pour le vendre."
         >
-          <select alcoSelect formControlName="sale_account">
-            <option value="">Aucun compte</option>
-            @for (choice of accountChoices('sale_account'); track choice.id) {
-              <option [value]="choice.id">{{ choice.label }}</option>
-            }
-          </select>
+          <alco-autocomplete
+            formControlName="sale_account"
+            [search]="searchAccounts"
+            placeholder="Aucun compte"
+            emptyText="Aucun compte ne correspond."
+          />
         </alco-form-field>
         <alco-form-field
           label="Compte d’achat"
           [optional]="true"
-          hint="Un compte de charges (classe 6), ex. 601100. Exigé pour l’acheter."
+          hint="Tout compte du plan, par son code ou son nom (ex. 601100). Exigé pour l’acheter."
         >
-          <select alcoSelect formControlName="purchase_account">
-            <option value="">Aucun compte</option>
-            @for (choice of accountChoices('purchase_account'); track choice.id) {
-              <option [value]="choice.id">{{ choice.label }}</option>
-            }
-          </select>
+          <alco-autocomplete
+            formControlName="purchase_account"
+            [search]="searchAccounts"
+            placeholder="Aucun compte"
+            emptyText="Aucun compte ne correspond."
+          />
         </alco-form-field>
         <div class="field-check">
           <span class="fixed-label" id="active-label">Actif</span>

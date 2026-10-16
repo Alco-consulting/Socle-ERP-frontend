@@ -23,6 +23,7 @@ import { AlcoFormField } from '../../../shared/forms/form-field';
 import { AlcoInput } from '../../../shared/forms/input';
 import { AlcoAmountPipe } from '../../../shared/pipes/amount.pipe';
 import { AlcoCell, AlcoTable, TableColumn } from '../../../shared/tables/table';
+import { SessionStore } from '../../../core/session/session.store';
 import { AlcoButton } from '../../../shared/ui/button/button';
 import { AlcoEmptyState } from '../../../shared/ui/empty-state/empty-state';
 import { AlcoErrorState } from '../../../shared/ui/error-state/error-state';
@@ -87,10 +88,13 @@ export class EntryLinesPage {
   private readonly router = inject(Router);
   private readonly route = inject(ActivatedRoute);
   private readonly locale = inject(LOCALE_ID);
+  private readonly session = inject(SessionStore);
   private readonly amount = new AlcoAmountPipe();
   private readonly year = String(new Date().getFullYear());
 
   protected readonly entriesUrl = `${APP_ROOT}/comptabilite/ecritures`;
+  /** « Nouveau »: an entry of miscellaneous operations, as Odoo (note backend 0045). */
+  protected readonly canCreate = computed(() => this.session.can('accounting.create'));
   protected readonly states = STATES;
   protected readonly pageSize = LINE_PAGE_SIZE;
   protected readonly columns: readonly TableColumn[] = [

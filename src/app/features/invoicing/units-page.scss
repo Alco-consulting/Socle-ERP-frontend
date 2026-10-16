@@ -1,0 +1,74 @@
+// Odoo's « Unités de mesure »: each category, then its units on one row each.
+:host {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.entry-error {
+  margin: 0;
+  color: var(--color-danger-text);
+}
+
+.empty-row {
+  color: var(--color-text-muted);
+}
+
+.table-wrap {
+  overflow-x: auto;
+  border: var(--border-width) solid var(--color-border);
+  background: var(--color-surface);
+}
+
+.units {
+  width: 100%;
+  min-width: 48rem;
+  border-collapse: collapse;
+  table-layout: fixed;
+
+  th,
+  td {
+    padding: var(--space-2) var(--space-3);
+    border-bottom: var(--border-width) solid var(--color-border);
+    text-align: left;
+    vertical-align: middle;
+  }
+
+  th {
+    font-weight: var(--font-weight-semibold);
+    white-space: nowrap;
+  }
+
+  .num {
+    font-variant-numeric: tabular-nums;
+    text-align: right;
+    white-space: nowrap;
+  }
+}
+
+.group th,
+.group td {
+  background: var(--color-surface-muted);
+}
+
+.inactive td {
+  color: var(--color-text-muted);
+}
+
+.col-name {
+  width: 16rem;
+}
+
+.col-ratio {
+  width: 8rem;
+}
+
+.col-status {
+  width: 7rem;
+}
+
+.col-actions {
+  width: 14rem;
+  text-align: right;
+  white-space: nowrap;
+}

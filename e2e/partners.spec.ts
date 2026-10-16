@@ -319,3 +319,34 @@ test.describe('Tiers — téléphone et accessibilité', () => {
     expect(await axe(page)).toEqual([]);
   });
 });
+
+test.describe('Tiers — comptes et étiquettes, comme Odoo (note backend 0045)', () => {
+  test('création : le compte client à choisir, une étiquette créée à la volée ; filtre par étiquette', async ({
+    page,
+  }) => {
+    await page.goto('/app/tiers/nouveau');
+    await page.getByRole('textbox', { name: 'Nom', exact: true }).fill('Grossiste Madina');
+    await page.getByRole('checkbox', { name: 'Client' }).check();
+
+    // The chart's customer accounts, the first one by default.
+    const accounting = page.getByRole('region', { name: 'Comptabilité' });
+    await expect(accounting.getByRole('combobox', { name: 'Compte client' })).toHaveValue('411');
+
+    const tags = page.getByRole('combobox', { name: /Étiquettes/ });
+    await tags.fill('Grossiste');
+    await page.getByRole('option', { name: 'Créer « Grossiste »' }).click();
+    await expect(page.locator('alco-tags-field .chip')).toHaveText([/Grossiste/]);
+    await page.getByRole('button', { name: 'Enregistrer' }).click();
+    await expect(page.getByText('Tiers « Grossiste Madina » créé.')).toBeVisible();
+    await expect(page.getByText('Grossiste', { exact: true })).toBeVisible();
+
+    await page.goto('/app/tiers/liste');
+    await page.getByRole('button', { name: /^Filtres/ }).click();
+    const filters = page.getByRole('dialog', { name: 'Filtres' });
+    await filters.getByRole('combobox', { name: 'Étiquette' }).selectOption({ label: 'Grossiste' });
+    await filters.getByRole('button', { name: 'Appliquer' }).click();
+    await expect(page).toHaveURL(/etiquette=/);
+    await expect(page.locator('tbody tr')).toHaveCount(1);
+    await expect(page.locator('tbody tr')).toContainText('Grossiste Madina');
+  });
+});

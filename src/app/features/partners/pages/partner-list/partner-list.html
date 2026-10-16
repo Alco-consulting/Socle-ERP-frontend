@@ -51,6 +51,16 @@
         <alco-form-field label="Pays" hint="Code à 2 lettres (ex. GN)">
           <input alcoInput formControlName="country" maxlength="2" autocomplete="off" />
         </alco-form-field>
+        @if (tags().length > 0) {
+          <alco-form-field label="Étiquette">
+            <select alcoSelect formControlName="tag">
+              <option value="">Toutes les étiquettes</option>
+              @for (item of tags(); track item.public_id) {
+                <option [value]="item.public_id">{{ item.name }}</option>
+              }
+            </select>
+          </alco-form-field>
+        }
       </div>
     </alco-filter-bar>
     @if (list.value(); as page) {

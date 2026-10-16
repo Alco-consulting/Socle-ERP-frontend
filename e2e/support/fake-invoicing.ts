@@ -11,7 +11,8 @@ import { FakePartners, PartnersContext } from './fake-partners';
  * tax by rate on its lines' total, rounded half up. Posting gives the number and an entry
  * in the fake ledger; a credit note settles its invoice; « Remettre en brouillon » keeps the
  * number (note backend 0040); sections and notes, the units and the amounts as typed (note
- * backend 0041). Only the rules the tests need.
+ * backend 0041); the units of measure, Odoo's default list per company, a line's price in
+ * another unit of its category (note backend 0047). Only the rules the tests need.
  */
 
 interface Reference {
@@ -22,6 +23,26 @@ interface Reference {
 interface TaxReference extends Reference {
   rate: string;
 }
+type UnitType = 'reference' | 'bigger' | 'smaller';
+interface UnitJson {
+  public_id: string;
+  name: string;
+  unit_type: UnitType;
+  ratio: string;
+  factor: string;
+  status: 'active' | 'inactive';
+}
+interface CategoryJson {
+  public_id: string;
+  name: string;
+  units: UnitJson[];
+}
+interface UnitReference {
+  public_id: string;
+  name: string;
+  category: string;
+  factor: string;
+}
 interface ProductJson {
   public_id: string;
   code: string;
@@ -30,7 +51,8 @@ interface ProductJson {
   sale_account: Reference | null;
   purchase_account: Reference | null;
   tax: TaxReference;
-  unit: string;
+  sale_unit: UnitReference | null;
+  purchase_unit: UnitReference | null;
   status: 'active' | 'inactive';
   created_at: string;
   updated_at: string;
@@ -42,7 +64,7 @@ interface LineJson {
   product: Reference | null;
   description: string;
   quantity: string;
-  unit: string;
+  unit: UnitReference | null;
   unit_price: string;
   tax: TaxReference | null;
   amount_untaxed: string;
@@ -116,6 +138,43 @@ const error = (code: string, details: unknown = null) => ({
 });
 const customer = (kind: Kind) => kind.startsWith('customer');
 
+/** Odoo's default list (note backend 0047): category, then name, type, ratio. */
+const DEFAULT_UNITS: [string, [string, UnitType, number][]][] = [
+  [
+    'Unité',
+    [
+      ['Unités', 'reference', 1],
+      ['Douzaines', 'bigger', 12],
+    ],
+  ],
+  [
+    'Poids',
+    [
+      ['kg', 'reference', 1],
+      ['g', 'smaller', 1000],
+      ['t', 'bigger', 1000],
+    ],
+  ],
+  [
+    'Volume',
+    [
+      ['L', 'reference', 1],
+      ['mL', 'smaller', 1000],
+      ['m³', 'bigger', 1000],
+    ],
+  ],
+];
+const factorOf = (type: UnitType, ratio: number) =>
+  (type === 'bigger' ? ratio : type === 'smaller' ? 1 / ratio : 1).toFixed(12);
+const unitJson = (name: string, type: UnitType, ratio: number): UnitJson => ({
+  public_id: uuid(),
+  name,
+  unit_type: type,
+  ratio: ratio.toFixed(6),
+  factor: factorOf(type, ratio),
+  status: 'active',
+});
+
 // ---- Exact amounts: 6 decimals as the API, rounded half up to units (GNF) -------------
 const SCALE = 1_000_000n;
 function units(value: string): bigint {
@@ -130,6 +189,7 @@ export class FakeInvoicing {
   private readonly products: Record<string, ProductJson[]> = {};
   private readonly invoices: Record<string, InvoiceJson[]> = {};
   private readonly numbers: Record<string, number> = {};
+  private readonly categories: Record<string, CategoryJson[]> = {};
 
   constructor(
     private readonly context: PartnersContext,
@@ -187,7 +247,116 @@ export class FakeInvoicing {
     if (resource === 'products') {
       return this.productRoute(route, company, method, id, command, body, url, can);
     }
+    if (resource === 'unit-categories' || resource === 'units') {
+      return this.unitRoute(route, company, method, resource, id, body, can);
+    }
     return this.invoiceRoute(route, company, method, id, command, body, url, can);
+  }
+
+  // ---- Units of measure (note backend 0047) -----------------------------------------------
+  private unitsOf(company: string): CategoryJson[] {
+    return (this.categories[company] ??= DEFAULT_UNITS.map(([name, units]) => ({
+      public_id: uuid(),
+      name,
+      units: units.map(([unit, type, ratio]) => unitJson(unit, type, ratio)),
+    })));
+  }
+
+  private unitRef(company: string, id: unknown): UnitReference | null {
+    for (const category of this.unitsOf(company)) {
+      const unit = category.units.find((item) => item.public_id === id);
+      if (unit) {
+        return {
+          public_id: unit.public_id,
+          name: unit.name,
+          category: category.public_id,
+          factor: unit.factor,
+        };
+      }
+    }
+    return null;
+  }
+
+  private async unitRoute(
+    route: Route,
+    company: string,
+    method: string,
+    resource: string,
+    id: string | undefined,
+    body: Record<string, unknown>,
+    can: (permission: string) => boolean,
+  ): Promise<void> {
+    const categories = this.unitsOf(company);
+    if (method === 'GET') {
+      return this.answer(route, 200, this.page(categories));
+    }
+    if (!can('invoicing.manage_products')) {
+      return this.answer(route, 403, error('company_permission_denied'));
+    }
+    const names = categories.flatMap((item) => [item.name, ...item.units.map((unit) => unit.name)]);
+    const taken = (name: unknown) =>
+      names.some((known) => known.toLowerCase() === String(name).trim().toLowerCase());
+    if (resource === 'unit-categories') {
+      if (taken(body['name']) || taken(body['reference_unit'])) {
+        return this.answer(route, 400, error('invoicing_unit_exists'));
+      }
+      const category: CategoryJson = {
+        public_id: uuid(),
+        name: String(body['name']).trim(),
+        units: [unitJson(String(body['reference_unit']).trim(), 'reference', 1)],
+      };
+      categories.push(category);
+      return this.answer(route, 201, category);
+    }
+    if (!id) {
+      const category = categories.find((item) => item.public_id === body['category']);
+      if (!category || taken(body['name'])) {
+        return this.answer(route, 400, error('invoicing_unit_exists'));
+      }
+      const unit = unitJson(
+        String(body['name']).trim(),
+        body['unit_type'] as UnitType,
+        Number(body['ratio']),
+      );
+      category.units.push(unit);
+      return this.answer(route, 201, unit);
+    }
+    const unit = categories.flatMap((item) => item.units).find((item) => item.public_id === id);
+    if (!unit) {
+      return this.answer(route, 404, error('not_found'));
+    }
+    if (unit.unit_type === 'reference' && ('ratio' in body || 'status' in body)) {
+      return this.answer(route, 400, error('invoicing_unit_reference'));
+    }
+    if ('name' in body) unit.name = String(body['name']).trim();
+    if ('status' in body) unit.status = body['status'] as UnitJson['status'];
+    if ('unit_type' in body || 'ratio' in body) {
+      unit.unit_type = (body['unit_type'] as UnitType | undefined) ?? unit.unit_type;
+      const ratio = 'ratio' in body ? Number(body['ratio']) : Number(unit.ratio);
+      unit.ratio = ratio.toFixed(6);
+      unit.factor = factorOf(unit.unit_type, ratio);
+    }
+    return this.answer(route, 200, unit);
+  }
+
+  /** A product's two units: « Unités » by default, the purchase following the sale. */
+  private productUnits(
+    company: string,
+    product: ProductJson | null,
+    body: Record<string, unknown>,
+  ): [UnitReference | null, UnitReference | null] | null {
+    const first = this.unitsOf(company)[0]?.units[0]?.public_id;
+    const sale =
+      'sale_unit' in body
+        ? this.unitRef(company, body['sale_unit'])
+        : (product?.sale_unit ?? this.unitRef(company, first));
+    const purchase =
+      'purchase_unit' in body
+        ? this.unitRef(company, body['purchase_unit'])
+        : product?.purchase_unit?.category === sale?.category
+          ? (product?.purchase_unit ?? sale)
+          : sale;
+    return sale && purchase && sale.category !== purchase.category ? null : [sale, purchase];
   }
 
   // ---- Products ------------------------------------------------------------------------
@@ -219,6 +388,10 @@ export class FakeInvoicing {
       if (!String(body['name'] ?? '').trim() || !tax) {
         return this.answer(route, 400, error('validation_error', { name: ['Requis.'] }));
       }
+      const measures = this.productUnits(company, null, body);
+      if (!measures) {
+        return this.answer(route, 400, error('invoicing_unit_category_mismatch'));
+      }
       const product: ProductJson = {
         public_id: uuid(),
         code: String(body['code'] ?? '').trim(),
@@ -227,7 +400,8 @@ export class FakeInvoicing {
         sale_account: this.account(company, body['sale_account'] as string),
         purchase_account: this.account(company, body['purchase_account'] as string),
         tax,
-        unit: String(body['unit'] ?? '').trim(),
+        sale_unit: measures[0],
+        purchase_unit: measures[1],
         status: 'active',
         created_at: STAMP,
         updated_at: STAMP,
@@ -261,7 +435,11 @@ export class FakeInvoicing {
       product.purchase_account = this.account(company, body['purchase_account'] as string);
     }
     if ('tax' in body) product.tax = this.tax(company, body['tax'] as string) ?? product.tax;
-    if ('unit' in body) product.unit = String(body['unit']).trim();
+    const measures = this.productUnits(company, product, body);
+    if (!measures) {
+      return this.answer(route, 400, error('invoicing_unit_category_mismatch'));
+    }
+    [product.sale_unit, product.purchase_unit] = measures;
     return this.answer(route, 200, product);
   }
 
@@ -288,7 +466,7 @@ export class FakeInvoicing {
           account: null,
           description,
           quantity: '0.000000',
-          unit: '',
+          unit: null,
           unit_price: '0.000000',
           tax: null,
           amount_untaxed: '0.000000',
@@ -299,10 +477,20 @@ export class FakeInvoicing {
       if (!product) {
         return null;
       }
-      const price =
-        (row['unit_price'] as string | null) ??
-        (customer(kind) ? product.sale_price : null) ??
-        (lenient ? '0' : null);
+      const own = customer(kind) ? product.sale_unit : product.purchase_unit;
+      const unit = this.unitRef(company, row['unit']) ?? own;
+      if (unit && own && unit.category !== own.category) {
+        return null;
+      }
+      // The sale price is per « Unité »: in the line's unit, converted (note backend 0047).
+      const converted =
+        customer(kind) && product.sale_price !== null
+          ? (
+              (Number(product.sale_price) * Number(unit?.factor ?? 1)) /
+              Number(product.sale_unit?.factor ?? unit?.factor ?? 1)
+            ).toFixed(6)
+          : null;
+      const price = (row['unit_price'] as string | null) ?? converted ?? (lenient ? '0' : null);
       if (price === null) {
         return null;
       }
@@ -314,7 +502,7 @@ export class FakeInvoicing {
         account: customer(kind) ? product.sale_account : product.purchase_account,
         description: String(row['description'] ?? '').trim() || product.name,
         quantity: text(units(String(row['quantity']))),
-        unit: product.unit,
+        unit,
         unit_price: text(units(price)),
         tax: this.tax(company, row['tax'] as string) ?? product.tax,
         amount_untaxed: text(amount),

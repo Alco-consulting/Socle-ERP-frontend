@@ -73,6 +73,7 @@ describe('Application catalogue', () => {
       'Général',
       'Comptabilité',
       'Paiements',
+      'Produits',
       'Taxes',
       'Immobilisations',
       'Analytique',

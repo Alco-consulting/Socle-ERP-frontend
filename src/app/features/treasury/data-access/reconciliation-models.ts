@@ -91,6 +91,8 @@ export interface TreasuryTransaction {
   readonly settled: readonly string[];
   /** Odoo's « Solde courant »: the balance after this line, in date order. */
   readonly running_balance: string | null;
+  /** An internal transfer's other journal (note backend 0046). */
+  readonly transfer_account?: NamedReference | null;
 }
 
 /** `TreasuryTransactionWriteRequest`: recorded, posted and lettered at once. */
@@ -104,6 +106,8 @@ export interface TransactionWrite {
   readonly settled_line: string | null;
   /** The counterpart account when no line is settled. */
   readonly offset_account: string | null;
+  /** « Virement interne »: the other bank or cash journal's account (note backend 0046). */
+  readonly internal_account?: string | null;
   readonly idempotency_key: string;
 }
 

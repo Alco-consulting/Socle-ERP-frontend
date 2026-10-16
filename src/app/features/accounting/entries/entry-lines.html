@@ -1,6 +1,12 @@
 <alco-page-header title="Écritures comptables">
   <div alcoPageActions>
     <a alcoButton icon="book" [routerLink]="entriesUrl + '/pieces'">Pièces comptables</a>
+    <!-- An entry typed by hand: miscellaneous operations (note backend 0045). -->
+    @if (canCreate()) {
+      <a alcoButton variant="primary" icon="plus" [routerLink]="entriesUrl + '/nouvelle'">
+        Nouveau
+      </a>
+    }
   </div>
 </alco-page-header>
 

@@ -19,9 +19,10 @@ async function newProduct(page: Page, name: string, purchaseAccount: string | nu
   await page.goto('/app/comptabilite/produits/nouveau');
   await page.getByRole('textbox', { name: 'Nom', exact: true }).fill(name);
   if (purchaseAccount) {
-    await page
-      .getByRole('combobox', { name: 'Compte d’achat' })
-      .selectOption({ label: purchaseAccount });
+    // Any account of the chart, searched by its code (note backend 0045).
+    const [code] = purchaseAccount.split(' ');
+    await page.getByRole('combobox', { name: 'Compte d’achat' }).fill(code);
+    await page.getByRole('option', { name: new RegExp(`^${code}\\b`) }).click();
   }
   await page.getByRole('combobox', { name: 'TVA' }).selectOption({ label: 'TVA 18 %' });
   await page.getByRole('button', { name: 'Enregistrer' }).click();
@@ -173,6 +174,53 @@ test.describe('Facturation', () => {
     await expect(
       page.getByText('Ce document est réglé ou a un avoir, en tout ou en partie.'),
     ).toBeVisible();
+  });
+
+  test('les unités comme Odoo : un sac de 50 kg, acheté au sac, le prix converti au kg', async ({
+    page,
+  }) => {
+    test.slow(); // the list, a product, an invoice, an accessibility scan
+    // Configuration › Unités de mesure: the default list, a unit added (note backend 0047).
+    await page.goto('/app/comptabilite/tableau-de-bord');
+    await openMenuItem(page, 'Configuration', 'Unités de mesure');
+    await expect(heading(page)).toHaveText('Unités de mesure');
+    await expect(page.getByRole('rowheader', { name: 'Poids' })).toBeVisible();
+    await page.getByRole('button', { name: 'Ajouter une unité à Poids' }).click();
+    await page.getByRole('textbox', { name: 'Nom de l’unité' }).fill('Sac de 50 kg');
+    await page.getByRole('textbox', { name: 'Ratio' }).fill('50');
+    await page.getByRole('button', { name: 'Enregistrer' }).click();
+    const bag = page.getByRole('row', { name: /Sac de 50 kg/ });
+    await expect(bag).toContainText('Plus grande que la référence');
+    await expect(bag).toContainText('50');
+    expect(await axe(page)).toEqual([]);
+
+    // The product: sold by the kg, bought by the bag.
+    await page.goto('/app/comptabilite/produits/nouveau');
+    await page.getByRole('textbox', { name: 'Nom', exact: true }).fill('Riz');
+    await page.getByRole('combobox', { name: 'Compte d’achat' }).fill('601');
+    await page.getByRole('option', { name: /^601\b/ }).click();
+    await page.getByRole('combobox', { name: 'TVA' }).selectOption({ label: 'TVA 18 %' });
+    await page.getByRole('combobox', { name: 'Unité de vente' }).selectOption({ label: 'kg' });
+    await page.getByRole('combobox', { name: 'Unité d’achat' }).selectOption({
+      label: 'Sac de 50 kg',
+    });
+    await page.getByRole('button', { name: 'Enregistrer' }).click();
+    await expect(page.getByText('Produit « Riz » créé.')).toBeVisible();
+
+    // A supplier invoice: the line in bags; by the kg, its price follows.
+    await page.goto('/app/comptabilite/achats/factures/nouvelle');
+    await page.getByRole('combobox', { name: 'Fournisseur' }).fill('Diallo');
+    await page.getByRole('option', { name: /Diallo et Cie/ }).click();
+    await page.getByRole('button', { name: 'Ajouter une ligne' }).click();
+    const line = page.locator('[data-line="0"]');
+    await line.getByRole('combobox', { name: 'Produit' }).selectOption({ label: 'Riz' });
+    const unit = line.getByRole('combobox', { name: 'Unité' });
+    await expect(unit.locator('option:checked')).toHaveText('Sac de 50 kg');
+    await line.getByRole('textbox', { name: 'Prix' }).fill('500000');
+    await unit.selectOption({ label: 'kg' });
+    await expect(line.getByRole('textbox', { name: 'Prix' })).toHaveValue('10000');
+    await line.getByRole('textbox', { name: 'Quantité' }).fill('100');
+    await expect(total(page, 'Montant hors taxes')).toContainText('1 000 000 GNF');
   });
 
   test('sections, notes, units and the catalogue, as in Odoo; the amounts as typed', async ({

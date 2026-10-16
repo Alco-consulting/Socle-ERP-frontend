@@ -26,6 +26,7 @@ export interface PartnerJson {
   supplier_payment_term: null;
   default_tax_code: string;
   customer_account_code: string;
+  tags?: { public_id: string; name: string }[];
   supplier_account_code: string;
   created_at: string;
   updated_at: string;
@@ -191,6 +192,28 @@ export class FakePartners {
     if (path === 'payment-terms/') {
       return this.answer(route, 200, { count: 0, next: null, previous: null, results: [] });
     }
+    // Odoo's « Étiquettes » (note backend 0045): one list per company, never doubled.
+    if (path === 'tags/') {
+      const tags = this.tagsOf(await this.context.companyOf(request));
+      if (method === 'POST') {
+        const name = String((request.postDataJSON() as Record<string, unknown>)['name']).trim();
+        const existing = tags.find((tag) => tag.name.toLowerCase() === name.toLowerCase());
+        if (existing) {
+          return this.answer(route, 200, existing);
+        }
+        const tag = { public_id: `tag-${tags.length + 1}`, name };
+        tags.push(tag);
+        return this.answer(route, 201, tag);
+      }
+      const search = new URL(request.url()).searchParams.get('search')?.toLowerCase() ?? '';
+      const results = tags.filter((tag) => tag.name.toLowerCase().includes(search));
+      return this.answer(route, 200, {
+        count: results.length,
+        next: null,
+        previous: null,
+        results,
+      });
+    }
     if (path === '') {
       if (method === 'POST') {
         return permissions.includes('partners.create')
@@ -203,6 +226,7 @@ export class FakePartners {
       const status = url.searchParams.get('status');
       const country = url.searchParams.get('country')?.toUpperCase();
       const code = url.searchParams.get('code')?.toUpperCase();
+      const tag = url.searchParams.get('tag');
       const found = list
         .filter(
           (item) =>
@@ -218,7 +242,8 @@ export class FakePartners {
                   ? item.is_supplier
                   : !item.is_customer && !item.is_supplier)) &&
             (!status || item.status === status) &&
-            (!country || item.country === country),
+            (!country || item.country === country) &&
+            (!tag || (item.tags ?? []).some((own) => own.public_id === tag)),
         )
         .sort((a, b) => a.code.localeCompare(b.code));
       const result = page(found, request);
@@ -242,6 +267,9 @@ export class FakePartners {
           (found as unknown as Record<string, unknown>)[name] = body[name];
         }
       }
+      if (Array.isArray(body['tags'])) {
+        found.tags = this.tagsByIds(await this.context.companyOf(route.request()), body['tags']);
+      }
       return this.answer(route, 200, found);
     }
     if (!permissions.includes('partners.disable')) {
@@ -249,6 +277,16 @@ export class FakePartners {
     }
     found.status = command === 'deactivate' ? 'inactive' : 'active';
     return this.answer(route, 200, found);
+  }
+
+  private readonly tags: Record<string, { public_id: string; name: string }[]> = {};
+
+  private tagsOf(company: string): { public_id: string; name: string }[] {
+    return (this.tags[company] ??= []);
+  }
+
+  private tagsByIds(company: string, ids: unknown[]): { public_id: string; name: string }[] {
+    return this.tagsOf(company).filter((tag) => ids.includes(tag.public_id));
   }
 
   /** Without a code, the server numbers the partner by its role (note backend 0037). */
@@ -288,6 +326,9 @@ export class FakePartners {
         .trim()
         .toUpperCase(),
     });
+    if (Array.isArray(body['tags'])) {
+      created.tags = this.tagsByIds(await this.context.companyOf(route.request()), body['tags']);
+    }
     list.push(created);
     return this.answer(route, 201, created);
   }

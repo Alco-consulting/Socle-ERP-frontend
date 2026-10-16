@@ -49,6 +49,9 @@ import { TREASURY_ERRORS } from '../treasury-presentation';
 
 const TREASURY = `${APP_ROOT}/comptabilite/tresorerie`;
 
+/** Odoo's « Virement interne », offered with the partners (note backend 0046). */
+const TRANSFER: AutocompleteOption = { id: 'virement-interne', label: 'Virement interne' };
+
 /** A row of the list, in Odoo's words: the date, the partner and label, what it settled. */
 interface Row {
   readonly transaction: TreasuryTransaction;
@@ -67,7 +70,8 @@ interface Row {
  * 0044): the line typed in the table, every field on one row (date, label, the partner and one
  * of its unpaid invoices, or none for an advance on its account; the money in or out; the
  * balance after it), then the journal's lines with their running balance. A line is recorded,
- * posted and lettered by the server at once: no lettering to do afterwards.
+ * posted and lettered by the server at once: no lettering to do afterwards. « Virement
+ * interne », chosen as the partner, sends the money to another journal (note backend 0046).
  */
 @Component({
   selector: 'alco-transactions-page',
@@ -162,6 +166,8 @@ export class TransactionsPage {
     partner: new FormControl<AutocompleteOption | null>(null),
     /** The public id of the partner's open line (an invoice); '' : none. */
     line: new FormControl('', { nonNullable: true }),
+    /** « Virement interne »: the other journal's account. */
+    other: new FormControl('', { nonNullable: true }),
     amountIn: new FormControl('', { nonNullable: true }),
     amountOut: new FormControl('', { nonNullable: true }),
   });
@@ -173,7 +179,18 @@ export class TransactionsPage {
   );
   /** The partner's unpaid invoices (its open lines), read when the partner is chosen. */
   protected readonly openLines = signal<readonly LetterableLine[]>([]);
-  protected readonly hasPartner = computed(() => this.value().partner !== null);
+  protected readonly isTransfer = computed(() => this.value().partner?.id === TRANSFER.id);
+  protected readonly hasPartner = computed(
+    () => this.value().partner !== null && !this.isTransfer(),
+  );
+  /** The journals an internal transfer can go to: the others, in the same currency. */
+  protected readonly otherAccounts = computed(() => {
+    const current = this.account();
+    return (this.accounts.value() ?? []).filter(
+      (item) =>
+        current && item.public_id !== current.public_id && item.currency === current.currency,
+    );
+  });
   /** The balance after the line typed, as Odoo's « Solde courant » of the new row. */
   protected readonly preview = computed(() => {
     const found = this.balance.value();
@@ -188,13 +205,14 @@ export class TransactionsPage {
 
   protected readonly searchPartners: AutocompleteSearch = (term) =>
     this.entries.partners(term).pipe(
-      map((found) =>
-        found.map((partner) => ({
+      map((found) => [
+        ...(this.offersTransfer(term) ? [TRANSFER] : []),
+        ...found.map((partner) => ({
           id: partner.public_id,
           label: partner.name,
           detail: partner.code,
         })),
-      ),
+      ]),
     );
 
   constructor() {
@@ -274,6 +292,11 @@ export class TransactionsPage {
       this.invalid.set('Choisissez le partenaire.');
       return;
     }
+    const transfer = value.partner.id === TRANSFER.id;
+    if (transfer && !value.other) {
+      this.invalid.set('Choisissez l’autre journal.');
+      return;
+    }
     this.invalid.set(null);
     this.saving.set(true);
     try {
@@ -283,9 +306,10 @@ export class TransactionsPage {
           description: value.description.trim(),
           direction: amountIn ? 'inflow' : 'outflow',
           amount,
-          partner: value.partner?.id ?? null,
-          settled_line: value.line || null,
+          partner: transfer ? null : value.partner.id,
+          settled_line: transfer ? null : value.line || null,
           offset_account: null,
+          ...(transfer ? { internal_account: value.other } : {}),
           idempotency_key: this.idempotencyKey,
         }),
       );
@@ -319,6 +343,7 @@ export class TransactionsPage {
       description: '',
       partner: null,
       line: '',
+      other: '',
       amountIn: '',
       amountOut: '',
     });
@@ -327,10 +352,20 @@ export class TransactionsPage {
     this.error.set(null);
   }
 
+  /** With another journal in the same currency, and a term that may be « virement ». */
+  private offersTransfer(term: string): boolean {
+    const typed = term.trim().toLowerCase();
+    return this.otherAccounts().length > 0 && TRANSFER.label.toLowerCase().includes(typed);
+  }
+
   private readOpenLines(partner: AutocompleteOption | null): void {
-    this.form.controls.line.setValue('', { emitEvent: false });
+    const controls = this.form.controls;
+    controls.line.setValue('', { emitEvent: false });
+    controls.other.setValue(
+      partner?.id === TRANSFER.id ? (this.otherAccounts()[0]?.public_id ?? '') : '',
+    );
     this.openLines.set([]);
-    if (!partner) {
+    if (!partner || partner.id === TRANSFER.id) {
       return;
     }
     this.lettering
@@ -365,15 +400,20 @@ export class TransactionsPage {
     const done = transaction.status === 'accounted';
     const money = (value: string) => `${this.money(value)} ${transaction.currency}`;
     const account = transaction.offset_account;
-    const counterpart = transaction.settled.length
-      ? transaction.settled.join(', ')
-      : account
-        ? `${account.code} ${account.name}`
-        : '';
+    const other = transaction.transfer_account;
+    const counterpart = other
+      ? other.name
+      : transaction.settled.length
+        ? transaction.settled.join(', ')
+        : account
+          ? `${account.code} ${account.name}`
+          : '';
     return {
       transaction,
       day: formatDate(transaction.operation_date, 'd MMM', this.locale),
-      partner: transaction.counterparty?.name ?? transaction.counterparty_name,
+      partner: other
+        ? TRANSFER.label
+        : (transaction.counterparty?.name ?? transaction.counterparty_name),
       label: transaction.description || transaction.reference,
       counterpart: done ? counterpart : 'À comptabiliser',
       done,

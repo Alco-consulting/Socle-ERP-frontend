@@ -89,8 +89,9 @@ interface Row {
  * of its unpaid invoices, or none for an advance on its account; the money in or out; the
  * balance after it), then the journal's lines with their running balance. A line is recorded,
  * posted and lettered by the server at once: no lettering to do afterwards. As Odoo's, the
- * line is set against « Partenaire », « Compte » or, in its ⋮ menu, « Virements internes »
- * (note backend 0046) or a reconcile model, with « Gérer modèles » (note backend 0048).
+ * line is set against « Partenaire », « Compte » or, in its ⋮ menu, a reconcile model the
+ * company configured: an account, or an internal transfer (note backend 0046), with « Gérer
+ * modèles » (note backend 0048).
  */
 @Component({
   selector: 'alco-transactions-page',
@@ -214,20 +215,24 @@ export class TransactionsPage {
       catchError(() => of([] as ReconcileModel[])),
     ),
   );
-  /** The ⋮ menu, as Odoo's: « Virements internes », the models, « Gérer modèles ». */
-  protected readonly moreItems = computed<readonly DropdownItem[]>(() => [
-    {
-      id: 'transfer',
-      label: 'Virements internes',
-      disabled: this.otherAccounts().length === 0,
-    },
-    ...(this.models.value() ?? []).map((model, index) => ({
-      id: `model:${model.public_id}`,
-      label: model.name,
-      dividerBefore: index === 0,
-    })),
-    { id: 'manage', label: 'Gérer modèles', route: this.modelsUrl, dividerBefore: true },
-  ]);
+  /** The ⋮ menu, as Odoo's: the models configured (« Virements internes »…), « Gérer modèles ». */
+  protected readonly moreItems = computed<readonly DropdownItem[]>(() => {
+    const models = this.models.value() ?? [];
+    return [
+      ...models.map((model) => ({
+        id: `model:${model.public_id}`,
+        label: model.name,
+        // A transfer needs another journal in the same currency.
+        disabled: model.kind === 'transfer' && this.otherAccounts().length === 0,
+      })),
+      {
+        id: 'manage',
+        label: 'Gérer modèles',
+        route: this.modelsUrl,
+        dividerBefore: models.length > 0,
+      },
+    ];
+  });
   /** The journals an internal transfer can go to: the others, in the same currency. */
   protected readonly otherAccounts = computed(() => {
     const current = this.account();
@@ -321,21 +326,27 @@ export class TransactionsPage {
     }
   }
 
-  /** The ⋮ menu: an internal transfer, or a model's account and label. */
+  /** A model of the ⋮ menu: an internal transfer to its journal, or its account; its label. */
   protected onMore(item: DropdownItem): void {
-    if (item.id === 'transfer') {
-      this.choose('transfer');
-      return;
-    }
     const model = (this.models.value() ?? []).find(
       (found) => `model:${found.public_id}` === item.id,
     );
     if (!model) {
       return;
     }
-    this.choose('account');
     const controls = this.form.controls;
-    controls.account.setValue(accountOption(model.account));
+    if (model.kind === 'transfer') {
+      this.choose('transfer');
+      const destination = this.otherAccounts().find(
+        (other) => other.public_id === model.destination?.public_id,
+      );
+      if (destination) {
+        controls.other.setValue(destination.public_id);
+      }
+    } else if (model.account) {
+      this.choose('account');
+      controls.account.setValue(accountOption(model.account));
+    }
     if (model.label && !controls.description.value.trim()) {
       controls.description.setValue(model.label);
     }

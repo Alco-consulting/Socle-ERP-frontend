@@ -1,7 +1,8 @@
 import { NgTemplateOutlet } from '@angular/common';
 import { ChangeDetectionStrategy, Component, ElementRef, inject, signal } from '@angular/core';
+import { toSignal } from '@angular/core/rxjs-interop';
 import { FormControl, FormGroup, ReactiveFormsModule } from '@angular/forms';
-import { Observable, firstValueFrom, map } from 'rxjs';
+import { Observable, catchError, firstValueFrom, map, of } from 'rxjs';
 
 import { UserError, toUserError } from '../../../core/errors/user-error';
 import { toApiError } from '../../../core/http/api-error';
@@ -19,7 +20,12 @@ import { AlcoLoading } from '../../../shared/ui/loading/loading';
 import { AlcoPageHeader } from '../../../shared/ui/page-header/page-header';
 import { AlcoToastService } from '../../../shared/ui/toast/toast.service';
 import { EntriesApi } from '../../accounting/data-access/entries-api';
-import { ReconcileModel, ReconcileModelWrite } from '../data-access/reconciliation-models';
+import {
+  ReconcileModel,
+  ReconcileModelKind,
+  ReconcileModelWrite,
+  TreasuryAccount,
+} from '../data-access/reconciliation-models';
 import { TreasuryApi } from '../data-access/treasury-api';
 import { TREASURY_ERRORS } from '../treasury-presentation';
 
@@ -30,14 +36,20 @@ const accountOption = (account: { public_id: string; code: string; name: string 
   detail: account.name,
 });
 
+export const KIND_LABELS: Readonly<Record<ReconcileModelKind, string>> = {
+  account: 'Compte',
+  transfer: 'Virement interne',
+};
+
 /** A new model, or the model changed. */
 type Editing =
   { readonly kind: 'new' } | { readonly kind: 'model'; readonly model: ReconcileModel };
 
 /**
  * Odoo's « Modèles de rapprochement » (note backend 0048), opened by « Gérer modèles » of the ⋮
- * menu of a line: each gives the line its account and label in one click (« Frais
- * bancaires »: 631100). « Virements internes » is built in. Typed in the list itself.
+ * menu of a line: each active model is offered in that menu. A model gives the line its account
+ * and label (« Frais bancaires »: 631100), or makes it an internal transfer to its journal, or
+ * to the one chosen on the line (« Virements internes »). Typed in the list itself.
  */
 @Component({
   selector: 'alco-reconcile-models-page',
@@ -62,8 +74,16 @@ export class ReconcileModelsPage {
   private readonly host = inject<ElementRef<HTMLElement>>(ElementRef);
 
   protected readonly canManage = inject(SessionStore).can('treasury.manage_accounts');
+  protected readonly kindLabels = KIND_LABELS;
   protected readonly models = requestState(() =>
     this.treasury.reconcileModels().pipe(map((found) => found.results)),
+  );
+  /** The bank and cash journals a transfer may go to. */
+  protected readonly journals = requestState(() =>
+    this.treasury.accounts().pipe(
+      map((found) => found.results.filter((item) => item.status === 'active')),
+      catchError(() => of([] as TreasuryAccount[])),
+    ),
   );
 
   protected readonly editing = signal<Editing | null>(null);
@@ -73,13 +93,27 @@ export class ReconcileModelsPage {
 
   protected readonly form = new FormGroup({
     name: new FormControl('', { nonNullable: true }),
+    kind: new FormControl<ReconcileModelKind>('account', { nonNullable: true }),
     account: new FormControl<AutocompleteOption | null>(null),
+    /** A transfer's journal (its treasury account); '': chosen on the line. */
+    destination: new FormControl('', { nonNullable: true }),
     label: new FormControl('', { nonNullable: true }),
+  });
+  protected readonly kindTyped = toSignal(this.form.controls.kind.valueChanges, {
+    initialValue: this.form.controls.kind.value,
   });
 
   /** Every account of the chart that takes entries, by its code or name. */
   protected readonly searchAccounts: AutocompleteSearch = (term) =>
     this.entries.postableAccounts(term).pipe(map((found) => found.map(accountOption)));
+
+  /** « 631100 Frais bancaires », « Coris bank », or the journal chosen on the line. */
+  protected counterpart(model: ReconcileModel): string {
+    if (model.kind === 'transfer') {
+      return model.destination?.name ?? 'Journal choisi sur la ligne';
+    }
+    return model.account ? `${model.account.code} ${model.account.name}` : '';
+  }
 
   protected isEdited(model: ReconcileModel): boolean {
     const editing = this.editing();
@@ -87,14 +121,16 @@ export class ReconcileModelsPage {
   }
 
   protected newModel(): void {
-    this.form.reset({ name: '', account: null, label: '' });
+    this.form.reset({ name: '', kind: 'account', account: null, destination: '', label: '' });
     this.start({ kind: 'new' });
   }
 
   protected change(model: ReconcileModel): void {
     this.form.reset({
       name: model.name,
-      account: accountOption(model.account),
+      kind: model.kind,
+      account: model.account ? accountOption(model.account) : null,
+      destination: model.destination?.public_id ?? '',
       label: model.label,
     });
     this.start({ kind: 'model', model });
@@ -121,13 +157,20 @@ export class ReconcileModelsPage {
       return;
     }
     const value = this.form.getRawValue();
-    if (!value.name.trim() || !value.account) {
-      this.invalid.set('Saisissez le nom du modèle et choisissez son compte.');
+    const transfer = value.kind === 'transfer';
+    if (!value.name.trim() || (!transfer && !value.account)) {
+      this.invalid.set(
+        transfer
+          ? 'Saisissez le nom du modèle.'
+          : 'Saisissez le nom du modèle et choisissez son compte.',
+      );
       return;
     }
     const write: ReconcileModelWrite = {
       name: value.name.trim(),
-      account: value.account.id,
+      kind: value.kind,
+      account: transfer ? null : (value.account?.id ?? null),
+      destination: transfer ? value.destination || null : null,
       label: value.label.trim(),
     };
     await this.run(

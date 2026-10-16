@@ -89,8 +89,20 @@ const ALL = [
 const FEES = {
   public_id: 'm-fees',
   name: 'Frais bancaires',
-  account: { public_id: 'a-631', code: '631100', name: 'Frais bancaires' },
+  kind: 'account',
+  account: { public_id: 'a-631', code: '631800', name: 'Autres frais bancaires' },
+  destination: null,
   label: 'Frais de tenue de compte',
+  status: 'active',
+};
+/** Configured by the company: to Coris bank (note backend 0048). */
+const VERSEMENT = {
+  public_id: 'm-vir',
+  name: 'Versement en banque',
+  kind: 'transfer',
+  account: null,
+  destination: { public_id: 't-bq', code: 'BQ', name: 'Coris bank' },
+  label: '',
   status: 'active',
 };
 const settle = () => new Promise((resolve) => setTimeout(resolve, 0));
@@ -127,7 +139,7 @@ describe('Réconciliation bancaire (treasury/accounts/{id}/transactions/, note b
       .flush(page([{ code: 'GNF', name: 'Franc guinéen', decimal_places: 0, status: 'active' }]));
     for (const models of mock.match((req) => req.url === '/api/v1/treasury/reconcile-models/')) {
       expect(models.request.params.get('status')).toBe('active');
-      models.flush(page([FEES]));
+      models.flush(page([FEES, VERSEMENT]));
     }
     await stable();
     mock
@@ -373,13 +385,13 @@ describe('Réconciliation bancaire (treasury/accounts/{id}/transactions/, note b
       .flush(page(ROWS));
   });
 
-  it('⋮: « Virements internes », the models, « Gérer modèles »; a model gives its account and label', async () => {
+  it('⋮: the models configured, « Gérer modèles »; a model gives its account and label', async () => {
     const { component, element, stable } = await open();
     expect(
       component['moreItems']().map((item) => [item.label, item.route ?? '', !!item.dividerBefore]),
     ).toEqual([
-      ['Virements internes', '', false],
-      ['Frais bancaires', '', true],
+      ['Frais bancaires', '', false],
+      ['Versement en banque', '', false],
       ['Gérer modèles', '/app/comptabilite/configuration/modeles-rapprochement', true],
     ]);
 
@@ -407,10 +419,10 @@ describe('Réconciliation bancaire (treasury/accounts/{id}/transactions/, note b
       .flush(page(ROWS));
   });
 
-  it('⋮ « Virements internes »: the other journal chosen, both legs at once', async () => {
+  it('⋮ a transfer model: its journal, both legs at once', async () => {
     const { component, element, stable } = await open();
     const form = component['form'];
-    component['onMore']({ id: 'transfer', label: 'Virements internes' });
+    component['onMore']({ id: 'model:m-vir', label: 'Versement en banque' });
     form.patchValue({ date: '2026-10-14', amountOut: '500000' });
     await stable();
     httpMock().expectNone((req) => req.url === '/api/v1/accounting/letterable-lines/');

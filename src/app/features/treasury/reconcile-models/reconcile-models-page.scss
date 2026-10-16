@@ -36,13 +36,17 @@
   }
 }
 
-.built-in td,
+.empty-row,
 .inactive td {
   color: var(--color-text-muted);
 }
 
 .col-name {
   width: 14rem;
+}
+
+.col-kind {
+  width: 10rem;
 }
 
 .col-status {

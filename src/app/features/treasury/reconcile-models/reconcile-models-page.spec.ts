@@ -16,10 +16,21 @@ const page = (results: unknown[] = []) => ({
 const FEES = {
   public_id: 'm-fees',
   name: 'Frais bancaires',
-  account: { public_id: 'a-631', code: '631100', name: 'Frais bancaires' },
+  kind: 'account',
+  account: { public_id: 'a-631', code: '631800', name: 'Autres frais bancaires' },
+  destination: null,
   label: 'Frais bancaires',
   status: 'active',
 };
+const TRANSFER = {
+  ...FEES,
+  public_id: 'm-vir',
+  name: 'Virements internes',
+  kind: 'transfer',
+  account: null,
+  label: 'Virement interne',
+};
+const BANK = { public_id: 't-bq', code: 'BQ', name: 'Coris bank', status: 'active' };
 const settle = () => new Promise((resolve) => setTimeout(resolve, 0));
 const text = (element: Element | null | undefined) =>
   (element?.textContent ?? '').replace(/\s+/g, ' ').trim();
@@ -48,7 +59,10 @@ describe('Modèles de rapprochement (treasury/reconcile-models/, note backend 00
     };
     httpMock()
       .expectOne((req) => req.url === '/api/v1/treasury/reconcile-models/')
-      .flush(page([FEES]));
+      .flush(page([FEES, TRANSFER]));
+    httpMock()
+      .expectOne((req) => req.url === '/api/v1/treasury/accounts/')
+      .flush(page([BANK]));
     await stable();
     return { component, element, stable };
   }
@@ -58,31 +72,65 @@ describe('Modèles de rapprochement (treasury/reconcile-models/, note backend 00
       (item) => text(item) === label || item.getAttribute('aria-label') === label,
     );
 
-  it('as Odoo’s list: « Virements internes » built in, then the models', async () => {
+  it('as Odoo’s list: the models configured, an account or an internal transfer', async () => {
     const { element } = await open();
     const rows = Array.from(element.querySelectorAll('tbody tr')).map((row) =>
       Array.from(row.querySelectorAll('td'))
-        .slice(0, 4)
+        .slice(0, 5)
         .map((cell) => text(cell)),
     );
     expect(rows).toEqual([
+      ['Frais bancaires', 'Compte', '631800 Autres frais bancaires', 'Frais bancaires', 'Active'],
       [
         'Virements internes',
-        'Un autre journal de banque ou de caisse',
+        'Virement interne',
+        'Journal choisi sur la ligne',
         'Virement interne',
         'Active',
       ],
-      ['Frais bancaires', '631100 Frais bancaires', 'Frais bancaires', 'Active'],
     ]);
-    expect(button(element, 'Modifier Virements internes')).toBeUndefined();
+    expect(button(element, 'Modifier Virements internes')).toBeDefined();
     expect(button(element, 'Archiver Frais bancaires')).toBeDefined();
+  });
+
+  it('« Nouveau » « Virement interne »: its journal, or the one chosen on the line', async () => {
+    const { component, element, stable } = await open();
+    button(element, 'Nouveau')!.click();
+    await stable();
+    component['form'].patchValue({ name: 'Versement en banque', kind: 'transfer' });
+    await stable();
+    const journal = element.querySelector<HTMLSelectElement>(
+      'select[aria-label="Journal de destination"]',
+    )!;
+    expect(Array.from(journal.options).map((option) => text(option))).toEqual([
+      'Journal choisi sur la ligne',
+      'Coris bank',
+    ]);
+    expect(element.querySelector('alco-autocomplete[formControlName="account"]')).toBeNull();
+    component['form'].patchValue({ destination: 't-bq' });
+    button(element, 'Enregistrer')!.click();
+    await stable();
+
+    const create = httpMock().expectOne('/api/v1/treasury/reconcile-models/');
+    expect(create.request.body).toEqual({
+      name: 'Versement en banque',
+      kind: 'transfer',
+      account: null,
+      destination: 't-bq',
+      label: '',
+    });
+    create.flush({ ...TRANSFER, public_id: 'm-3' });
+    await stable();
+    httpMock()
+      .expectOne((req) => req.url === '/api/v1/treasury/reconcile-models/')
+      .flush(page([FEES, TRANSFER]));
   });
 
   it('« Nouveau »: its name, its account, its label', async () => {
     const { component, element, stable } = await open();
     button(element, 'Nouveau')!.click();
     await stable();
-    component['form'].setValue({
+    component['form'].patchValue({
       name: 'Agios',
       account: { id: 'a-675', label: '675100' },
       label: 'Agios du mois',
@@ -94,14 +142,16 @@ describe('Modèles de rapprochement (treasury/reconcile-models/, note backend 00
     expect(create.request.method).toBe('POST');
     expect(create.request.body).toEqual({
       name: 'Agios',
+      kind: 'account',
       account: 'a-675',
+      destination: null,
       label: 'Agios du mois',
     });
     create.flush({ ...FEES, public_id: 'm-2', name: 'Agios' });
     await stable();
     httpMock()
       .expectOne((req) => req.url === '/api/v1/treasury/reconcile-models/')
-      .flush(page([FEES]));
+      .flush(page([FEES, TRANSFER]));
     await stable();
     expect(element.querySelector('tr.entry')).toBeNull();
   });

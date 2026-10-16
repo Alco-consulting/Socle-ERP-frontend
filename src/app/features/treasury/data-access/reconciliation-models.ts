@@ -73,12 +73,18 @@ export interface NamedReference extends CodeReference {
   readonly name: string;
 }
 
+/** A model gives the line its account, or makes it an internal transfer (note backend 0048). */
+export type ReconcileModelKind = 'account' | 'transfer';
+
 /** `TreasuryReconcileModel`: Odoo's « Modèle de rapprochement » (note backend 0048). */
 export interface ReconcileModel {
   readonly public_id: string;
   readonly name: string;
-  /** The counterpart account given to the line. */
-  readonly account: NamedReference;
+  readonly kind: ReconcileModelKind;
+  /** An account model's counterpart account. */
+  readonly account: NamedReference | null;
+  /** A transfer's other journal; none: chosen on the line. */
+  readonly destination: NamedReference | null;
   /** The line's label when none is typed. */
   readonly label: string;
   readonly status: RecordStatus;
@@ -86,7 +92,9 @@ export interface ReconcileModel {
 
 export interface ReconcileModelWrite {
   readonly name?: string;
-  readonly account?: string;
+  readonly kind?: ReconcileModelKind;
+  readonly account?: string | null;
+  readonly destination?: string | null;
   readonly label?: string;
   readonly status?: RecordStatus;
 }

@@ -45,7 +45,8 @@
       <thead>
         <tr>
           <th scope="col" class="col-name">Nom</th>
-          <th scope="col">Compte</th>
+          <th scope="col" class="col-kind">Type</th>
+          <th scope="col">Compte ou journal</th>
           <th scope="col">Libellé</th>
           <th scope="col" class="col-status">Statut</th>
           <th scope="col" class="col-actions"><span class="alco-sr-only">Actions</span></th>
@@ -55,21 +56,14 @@
         @if (editing()?.kind === 'new') {
           <ng-container *ngTemplateOutlet="entry" />
         }
-        <!-- Built in: the money goes to another journal, both recorded at once. -->
-        <tr class="built-in">
-          <td>Virements internes</td>
-          <td>Un autre journal de banque ou de caisse</td>
-          <td>Virement interne</td>
-          <td>Active</td>
-          <td></td>
-        </tr>
         @for (model of list; track model.public_id) {
           @if (isEdited(model)) {
             <ng-container *ngTemplateOutlet="entry" />
           } @else {
             <tr [class.inactive]="model.status === 'inactive'">
               <td>{{ model.name }}</td>
-              <td>{{ model.account.code }} {{ model.account.name }}</td>
+              <td>{{ kindLabels[model.kind] }}</td>
+              <td>{{ counterpart(model) }}</td>
               <td>{{ model.label }}</td>
               <td>{{ model.status === 'active' ? 'Active' : 'Archivée' }}</td>
               <td class="col-actions">
@@ -100,6 +94,14 @@
               </td>
             </tr>
           }
+        } @empty {
+          @if (!editing()) {
+            <tr>
+              <td colspan="6" class="empty-row">
+                Aucun modèle : « Nouveau » en crée un, par exemple « Virements internes ».
+              </td>
+            </tr>
+          }
         }
       </tbody>
     </table>
@@ -108,7 +110,7 @@
   <alco-loading [rows]="3" label="Chargement des modèles de rapprochement…" />
 }
 
-<!-- The model typed in its row: its name, its account, its label. -->
+<!-- The model typed in its row: its name, its type, its account or journal, its label. -->
 <ng-template #entry>
   <tr
     class="entry alco-controls-underlined"
@@ -128,13 +130,28 @@
       />
     </td>
     <td>
-      <alco-autocomplete
-        formControlName="account"
-        [search]="searchAccounts"
-        label="Compte"
-        placeholder="Compte (ex. 631100)"
-        emptyText="Aucun compte ne correspond."
-      />
+      <select alcoSelect formControlName="kind" aria-label="Type">
+        <option value="account">{{ kindLabels.account }}</option>
+        <option value="transfer">{{ kindLabels.transfer }}</option>
+      </select>
+    </td>
+    <td>
+      @if (kindTyped() === 'transfer') {
+        <select alcoSelect formControlName="destination" aria-label="Journal de destination">
+          <option value="">Journal choisi sur la ligne</option>
+          @for (journal of journals.value() ?? []; track journal.public_id) {
+            <option [value]="journal.public_id">{{ journal.name }}</option>
+          }
+        </select>
+      } @else {
+        <alco-autocomplete
+          formControlName="account"
+          [search]="searchAccounts"
+          label="Compte"
+          placeholder="Compte (ex. 631800)"
+          emptyText="Aucun compte ne correspond."
+        />
+      }
     </td>
     <td>
       <input

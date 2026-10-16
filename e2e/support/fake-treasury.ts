@@ -305,7 +305,9 @@ export class FakeTreasury {
     {
       public_id: string;
       name: string;
-      account: { public_id: string; code: string; name: string };
+      kind: string;
+      account: { public_id: string; code: string; name: string } | null;
+      destination: { public_id: string; code: string; name: string } | null;
       label: string;
       status: string;
     }[]
@@ -685,7 +687,7 @@ export class FakeTreasury {
       // A model's account keeps its code and name (note backend 0048).
       offset_account: data['offset_account']
         ? ((this.models[desk.company] ?? []).find(
-            (model) => model.account.public_id === data['offset_account'],
+            (model) => model.account?.public_id === data['offset_account'],
           )?.account ?? { public_id: String(data['offset_account']), code: 'compte' })
         : null,
       transfer: null,
@@ -974,13 +976,16 @@ export class FakeTreasury {
     };
     const parts = path.split('/').filter(Boolean);
 
-    // Odoo's « Modèles de rapprochement » (note backend 0048): « Frais bancaires » to start.
+    // Odoo's « Modèles de rapprochement » (note backend 0048): « Frais bancaires » to start;
+    // « Virements internes », the company configures it.
     if (parts[0] === 'reconcile-models') {
       const models = (this.models[desk.company] ??= [
         {
           public_id: uuid(),
           name: 'Frais bancaires',
-          account: { public_id: uuid(), code: '631100', name: 'Frais bancaires' },
+          kind: 'account',
+          account: { public_id: uuid(), code: '631800', name: 'Autres frais bancaires' },
+          destination: null,
           label: 'Frais bancaires',
           status: 'active',
         },
@@ -1003,13 +1008,28 @@ export class FakeTreasury {
       if (models.some((item) => item !== found && item.name.toLowerCase() === name.toLowerCase())) {
         return reply(400, error('treasury_reconcile_model_exists'));
       }
+      // An account model has its account; a transfer, its journal at most.
+      const kind = String(data['kind'] ?? found?.kind ?? 'account');
       const account = data['account']
         ? { public_id: String(data['account']), code: 'compte', name: '' }
-        : found?.account;
+        : 'account' in data
+          ? null
+          : (found?.account ?? null);
+      const target = desk.accounts.find((item) => item.public_id === data['destination']);
+      const destination = target
+        ? { public_id: target.public_id, code: target.code, name: target.name }
+        : 'destination' in data
+          ? null
+          : (found?.destination ?? null);
+      if (kind === 'account' && !account) {
+        return reply(400, error('validation_error', { account: [{ code: 'required' }] }));
+      }
       const model = {
         public_id: found?.public_id ?? uuid(),
         name,
-        account: account!,
+        kind,
+        account: kind === 'account' ? account : null,
+        destination: kind === 'transfer' ? destination : null,
         label: String(data['label'] ?? found?.label ?? ''),
         status: String(data['status'] ?? found?.status ?? 'active'),
       };

@@ -450,6 +450,15 @@ test.describe('Réconciliation bancaire — comme Odoo (note backend 0044)', () 
   test('un virement interne : la sortie de la banque, l’entrée dans la caisse, en une fois', async ({
     page,
   }) => {
+    // Note backend 0048: « Virements internes » configured by the company, then in ⋮.
+    await page.goto('/app/comptabilite/configuration/modeles-rapprochement');
+    await page.getByRole('button', { name: 'Nouveau' }).click();
+    await page.getByRole('textbox', { name: 'Nom du modèle' }).fill('Virements internes');
+    await page.getByRole('combobox', { name: 'Type' }).selectOption({ label: 'Virement interne' });
+    await page.getByRole('button', { name: 'Enregistrer' }).click();
+    await expect(page.getByRole('row', { name: /Virements internes/ })).toContainText(
+      'Journal choisi sur la ligne',
+    );
     // Note backend 0046: ⋮ « Virements internes », then the other journal.
     await page.goto(`${ROOT}/transactions?compte=BQ-GNF`);
     await more(page, 'Virements internes');
@@ -494,14 +503,14 @@ test.describe('Réconciliation bancaire — comme Odoo (note backend 0044)', () 
     await entry(page).getByRole('textbox', { name: 'Sortie' }).fill('15000');
     await entry(page).getByRole('textbox', { name: 'Sortie' }).press('Enter');
     await expect(lines(page).filter({ hasText: '15 000' }).locator('.counterpart')).toHaveText(
-      '631100 Frais bancaires',
+      '631800 Autres frais bancaires',
     );
     expect(await axe(page)).toEqual([]);
 
     // « Gérer modèles »: Odoo's list, a model added.
     await more(page, 'Gérer modèles');
     await expect(page.getByRole('heading', { level: 1 })).toHaveText('Modèles de rapprochement');
-    await expect(page.getByRole('row', { name: /Virements internes/ })).toBeVisible();
+    await expect(page.getByRole('row', { name: /Frais bancaires/ })).toBeVisible();
     await page.getByRole('button', { name: 'Nouveau' }).click();
     await page.getByRole('textbox', { name: 'Nom du modèle' }).fill('Agios');
     await page.getByRole('combobox', { name: 'Compte' }).fill('601');

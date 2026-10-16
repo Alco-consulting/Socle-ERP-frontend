@@ -79,16 +79,16 @@ export const PAYMENT_STATE: Readonly<Record<PaymentState, { label: string; tone:
 
 export const INVOICING_ERRORS: ErrorCatalog = {
   invoicing_unit_category_mismatch: {
-    title: 'L’unité n’est pas de la catégorie du produit.',
-    message: 'Choisissez une unité de la même catégorie (ex. g, kg ou t pour un produit au kg).',
+    title: 'Ces deux unités ne se convertissent pas l’une en l’autre.',
+    message: 'Choisissez une unité convertible (ex. g, kg ou t pour un produit au kg).',
   },
   invoicing_unit_exists: {
-    title: 'Ce nom d’unité ou de catégorie existe déjà.',
+    title: 'Une unité porte déjà ce nom.',
     message: 'Choisissez un autre nom.',
   },
   invoicing_unit_reference: {
-    title: 'L’unité de référence ne change ni de type, ni de ratio.',
-    message: 'Elle vaut 1 et reste active ; renommez-la seulement.',
+    title: 'D’autres unités sont définies à partir de celle-ci.',
+    message: 'Elle peut seulement être renommée.',
   },
   invoicing_product_account_missing: {
     title: 'Un produit de la facture n’a pas de compte pour ce côté.',

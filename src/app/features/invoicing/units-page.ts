@@ -1,9 +1,17 @@
 import { NgTemplateOutlet } from '@angular/common';
-import { ChangeDetectionStrategy, Component, ElementRef, inject, signal } from '@angular/core';
+import {
+  ChangeDetectionStrategy,
+  Component,
+  ElementRef,
+  computed,
+  inject,
+  signal,
+} from '@angular/core';
+import { toSignal } from '@angular/core/rxjs-interop';
 import { FormControl, FormGroup, ReactiveFormsModule } from '@angular/forms';
 import { Observable, firstValueFrom, map } from 'rxjs';
 
-import { UserError, toUserError } from '../../core/errors/user-error';
+import { ErrorCatalog, UserError, toUserError } from '../../core/errors/user-error';
 import { toApiError } from '../../core/http/api-error';
 import { requestState } from '../../core/http/request-state';
 import { SessionStore } from '../../core/session/session.store';
@@ -13,28 +21,48 @@ import { AlcoErrorState } from '../../shared/ui/error-state/error-state';
 import { AlcoLoading } from '../../shared/ui/loading/loading';
 import { AlcoPageHeader } from '../../shared/ui/page-header/page-header';
 import { AlcoToastService } from '../../shared/ui/toast/toast.service';
-import { normalizeDecimalInput, trimDecimalZeros } from '../../shared/utils/decimal';
+import { formatDecimal, normalizeDecimalInput, trimDecimalZeros } from '../../shared/utils/decimal';
 import { InvoicingApi } from './data-access/invoicing-api';
-import { Unit, UnitCategory, UnitType } from './data-access/invoicing-models';
+import { Unit, UnitCategory, UnitUpdate } from './data-access/invoicing-models';
 import { INVOICING_ERRORS } from './invoicing-presentation';
 
-/** Odoo's words for the type of a unit. */
-const TYPE_LABELS: Readonly<Record<UnitType, string>> = {
-  reference: 'Unité de référence de la catégorie',
-  bigger: 'Plus grande que la référence',
-  smaller: 'Plus petite que la référence',
+const ERRORS: ErrorCatalog = {
+  ...INVOICING_ERRORS,
+  invoicing_unit_category_mismatch: {
+    title: 'Un produit utilise cette unité avec une autre unité.',
+    message: 'Changez d’abord les unités de ce produit, puis l’équivalence.',
+  },
 };
 
-/** What is typed: a new category, a new unit of a category, or a unit changed. */
-type Editing =
-  | { readonly kind: 'category' }
-  | { readonly kind: 'new'; readonly category: string }
-  | { readonly kind: 'unit'; readonly unit: Unit };
+/** A row: the unit and what one of it is worth. */
+interface Row {
+  readonly unit: Unit;
+  /** The first of its family: a line above it. */
+  readonly first: boolean;
+  /** Other units are worth some of it: renamed only. */
+  readonly base: boolean;
+  readonly equivalence: string;
+  /** Its base unit, and how many of it one of this unit is worth. */
+  readonly of: Unit | undefined;
+  readonly quantity: string;
+}
+
+/** The units offered for « = … », by family. */
+interface Family {
+  readonly id: string;
+  readonly name: string;
+  readonly units: readonly Unit[];
+}
+
+type Editing = { readonly kind: 'new' } | { readonly kind: 'unit'; readonly row: Row };
+
+/** « 1 000 », « 0,001 »: up to six decimals. */
+const amount = (factor: number) => formatDecimal(trimDecimalZeros(factor.toFixed(6), 0), 0);
 
 /**
- * Configuration › Unités de mesure, as Odoo's (note backend 0047): each category with its units,
- * the reference first; another unit is bigger or smaller than the reference by its ratio (a bag
- * of 50 kg: bigger, 50). A category, a unit, a new name or ratio are typed in the list itself.
+ * Configuration › Unités de mesure (note backend 0047): each unit and what one of it is worth
+ * (« 1 Sac = 50 kg »). A unit is created or changed in the list itself: its name, then
+ * « 1 <name> = <quantity> <unit> »; without it, a unit apart (« Bonbonne »).
  */
 @Component({
   selector: 'alco-units-page',
@@ -57,7 +85,6 @@ export class UnitsPage {
   private readonly host = inject<ElementRef<HTMLElement>>(ElementRef);
 
   protected readonly canManage = inject(SessionStore).can('invoicing.manage_products');
-  protected readonly typeLabels = TYPE_LABELS;
   protected readonly categories = requestState(() =>
     this.api.unitCategories().pipe(map((page) => page.results)),
   );
@@ -67,44 +94,54 @@ export class UnitsPage {
   protected readonly error = signal<UserError | null>(null);
   protected readonly invalid = signal<string | null>(null);
 
-  protected readonly categoryForm = new FormGroup({
+  protected readonly form = new FormGroup({
     name: new FormControl('', { nonNullable: true }),
-    reference: new FormControl('', { nonNullable: true }),
+    quantity: new FormControl('', { nonNullable: true }),
+    of: new FormControl('', { nonNullable: true }),
   });
-  protected readonly unitForm = new FormGroup({
-    name: new FormControl('', { nonNullable: true }),
-    unit_type: new FormControl<UnitType>('bigger', { nonNullable: true }),
-    ratio: new FormControl('', { nonNullable: true }),
+  /** The name typed, in « 1 <name> = ». */
+  protected readonly typed = toSignal(this.form.controls.name.valueChanges, { initialValue: '' });
+
+  protected readonly rows = computed<readonly Row[]>(() =>
+    (this.categories.value() ?? []).flatMap((category) => this.rowsOf(category)),
+  );
+
+  /** The active units, by family; never the unit changed itself. */
+  protected readonly families = computed<readonly Family[]>(() => {
+    const editing = this.editing();
+    const own = editing?.kind === 'unit' ? editing.row.unit.public_id : null;
+    return (this.categories.value() ?? [])
+      .map((category) => ({
+        id: category.public_id,
+        name: category.name,
+        units: category.units.filter((unit) => unit.status === 'active' && unit.public_id !== own),
+      }))
+      .filter((family) => family.units.length > 0);
   });
 
-  protected ratio(unit: Unit): string {
-    return trimDecimalZeros(unit.ratio, 0);
-  }
-
-  /** The unit changed in its row, else none. */
-  protected isEdited(unit: Unit): boolean {
+  /** A unit apart may stay so: a new one, or the only one of its family. */
+  protected readonly mayStandAlone = computed(() => {
     const editing = this.editing();
-    return editing?.kind === 'unit' && editing.unit.public_id === unit.public_id;
-  }
+    return editing?.kind === 'new' || (editing?.kind === 'unit' && !editing.row.of);
+  });
 
-  protected isAdding(category: UnitCategory): boolean {
+  protected isEdited(row: Row): boolean {
     const editing = this.editing();
-    return editing?.kind === 'new' && editing.category === category.public_id;
+    return editing?.kind === 'unit' && editing.row.unit.public_id === row.unit.public_id;
   }
 
-  protected newCategory(): void {
-    this.categoryForm.reset();
-    this.start({ kind: 'category' }, 'category-name');
+  protected newUnit(): void {
+    this.form.reset({ name: '', quantity: '', of: '' });
+    this.start({ kind: 'new' });
   }
 
-  protected newUnit(category: UnitCategory): void {
-    this.unitForm.reset({ name: '', unit_type: 'bigger', ratio: '' });
-    this.start({ kind: 'new', category: category.public_id }, 'unit-name');
-  }
-
-  protected change(unit: Unit): void {
-    this.unitForm.reset({ name: unit.name, unit_type: unit.unit_type, ratio: this.ratio(unit) });
-    this.start({ kind: 'unit', unit }, 'unit-name');
+  protected change(row: Row): void {
+    this.form.reset({
+      name: row.unit.name,
+      quantity: row.of ? row.quantity : '',
+      of: row.of?.public_id ?? '',
+    });
+    this.start({ kind: 'unit', row });
   }
 
   protected cancel(): void {
@@ -113,7 +150,7 @@ export class UnitsPage {
     this.error.set(null);
   }
 
-  /** Entrée in a row typed: saved (a choice in a list stays a choice). */
+  /** Entrée in the row typed: saved (a choice in a list stays a choice). */
   protected onEnter(event: Event): void {
     if (event.defaultPrevented) {
       return;
@@ -127,11 +164,10 @@ export class UnitsPage {
     if (!editing || this.saving()) {
       return;
     }
-    const request = editing.kind === 'category' ? this.categoryRequest() : this.unitRequest();
-    if (!request) {
-      return;
+    const request = this.request(editing);
+    if (request) {
+      await this.run(request, 'Unité enregistrée.');
     }
-    await this.run(request, 'Enregistré.');
   }
 
   protected async setActive(unit: Unit, active: boolean): Promise<void> {
@@ -144,41 +180,49 @@ export class UnitsPage {
     );
   }
 
-  private categoryRequest(): Observable<unknown> | null {
-    const value = this.categoryForm.getRawValue();
-    if (!value.name.trim() || !value.reference.trim()) {
-      this.invalid.set('Saisissez le nom de la catégorie et celui de son unité de référence.');
-      return null;
-    }
-    return this.api.createUnitCategory(value.name.trim(), value.reference.trim());
+  private rowsOf(category: UnitCategory): Row[] {
+    const base = category.units.find((unit) => unit.unit_type === 'reference');
+    const others = category.units.length > 1;
+    return category.units.map((unit, index) => {
+      const reference = unit === base;
+      return {
+        unit,
+        first: index === 0,
+        base: reference && others,
+        equivalence: reference
+          ? others
+            ? 'Unité de base'
+            : '—'
+          : `1 ${unit.name} = ${amount(Number(unit.factor))} ${base?.name ?? ''}`,
+        of: reference ? undefined : base,
+        quantity: trimDecimalZeros(Number(unit.factor).toFixed(6), 0),
+      };
+    });
   }
 
-  private unitRequest(): Observable<unknown> | null {
-    const editing = this.editing();
-    const value = this.unitForm.getRawValue();
-    const ratio = normalizeDecimalInput(value.ratio.trim());
-    const reference = editing?.kind === 'unit' && editing.unit.unit_type === 'reference';
-    if (!value.name.trim() || (!reference && !(Number(ratio) > 0))) {
-      this.invalid.set('Saisissez le nom de l’unité et un ratio supérieur à 0.');
+  private request(editing: Editing): Observable<unknown> | null {
+    const value = this.form.getRawValue();
+    const name = value.name.trim();
+    const quantity = normalizeDecimalInput(value.quantity.trim());
+    if (!name) {
+      this.invalid.set('Saisissez le nom de l’unité.');
       return null;
     }
-    if (editing?.kind === 'new') {
-      return this.api.createUnit({
-        category: editing.category,
-        name: value.name.trim(),
-        unit_type: value.unit_type === 'smaller' ? 'smaller' : 'bigger',
-        ratio: ratio ?? '',
-      });
-    }
-    if (editing?.kind !== 'unit') {
+    const base = editing.kind === 'unit' && editing.row.base;
+    if (!base && value.of && !(Number(quantity) > 0)) {
+      this.invalid.set(`Saisissez combien vaut 1 ${name}.`);
       return null;
     }
-    return this.api.updateUnit(
-      editing.unit.public_id,
-      reference
-        ? { name: value.name.trim() }
-        : { name: value.name.trim(), unit_type: value.unit_type, ratio: ratio ?? '' },
-    );
+    if (!base && !value.of && value.quantity.trim()) {
+      this.invalid.set('Choisissez l’unité après la quantité.');
+      return null;
+    }
+    const equivalence = !base && value.of ? { quantity, of: value.of } : {};
+    if (editing.kind === 'new') {
+      return this.api.createUnit({ name, ...equivalence });
+    }
+    const changes: UnitUpdate = { name, ...equivalence };
+    return this.api.updateUnit(editing.row.unit.public_id, changes);
   }
 
   private async run(request: Observable<unknown>, done: string): Promise<void> {
@@ -193,17 +237,17 @@ export class UnitsPage {
     } catch (failure) {
       const error = toApiError(failure);
       if (error.kind !== 'unauthenticated') {
-        this.error.set(toUserError(error, INVOICING_ERRORS));
+        this.error.set(toUserError(error, ERRORS));
       }
     } finally {
       this.saving.set(false);
     }
   }
 
-  private start(editing: Editing, field: string): void {
+  private start(editing: Editing): void {
     this.invalid.set(null);
     this.error.set(null);
     this.editing.set(editing);
-    setTimeout(() => this.host.nativeElement.querySelector<HTMLElement>(`#${field}`)?.focus());
+    setTimeout(() => this.host.nativeElement.querySelector<HTMLElement>('#unit-name')?.focus());
   }
 }

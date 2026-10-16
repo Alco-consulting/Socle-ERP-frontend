@@ -176,22 +176,26 @@ test.describe('Facturation', () => {
     ).toBeVisible();
   });
 
-  test('les unités comme Odoo : un sac de 50 kg, acheté au sac, le prix converti au kg', async ({
+  test('les unités : 1 sac de 50 kg = 50 kg, acheté au sac, le prix converti au kg', async ({
     page,
   }) => {
     test.slow(); // the list, a product, an invoice, an accessibility scan
-    // Configuration › Unités de mesure: the default list, a unit added (note backend 0047).
+    // Configuration › Unités de mesure: « 1 t = 1 000 kg »; « 1 Sac de 50 kg = 50 kg » added
+    // (note backend 0047).
     await page.goto('/app/comptabilite/tableau-de-bord');
     await openMenuItem(page, 'Configuration', 'Unités de mesure');
     await expect(heading(page)).toHaveText('Unités de mesure');
-    await expect(page.getByRole('rowheader', { name: 'Poids' })).toBeVisible();
-    await page.getByRole('button', { name: 'Ajouter une unité à Poids' }).click();
+    await expect(page.getByRole('row', { name: /^t / })).toContainText(/1 t = 1\s000 kg/);
+    await page.getByRole('button', { name: 'Nouvelle unité' }).click();
     await page.getByRole('textbox', { name: 'Nom de l’unité' }).fill('Sac de 50 kg');
-    await page.getByRole('textbox', { name: 'Ratio' }).fill('50');
+    await page.getByRole('textbox', { name: 'Quantité' }).fill('50');
+    await page.getByRole('combobox', { name: 'Unité de l’équivalence' }).selectOption({
+      label: 'kg',
+    });
     await page.getByRole('button', { name: 'Enregistrer' }).click();
-    const bag = page.getByRole('row', { name: /Sac de 50 kg/ });
-    await expect(bag).toContainText('Plus grande que la référence');
-    await expect(bag).toContainText('50');
+    await expect(page.getByRole('row', { name: /Sac de 50 kg/ })).toContainText(
+      '1 Sac de 50 kg = 50 kg',
+    );
     expect(await axe(page)).toEqual([]);
 
     // The product: sold by the kg, bought by the bag.

@@ -55,14 +55,6 @@ export class InvoicingApi {
     });
   }
 
-  /** A category and its reference unit. */
-  createUnitCategory(name: string, referenceUnit: string): Observable<UnitCategory> {
-    return this.api.post<UnitCategory>(`${base}unit-categories/`, {
-      name,
-      reference_unit: referenceUnit,
-    });
-  }
-
   createUnit(unit: UnitWrite): Observable<Unit> {
     return this.api.post<Unit>(`${base}units/`, unit);
   }

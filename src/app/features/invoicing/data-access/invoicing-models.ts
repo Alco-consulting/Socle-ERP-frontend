@@ -43,17 +43,17 @@ export interface UnitCategory {
   readonly units: readonly Unit[];
 }
 
+/** « 1 sac = 50 kg »: `quantity` of `of`; without them, the base of a new family. */
 export interface UnitWrite {
-  readonly category: string;
   readonly name: string;
-  readonly unit_type: Exclude<UnitType, 'reference'>;
-  readonly ratio: string;
+  readonly quantity?: string | null;
+  readonly of?: string | null;
 }
 
 export interface UnitUpdate {
   readonly name?: string;
-  readonly unit_type?: UnitType;
-  readonly ratio?: string;
+  readonly quantity?: string | null;
+  readonly of?: string | null;
   readonly status?: RecordStatus;
 }
 

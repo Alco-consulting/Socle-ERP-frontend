@@ -1,4 +1,4 @@
-// Odoo's « Unités de mesure »: each category, then its units on one row each.
+// Each unit and what one of it is worth (« 1 Sac = 50 kg »), one row each.
 :host {
   display: flex;
   flex-direction: column;
@@ -46,21 +46,36 @@
   }
 }
 
-.group th,
-.group td {
-  background: var(--color-surface-muted);
+.units tr.first:not(:first-child) td {
+  border-top: calc(var(--border-width) * 2) solid var(--color-border);
 }
 
 .inactive td {
   color: var(--color-text-muted);
 }
 
-.col-name {
-  width: 16rem;
+// « 1 Sac = [50] [kg] » on one line.
+.equals {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+
+  .lead {
+    white-space: nowrap;
+  }
+
+  .quantity {
+    width: 7rem;
+  }
+
+  select {
+    width: auto;
+    min-width: 10rem;
+  }
 }
 
-.col-ratio {
-  width: 8rem;
+.col-name {
+  width: 16rem;
 }
 
 .col-status {

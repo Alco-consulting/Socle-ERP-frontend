@@ -277,6 +277,7 @@ export class FakeInvoicing {
     return null;
   }
 
+  /** « 1 sac = 50 kg » (note backend 0047): the family of `of`, or a new one alone. */
   private async unitRoute(
     route: Route,
     company: string,
@@ -287,54 +288,60 @@ export class FakeInvoicing {
     can: (permission: string) => boolean,
   ): Promise<void> {
     const categories = this.unitsOf(company);
-    if (method === 'GET') {
+    if (method === 'GET' || resource !== 'units') {
       return this.answer(route, 200, this.page(categories));
     }
     if (!can('invoicing.manage_products')) {
       return this.answer(route, 403, error('company_permission_denied'));
     }
-    const names = categories.flatMap((item) => [item.name, ...item.units.map((unit) => unit.name)]);
-    const taken = (name: unknown) =>
-      names.some((known) => known.toLowerCase() === String(name).trim().toLowerCase());
-    if (resource === 'unit-categories') {
-      if (taken(body['name']) || taken(body['reference_unit'])) {
-        return this.answer(route, 400, error('invoicing_unit_exists'));
-      }
-      const category: CategoryJson = {
-        public_id: uuid(),
-        name: String(body['name']).trim(),
-        units: [unitJson(String(body['reference_unit']).trim(), 'reference', 1)],
-      };
-      categories.push(category);
-      return this.answer(route, 201, category);
+    const all = categories.flatMap((item) => item.units);
+    const unit = id ? all.find((item) => item.public_id === id) : undefined;
+    const name = 'name' in body ? String(body['name']).trim() : unit?.name;
+    if (
+      !name ||
+      all.some((item) => item !== unit && item.name.toLowerCase() === name.toLowerCase())
+    ) {
+      return this.answer(route, 400, error('invoicing_unit_exists'));
     }
+    const of = all.find((item) => item.public_id === body['of']);
+    const family = (item: UnitJson) => categories.find((cat) => cat.units.includes(item))!;
+    // One of it is worth `quantity` of `of`: its factor in the family's base unit.
+    const measure = (target: UnitJson) => {
+      const factor = Number(body['quantity']) * Number(of!.factor);
+      const smaller = factor < 1 && Number.isInteger(1 / factor);
+      target.unit_type = smaller ? 'smaller' : 'bigger';
+      target.ratio = (smaller ? 1 / factor : factor).toFixed(6);
+      target.factor = factor.toFixed(12);
+    };
     if (!id) {
-      const category = categories.find((item) => item.public_id === body['category']);
-      if (!category || taken(body['name'])) {
-        return this.answer(route, 400, error('invoicing_unit_exists'));
+      const created = unitJson(name, 'reference', 1);
+      if (of) {
+        measure(created);
+        family(of).units.push(created);
+      } else {
+        categories.push({ public_id: uuid(), name, units: [created] });
       }
-      const unit = unitJson(
-        String(body['name']).trim(),
-        body['unit_type'] as UnitType,
-        Number(body['ratio']),
-      );
-      category.units.push(unit);
-      return this.answer(route, 201, unit);
+      return this.answer(route, 201, created);
     }
-    const unit = categories.flatMap((item) => item.units).find((item) => item.public_id === id);
     if (!unit) {
       return this.answer(route, 404, error('not_found'));
     }
-    if (unit.unit_type === 'reference' && ('ratio' in body || 'status' in body)) {
+    const own = family(unit);
+    const base = unit.unit_type === 'reference' && own.units.length > 1;
+    if (base && (of || body['status'] === 'inactive')) {
       return this.answer(route, 400, error('invoicing_unit_reference'));
     }
-    if ('name' in body) unit.name = String(body['name']).trim();
+    unit.name = name;
     if ('status' in body) unit.status = body['status'] as UnitJson['status'];
-    if ('unit_type' in body || 'ratio' in body) {
-      unit.unit_type = (body['unit_type'] as UnitType | undefined) ?? unit.unit_type;
-      const ratio = 'ratio' in body ? Number(body['ratio']) : Number(unit.ratio);
-      unit.ratio = ratio.toFixed(6);
-      unit.factor = factorOf(unit.unit_type, ratio);
+    if (of) {
+      measure(unit);
+      if (family(of) !== own) {
+        own.units.splice(own.units.indexOf(unit), 1);
+        family(of).units.push(unit);
+        if (own.units.length === 0) {
+          categories.splice(categories.indexOf(own), 1);
+        }
+      }
     }
     return this.answer(route, 200, unit);
   }

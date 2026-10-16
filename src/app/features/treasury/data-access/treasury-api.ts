@@ -10,7 +10,10 @@ import {
   OperationWrite,
   ProposalChoice,
   Reconciliation,
+  ReconcileModel,
+  ReconcileModelWrite,
   ReconciliationProposal,
+  RecordStatus,
   RoundingMode,
   Statement,
   StatementLine,
@@ -106,6 +109,21 @@ export class TreasuryApi {
       `treasury/accounts/${id(accountId)}/transactions/`,
       write,
     );
+  }
+
+  /** Odoo's « Modèles de rapprochement » (note backend 0048), by name. */
+  reconcileModels(status: RecordStatus | null = null): Observable<Paginated<ReconcileModel>> {
+    return this.api.get<Paginated<ReconcileModel>>('treasury/reconcile-models/', {
+      params: { status, page_size: 200 },
+    });
+  }
+
+  createReconcileModel(model: ReconcileModelWrite): Observable<ReconcileModel> {
+    return this.api.post<ReconcileModel>('treasury/reconcile-models/', model);
+  }
+
+  updateReconcileModel(modelId: string, changes: ReconcileModelWrite): Observable<ReconcileModel> {
+    return this.api.patch<ReconcileModel>(`treasury/reconcile-models/${id(modelId)}/`, changes);
   }
 
   /** A bank or cash journal's own account (note backend 0043), or `null`. */

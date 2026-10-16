@@ -60,7 +60,7 @@ interface OperationJson {
   description: string;
   counterparty: { public_id: string; code: string } | null;
   counterparty_name: string;
-  offset_account: { public_id: string; code: string } | null;
+  offset_account: { public_id: string; code: string; name?: string } | null;
   transfer: string | null;
   related_operation: string | null;
   reason: string;
@@ -299,6 +299,17 @@ export class FakeTreasury {
   private readonly desks: Record<string, Desk> = {};
   /** What each transaction settled (note backend 0044). */
   private readonly settled = new Map<string, string[]>();
+  /** The reconcile models of each company (note backend 0048). */
+  private readonly models: Record<
+    string,
+    {
+      public_id: string;
+      name: string;
+      account: { public_id: string; code: string; name: string };
+      label: string;
+      status: string;
+    }[]
+  > = {};
   private expireNext = false;
 
   constructor(
@@ -630,7 +641,7 @@ export class FakeTreasury {
           })
         : null,
       counterparty_name: operation.counterparty_name,
-      offset_account: operation.offset_account ? { ...operation.offset_account, name: '' } : null,
+      offset_account: operation.offset_account ? { name: '', ...operation.offset_account } : null,
       accounting_entry: operation.accounting_entry,
       settled: this.settled.get(operation.public_id) ?? [],
       running_balance: running.get(operation.public_id) ?? null,
@@ -671,8 +682,11 @@ export class FakeTreasury {
       description: String(data['description'] ?? ''),
       counterparty: partner ? { public_id: partner.public_id, code: partner.code } : null,
       counterparty_name: '',
+      // A model's account keeps its code and name (note backend 0048).
       offset_account: data['offset_account']
-        ? { public_id: String(data['offset_account']), code: 'compte' }
+        ? ((this.models[desk.company] ?? []).find(
+            (model) => model.account.public_id === data['offset_account'],
+          )?.account ?? { public_id: String(data['offset_account']), code: 'compte' })
         : null,
       transfer: null,
       related_operation: null,
@@ -959,6 +973,53 @@ export class FakeTreasury {
       return true;
     };
     const parts = path.split('/').filter(Boolean);
+
+    // Odoo's « Modèles de rapprochement » (note backend 0048): « Frais bancaires » to start.
+    if (parts[0] === 'reconcile-models') {
+      const models = (this.models[desk.company] ??= [
+        {
+          public_id: uuid(),
+          name: 'Frais bancaires',
+          account: { public_id: uuid(), code: '631100', name: 'Frais bancaires' },
+          label: 'Frais bancaires',
+          status: 'active',
+        },
+      ]);
+      if (method === 'GET') {
+        const status = params.get('status');
+        return reply(200, {
+          count: models.length,
+          next: null,
+          previous: null,
+          results: models.filter((item) => !status || item.status === status),
+        });
+      }
+      if (!can('treasury.manage_accounts')) {
+        return forbidden();
+      }
+      const data = body();
+      const found = models.find((item) => item.public_id === parts[1]);
+      const name = String(data['name'] ?? found?.name ?? '').trim();
+      if (models.some((item) => item !== found && item.name.toLowerCase() === name.toLowerCase())) {
+        return reply(400, error('treasury_reconcile_model_exists'));
+      }
+      const account = data['account']
+        ? { public_id: String(data['account']), code: 'compte', name: '' }
+        : found?.account;
+      const model = {
+        public_id: found?.public_id ?? uuid(),
+        name,
+        account: account!,
+        label: String(data['label'] ?? found?.label ?? ''),
+        status: String(data['status'] ?? found?.status ?? 'active'),
+      };
+      if (found) {
+        models.splice(models.indexOf(found), 1, model);
+        return reply(200, model);
+      }
+      models.push(model);
+      return reply(201, model);
+    }
 
     // Accounts.
     if (parts[0] === 'accounts') {

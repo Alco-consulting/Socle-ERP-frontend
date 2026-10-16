@@ -73,6 +73,24 @@ export interface NamedReference extends CodeReference {
   readonly name: string;
 }
 
+/** `TreasuryReconcileModel`: Odoo's « Modèle de rapprochement » (note backend 0048). */
+export interface ReconcileModel {
+  readonly public_id: string;
+  readonly name: string;
+  /** The counterpart account given to the line. */
+  readonly account: NamedReference;
+  /** The line's label when none is typed. */
+  readonly label: string;
+  readonly status: RecordStatus;
+}
+
+export interface ReconcileModelWrite {
+  readonly name?: string;
+  readonly account?: string;
+  readonly label?: string;
+  readonly status?: RecordStatus;
+}
+
 /** `TreasuryTransaction`: a line of a bank or cash journal, as Odoo's (note backend 0044). */
 export interface TreasuryTransaction {
   readonly public_id: string;

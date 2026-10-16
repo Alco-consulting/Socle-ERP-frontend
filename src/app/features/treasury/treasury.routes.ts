@@ -26,6 +26,14 @@ export const TREASURY_ROUTES: Routes = [
       { path: '**', redirectTo: '/app/comptabilite/journaux' },
     ],
   },
+  // « Gérer modèles » of a line's ⋮ menu, Odoo's « Modèles de rapprochement » (note backend 0048).
+  {
+    path: 'configuration/modeles-rapprochement',
+    data: { breadcrumb: 'Modèles de rapprochement' },
+    canActivate: [permissionGuard('treasury.read')],
+    loadComponent: () =>
+      import('./reconcile-models/reconcile-models-page').then((m) => m.ReconcileModelsPage),
+  },
   // Odoo's « Réconciliation bancaire » of a journal (note backend 0044).
   {
     path: 'tresorerie/transactions',

@@ -1,0 +1,151 @@
+<alco-page-header title="Modèles de rapprochement">
+  <div alcoPageActions>
+    @if (canManage && editing()) {
+      <button
+        alcoButton
+        type="button"
+        variant="primary"
+        [loading]="saving()"
+        loadingLabel="Enregistrement…"
+        (click)="save()"
+      >
+        Enregistrer
+      </button>
+      <button alcoButton type="button" (click)="cancel()">Annuler</button>
+    } @else if (canManage) {
+      <button alcoButton type="button" variant="primary" (click)="newModel()">Nouveau</button>
+    }
+  </div>
+</alco-page-header>
+
+@if (invalid(); as message) {
+  <p class="entry-error" role="alert">{{ message }}</p>
+}
+@if (error(); as failure) {
+  <alco-error-state
+    [inline]="true"
+    [title]="failure.title"
+    [message]="failure.message"
+    [code]="failure.code"
+    [correlationId]="failure.correlationId ?? ''"
+  />
+}
+
+@if (models.error()) {
+  <alco-error-state
+    [inline]="true"
+    title="Les modèles de rapprochement n’ont pas pu être chargés."
+    message="Vérifiez la connexion, puis réessayez."
+    retryLabel="Réessayer"
+    (retry)="models.reload()"
+  />
+} @else if (models.value(); as list) {
+  <div class="table-wrap">
+    <table class="models">
+      <thead>
+        <tr>
+          <th scope="col" class="col-name">Nom</th>
+          <th scope="col">Compte</th>
+          <th scope="col">Libellé</th>
+          <th scope="col" class="col-status">Statut</th>
+          <th scope="col" class="col-actions"><span class="alco-sr-only">Actions</span></th>
+        </tr>
+      </thead>
+      <tbody>
+        @if (editing()?.kind === 'new') {
+          <ng-container *ngTemplateOutlet="entry" />
+        }
+        <!-- Built in: the money goes to another journal, both recorded at once. -->
+        <tr class="built-in">
+          <td>Virements internes</td>
+          <td>Un autre journal de banque ou de caisse</td>
+          <td>Virement interne</td>
+          <td>Active</td>
+          <td></td>
+        </tr>
+        @for (model of list; track model.public_id) {
+          @if (isEdited(model)) {
+            <ng-container *ngTemplateOutlet="entry" />
+          } @else {
+            <tr [class.inactive]="model.status === 'inactive'">
+              <td>{{ model.name }}</td>
+              <td>{{ model.account.code }} {{ model.account.name }}</td>
+              <td>{{ model.label }}</td>
+              <td>{{ model.status === 'active' ? 'Active' : 'Archivée' }}</td>
+              <td class="col-actions">
+                @if (canManage && !editing()) {
+                  <button
+                    alcoButton
+                    type="button"
+                    size="sm"
+                    variant="ghost"
+                    [attr.aria-label]="'Modifier ' + model.name"
+                    (click)="change(model)"
+                  >
+                    Modifier
+                  </button>
+                  <button
+                    alcoButton
+                    type="button"
+                    size="sm"
+                    variant="ghost"
+                    [attr.aria-label]="
+                      (model.status === 'active' ? 'Archiver ' : 'Réactiver ') + model.name
+                    "
+                    (click)="setActive(model, model.status !== 'active')"
+                  >
+                    {{ model.status === 'active' ? 'Archiver' : 'Réactiver' }}
+                  </button>
+                }
+              </td>
+            </tr>
+          }
+        }
+      </tbody>
+    </table>
+  </div>
+} @else {
+  <alco-loading [rows]="3" label="Chargement des modèles de rapprochement…" />
+}
+
+<!-- The model typed in its row: its name, its account, its label. -->
+<ng-template #entry>
+  <tr
+    class="entry alco-controls-underlined"
+    [formGroup]="form"
+    aria-label="Modèle à enregistrer"
+    (keydown.enter)="onEnter($event)"
+  >
+    <td>
+      <input
+        alcoInput
+        id="model-name"
+        formControlName="name"
+        maxlength="64"
+        placeholder="Ex. Frais bancaires"
+        aria-label="Nom du modèle"
+        autocomplete="off"
+      />
+    </td>
+    <td>
+      <alco-autocomplete
+        formControlName="account"
+        [search]="searchAccounts"
+        label="Compte"
+        placeholder="Compte (ex. 631100)"
+        emptyText="Aucun compte ne correspond."
+      />
+    </td>
+    <td>
+      <input
+        alcoInput
+        formControlName="label"
+        maxlength="255"
+        placeholder="Ex. Frais de tenue de compte"
+        aria-label="Libellé"
+        autocomplete="off"
+      />
+    </td>
+    <td colspan="2"></td>
+  </tr>
+</ng-template>

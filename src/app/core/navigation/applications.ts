@@ -220,6 +220,11 @@ export const APPLICATIONS: readonly AlcoApplication[] = [
               permission: 'partners.read',
             },
             {
+              label: 'Modèles de rapprochement',
+              path: 'configuration/modeles-rapprochement',
+              permission: 'treasury.read',
+            },
+            {
               label: 'Tranches de la balance âgée',
               path: 'configuration/balance-agee',
               permission: 'reporting.read_auxiliary',

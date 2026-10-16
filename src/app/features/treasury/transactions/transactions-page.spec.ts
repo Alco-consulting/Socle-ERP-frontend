@@ -85,6 +85,14 @@ const ALL = [
   'accounting.read',
   'accounting.validate',
 ];
+/** Odoo's « Frais bancaires » (note backend 0048). */
+const FEES = {
+  public_id: 'm-fees',
+  name: 'Frais bancaires',
+  account: { public_id: 'a-631', code: '631100', name: 'Frais bancaires' },
+  label: 'Frais de tenue de compte',
+  status: 'active',
+};
 const settle = () => new Promise((resolve) => setTimeout(resolve, 0));
 const text = (element: Element | null | undefined) =>
   (element?.textContent ?? '').replace(/\s+/g, ' ').trim();
@@ -117,6 +125,10 @@ describe('Réconciliation bancaire (treasury/accounts/{id}/transactions/, note b
     mock
       .expectOne((req) => req.url === '/api/v1/currencies/')
       .flush(page([{ code: 'GNF', name: 'Franc guinéen', decimal_places: 0, status: 'active' }]));
+    for (const models of mock.match((req) => req.url === '/api/v1/treasury/reconcile-models/')) {
+      expect(models.request.params.get('status')).toBe('active');
+      models.flush(page([FEES]));
+    }
     await stable();
     mock
       .expectOne('/api/v1/treasury/accounts/t-css/balance/')
@@ -131,6 +143,13 @@ describe('Réconciliation bancaire (treasury/accounts/{id}/transactions/, note b
   const row = (element: HTMLElement) => element.querySelector<HTMLTableRowElement>('tr.entry')!;
   const enter = (element: HTMLElement) =>
     row(element).dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
+  /** « Partenaire » or « Compte », as Odoo's buttons on the line. */
+  const press = async (element: HTMLElement, label: string, stable: () => Promise<void>) => {
+    Array.from(row(element).querySelectorAll<HTMLButtonElement>('button'))
+      .find((button) => text(button) === label)!
+      .click();
+    await stable();
+  };
 
   it('as Odoo’s list: the header, the line typed on one row, the lines and their running balance', async () => {
     const { element } = await open();
@@ -145,8 +164,13 @@ describe('Réconciliation bancaire (treasury/accounts/{id}/transactions/, note b
       'Solde courant',
       'Détails',
     ]);
-    // The new row: every field in its cell, the balance after it.
-    expect(row(element).querySelectorAll('td').length).toBe(8);
+    // The new row: every field in its cell, the balance after it; as Odoo's, « Partenaire »,
+    // « Compte » and ⋮ until one is chosen.
+    expect(row(element).querySelectorAll('td').length).toBe(7);
+    expect(
+      Array.from(row(element).querySelectorAll('.choices > button')).map((cell) => text(cell)),
+    ).toEqual(['Partenaire', 'Compte']);
+    expect(row(element).querySelector('alco-dropdown')).not.toBeNull();
     expect(text(row(element).querySelector('.running'))).toBe('6 108 500 GNF');
     const lines = Array.from(element.querySelectorAll('tbody tr:not(.entry)')).map((line) =>
       Array.from(line.querySelectorAll('td'))
@@ -179,6 +203,10 @@ describe('Réconciliation bancaire (treasury/accounts/{id}/transactions/, note b
   it('a partner chosen: its unpaid invoices in the same cell; one chosen, what remains comes in', async () => {
     const { component, element, stable } = await open();
     const form = component['form'];
+    await press(element, 'Partenaire', stable);
+    expect(
+      row(element).querySelector('alco-autocomplete[formControlName="partner"]'),
+    ).not.toBeNull();
 
     form.controls.partner.setValue({ id: 'p-1', label: 'Société Kaloum SARL' });
     const request = httpMock().expectOne(
@@ -209,6 +237,7 @@ describe('Réconciliation bancaire (treasury/accounts/{id}/transactions/, note b
   it('Entrée in the row: one request, the lines read again, a new line to type', async () => {
     const { component, element, stable } = await open();
     const form = component['form'];
+    await press(element, 'Partenaire', stable);
     form.controls.partner.setValue({ id: 'p-9', label: 'Fournisseurs Divers' });
     httpMock()
       .expectOne((req) => req.url === '/api/v1/accounting/letterable-lines/')
@@ -249,11 +278,14 @@ describe('Réconciliation bancaire (treasury/accounts/{id}/transactions/, note b
       amountOut: '',
     });
     expect(row(element)).not.toBeNull();
+    // A new line: the three buttons again.
+    expect(row(element).querySelector('.choices')).not.toBeNull();
   });
 
   it('a partner without invoice: an advance on its account, nothing else to choose', async () => {
     const { component, element, stable } = await open();
     const form = component['form'];
+    await press(element, 'Partenaire', stable);
     form.controls.partner.setValue({ id: 'p-1', label: 'Société Kaloum SARL' });
     httpMock()
       .expectOne((req) => req.url === '/api/v1/accounting/letterable-lines/')
@@ -286,39 +318,99 @@ describe('Réconciliation bancaire (treasury/accounts/{id}/transactions/, note b
     expect(element.querySelector('tr.entry')).toBeNull();
   });
 
-  it('nothing sent without an amount, nor without a partner', async () => {
+  it('nothing sent without an amount, nor without what the line is set against', async () => {
     const { component, element, stable } = await open();
+    const error = () => text(element.querySelector('.entry-error'));
     enter(element);
     await stable();
-    expect(text(element.querySelector('.entry-error'))).toBe(
-      'Saisissez la date et un montant en entrée ou en sortie.',
-    );
+    expect(error()).toBe('Saisissez la date et un montant en entrée ou en sortie.');
     component['form'].patchValue({ amountIn: '1000' });
     enter(element);
     await stable();
-    expect(text(element.querySelector('.entry-error'))).toBe('Choisissez le partenaire.');
-    component['form'].controls.partner.setValue({
-      id: 'virement-interne',
-      label: 'Virement interne',
-    });
+    expect(error()).toBe('Choisissez un partenaire, un compte ou un virement interne.');
+    await press(element, 'Partenaire', stable);
+    enter(element);
+    await stable();
+    expect(error()).toBe('Choisissez le partenaire.');
+    component['choose']('account');
+    await stable();
+    enter(element);
+    await stable();
+    expect(error()).toBe('Choisissez le compte.');
+    component['choose']('transfer');
     component['form'].controls.other.setValue('');
     enter(element);
     await stable();
-    expect(text(element.querySelector('.entry-error'))).toBe('Choisissez l’autre journal.');
+    expect(error()).toBe('Choisissez l’autre journal.');
     httpMock().expectNone((req) => req.method === 'POST');
   });
 
-  it('« Virement interne » among the partners: the other journal chosen, both legs at once', async () => {
+  it('« Compte »: any account of the chart, without partner', async () => {
+    const { component, element, stable } = await open();
+    await press(element, 'Compte', stable);
+    const found: unknown[] = [];
+    component['searchAccounts']('605').subscribe((options) => found.push(...options));
+    const search = httpMock().expectOne((req) => req.url === '/api/v1/accounting/accounts/');
+    expect(search.request.params.get('postable')).toBe('true');
+    search.flush(page([{ public_id: 'a-605', code: '605100', name: 'Fournitures' }]));
+    expect(found).toEqual([{ id: 'a-605', label: '605100', detail: 'Fournitures' }]);
+    component['form'].controls.account.setValue(found[0] as { id: string; label: string });
+    component['form'].patchValue({ description: 'eau', amountOut: '25000' });
+    enter(element);
+    await stable();
+
+    const post = httpMock().expectOne('/api/v1/treasury/accounts/t-css/transactions/');
+    expect(post.request.body).toMatchObject({
+      partner: null,
+      settled_line: null,
+      offset_account: 'a-605',
+    });
+    post.flush(ROWS[0]);
+    await stable();
+    httpMock().expectOne('/api/v1/treasury/accounts/t-css/balance/').flush({ balance: '0' });
+    httpMock()
+      .expectOne((req) => req.url === '/api/v1/treasury/accounts/t-css/transactions/')
+      .flush(page(ROWS));
+  });
+
+  it('⋮: « Virements internes », the models, « Gérer modèles »; a model gives its account and label', async () => {
+    const { component, element, stable } = await open();
+    expect(
+      component['moreItems']().map((item) => [item.label, item.route ?? '', !!item.dividerBefore]),
+    ).toEqual([
+      ['Virements internes', '', false],
+      ['Frais bancaires', '', true],
+      ['Gérer modèles', '/app/comptabilite/configuration/modeles-rapprochement', true],
+    ]);
+
+    component['onMore']({ id: 'model:m-fees', label: 'Frais bancaires' });
+    component['form'].patchValue({ amountOut: '15000' });
+    await stable();
+    expect(
+      row(element).querySelector('alco-autocomplete[formControlName="account"]'),
+    ).not.toBeNull();
+    enter(element);
+    await stable();
+
+    const post = httpMock().expectOne('/api/v1/treasury/accounts/t-css/transactions/');
+    expect(post.request.body).toMatchObject({
+      description: 'Frais de tenue de compte',
+      direction: 'outflow',
+      partner: null,
+      offset_account: 'a-631',
+    });
+    post.flush(ROWS[0]);
+    await stable();
+    httpMock().expectOne('/api/v1/treasury/accounts/t-css/balance/').flush({ balance: '0' });
+    httpMock()
+      .expectOne((req) => req.url === '/api/v1/treasury/accounts/t-css/transactions/')
+      .flush(page(ROWS));
+  });
+
+  it('⋮ « Virements internes »: the other journal chosen, both legs at once', async () => {
     const { component, element, stable } = await open();
     const form = component['form'];
-    const found: unknown[] = [];
-    component['searchPartners']('vir').subscribe((options) => found.push(...options));
-    httpMock()
-      .expectOne((req) => req.url === '/api/v1/partners/')
-      .flush(page([]));
-    expect(found).toEqual([{ id: 'virement-interne', label: 'Virement interne' }]);
-
-    form.controls.partner.setValue(found[0] as { id: string; label: string });
+    component['onMore']({ id: 'transfer', label: 'Virements internes' });
     form.patchValue({ date: '2026-10-14', amountOut: '500000' });
     await stable();
     httpMock().expectNone((req) => req.url === '/api/v1/accounting/letterable-lines/');

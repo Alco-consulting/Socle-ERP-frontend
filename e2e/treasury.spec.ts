@@ -363,6 +363,13 @@ test.describe('Trésorerie — tailles d’écran et accessibilité', () => {
 test.describe('Réconciliation bancaire — comme Odoo (note backend 0044)', () => {
   const entry = (page: Page) => page.locator('tr.entry');
   const lines = (page: Page) => page.locator('table.lines tbody tr:not(.entry)');
+  /** As Odoo's buttons on the line: « Partenaire », « Compte », ⋮ (note backend 0048). */
+  const press = (page: Page, name: string) =>
+    entry(page).getByRole('button', { name, exact: true }).click();
+  const more = async (page: Page, item: string) => {
+    await entry(page).getByRole('button', { name: 'Plus de choix' }).click();
+    await page.getByRole('menuitem', { name: item }).click();
+  };
 
   test('une ligne : le partenaire, sa facture non payée, l’entrée ; ajoutée et lettrée', async ({
     page,
@@ -382,6 +389,7 @@ test.describe('Réconciliation bancaire — comme Odoo (note backend 0044)', () 
     // Every field of the new line on one row.
     const top = await entry(page).boundingBox();
     expect(top && top.height < 80).toBe(true);
+    await press(page, 'Partenaire');
     await entry(page).getByRole('combobox', { name: 'Partenaire' }).fill('CLI-002');
     await page.getByRole('option', { name: /CLI-002/ }).click();
 
@@ -403,6 +411,7 @@ test.describe('Réconciliation bancaire — comme Odoo (note backend 0044)', () 
     await expect(first.locator('.counterpart')).toHaveText('FAC-103');
     await expect(first.locator('td').nth(4)).toHaveText(/^750\s000 GNF$/);
     // Lettered at once: the invoice is no longer offered; a new line to type.
+    await press(page, 'Partenaire');
     await entry(page).getByRole('combobox', { name: 'Partenaire' }).fill('CLI-002');
     await page.getByRole('option', { name: /CLI-002/ }).click();
     await expect(invoices.locator('option')).toHaveCount(2);
@@ -414,9 +423,8 @@ test.describe('Réconciliation bancaire — comme Odoo (note backend 0044)', () 
     api,
   }) => {
     await page.goto(`${ROOT}/transactions?compte=BQ-GNF`);
-    // Only the partner: no account to choose.
-    await expect(entry(page).getByRole('combobox', { name: /Compte/ })).toHaveCount(0);
     await entry(page).getByRole('textbox', { name: 'Libellé' }).fill('frais achat d’eau');
+    await press(page, 'Partenaire');
     await entry(page).getByRole('combobox', { name: 'Partenaire' }).fill('FOU-001');
     await page.getByRole('option', { name: /FOU-001/ }).click();
     await expect(
@@ -442,10 +450,9 @@ test.describe('Réconciliation bancaire — comme Odoo (note backend 0044)', () 
   test('un virement interne : la sortie de la banque, l’entrée dans la caisse, en une fois', async ({
     page,
   }) => {
-    // Note backend 0046: « Virement interne » in place of a partner, then the other journal.
+    // Note backend 0046: ⋮ « Virements internes », then the other journal.
     await page.goto(`${ROOT}/transactions?compte=BQ-GNF`);
-    await entry(page).getByRole('combobox', { name: 'Partenaire' }).fill('vir');
-    await page.getByRole('option', { name: 'Virement interne' }).click();
+    await more(page, 'Virements internes');
     const journal = entry(page).getByRole('combobox', { name: 'Autre journal' });
     await expect(journal.locator('option:checked')).toHaveText('Caisse A (test)');
     await expect(entry(page).getByRole('combobox', { name: 'Facture non payée' })).toHaveCount(0);
@@ -464,5 +471,43 @@ test.describe('Réconciliation bancaire — comme Odoo (note backend 0044)', () 
     );
     await expect(into.locator('.counterpart')).toHaveText('Banque principale A (test)');
     await expect(into.locator('td').nth(4)).toHaveText(/^100\s000 GNF$/);
+  });
+
+  test('« Compte » ou un modèle du menu ⋮ ; « Gérer modèles » ouvre les modèles', async ({
+    page,
+  }) => {
+    // Note backend 0048: any account of the chart, without partner.
+    await page.goto(`${ROOT}/transactions?compte=BQ-GNF`);
+    await entry(page).getByRole('textbox', { name: 'Libellé' }).fill('achat de marchandises');
+    await press(page, 'Compte');
+    await entry(page).getByRole('combobox', { name: 'Compte' }).fill('601');
+    await page.getByRole('option', { name: /^601\b/ }).click();
+    await entry(page).getByRole('textbox', { name: 'Sortie' }).fill('40000');
+    await entry(page).getByRole('textbox', { name: 'Sortie' }).press('Enter');
+    await expect(lines(page).first()).toContainText('achat de marchandises');
+
+    // A model: its account and its label in one click.
+    await more(page, 'Frais bancaires');
+    await expect(entry(page).getByRole('textbox', { name: 'Libellé' })).toHaveValue(
+      'Frais bancaires',
+    );
+    await entry(page).getByRole('textbox', { name: 'Sortie' }).fill('15000');
+    await entry(page).getByRole('textbox', { name: 'Sortie' }).press('Enter');
+    await expect(lines(page).filter({ hasText: '15 000' }).locator('.counterpart')).toHaveText(
+      '631100 Frais bancaires',
+    );
+    expect(await axe(page)).toEqual([]);
+
+    // « Gérer modèles »: Odoo's list, a model added.
+    await more(page, 'Gérer modèles');
+    await expect(page.getByRole('heading', { level: 1 })).toHaveText('Modèles de rapprochement');
+    await expect(page.getByRole('row', { name: /Virements internes/ })).toBeVisible();
+    await page.getByRole('button', { name: 'Nouveau' }).click();
+    await page.getByRole('textbox', { name: 'Nom du modèle' }).fill('Agios');
+    await page.getByRole('combobox', { name: 'Compte' }).fill('601');
+    await page.getByRole('option', { name: /^601\b/ }).click();
+    await page.getByRole('button', { name: 'Enregistrer' }).click();
+    await expect(page.getByRole('row', { name: /Agios/ })).toBeVisible();
+    expect(await axe(page)).toEqual([]);
   });
 });

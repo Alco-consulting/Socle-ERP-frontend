@@ -107,35 +107,101 @@
                   aria-label="Libellé"
                 />
               </td>
-              <td>
-                <alco-autocomplete
-                  formControlName="partner"
-                  [search]="searchPartners"
-                  label="Partenaire"
-                  placeholder="Partenaire"
-                  emptyText="Aucun partenaire actif ne correspond."
-                />
-              </td>
-              <td>
-                @if (isTransfer()) {
-                  <select alcoSelect formControlName="other" aria-label="Autre journal">
-                    @for (item of otherAccounts(); track item.public_id) {
-                      <option [value]="item.public_id">{{ item.name }}</option>
+              <!-- As Odoo's: « Partenaire », « Compte » or ⋮ (note backend 0048). -->
+              @switch (counterpart()) {
+                @case ('partner') {
+                  <td>
+                    <span class="with-close">
+                      <alco-autocomplete
+                        formControlName="partner"
+                        [search]="searchPartners"
+                        label="Partenaire"
+                        placeholder="Partenaire"
+                        emptyText="Aucun partenaire actif ne correspond."
+                      />
+                      <ng-container *ngTemplateOutlet="close" />
+                    </span>
+                  </td>
+                  <td>
+                    @if (hasPartner()) {
+                      <select alcoSelect formControlName="line" aria-label="Facture non payée">
+                        <option value="">
+                          {{
+                            openLines().length
+                              ? 'Aucune facture (avance)'
+                              : 'Aucune facture non payée'
+                          }}
+                        </option>
+                        @for (line of openLines(); track line.public_id) {
+                          <option [value]="line.public_id">{{ lineLabel(line) }}</option>
+                        }
+                      </select>
                     }
-                  </select>
-                } @else if (hasPartner()) {
-                  <select alcoSelect formControlName="line" aria-label="Facture non payée">
-                    <option value="">
-                      {{
-                        openLines().length ? 'Aucune facture (avance)' : 'Aucune facture non payée'
-                      }}
-                    </option>
-                    @for (line of openLines(); track line.public_id) {
-                      <option [value]="line.public_id">{{ lineLabel(line) }}</option>
-                    }
-                  </select>
+                  </td>
                 }
-              </td>
+                @case ('account') {
+                  <td colspan="2">
+                    <span class="with-close">
+                      <alco-autocomplete
+                        formControlName="account"
+                        [search]="searchAccounts"
+                        label="Compte"
+                        placeholder="Compte (ex. 631100)"
+                        emptyText="Aucun compte ne correspond."
+                      />
+                      <ng-container *ngTemplateOutlet="close" />
+                    </span>
+                  </td>
+                }
+                @case ('transfer') {
+                  <td colspan="2">
+                    <span class="with-close">
+                      <span class="lead">Virement interne vers</span>
+                      <select alcoSelect formControlName="other" aria-label="Autre journal">
+                        @for (item of otherAccounts(); track item.public_id) {
+                          <option [value]="item.public_id">{{ item.name }}</option>
+                        }
+                      </select>
+                      <ng-container *ngTemplateOutlet="close" />
+                    </span>
+                  </td>
+                }
+                @default {
+                  <td colspan="2">
+                    <span class="choices">
+                      <button
+                        alcoButton
+                        type="button"
+                        size="sm"
+                        variant="primary"
+                        (click)="choose('partner')"
+                      >
+                        Partenaire
+                      </button>
+                      <button
+                        alcoButton
+                        type="button"
+                        size="sm"
+                        variant="primary"
+                        (click)="choose('account')"
+                      >
+                        Compte
+                      </button>
+                      <alco-dropdown
+                        [items]="moreItems()"
+                        icon="more-vertical"
+                        [iconOnly]="true"
+                        [showChevron]="false"
+                        size="sm"
+                        ariaLabel="Plus de choix"
+                        (selected)="onMore($event)"
+                      >
+                        Plus de choix
+                      </alco-dropdown>
+                    </span>
+                  </td>
+                }
+              }
               <td>
                 <input
                   alcoInput
@@ -210,3 +276,18 @@
 } @else {
   <alco-loading [rows]="3" label="Chargement du journal…" />
 }
+
+<!-- Back to « Partenaire », « Compte » and ⋮. -->
+<ng-template #close>
+  <button
+    alcoButton
+    type="button"
+    size="sm"
+    variant="ghost"
+    icon="close"
+    [iconOnly]="true"
+    (click)="choose('choose')"
+  >
+    Changer de contrepartie
+  </button>
+</ng-template>

@@ -1,4 +1,4 @@
-import { formatDate } from '@angular/common';
+import { NgTemplateOutlet, formatDate } from '@angular/common';
 import {
   ChangeDetectionStrategy,
   Component,
@@ -28,6 +28,7 @@ import {
 } from '../../../shared/forms/autocomplete';
 import { AlcoInput } from '../../../shared/forms/input';
 import { AlcoButton } from '../../../shared/ui/button/button';
+import { AlcoDropdown, DropdownItem } from '../../../shared/ui/dropdown/dropdown';
 import { AlcoErrorState } from '../../../shared/ui/error-state/error-state';
 import { AlcoIcon } from '../../../shared/ui/icon/icon';
 import { AlcoLoading } from '../../../shared/ui/loading/loading';
@@ -43,14 +44,31 @@ import { EntriesApi } from '../../accounting/data-access/entries-api';
 import { LetterableLine } from '../../accounting/data-access/lettering-models';
 import { LetteringApi } from '../../accounting/data-access/lettering-api';
 import { PartnersApi } from '../../partners/data-access/partners-api';
-import { TreasuryAccount, TreasuryTransaction } from '../data-access/reconciliation-models';
+import {
+  ReconcileModel,
+  TreasuryAccount,
+  TreasuryTransaction,
+} from '../data-access/reconciliation-models';
 import { TREASURY_PAGE_SIZE, TreasuryApi } from '../data-access/treasury-api';
 import { TREASURY_ERRORS } from '../treasury-presentation';
 
 const TREASURY = `${APP_ROOT}/comptabilite/tresorerie`;
 
-/** Odoo's « Virement interne », offered with the partners (note backend 0046). */
-const TRANSFER: AutocompleteOption = { id: 'virement-interne', label: 'Virement interne' };
+const TRANSFER = 'Virement interne';
+
+/**
+ * What the line is set against, as Odoo's buttons (note backend 0048): « Partenaire » (and one
+ * of its unpaid invoices), « Compte » (any account of the chart), a « Virement interne » to
+ * another journal; none chosen yet: the three buttons.
+ */
+type Counterpart = 'choose' | 'partner' | 'account' | 'transfer';
+
+/** An account of a selection field: its code, its name beside. */
+const accountOption = (account: { public_id: string; code: string; name: string }) => ({
+  id: account.public_id,
+  label: account.code,
+  detail: account.name,
+});
 
 /** A row of the list, in Odoo's words: the date, the partner and label, what it settled. */
 interface Row {
@@ -70,16 +88,19 @@ interface Row {
  * 0044): the line typed in the table, every field on one row (date, label, the partner and one
  * of its unpaid invoices, or none for an advance on its account; the money in or out; the
  * balance after it), then the journal's lines with their running balance. A line is recorded,
- * posted and lettered by the server at once: no lettering to do afterwards. « Virement
- * interne », chosen as the partner, sends the money to another journal (note backend 0046).
+ * posted and lettered by the server at once: no lettering to do afterwards. As Odoo's, the
+ * line is set against « Partenaire », « Compte » or, in its ⋮ menu, « Virements internes »
+ * (note backend 0046) or a reconcile model, with « Gérer modèles » (note backend 0048).
  */
 @Component({
   selector: 'alco-transactions-page',
   imports: [
+    NgTemplateOutlet,
     ReactiveFormsModule,
     RouterLink,
     AlcoAutocomplete,
     AlcoButton,
+    AlcoDropdown,
     AlcoErrorState,
     AlcoIcon,
     AlcoInput,
@@ -105,6 +126,7 @@ export class TransactionsPage {
 
   protected readonly pageSize = TREASURY_PAGE_SIZE;
   protected readonly operationsUrl = `${TREASURY}/operations`;
+  protected readonly modelsUrl = `${APP_ROOT}/comptabilite/configuration/modeles-rapprochement`;
 
   private readonly code = toSignal(
     this.route.queryParamMap.pipe(map((params) => params.get('compte'))),
@@ -166,6 +188,8 @@ export class TransactionsPage {
     partner: new FormControl<AutocompleteOption | null>(null),
     /** The public id of the partner's open line (an invoice); '' : none. */
     line: new FormControl('', { nonNullable: true }),
+    /** « Compte »: any account of the chart that takes entries. */
+    account: new FormControl<AutocompleteOption | null>(null),
     /** « Virement interne »: the other journal's account. */
     other: new FormControl('', { nonNullable: true }),
     amountIn: new FormControl('', { nonNullable: true }),
@@ -179,10 +203,31 @@ export class TransactionsPage {
   );
   /** The partner's unpaid invoices (its open lines), read when the partner is chosen. */
   protected readonly openLines = signal<readonly LetterableLine[]>([]);
-  protected readonly isTransfer = computed(() => this.value().partner?.id === TRANSFER.id);
+  protected readonly counterpart = signal<Counterpart>('choose');
   protected readonly hasPartner = computed(
-    () => this.value().partner !== null && !this.isTransfer(),
+    () => this.counterpart() === 'partner' && this.value().partner !== null,
   );
+  /** The active reconcile models, offered in the ⋮ menu. */
+  private readonly models = requestState(() =>
+    this.treasury.reconcileModels('active').pipe(
+      map((found) => found.results),
+      catchError(() => of([] as ReconcileModel[])),
+    ),
+  );
+  /** The ⋮ menu, as Odoo's: « Virements internes », the models, « Gérer modèles ». */
+  protected readonly moreItems = computed<readonly DropdownItem[]>(() => [
+    {
+      id: 'transfer',
+      label: 'Virements internes',
+      disabled: this.otherAccounts().length === 0,
+    },
+    ...(this.models.value() ?? []).map((model, index) => ({
+      id: `model:${model.public_id}`,
+      label: model.name,
+      dividerBefore: index === 0,
+    })),
+    { id: 'manage', label: 'Gérer modèles', route: this.modelsUrl, dividerBefore: true },
+  ]);
   /** The journals an internal transfer can go to: the others, in the same currency. */
   protected readonly otherAccounts = computed(() => {
     const current = this.account();
@@ -205,15 +250,17 @@ export class TransactionsPage {
 
   protected readonly searchPartners: AutocompleteSearch = (term) =>
     this.entries.partners(term).pipe(
-      map((found) => [
-        ...(this.offersTransfer(term) ? [TRANSFER] : []),
-        ...found.map((partner) => ({
+      map((found) =>
+        found.map((partner) => ({
           id: partner.public_id,
           label: partner.name,
           detail: partner.code,
         })),
-      ]),
+      ),
     );
+  /** Every account of the chart that takes entries, by its code or name. */
+  protected readonly searchAccounts: AutocompleteSearch = (term) =>
+    this.entries.postableAccounts(term).pipe(map((found) => found.map(accountOption)));
 
   constructor() {
     // The journal known: its balance and its lines.
@@ -258,6 +305,42 @@ export class TransactionsPage {
     setTimeout(() => this.focus('description'));
   }
 
+  /** « Partenaire », « Compte », or back to the three buttons. */
+  protected choose(counterpart: Counterpart): void {
+    const controls = this.form.controls;
+    controls.partner.setValue(null);
+    controls.account.setValue(null);
+    controls.other.setValue(
+      counterpart === 'transfer' ? (this.otherAccounts()[0]?.public_id ?? '') : '',
+    );
+    this.invalid.set(null);
+    this.counterpart.set(counterpart);
+    const field = { partner: 'partner', account: 'account', transfer: 'other' } as const;
+    if (counterpart !== 'choose') {
+      setTimeout(() => this.focus(field[counterpart]));
+    }
+  }
+
+  /** The ⋮ menu: an internal transfer, or a model's account and label. */
+  protected onMore(item: DropdownItem): void {
+    if (item.id === 'transfer') {
+      this.choose('transfer');
+      return;
+    }
+    const model = (this.models.value() ?? []).find(
+      (found) => `model:${found.public_id}` === item.id,
+    );
+    if (!model) {
+      return;
+    }
+    this.choose('account');
+    const controls = this.form.controls;
+    controls.account.setValue(accountOption(model.account));
+    if (model.label && !controls.description.value.trim()) {
+      controls.description.setValue(model.label);
+    }
+  }
+
   protected ignore(): void {
     this.reset();
     this.editing.set(false);
@@ -288,15 +371,18 @@ export class TransactionsPage {
       this.focus(value.date ? 'amountIn' : 'date');
       return;
     }
-    if (!value.partner) {
-      this.invalid.set('Choisissez le partenaire.');
+    const counterpart = this.counterpart();
+    const missing = {
+      choose: 'Choisissez un partenaire, un compte ou un virement interne.',
+      partner: value.partner ? null : 'Choisissez le partenaire.',
+      account: value.account ? null : 'Choisissez le compte.',
+      transfer: value.other ? null : 'Choisissez l’autre journal.',
+    }[counterpart];
+    if (missing) {
+      this.invalid.set(missing);
       return;
     }
-    const transfer = value.partner.id === TRANSFER.id;
-    if (transfer && !value.other) {
-      this.invalid.set('Choisissez l’autre journal.');
-      return;
-    }
+    const transfer = counterpart === 'transfer';
     this.invalid.set(null);
     this.saving.set(true);
     try {
@@ -306,9 +392,9 @@ export class TransactionsPage {
           description: value.description.trim(),
           direction: amountIn ? 'inflow' : 'outflow',
           amount,
-          partner: transfer ? null : value.partner.id,
-          settled_line: transfer ? null : value.line || null,
-          offset_account: null,
+          partner: counterpart === 'partner' ? (value.partner?.id ?? null) : null,
+          settled_line: counterpart === 'partner' ? value.line || null : null,
+          offset_account: counterpart === 'account' ? (value.account?.id ?? null) : null,
           ...(transfer ? { internal_account: value.other } : {}),
           idempotency_key: this.idempotencyKey,
         }),
@@ -343,29 +429,21 @@ export class TransactionsPage {
       description: '',
       partner: null,
       line: '',
+      account: null,
       other: '',
       amountIn: '',
       amountOut: '',
     });
     this.openLines.set([]);
+    this.counterpart.set('choose');
     this.invalid.set(null);
     this.error.set(null);
   }
 
-  /** With another journal in the same currency, and a term that may be « virement ». */
-  private offersTransfer(term: string): boolean {
-    const typed = term.trim().toLowerCase();
-    return this.otherAccounts().length > 0 && TRANSFER.label.toLowerCase().includes(typed);
-  }
-
   private readOpenLines(partner: AutocompleteOption | null): void {
-    const controls = this.form.controls;
-    controls.line.setValue('', { emitEvent: false });
-    controls.other.setValue(
-      partner?.id === TRANSFER.id ? (this.otherAccounts()[0]?.public_id ?? '') : '',
-    );
+    this.form.controls.line.setValue('', { emitEvent: false });
     this.openLines.set([]);
-    if (!partner || partner.id === TRANSFER.id) {
+    if (!partner) {
       return;
     }
     this.lettering
@@ -411,9 +489,7 @@ export class TransactionsPage {
     return {
       transaction,
       day: formatDate(transaction.operation_date, 'd MMM', this.locale),
-      partner: other
-        ? TRANSFER.label
-        : (transaction.counterparty?.name ?? transaction.counterparty_name),
+      partner: other ? TRANSFER : (transaction.counterparty?.name ?? transaction.counterparty_name),
       label: transaction.description || transaction.reference,
       counterpart: done ? counterpart : 'À comptabiliser',
       done,

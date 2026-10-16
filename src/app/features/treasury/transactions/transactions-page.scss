@@ -131,3 +131,24 @@
   display: inline-flex;
   color: var(--color-text-muted);
 }
+
+// « Partenaire », « Compte », ⋮ as Odoo's; a choice made: its field, and × to change it.
+.choices,
+.with-close {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.with-close {
+  > alco-autocomplete,
+  > select {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .lead {
+    white-space: nowrap;
+    color: var(--color-text-muted);
+  }
+}

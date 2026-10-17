@@ -199,8 +199,8 @@ export class PartnerDetailPage {
     const confirmed = await this.confirm.confirm({
       title: deactivate ? `Désactiver ${partner.name} ?` : `Réactiver ${partner.name} ?`,
       message: deactivate
-        ? 'Le tiers reste, avec son historique ; il ne sera plus proposé pour une nouvelle opération. Vous pourrez le réactiver.'
-        : 'Le tiers sera de nouveau proposé pour les nouvelles opérations.',
+        ? 'Le contact reste, avec son historique ; il ne sera plus proposé pour une nouvelle opération. Vous pourrez le réactiver.'
+        : 'Le contact sera de nouveau proposé pour les nouvelles opérations.',
       confirmLabel: deactivate ? 'Désactiver' : 'Réactiver',
     });
     if (!confirmed) {
@@ -215,7 +215,7 @@ export class PartnerDetailPage {
           : this.api.reactivate(partner.public_id),
       );
       this.show(updated);
-      this.toast.success(deactivate ? 'Tiers désactivé.' : 'Tiers réactivé.');
+      this.toast.success(deactivate ? 'Contact désactivé.' : 'Contact réactivé.');
     } catch (failure) {
       const error = toApiError(failure);
       if (error.kind !== 'unauthenticated') {

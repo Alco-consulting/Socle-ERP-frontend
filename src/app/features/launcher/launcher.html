@@ -1,20 +1,8 @@
 <div class="sticky"><alco-topbar /></div>
 
 <main id="contenu" class="launcher" tabindex="-1">
-  <header class="intro">
-    @if (firstName()) {
-      <p class="greeting">Bonjour {{ firstName() }}</p>
-    }
-    <h1 class="alco-page-title">Sélectionnez une application</h1>
-    @if (session.activeCompany(); as company) {
-      <p class="context">
-        <alco-icon name="company" [size]="16" />
-        {{ company.name }} ·
-        {{ applications().length }}
-        {{ applications().length > 1 ? 'applications disponibles' : 'application disponible' }}
-      </p>
-    }
-  </header>
+  <!-- The tiles only, as asked: the title is for screen readers. -->
+  <h1 class="alco-sr-only">Sélectionnez une application</h1>
 
   @if (showSearch()) {
     <div class="search">
@@ -41,7 +29,6 @@
               <alco-icon [name]="app.icon" [size]="30" />
             </span>
             <span class="tile-label">{{ app.label }}</span>
-            <span class="tile-description">{{ app.description }}</span>
           </a>
         </li>
       }

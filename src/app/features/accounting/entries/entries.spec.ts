@@ -318,7 +318,7 @@ describe('Comptabilité › Écritures (accounting/entries/)', () => {
           ?.getAttribute('href');
       expect(href('ACH')).toBe('/app/comptabilite/journaux/j-ach');
       expect(href('601100')).toBe('/app/comptabilite/plan-comptable/a-601100');
-      expect(href('FRN-001')).toBe('/app/comptabilite/tiers/pt-1');
+      expect(href('FRN-001')).toBe('/app/comptabilite/contacts/pt-1');
       expect(href('Voir les opérations de trésorerie')).toBe(
         '/app/comptabilite/tresorerie/operations',
       );

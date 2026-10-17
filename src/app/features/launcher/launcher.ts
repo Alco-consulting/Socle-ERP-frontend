@@ -35,10 +35,6 @@ export class AlcoLauncher {
   protected readonly applications = this.navigation.applications;
   protected readonly showSearch = computed(() => this.applications().length > SEARCH_THRESHOLD);
 
-  protected readonly firstName = computed(
-    () => this.session.user()?.displayName.split(/\s+/)[0] ?? '',
-  );
-
   protected readonly results = computed(() => {
     const query = normalize(this.query().trim());
     if (!query) {

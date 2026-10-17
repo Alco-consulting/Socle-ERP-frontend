@@ -8,7 +8,7 @@
     (retry)="retry()"
   />
   <div class="center">
-    <a alcoButton icon="arrow-left" routerLink="..">Retour aux tiers</a>
+    <a alcoButton icon="arrow-left" routerLink="..">Retour aux contacts</a>
   </div>
 } @else if (partner(); as partner) {
   <alco-page-header [title]="partner.name" [subtitle]="partner.code + ' · ' + role()">
@@ -30,7 +30,7 @@
   </alco-page-header>
 
   @if (canReadAccounting() || canSeeHistory()) {
-    <nav class="smart-buttons" aria-label="Objets liés au tiers">
+    <nav class="smart-buttons" aria-label="Objets liés au contact">
       @if (canOpenEntries()) {
         <alco-smart-button
           label="Écritures"
@@ -99,7 +99,7 @@
 
   @if (partner.status === 'inactive') {
     <p class="note" role="note">
-      Ce tiers est désactivé : il reste consultable avec son historique, mais n’est plus proposé
+      Ce contact est désactivé : il reste consultable avec son historique, mais n’est plus proposé
       pour une nouvelle opération.
     </p>
   }
@@ -261,5 +261,5 @@
     </p>
   </div>
 } @else {
-  <alco-loading [rows]="8" label="Chargement du tiers…" />
+  <alco-loading [rows]="8" label="Chargement du contact…" />
 }

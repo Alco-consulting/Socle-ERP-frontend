@@ -99,7 +99,7 @@ export class LetteringDetailPage {
   protected readonly day = isoDay;
   protected readonly canUnletter = computed(() => this.session.can('accounting.unletter'));
   protected readonly canOpenPartner = computed(() =>
-    this.navigation.canOpenUrl(`${APP_ROOT}/comptabilite/tiers`),
+    this.navigation.canOpenUrl(`${APP_ROOT}/comptabilite/contacts`),
   );
   protected readonly auditType = AUDIT_TYPES.lettering;
   protected readonly canSeeHistory = computed(() => this.session.can('audit.read'));

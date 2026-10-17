@@ -189,7 +189,7 @@
         <ng-template alcoCell="partner" let-line>
           @if (line.partner; as partner) {
             @if (canOpenPartners()) {
-              <a [routerLink]="[accounting, 'tiers', partner.public_id]">{{ partner.code }}</a>
+              <a [routerLink]="[accounting, 'contacts', partner.public_id]">{{ partner.code }}</a>
             } @else {
               {{ partner.code }}
             }

@@ -35,7 +35,7 @@ describe('Application catalogue', () => {
   it('offers a few broad applications, never the financial domains nor Import / Export', () => {
     expect(APPLICATIONS.map((app) => app.label)).toEqual([
       'Comptabilité',
-      'Tiers',
+      'Contacts',
       'Documents',
       'Tableau de bord',
       'Paramètres',
@@ -84,7 +84,7 @@ describe('Application catalogue', () => {
       'Pièces comptables',
       'Journaux',
       'Plan comptable',
-      'Tiers',
+      'Contacts',
       'Lettrage',
       'Échéances',
       'Clôture',
@@ -225,7 +225,7 @@ describe('NavigationService', () => {
     const visible = flatLabels(navigation);
     expect(visible).toContain('Taxes');
     for (const hidden of [
-      'Tiers',
+      'Contacts',
       'Immobilisations',
       'Emprunts',
       'Analytique',
@@ -263,7 +263,7 @@ describe('NavigationService', () => {
     expect(navigation.canOpenUrl('/app/comptabilite/tresorerie/operations')).toBe(false); // permission
     expect(navigation.canOpenUrl('/app/comptabilite/analyse/balance')).toBe(false); // link permission
     expect(navigation.canOpenUrl('/app/comptabilite/tableau-de-bord')).toBe(false); // dashboards.read
-    expect(navigation.canOpenUrl('/app/tiers/liste')).toBe(false); // application
+    expect(navigation.canOpenUrl('/app/contacts/liste')).toBe(false); // application
   });
 
   it('builds the menu of a section and its first screen', () => {
@@ -365,7 +365,7 @@ describe('NavigationService', () => {
 
     it('an application closed in the new company, or the launcher: the launcher', () => {
       const navigation = signIn(['accounting.read']);
-      expect(navigation.landingUrl('/app/tiers/liste')).toBe('/app');
+      expect(navigation.landingUrl('/app/contacts/liste')).toBe('/app');
       expect(navigation.landingUrl('/app')).toBe('/app');
     });
   });

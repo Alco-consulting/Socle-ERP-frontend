@@ -77,7 +77,7 @@
           <dt>Tiers</dt>
           <dd>
             @if (canOpenPartner()) {
-              <a [routerLink]="[accounting, 'tiers', item.partner.public_id]">
+              <a [routerLink]="[accounting, 'contacts', item.partner.public_id]">
                 {{ item.partner.code }} — {{ item.partner.name }}
               </a>
             } @else {

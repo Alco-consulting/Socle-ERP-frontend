@@ -69,7 +69,7 @@ export class DueItemDetailPage {
   protected readonly day = isoDay;
   protected readonly roles = DUE_ROLES;
   protected readonly canOpenPartner = computed(() =>
-    this.navigation.canOpenUrl(`${APP_ROOT}/comptabilite/tiers`),
+    this.navigation.canOpenUrl(`${APP_ROOT}/comptabilite/contacts`),
   );
   protected readonly canOpenLettering = computed(() =>
     this.navigation.canOpenUrl(`${APP_ROOT}/comptabilite/lettrage`),

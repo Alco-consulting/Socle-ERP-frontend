@@ -90,7 +90,7 @@ describe('AlcoLauncher', () => {
     const { tiles } = await render(ADMIN, { globalPermissions: ADMIN_GLOBAL });
     expect(tiles()).toEqual([
       'Comptabilité',
-      'Tiers',
+      'Contacts',
       'Documents',
       'Tableau de bord',
       'Paramètres',
@@ -116,14 +116,12 @@ describe('AlcoLauncher', () => {
     expect(link.getAttribute('href')).toBe('/app/comptabilite/tableau-de-bord');
   });
 
-  it('says on the Comptabilité tile that the financial domains live there', async () => {
-    const { element } = await render(['accounting.read']);
-    expect(element.querySelector('.tile-description')?.textContent).toContain('trésorerie');
-  });
-
-  it('states the active company and the number of applications', async () => {
+  it('the tiles only: no greeting, no count, no description (asked by the user)', async () => {
     const { element } = await render(['accounting.read', 'partners.read']);
-    expect(element.textContent).toContain('ALCO GUINÉE · 2 applications disponibles');
+    expect(element.querySelector('h1')?.classList).toContain('alco-sr-only');
+    expect(element.querySelector('.tile-description')).toBeNull();
+    expect(element.textContent).not.toContain('applications disponibles');
+    expect(element.textContent).not.toContain('Bonjour');
   });
 
   it('a global grant of a company domain never opens it (platform administrator)', async () => {

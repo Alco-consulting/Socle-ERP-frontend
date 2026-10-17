@@ -33,7 +33,7 @@ export function roleLabel(partner: Pick<PartnerSummary, 'is_customer' | 'is_supp
 /** Errors of the partner commands, by their stable code (backend/docs/api/contract.md). */
 export const PARTNER_ERRORS: ErrorCatalog = {
   partner_code_exists: {
-    title: 'Ce code est déjà utilisé par un autre tiers de la société.',
+    title: 'Ce code est déjà utilisé par un autre contact de la société.',
     message: 'Enregistrez à nouveau : le serveur attribue le numéro suivant.',
   },
   currency_inactive: {
@@ -45,8 +45,8 @@ export const PARTNER_ERRORS: ErrorCatalog = {
     message: 'Choisissez-en une autre, ou aucune.',
   },
   not_found: {
-    title: 'Ce tiers n’existe pas ou plus dans cette société.',
-    message: 'Revenez à la liste des tiers.',
+    title: 'Ce contact n’existe pas ou plus dans cette société.',
+    message: 'Revenez à la liste des contacts.',
   },
 };
 
@@ -65,14 +65,14 @@ export const PARTNER_TRANSFER: ContextualTransfer = {
   exportType: 'partners',
   importPermission: 'partners.create',
   exportPermission: 'partners.read',
-  importLabel: 'Importer des tiers',
-  exportLabel: 'Exporter les tiers',
-  importTitle: 'Import de tiers',
+  importLabel: 'Importer des contacts',
+  exportLabel: 'Exporter les contacts',
+  importTitle: 'Import de contacts',
   importEffect:
     'Crée des fiches clients et fournisseurs à partir d’un fichier CSV ou Excel (.xlsx).',
   creationKey: 'partners',
-  countLabel: (count) => `${count} tiers`,
-  backLabel: 'Retour aux tiers',
+  countLabel: (count) => `${count} contact${count > 1 ? 's' : ''}`,
+  backLabel: 'Retour aux contacts',
   fieldLabels: {
     code: 'Code',
     name: 'Nom',

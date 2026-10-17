@@ -11,12 +11,12 @@ import { applicationRoute } from './placeholder-routes';
  */
 const SCREENS: Readonly<Record<string, Routes>> = {
   // Real screens (Modules 4 and 5, V2.1 dashboard), on the API; Clients, Fournisseurs and
-  // Comptabilité › Tiers are the Tiers application's lists (records stay in Tiers).
+  // Comptabilité › Contacts are the Contacts application's lists (records stay in Contacts).
   accounting: [
     ...ACCOUNTING_ROUTES,
     partnerListScreen('clients', 'Clients', 'customer'),
     partnerListScreen('fournisseurs', 'Fournisseurs', 'supplier'),
-    partnerListScreen('tiers', 'Tiers', null),
+    partnerListScreen('contacts', 'Contacts', null),
   ],
   // Real screens (Module 3), on the API.
   partners: PARTNER_ROUTES,
@@ -65,11 +65,18 @@ export const LEGACY_REDIRECTS: Routes = [
     redirectTo: `${ACCOUNTING}/echeances`,
   },
   { path: 'comptabilite/tiers/lettrage', pathMatch: 'full', redirectTo: `${ACCOUNTING}/lettrage` },
+  // « Tiers » became « Contacts », as Odoo's application (2026-10-17).
+  { path: 'comptabilite/tiers', pathMatch: 'full', redirectTo: `${ACCOUNTING}/contacts` },
+  { path: 'comptabilite/tiers/:id', redirectTo: `${ACCOUNTING}/contacts/:id` },
   {
     path: 'tiers/configuration/conditions',
     pathMatch: 'full',
     redirectTo: `${ACCOUNTING}/configuration/conditions-paiement`,
   },
+  { path: 'tiers', pathMatch: 'full', redirectTo: '/app/contacts' },
+  { path: 'tiers/:screen', redirectTo: '/app/contacts/:screen' },
+  { path: 'tiers/:screen/:id', redirectTo: '/app/contacts/:screen/:id' },
+  { path: 'tiers/:screen/:id/:action', redirectTo: '/app/contacts/:screen/:id/:action' },
   // Paramètres › Devises (placeholder) became Comptabilité › Configuration › Devises.
   {
     path: 'parametres/devises',

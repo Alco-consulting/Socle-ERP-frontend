@@ -6,15 +6,15 @@
     [correlationId]="failure.correlationId ?? ''"
   />
   <div class="center">
-    <a alcoButton icon="arrow-left" routerLink="/app/tiers/liste">Retour aux tiers</a>
+    <a alcoButton icon="arrow-left" routerLink="/app/contacts/liste">Retour aux contacts</a>
   </div>
 } @else if (!ready()) {
-  <alco-loading [rows]="8" label="Chargement du tiers…" />
+  <alco-loading [rows]="8" label="Chargement du contact…" />
 } @else {
   <alco-page-header
-    [title]="isNew ? 'Nouveau tiers' : 'Modifier ' + (partner()?.name ?? '')"
+    [title]="isNew ? 'Nouveau contact' : 'Modifier ' + (partner()?.name ?? '')"
     [subtitle]="
-      isNew ? 'Le code du tiers est attribué à l’enregistrement.' : (partner()?.code ?? '')
+      isNew ? 'Le code du contact est attribué à l’enregistrement.' : (partner()?.code ?? '')
     "
   >
     <div alcoPageActions>

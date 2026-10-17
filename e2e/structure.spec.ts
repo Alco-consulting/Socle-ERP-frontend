@@ -29,7 +29,7 @@ test.describe('Lanceur : Reporting n’est plus une application', () => {
     await page.goto('/');
     await expect(tiles(page)).toHaveText([
       'Comptabilité',
-      'Tiers',
+      'Contacts',
       'Documents',
       'Tableau de bord',
       'Paramètres',
@@ -102,7 +102,7 @@ test.describe('Comptabilité : un lien et cinq menus groupés', () => {
       'Pièces comptables',
       'Journaux',
       'Plan comptable',
-      'Tiers',
+      'Contacts',
       'Lettrage',
       'Échéances',
       'Clôture',
@@ -203,14 +203,14 @@ test.describe('Comptabilité : un lien et cinq menus groupés', () => {
     });
   }
 
-  test('Tiers is an application (records) and a list of Comptabilité', async ({ page }) => {
+  test('Contacts is an application (records) and a list of Comptabilité', async ({ page }) => {
     await page.goto('/app/comptabilite/tableau-de-bord');
-    await openFrom(page, 'Comptabilité', 'Tiers');
-    await expect(page).toHaveURL(/\/app\/comptabilite\/tiers$/);
-    await expect(page.getByRole('heading', { level: 1 })).toHaveText('Tiers');
+    await openFrom(page, 'Comptabilité', 'Contacts');
+    await expect(page).toHaveURL(/\/app\/comptabilite\/contacts$/);
+    await expect(page.getByRole('heading', { level: 1 })).toHaveText('Contacts');
     await page.getByRole('table').getByRole('link').first().click();
-    await expect(page).toHaveURL(/\/app\/comptabilite\/tiers\/[^/]+$/);
-    await expect(breadcrumb(page)).toHaveText(/Comptabilité\s*Tiers/);
+    await expect(page).toHaveURL(/\/app\/comptabilite\/contacts\/[^/]+$/);
+    await expect(breadcrumb(page)).toHaveText(/Comptabilité\s*Contacts/);
   });
 });
 
@@ -231,12 +231,12 @@ test.describe('Import / export contextuels', () => {
 
   test('export is started from Tiers and exports partners only', async ({ page }) => {
     await page.goto('/');
-    await page.getByRole('link', { name: /Tiers/ }).click();
-    await expect(page.getByRole('heading', { level: 1 })).toHaveText('Tous les tiers');
+    await page.getByRole('link', { name: /Contacts/ }).click();
+    await expect(page.getByRole('heading', { level: 1 })).toHaveText('Tous les contacts');
     await page.getByRole('button', { name: 'Actions' }).click();
-    await page.getByRole('menuitem', { name: 'Exporter les tiers' }).click();
-    const dialog = page.getByRole('alertdialog', { name: 'Exporter les tiers ?' });
-    await expect(dialog).toContainText('tous les tiers');
+    await page.getByRole('menuitem', { name: 'Exporter les contacts' }).click();
+    const dialog = page.getByRole('alertdialog', { name: 'Exporter les contacts ?' });
+    await expect(dialog).toContainText('tous les contacts');
     await dialog.getByRole('button', { name: 'Annuler' }).click();
     await expect(dialog).toHaveCount(0);
   });

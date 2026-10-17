@@ -53,13 +53,13 @@ describe('AlcoDomainTransfers (« Actions ▾ » of a domain, real API)', () => 
 
     const exporter = await render(['partners.read', 'imports_exports.export']);
     expect((await exporter.open()).map((item) => item.textContent?.trim())).toEqual([
-      'Exporter les tiers',
+      'Exporter les contacts',
     ]);
     TestBed.resetTestingModule();
 
     const importer = await render(['partners.create', 'imports_exports.create']);
     expect((await importer.open()).map((item) => item.textContent?.trim())).toEqual([
-      'Importer des tiers',
+      'Importer des contacts',
     ]);
   });
 
@@ -76,8 +76,8 @@ describe('AlcoDomainTransfers (« Actions ▾ » of a domain, real API)', () => 
     await settle();
     expect(confirm).toHaveBeenCalledWith(
       expect.objectContaining({
-        title: 'Exporter les tiers ?',
-        confirmLabel: 'Exporter les tiers',
+        title: 'Exporter les contacts ?',
+        confirmLabel: 'Exporter les contacts',
       }),
     );
     const create = httpMock().expectOne('/api/v1/imports-exports/exports/');

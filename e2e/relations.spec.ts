@@ -146,7 +146,7 @@ test.describe('Écriture → objets liés (par les public_id de l’API)', () =>
 
     await page.goto(url);
     await page.getByRole('link', { name: 'FOU-001', exact: true }).click();
-    await expect(page).toHaveURL(new RegExp(`/tiers/${partnerId(api, 'FOU-001')}$`));
+    await expect(page).toHaveURL(new RegExp(`/contacts/${partnerId(api, 'FOU-001')}$`));
     await expect(page.getByRole('heading', { level: 1 })).toHaveText('Diallo et Cie');
   });
 
@@ -193,7 +193,7 @@ test.describe('Société, permissions', () => {
 
     // Tiers only: the record, without any accounting relation asked.
     api.withPermissions(COMPANY_A.public_id, ['partners.read']);
-    await page.goto(`/app/tiers/fournisseurs/${partnerId(api, 'FOU-001')}`);
+    await page.goto(`/app/contacts/fournisseurs/${partnerId(api, 'FOU-001')}`);
     await expect(page.getByRole('heading', { level: 1 })).toHaveText('Diallo et Cie');
     await expect(page.locator('.smart-buttons')).toHaveCount(0);
     expect(api.callsTo(`accounting/partners/${partnerId(api, 'FOU-001')}/accounts/`)).toHaveLength(

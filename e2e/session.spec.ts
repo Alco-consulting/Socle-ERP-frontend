@@ -8,7 +8,7 @@ import { COMPANY_B, PASSWORD, THROTTLED, USER, expect, test } from './support/fa
  * (e2e/support/fake-api.ts): no real account, nothing reaches the deployed API.
  */
 
-const ACCOUNTANT_TILES = ['Comptabilité', 'Tiers', 'Documents', 'Tableau de bord'];
+const ACCOUNTANT_TILES = ['Comptabilité', 'Contacts', 'Documents', 'Tableau de bord'];
 
 const tiles = (page: Page) => page.locator('.tile-label');
 
@@ -147,7 +147,7 @@ test.describe('Session Django et CSRF', () => {
   test('the session comes from the API, without any token', async ({ page, api }) => {
     await page.goto('/');
     await expect(page).toHaveURL(/\/app$/);
-    await expect(page.getByText('Bonjour Mariam')).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Compte de Mariam Test' })).toBeVisible();
     const [me] = api.callsTo('auth/me/');
     expect(await me.headerValue('x-company-id')).toBeNull();
     expect(await me.headerValue('authorization')).toBeNull(); // the session is a cookie

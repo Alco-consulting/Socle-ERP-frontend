@@ -43,8 +43,12 @@ test.describe('Scénario 1 — société par défaut', () => {
     await expect(companyButton(page)).toHaveAccessibleName(
       'Société active : ALCO GUINÉE (test). Changer de société',
     );
-    await expect(tiles(page)).toHaveText(['Comptabilité', 'Tiers', 'Documents', 'Tableau de bord']);
-    await expect(page.getByText('ALCO GUINÉE (test) · 4 applications disponibles')).toBeVisible();
+    await expect(tiles(page)).toHaveText([
+      'Comptabilité',
+      'Contacts',
+      'Documents',
+      'Tableau de bord',
+    ]);
     const [context] = api.callsTo('company-context/');
     expect(await context.headerValue('x-company-id')).toBeNull(); // the server's default
   });
@@ -196,8 +200,8 @@ test.describe('Scénario 3 — changement de société', () => {
 
   test('an application closed in the new company: the launcher', async ({ page, api }) => {
     api.withPermissions(COMPANY_B.public_id, PROFILES.viewer); // no partners.read in B
-    await page.goto('/app/tiers/liste');
-    await expect(page.getByRole('heading', { level: 1 })).toHaveText('Tous les tiers');
+    await page.goto('/app/contacts/liste');
+    await expect(page.getByRole('heading', { level: 1 })).toHaveText('Tous les contacts');
     await switchTo(page, /FILIALE SÉNÉGAL/);
     await expect(page).toHaveURL(/\/app$/);
     await expect(tiles(page)).toHaveText(['Comptabilité', 'Tableau de bord']);
@@ -239,10 +243,10 @@ test.describe('Scénario 4 — application ou écran interdit', () => {
     api.withPermissions(COMPANY_A.public_id, PROFILES.viewer);
     await page.goto('/app');
     await expect(tiles(page)).toHaveText(['Comptabilité', 'Tableau de bord']);
-    await page.goto('/app/tiers/liste');
+    await page.goto('/app/contacts/liste');
     await expect(page).toHaveURL(/\/app$/);
     await expect(
-      page.getByText('Vous n’avez pas accès à l’application Tiers dans cette société.'),
+      page.getByText('Vous n’avez pas accès à l’application Contacts dans cette société.'),
     ).toBeVisible();
   });
 

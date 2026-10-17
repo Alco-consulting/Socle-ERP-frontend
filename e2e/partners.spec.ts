@@ -21,9 +21,9 @@ async function axe(page: Page): Promise<string[]> {
 test.describe('Tiers — liste, recherche, filtres', () => {
   test('Scénario 1 : lanceur → Tiers → la liste de la société', async ({ page, api }) => {
     await page.goto('/app');
-    await page.getByRole('link', { name: /Tiers/ }).click();
-    await expect(page).toHaveURL(/\/app\/tiers\/liste$/);
-    await expect(page.getByRole('heading', { level: 1 })).toHaveText('Tous les tiers');
+    await page.getByRole('link', { name: /Contacts/ }).click();
+    await expect(page).toHaveURL(/\/app\/contacts\/liste$/);
+    await expect(page.getByRole('heading', { level: 1 })).toHaveText('Tous les contacts');
     await expect(codes(page)).toHaveText([
       'CLI-001',
       'CLI-002',
@@ -42,23 +42,23 @@ test.describe('Tiers — liste, recherche, filtres', () => {
   });
 
   test('Scénario 2 : recherche côté serveur, reflétée dans l’URL', async ({ page, api }) => {
-    await page.goto('/app/tiers/liste');
+    await page.goto('/app/contacts/liste');
     await expect(codes(page)).toHaveCount(7);
-    await page.getByRole('searchbox', { name: 'Rechercher un tiers' }).fill('diallo');
+    await page.getByRole('searchbox', { name: 'Rechercher un contact' }).fill('diallo');
     await expect(page).toHaveURL(/q=diallo/);
     await expect(codes(page)).toHaveText(['FOU-001']);
     const last = api.callsTo('partners/').at(-1)!;
     expect(new URL(last.url()).searchParams.get('search')).toBe('diallo');
 
     await page.reload();
-    await expect(page.getByRole('searchbox', { name: 'Rechercher un tiers' })).toHaveValue(
+    await expect(page.getByRole('searchbox', { name: 'Rechercher un contact' })).toHaveValue(
       'diallo',
     );
     await expect(codes(page)).toHaveText(['FOU-001']);
   });
 
   test('Scénario 3 : filtres État et Rôle, en langage utilisateur', async ({ page, api }) => {
-    await page.goto('/app/tiers/liste');
+    await page.goto('/app/contacts/liste');
     await page.getByRole('button', { name: 'Filtres' }).click();
     const panel = page.getByRole('dialog', { name: 'Filtres' });
     await panel.getByLabel('État').selectOption({ label: 'Actif' });
@@ -74,13 +74,13 @@ test.describe('Tiers — liste, recherche, filtres', () => {
     await page.getByRole('button', { name: 'Retirer le critère Rôle : Fournisseurs' }).click();
     await expect(page).not.toHaveURL(/role=/);
 
-    await page.goto('/app/tiers/clients');
+    await page.goto('/app/contacts/clients');
     await expect(codes(page)).toHaveText(['CLI-001', 'CLI-002', 'CLI-003', 'MIX-001']);
   });
 
   test('aucun résultat : expliqué, avec la réinitialisation', async ({ page }) => {
-    await page.goto('/app/tiers/liste?q=introuvable');
-    await expect(page.getByText('Aucun tiers ne correspond à ces critères.')).toBeVisible();
+    await page.goto('/app/contacts/liste?q=introuvable');
+    await expect(page.getByText('Aucun contact ne correspond à ces critères.')).toBeVisible();
     await page.getByRole('button', { name: 'Réinitialiser les filtres' }).click();
     await expect(codes(page)).toHaveCount(7);
   });
@@ -88,9 +88,9 @@ test.describe('Tiers — liste, recherche, filtres', () => {
 
 test.describe('Tiers — fiche, création, modification', () => {
   test('Scénarios 4 et 5 : créer un tiers, puis sa fiche', async ({ page, api }) => {
-    await page.goto('/app/tiers/liste');
-    await page.getByRole('link', { name: 'Nouveau tiers' }).click();
-    await expect(page).toHaveURL(/\/app\/tiers\/nouveau$/);
+    await page.goto('/app/contacts/liste');
+    await page.getByRole('link', { name: 'Nouveau contact' }).click();
+    await expect(page).toHaveURL(/\/app\/contacts\/nouveau$/);
     // No code, country, default tax nor collective account to enter (note backend 0037).
     await expect(page.getByRole('textbox', { name: 'Nom', exact: true })).toBeFocused();
     for (const label of ['Code', 'Pays', 'Code de taxe par défaut', 'Compte client']) {
@@ -108,8 +108,8 @@ test.describe('Tiers — fiche, création, modification', () => {
     await page.getByLabel('Téléphone').fill('+224 620 00 00 00');
     await page.getByRole('button', { name: 'Enregistrer' }).click();
 
-    await expect(page.getByText('Tiers « Kaba Distribution » créé.')).toBeVisible();
-    await expect(page).toHaveURL(/\/app\/tiers\/liste\/[0-9a-f-]+$/);
+    await expect(page.getByText('Contact « Kaba Distribution » créé.')).toBeVisible();
+    await expect(page).toHaveURL(/\/app\/contacts\/liste\/[0-9a-f-]+$/);
     await expect(page.getByRole('heading', { level: 1 })).toHaveText('Kaba Distribution');
     // Numbered by the server after the customers already there (CLI-001 to CLI-003).
     await expect(page.getByText('CLI-00004 · Client')).toBeVisible();
@@ -124,7 +124,7 @@ test.describe('Tiers — fiche, création, modification', () => {
 
     await page
       .getByRole('navigation', { name: 'Fil d’Ariane' })
-      .getByRole('link', { name: 'Tous les tiers' })
+      .getByRole('link', { name: 'Tous les contacts' })
       .click();
     await expect(codes(page)).toContainText(['CLI-00004']);
     await page.getByRole('link', { name: 'CLI-00004' }).click();
@@ -136,7 +136,7 @@ test.describe('Tiers — fiche, création, modification', () => {
     page,
     api,
   }) => {
-    await page.goto('/app/tiers/liste');
+    await page.goto('/app/contacts/liste');
     await page.getByRole('link', { name: 'FOU-001' }).click();
     await expect(page.getByRole('heading', { level: 1 })).toHaveText('Diallo et Cie');
     await page.getByRole('link', { name: 'Modifier' }).click();
@@ -153,13 +153,13 @@ test.describe('Tiers — fiche, création, modification', () => {
   });
 
   test('désactiver puis réactiver, après confirmation', async ({ page, api }) => {
-    await page.goto('/app/tiers/liste');
+    await page.goto('/app/contacts/liste');
     await page.getByRole('link', { name: 'CLI-002' }).click();
     await page.getByRole('button', { name: 'Actions' }).click();
     await page.getByRole('menuitem', { name: 'Désactiver' }).click();
     await page.getByRole('alertdialog').getByRole('button', { name: 'Désactiver' }).click();
-    await expect(page.getByText('Tiers désactivé.')).toBeVisible();
-    await expect(page.getByText('Ce tiers est désactivé', { exact: false })).toBeVisible();
+    await expect(page.getByText('Contact désactivé.')).toBeVisible();
+    await expect(page.getByText('Ce contact est désactivé', { exact: false })).toBeVisible();
     expect(api.calls.some((call) => call.url().endsWith('/deactivate/'))).toBe(true);
     await page.getByRole('button', { name: 'Actions' }).click();
     await expect(page.getByRole('menuitem', { name: 'Réactiver' })).toBeVisible();
@@ -170,33 +170,35 @@ test.describe('Tiers — permissions et sécurité (le serveur reste l’autorit
   test('Scénario 7 : sans permission, ni tuile, ni accès direct', async ({ page, api }) => {
     api.withPermissions(COMPANY_A.public_id, PROFILES.viewer); // no partners.read
     await page.goto('/app');
-    await expect(page.locator('.tile-label')).not.toContainText(['Tiers']);
-    await page.goto('/app/tiers/liste');
+    await expect(page.locator('.tile-label')).not.toContainText(['Contacts']);
+    await page.goto('/app/contacts/liste');
     await expect(page).toHaveURL(/\/app$/);
     await expect(
-      page.getByText('Vous n’avez pas accès à l’application Tiers dans cette société.'),
+      page.getByText('Vous n’avez pas accès à l’application Contacts dans cette société.'),
     ).toBeVisible();
     expect(api.callsTo('partners/')).toHaveLength(0);
   });
 
   test('lecture seule : ni création, ni modification, ni import/export', async ({ page, api }) => {
     api.withPermissions(COMPANY_A.public_id, ['partners.read']);
-    await page.goto('/app/tiers/liste');
+    await page.goto('/app/contacts/liste');
     await expect(codes(page)).toHaveCount(7);
-    await expect(page.getByRole('link', { name: 'Nouveau tiers' })).toHaveCount(0);
+    await expect(page.getByRole('link', { name: 'Nouveau contact' })).toHaveCount(0);
     await expect(page.getByRole('button', { name: 'Actions' })).toHaveCount(0);
     await page.getByRole('link', { name: 'CLI-001' }).click();
     await expect(page.getByRole('heading', { level: 1 })).toHaveText('Dupont SARL');
     await expect(page.getByRole('link', { name: 'Modifier' })).toHaveCount(0);
 
-    await page.goto('/app/tiers/nouveau');
+    await page.goto('/app/contacts/nouveau');
     await expect(page.getByText('Votre profil ne permet pas d’ouvrir cet écran.')).toBeVisible();
   });
 
   test('le tiers d’une autre société (IDOR) : « n’existe pas ou plus »', async ({ page, api }) => {
     const other = api.partners.list('B')[0];
-    await page.goto(`/app/tiers/liste/${other.public_id}`);
-    await expect(page.getByText('Ce tiers n’existe pas ou plus dans cette société.')).toBeVisible();
+    await page.goto(`/app/contacts/liste/${other.public_id}`);
+    await expect(
+      page.getByText('Ce contact n’existe pas ou plus dans cette société.'),
+    ).toBeVisible();
     await expect(page.getByText(other.name)).toHaveCount(0);
   });
 
@@ -204,11 +206,11 @@ test.describe('Tiers — permissions et sécurité (le serveur reste l’autorit
     page,
     api,
   }) => {
-    await page.goto('/app/tiers/liste');
+    await page.goto('/app/contacts/liste');
     await expect(codes(page)).toHaveCount(7);
     await companyButton(page).click();
     await page.getByRole('menuitemradio', { name: /FILIALE SÉNÉGAL/ }).click();
-    await expect(page).toHaveURL(/\/app\/tiers\/liste$/);
+    await expect(page).toHaveURL(/\/app\/contacts\/liste$/);
     await expect(codes(page)).toHaveText(['SN-CLI-01', 'SN-FOU-01']);
     await expect(page.getByText('Dupont SARL')).toHaveCount(0);
     const last = api.callsTo('partners/').at(-1)!;
@@ -221,17 +223,17 @@ test.describe('Tiers — import et export contextuels', () => {
     page,
     api,
   }) => {
-    await page.goto('/app/tiers/liste?etat=active');
+    await page.goto('/app/contacts/liste?etat=active');
     await page.getByRole('button', { name: 'Actions' }).click();
     await expect(page.getByRole('menuitem')).toHaveText([
-      'Importer des tiers',
-      'Exporter les tiers',
+      'Importer des contacts',
+      'Exporter les contacts',
     ]);
-    await page.getByRole('menuitem', { name: 'Exporter les tiers' }).click();
-    const dialog = page.getByRole('alertdialog', { name: 'Exporter les tiers ?' });
-    await expect(dialog).toContainText('tous les tiers actifs');
+    await page.getByRole('menuitem', { name: 'Exporter les contacts' }).click();
+    const dialog = page.getByRole('alertdialog', { name: 'Exporter les contacts ?' });
+    await expect(dialog).toContainText('tous les contacts actifs');
     const download = page.waitForEvent('download');
-    await dialog.getByRole('button', { name: 'Exporter les tiers' }).click();
+    await dialog.getByRole('button', { name: 'Exporter les contacts' }).click();
     expect((await download).suggestedFilename()).toBe('tiers.csv');
     await expect(page.getByText('Export prêt : 6 lignes.')).toBeVisible();
     const [create] = api.callsTo('imports-exports/exports/');
@@ -243,11 +245,11 @@ test.describe('Tiers — import et export contextuels', () => {
   });
 
   test('Scénario 9b : importer des tiers, étape par étape', async ({ page, api }) => {
-    await page.goto('/app/tiers/liste');
+    await page.goto('/app/contacts/liste');
     await page.getByRole('button', { name: 'Actions' }).click();
-    await page.getByRole('menuitem', { name: 'Importer des tiers' }).click();
-    await expect(page).toHaveURL(/\/app\/tiers\/liste\/import$/);
-    await expect(page.getByRole('heading', { level: 1 })).toHaveText('Import de tiers');
+    await page.getByRole('menuitem', { name: 'Importer des contacts' }).click();
+    await expect(page).toHaveURL(/\/app\/contacts\/liste\/import$/);
+    await expect(page.getByRole('heading', { level: 1 })).toHaveText('Import de contacts');
 
     await page.locator('input[type=file]').setInputFiles({
       name: 'nouveaux-tiers.csv',
@@ -267,11 +269,11 @@ test.describe('Tiers — import et export contextuels', () => {
     expect(await axe(page)).toEqual([]);
 
     await page.getByRole('button', { name: 'Voir l’aperçu' }).click();
-    await expect(page.getByText('2 tiers seront créés', { exact: false })).toBeVisible();
+    await expect(page.getByText('2 contacts seront créés', { exact: false })).toBeVisible();
     await page.getByRole('button', { name: 'Lancer l’import' }).click();
     await page.getByRole('alertdialog').getByRole('button', { name: 'Lancer l’import' }).click();
     await expect(page.getByText('Import terminé', { exact: true })).toBeVisible();
-    await expect(page.getByText('2 tiers importés')).toBeVisible();
+    await expect(page.getByText('2 contacts importés')).toBeVisible();
     const map = api.calls.find((call) => call.url().endsWith('/map/'))!;
     expect(map.postDataJSON()).toEqual({
       columns: { code: 'Code', name: 'Nom', country: 'Pays', is_customer: 'Client' },
@@ -279,7 +281,7 @@ test.describe('Tiers — import et export contextuels', () => {
       options: { date_format: '%Y-%m-%d', decimal_separator: '.' },
     });
 
-    await page.getByRole('link', { name: 'Retour aux tiers' }).click();
+    await page.getByRole('link', { name: 'Retour aux contacts' }).click();
     await expect(codes(page)).toContainText(['IMP-001', 'IMP-002']);
   });
 });
@@ -295,12 +297,12 @@ test.describe('Tiers — téléphone et accessibilité', () => {
     api,
   }) => {
     await page.setViewportSize({ width: 390, height: 844 });
-    await page.goto('/app/tiers/liste');
+    await page.goto('/app/contacts/liste');
     await expect(codes(page)).toHaveCount(7);
-    await expect(page.getByRole('button', { name: /^Navigation Tiers :/ })).toBeVisible();
+    await expect(page.getByRole('button', { name: /^Navigation Contacts :/ })).toBeVisible();
     expect(await overflow(page)).toBeLessThanOrEqual(0);
 
-    await page.goto('/app/tiers/nouveau');
+    await page.goto('/app/contacts/nouveau');
     const name = page.getByRole('textbox', { name: 'Nom', exact: true });
     const legal = page.getByRole('textbox', { name: 'Raison sociale', exact: true });
     await expect(name).toBeVisible();
@@ -309,12 +311,12 @@ test.describe('Tiers — téléphone et accessibilité', () => {
     expect(await overflow(page)).toBeLessThanOrEqual(0);
     expect(await axe(page)).toEqual([]);
 
-    await page.goto(`/app/tiers/liste/${api.partners.list('A')[0].public_id}`);
+    await page.goto(`/app/contacts/liste/${api.partners.list('A')[0].public_id}`);
     await expect(page.getByRole('heading', { level: 1 })).toHaveText('Dupont SARL');
     expect(await overflow(page)).toBeLessThanOrEqual(0);
 
-    await page.goto('/app/tiers/liste/import');
-    await expect(page.getByRole('heading', { level: 1 })).toHaveText('Import de tiers');
+    await page.goto('/app/contacts/liste/import');
+    await expect(page.getByRole('heading', { level: 1 })).toHaveText('Import de contacts');
     expect(await overflow(page)).toBeLessThanOrEqual(0);
     expect(await axe(page)).toEqual([]);
   });
@@ -324,7 +326,7 @@ test.describe('Tiers — comptes et étiquettes, comme Odoo (note backend 0045)'
   test('création : le compte client à choisir, une étiquette créée à la volée ; filtre par étiquette', async ({
     page,
   }) => {
-    await page.goto('/app/tiers/nouveau');
+    await page.goto('/app/contacts/nouveau');
     await page.getByRole('textbox', { name: 'Nom', exact: true }).fill('Grossiste Madina');
     await page.getByRole('checkbox', { name: 'Client' }).check();
 
@@ -337,10 +339,10 @@ test.describe('Tiers — comptes et étiquettes, comme Odoo (note backend 0045)'
     await page.getByRole('option', { name: 'Créer « Grossiste »' }).click();
     await expect(page.locator('alco-tags-field .chip')).toHaveText([/Grossiste/]);
     await page.getByRole('button', { name: 'Enregistrer' }).click();
-    await expect(page.getByText('Tiers « Grossiste Madina » créé.')).toBeVisible();
+    await expect(page.getByText('Contact « Grossiste Madina » créé.')).toBeVisible();
     await expect(page.getByText('Grossiste', { exact: true })).toBeVisible();
 
-    await page.goto('/app/tiers/liste');
+    await page.goto('/app/contacts/liste');
     await page.getByRole('button', { name: /^Filtres/ }).click();
     const filters = page.getByRole('dialog', { name: 'Filtres' });
     await filters.getByRole('combobox', { name: 'Étiquette' }).selectOption({ label: 'Grossiste' });

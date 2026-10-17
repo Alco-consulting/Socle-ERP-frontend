@@ -16,7 +16,7 @@ const SCREENS = [
   { name: 'Écran non construit', url: '/app/comptabilite/immobilisations/actifs' },
   { name: 'Trésorerie (navigation de domaine)', url: '/app/comptabilite/tresorerie/operations' },
   { name: 'Import d’écritures', url: '/app/comptabilite/ecritures/import' },
-  { name: 'Tiers', url: '/app/tiers/liste' },
+  { name: 'Contacts', url: '/app/contacts/liste' },
   { name: 'Catalogue', url: '/design-system' },
 ];
 

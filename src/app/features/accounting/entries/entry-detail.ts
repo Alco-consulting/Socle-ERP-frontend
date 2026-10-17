@@ -214,7 +214,7 @@ export class EntryDetailPage {
   private readonly navigation = inject(NavigationService);
   protected readonly accounting = ACCOUNTING;
   /** Partners open from Comptabilité › Tiers (`partners.read`). */
-  protected readonly canOpenPartners = computed(() => this.canOpen('tiers'));
+  protected readonly canOpenPartners = computed(() => this.canOpen('contacts'));
   /** The treasury operations this entry accounts (`treasury.read`), none otherwise. */
   private readonly treasuryApi = inject(TreasuryApi);
   protected readonly treasuryOperations = toSignal(

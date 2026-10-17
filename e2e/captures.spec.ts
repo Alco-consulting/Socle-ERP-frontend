@@ -125,9 +125,9 @@ test('regroupement: applications and domains of Comptabilité', async ({ page, a
   await page.getByRole('menuitem', { name: 'Importer des écritures' }).click();
   await shoot(page, '51-entries-import', true);
 
-  await page.goto('/app/tiers/liste');
+  await page.goto('/app/contacts/liste');
   await page.getByRole('button', { name: 'Actions' }).click();
-  await page.getByRole('menuitem', { name: 'Exporter les tiers' }).click();
+  await page.getByRole('menuitem', { name: 'Exporter les contacts' }).click();
   await expect(page.getByRole('alertdialog')).toBeVisible();
   await shoot(page, '52-partners-export');
   await page.keyboard.press('Escape');
@@ -221,14 +221,14 @@ test('phone 390 × 844', async ({ page }) => {
 
 test('tiers: list, record, form, import', async ({ page, api }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
-  await page.goto('/app/tiers/liste');
+  await page.goto('/app/contacts/liste');
   await shoot(page, '70-tiers-list');
-  await page.goto(`/app/tiers/liste/${api.partners.list('A')[3].public_id}`);
+  await page.goto(`/app/contacts/liste/${api.partners.list('A')[3].public_id}`);
   await shoot(page, '71-tiers-record', true);
-  await page.goto('/app/tiers/nouveau');
+  await page.goto('/app/contacts/nouveau');
   await page.getByRole('button', { name: 'Enregistrer' }).click();
   await shoot(page, '72-tiers-form-invalid', true);
-  await page.goto('/app/tiers/liste/import');
+  await page.goto('/app/contacts/liste/import');
   await page.locator('input[type=file]').setInputFiles({
     name: 'nouveaux-tiers.csv',
     mimeType: 'text/csv',
@@ -240,7 +240,7 @@ test('tiers: list, record, form, import', async ({ page, api }) => {
   await page.getByRole('button', { name: 'Contrôler les lignes' }).click();
   await shoot(page, '74-tiers-import-refused-rows', true);
   await page.setViewportSize({ width: 390, height: 844 });
-  await page.goto('/app/tiers/liste');
+  await page.goto('/app/contacts/liste');
   await shoot(page, '75-phone-tiers-list');
 });
 

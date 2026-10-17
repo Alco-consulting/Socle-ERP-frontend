@@ -55,7 +55,8 @@ test.describe('Parcours App Launcher → Comptabilité → Écritures → Formul
     await page.goto('/app/comptabilite');
     await expect(page).toHaveURL(/\/app\/comptabilite\/tableau-de-bord$/);
     await page.goto('/app/comptabilite/tresorerie');
-    await expect(page).toHaveURL(/\/app\/comptabilite\/tresorerie\/comptes$/);
+    // Its first screen: « Transactions » (note backend 0044).
+    await expect(page).toHaveURL(/\/app\/comptabilite\/tresorerie\/transactions$/);
   });
 
   test('a secondary screen of the menu opens and says it is not built yet', async ({ page }) => {

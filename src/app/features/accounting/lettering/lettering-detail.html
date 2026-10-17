@@ -98,7 +98,7 @@
           <dd>
             @if (lettering.partner; as partner) {
               @if (canOpenPartner()) {
-                <a class="mono" [routerLink]="[accounting, 'tiers', partner.public_id]">
+                <a class="mono" [routerLink]="[accounting, 'contacts', partner.public_id]">
                   {{ partner.code }}
                 </a>
               } @else {

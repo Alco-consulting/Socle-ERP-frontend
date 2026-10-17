@@ -12,10 +12,10 @@ const form = () => import('./pages/partner-form/partner-form').then((m) => m.Par
 const importPage = () => import('../transfers/import-page/import-page').then((m) => m.ImportPage);
 
 /**
- * A list of partners (Tous les tiers, Clients, Fournisseurs) with, under it, the contextual
- * import, the record and its modification: `/app/tiers/clients`, `…/clients/import`,
+ * A list of partners (Tous les contacts, Clients, Fournisseurs) with, under it, the contextual
+ * import, the record and its modification: `/app/contacts/clients`, `…/clients/import`,
  * `…/clients/:id`, `…/clients/:id/modifier`. Also served in Comptabilité (Clients,
- * Fournisseurs, Comptabilité › Tiers): the same screens, never a second implementation.
+ * Fournisseurs, Comptabilité › Contacts): the same screens, never a second implementation.
  */
 export function partnerListScreen(path: string, label: string, role: PartnerRole | null): Route {
   return {
@@ -25,14 +25,14 @@ export function partnerListScreen(path: string, label: string, role: PartnerRole
       { path: '', data: { role }, loadComponent: list },
       {
         path: 'import',
-        data: { breadcrumb: 'Import de tiers', transfer: PARTNER_TRANSFER },
+        data: { breadcrumb: 'Import de contacts', transfer: PARTNER_TRANSFER },
         canActivate: [permissionGuard('imports_exports.create', 'partners.create')],
         loadComponent: importPage,
       },
       {
         path: ':id',
         // Named after the partner once loaded (BreadcrumbService.nameCurrent).
-        data: { breadcrumb: 'Fiche du tiers' },
+        data: { breadcrumb: 'Fiche du contact' },
         children: [
           { path: '', loadComponent: detail },
           {
@@ -49,16 +49,16 @@ export function partnerListScreen(path: string, label: string, role: PartnerRole
 }
 
 /**
- * Screens of the Tiers application, on the real API (`partners`). Payment terms are a
+ * Screens of the Contacts application, on the real API (`partners`). Payment terms are a
  * planned screen of Comptabilité › Configuration › Paiements.
  */
 export const PARTNER_ROUTES: Routes = [
-  partnerListScreen('liste', 'Tous les tiers', null),
+  partnerListScreen('liste', 'Tous les contacts', null),
   partnerListScreen('clients', 'Clients', 'customer'),
   partnerListScreen('fournisseurs', 'Fournisseurs', 'supplier'),
   {
     path: 'nouveau',
-    data: { breadcrumb: 'Nouveau tiers' },
+    data: { breadcrumb: 'Nouveau contact' },
     canActivate: [permissionGuard('partners.create')],
     canDeactivate: [unsavedChangesGuard],
     loadComponent: form,

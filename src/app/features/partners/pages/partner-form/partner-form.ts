@@ -70,7 +70,7 @@ function text(maxLength?: number, ...more: ReturnType<typeof inputFormat>[]) {
 }
 
 /**
- * Creation (`/app/tiers/nouveau`) and modification (`…/:id/modifier`) of a partner with
+ * Creation (`/app/contacts/nouveau`) and modification (`…/:id/modifier`) of a partner with
  * exactly the writable fields of the API. The browser only checks the obvious (required,
  * lengths, formats); the server decides and its field errors are shown under the fields.
  * The server gives the code, by default the company's country (note backend 0037), and both
@@ -230,8 +230,8 @@ export class PartnerFormPage {
         this.toast.success('Modifications enregistrées.');
         await this.router.navigate(['..'], { relativeTo: this.route });
       } else {
-        this.toast.success(`Tiers « ${saved.name} » créé.`);
-        await this.router.navigate(['/app/tiers/liste', saved.public_id]);
+        this.toast.success(`Contact « ${saved.name} » créé.`);
+        await this.router.navigate(['/app/contacts/liste', saved.public_id]);
       }
     } catch (failure) {
       this.showFailure(toApiError(failure));
@@ -241,7 +241,7 @@ export class PartnerFormPage {
   }
 
   protected cancel(): void {
-    void this.router.navigate(this.isNew ? ['/app/tiers/liste'] : ['..'], {
+    void this.router.navigate(this.isNew ? ['/app/contacts/liste'] : ['..'], {
       relativeTo: this.route,
     });
   }
@@ -354,7 +354,7 @@ export class PartnerFormPage {
   private businessFieldError(error: ApiError): Record<string, string> {
     switch (error.code) {
       case 'partner_code_exists':
-        return { code: 'Ce code est déjà utilisé par un autre tiers de la société.' };
+        return { code: 'Ce code est déjà utilisé par un autre contact de la société.' };
       case 'currency_inactive':
         return { default_currency: 'Cette devise est inactive.' };
       case 'payment_term_inactive': {

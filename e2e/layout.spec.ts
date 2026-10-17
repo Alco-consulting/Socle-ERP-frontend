@@ -16,7 +16,7 @@ const SCREENS = [
   { name: 'Taxes', url: '/app/comptabilite/taxes/liste' },
   { name: 'Nouvelle taxe', url: '/app/comptabilite/taxes/liste/nouveau' },
   { name: 'Clôture', url: '/app/comptabilite/cloture' },
-  { name: 'Tiers', url: '/app/tiers/liste' },
+  { name: 'Contacts', url: '/app/contacts/liste' },
   { name: 'Catalogue', url: '/design-system' },
 ];
 
@@ -69,7 +69,7 @@ test.describe('Règles de mise en page', () => {
     const groups = () => page.getByRole('menu').getByRole('group');
     if (testInfo.project.name === 'desktop') {
       await nav.getByRole('button', { name: 'Configuration', exact: true }).click();
-      await expect(groups()).toHaveCount(7);
+      await expect(groups()).toHaveCount(8); // Configuration, with Produits (note backend 0047)
     } else if (testInfo.project.name === 'tablet') {
       // keep = 4: Tableau de bord, Clients, Fournisseurs, Comptabilité ▾, then « Plus ▾ ».
       await expect(nav.getByRole('button', { name: 'Comptabilité', exact: true })).toBeVisible();

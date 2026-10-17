@@ -6,7 +6,9 @@
       [exportScope]="exportScope()"
     />
     @if (canCreate()) {
-      <a alcoButton variant="primary" icon="plus" routerLink="/app/tiers/nouveau">Nouveau tiers</a>
+      <a alcoButton variant="primary" icon="plus" routerLink="/app/contacts/nouveau"
+        >Nouveau contact</a
+      >
     }
   </div>
 </alco-page-header>
@@ -14,7 +16,7 @@
 <div class="control-panel">
   <alco-search-bar
     class="search"
-    label="Rechercher un tiers"
+    label="Rechercher un contact"
     placeholder="Rechercher par code, nom, raison sociale ou identifiant fiscal…"
     [query]="searchText()"
     [facets]="facets()"
@@ -78,7 +80,7 @@
 @switch (list.status()) {
   @case ('forbidden') {
     <alco-error-state
-      title="Vous n’avez pas accès aux tiers de cette société."
+      title="Vous n’avez pas accès aux contacts de cette société."
       message="Demandez l’accès à un administrateur de la société si vous en avez besoin."
       [code]="list.error()?.code ?? ''"
     />
@@ -97,13 +99,13 @@
   }
   @default {
     @if (list.value() === null) {
-      <alco-loading variant="table" [rows]="8" [columns]="5" label="Chargement des tiers…" />
+      <alco-loading variant="table" [rows]="8" [columns]="5" label="Chargement des contacts…" />
     } @else if (rows().length === 0) {
       <div class="empty-frame">
         @if (hasCriteria()) {
           <alco-empty-state
             icon="search"
-            title="Aucun tiers ne correspond à ces critères."
+            title="Aucun contact ne correspond à ces critères."
             message="Modifiez la recherche ou retirez un filtre."
           >
             <button alcoButton type="button" icon="refresh" (click)="resetFilters()">
@@ -113,16 +115,16 @@
         } @else {
           <alco-empty-state
             icon="partners"
-            title="Aucun tiers trouvé."
+            title="Aucun contact trouvé."
             [message]="
               canCreate()
                 ? 'Créez la première fiche client ou fournisseur de la société.'
-                : 'Aucun tiers n’a encore été créé dans cette société.'
+                : 'Aucun contact n’a encore été créé dans cette société.'
             "
           >
             @if (canCreate()) {
-              <a alcoButton variant="primary" icon="plus" routerLink="/app/tiers/nouveau">
-                Créer un tiers
+              <a alcoButton variant="primary" icon="plus" routerLink="/app/contacts/nouveau">
+                Créer un contact
               </a>
             }
           </alco-empty-state>
@@ -132,7 +134,7 @@
       <alco-table
         [class.reloading]="list.loading()"
         [attr.aria-busy]="list.loading()"
-        caption="Tiers de la société"
+        caption="Contacts de la société"
         [columns]="columns"
         [rows]="rows()"
         [rowId]="rowId"

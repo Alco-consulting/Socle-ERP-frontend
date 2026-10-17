@@ -34,7 +34,7 @@ describe('PartnerListPage (server-side list)', () => {
       providers: [
         ...provideHttpTesting(),
         provideRouter([
-          { path: 'liste', component: PartnerListPage, data: { breadcrumb: 'Tous les tiers' } },
+          { path: 'liste', component: PartnerListPage, data: { breadcrumb: 'Tous les contacts' } },
           {
             path: 'clients',
             component: PartnerListPage,
@@ -64,7 +64,9 @@ describe('PartnerListPage (server-side list)', () => {
 
   it('asks the first page to the server and shows its rows', async () => {
     const { element, pending, harness } = await open('/liste');
-    expect(element.querySelector('[role=status]')?.textContent).toContain('Chargement des tiers');
+    expect(element.querySelector('[role=status]')?.textContent).toContain(
+      'Chargement des contacts',
+    );
     const request = pending();
     expect(request.request.params.get('page_size')).toBe('20');
     expect(request.request.params.has('page')).toBe(false);
@@ -111,29 +113,29 @@ describe('PartnerListPage (server-side list)', () => {
   it('empty company: says so, and offers the creation only with the permission', async () => {
     const allowed = await open('/liste');
     await allowed.answer(page([]));
-    expect(allowed.element.textContent).toContain('Aucun tiers trouvé.');
+    expect(allowed.element.textContent).toContain('Aucun contact trouvé.');
     expect(
       Array.from(allowed.element.querySelectorAll('a')).map((link) => link.textContent?.trim()),
-    ).toEqual(['Nouveau tiers', 'Créer un tiers']);
+    ).toEqual(['Nouveau contact', 'Créer un contact']);
 
     TestBed.resetTestingModule();
     const reader = await open('/liste', ['partners.read']);
     await reader.answer(page([]));
-    expect(reader.element.textContent).toContain('Aucun tiers trouvé.');
+    expect(reader.element.textContent).toContain('Aucun contact trouvé.');
     expect(reader.element.querySelectorAll('a').length).toBe(0);
   });
 
   it('no match for the criteria: offers to reset them', async () => {
     const { answer, element } = await open('/liste?q=zzz');
     await answer(page([]));
-    expect(element.textContent).toContain('Aucun tiers ne correspond à ces critères.');
+    expect(element.textContent).toContain('Aucun contact ne correspond à ces critères.');
     expect(element.textContent).toContain('Réinitialiser les filtres');
   });
 
   it('no permission in this company: a clear refusal', async () => {
     const { answer, element } = await open('/liste');
     await answer(envelope('company_permission_denied'), 403);
-    expect(element.textContent).toContain('Vous n’avez pas accès aux tiers de cette société.');
+    expect(element.textContent).toContain('Vous n’avez pas accès aux contacts de cette société.');
   });
 
   it('server unavailable: a human message and a retry', async () => {

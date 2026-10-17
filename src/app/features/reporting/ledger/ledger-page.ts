@@ -279,10 +279,10 @@ export class LedgerPage {
     return iso.split('-').reverse().join('/');
   }
 
-  /** A partner's record, when the user may open Comptabilité › Tiers. */
+  /** A partner's record, when the user may open Comptabilité › Contacts. */
   protected partnerUrl(publicId: string): string | null {
-    return this.navigation.canOpenUrl(`${ACCOUNTING}/tiers`)
-      ? `${ACCOUNTING}/tiers/${publicId}`
+    return this.navigation.canOpenUrl(`${ACCOUNTING}/contacts`)
+      ? `${ACCOUNTING}/contacts/${publicId}`
       : null;
   }
 

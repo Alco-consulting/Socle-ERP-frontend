@@ -57,11 +57,11 @@ describe('PartnerDetailPage (the record)', () => {
         provideRouter([
           {
             path: 'liste',
-            data: { breadcrumb: 'Tous les tiers' },
+            data: { breadcrumb: 'Tous les contacts' },
             children: [
               {
                 path: ':id',
-                data: { breadcrumb: 'Fiche du tiers' },
+                data: { breadcrumb: 'Fiche du contact' },
                 component: PartnerDetailPage,
               },
             ],
@@ -88,7 +88,7 @@ describe('PartnerDetailPage (the record)', () => {
 
   it('shows the record the API gives, named in the breadcrumb', async () => {
     const { element, stable } = await open(['partners.read']);
-    expect(element.textContent).toContain('Chargement du tiers');
+    expect(element.textContent).toContain('Chargement du contact');
     httpMock().expectOne('/api/v1/partners/p-1/').flush(PARTNER);
     await stable();
     expect(element.querySelector('h1')?.textContent).toContain('Diallo et Cie');
@@ -130,7 +130,7 @@ describe('PartnerDetailPage (the record)', () => {
     request.flush({ ...PARTNER, status: 'inactive' });
     await stable();
     expect(element.textContent).toContain('Inactif');
-    expect(element.textContent).toContain('Ce tiers est désactivé');
+    expect(element.textContent).toContain('Ce contact est désactivé');
   });
 
   it('smart buttons, each with its own permission: entries, ledger, accounts, lettering, due dates, history', async () => {
@@ -215,7 +215,7 @@ describe('PartnerDetailPage (the record)', () => {
       .expectOne('/api/v1/partners/p-1/')
       .flush(envelope('not_found'), { status: 404, statusText: 'x' });
     await stable();
-    expect(element.textContent).toContain('Ce tiers n’existe pas ou plus dans cette société.');
-    expect(element.textContent).toContain('Retour aux tiers');
+    expect(element.textContent).toContain('Ce contact n’existe pas ou plus dans cette société.');
+    expect(element.textContent).toContain('Retour aux contacts');
   });
 });

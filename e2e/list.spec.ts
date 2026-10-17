@@ -41,10 +41,10 @@ test.describe('Vue liste : filtres, regroupement, recherche, état dans l’URL'
   });
 
   test('a search without result explains and offers to reset (Tiers)', async ({ page }) => {
-    await page.goto('/app/tiers/liste');
-    await page.getByRole('searchbox', { name: 'Rechercher un tiers' }).fill('introuvable-xyz');
+    await page.goto('/app/contacts/liste');
+    await page.getByRole('searchbox', { name: 'Rechercher un contact' }).fill('introuvable-xyz');
     await page.keyboard.press('Enter');
-    await expect(page.getByText('Aucun tiers ne correspond à ces critères.')).toBeVisible();
+    await expect(page.getByText('Aucun contact ne correspond à ces critères.')).toBeVisible();
     await page.getByRole('button', { name: 'Réinitialiser les filtres' }).click();
     await expect(page.getByRole('table')).toBeVisible();
   });

@@ -429,7 +429,7 @@ describe('ImportPage (contextual import on the API)', () => {
       }),
     );
     await stable();
-    expect(element.textContent).toContain('2 tiers seront créés');
+    expect(element.textContent).toContain('2 contacts seront créés');
 
     vi.spyOn(TestBed.inject(AlcoConfirmService), 'confirm').mockResolvedValue(true);
     await click('Lancer l’import');
@@ -438,7 +438,7 @@ describe('ImportPage (contextual import on the API)', () => {
     execute.flush(run('completed', { summary: { created: 2, imported: 2 } }));
     await stable();
     expect(element.textContent).toContain('Import terminé');
-    expect(element.textContent).toContain('2 tiers importés');
+    expect(element.textContent).toContain('2 contacts importés');
   });
 
   it('refused rows: listed with the reason, nothing can be imported', async () => {

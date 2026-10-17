@@ -23,7 +23,12 @@ test.describe('Affichage selon les permissions (confort d’interface ; l’API 
     await useProfile(page, api, 'administrator');
     await expect(tiles(page)).toHaveCount(5);
     await useProfile(page, api, 'accountant');
-    await expect(tiles(page)).toHaveText(['Comptabilité', 'Tiers', 'Documents', 'Tableau de bord']);
+    await expect(tiles(page)).toHaveText([
+      'Comptabilité',
+      'Contacts',
+      'Documents',
+      'Tableau de bord',
+    ]);
     await useProfile(page, api, 'viewer');
     // reporting.read opens Comptabilité › Analyse, no application of its own.
     await expect(tiles(page)).toHaveText(['Comptabilité', 'Tableau de bord']);
@@ -64,7 +69,7 @@ test.describe('Affichage selon les permissions (confort d’interface ; l’API 
   test('the module menu hides the domains of a missing permission', async ({ page, api }) => {
     await useProfile(page, api, 'viewer');
     await page.getByRole('link', { name: /Comptabilité/ }).click();
-    // No partners.read: neither Clients nor Fournisseurs nor Tiers.
+    // No partners.read: neither Clients nor Fournisseurs nor Contacts.
     await expect(moduleNav(page).getByRole('link', { name: 'Clients' })).toHaveCount(0);
     await moduleNav(page).getByRole('button', { name: 'Comptabilité', exact: true }).click();
     await expect(page.getByRole('menu').getByRole('menuitemradio')).toHaveText([
@@ -87,6 +92,7 @@ test.describe('Affichage selon les permissions (confort d’interface ; l’API 
     await expect(page.getByRole('menu').getByRole('group')).toHaveText([
       /^\s*Général/,
       /^\s*Comptabilité/,
+      /^\s*Paiements/, // treasury.read: Modèles de rapprochement (note backend 0048)
       /^\s*Taxes/,
     ]);
   });

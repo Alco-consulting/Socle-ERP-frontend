@@ -141,7 +141,7 @@ describe('PartnerFormPage (creation and modification)', () => {
     ]) {
       expect(element.querySelector(`[formControlName="${name}"]`)).toBeNull();
     }
-    expect(element.textContent).toContain('Le code du tiers est attribué à l’enregistrement.');
+    expect(element.textContent).toContain('Le code du contact est attribué à l’enregistrement.');
   });
 
   it('creation: exactly the writable fields, trimmed; then the new record', async () => {
@@ -170,9 +170,9 @@ describe('PartnerFormPage (creation and modification)', () => {
     });
     request.flush({ ...PARTNER, public_id: 'p-2', code: 'FRN-00001', name: 'Diallo et Cie' });
     await stable();
-    expect(navigate).toHaveBeenCalledWith(['/app/tiers/liste', 'p-2']);
+    expect(navigate).toHaveBeenCalledWith(['/app/contacts/liste', 'p-2']);
     expect(TestBed.inject(AlcoToastService).toasts()[0]?.message).toBe(
-      'Tiers « Diallo et Cie » créé.',
+      'Contact « Diallo et Cie » créé.',
     );
   });
 

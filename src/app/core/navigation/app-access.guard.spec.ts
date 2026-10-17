@@ -43,7 +43,7 @@ describe('Application access guards (UX only: the API checks every call)', () =>
     const result = run(appAccessGuard, ['accounting.read'], { appId: 'partners' });
     expect(String(result)).toBe('/app');
     expect(TestBed.inject(AlcoToastService).toasts()[0]?.message).toBe(
-      'Vous n’avez pas accès à l’application Tiers dans cette société.',
+      'Vous n’avez pas accès à l’application Contacts dans cette société.',
     );
   });
 

@@ -57,8 +57,8 @@ const PARAM = {
 const STATUSES: readonly PartnerStatus[] = ['active', 'inactive'];
 
 const FAVORITES: readonly (FavoriteOption & { params: Params })[] = [
-  { id: 'active', label: 'Tiers actifs', params: { [PARAM.status]: 'active' } },
-  { id: 'inactive', label: 'Tiers désactivés', params: { [PARAM.status]: 'inactive' } },
+  { id: 'active', label: 'Contacts actifs', params: { [PARAM.status]: 'active' } },
+  { id: 'inactive', label: 'Contacts désactivés', params: { [PARAM.status]: 'inactive' } },
 ];
 
 const NO_FILTER: Params = {
@@ -70,7 +70,7 @@ const NO_FILTER: Params = {
 };
 
 /**
- * Tiers › Tous les tiers / Clients / Fournisseurs (`data.role` fixes the role of the last
+ * Contacts › Tous les contacts / Clients / Fournisseurs (`data.role` fixes the role of the last
  * two). Search, filters and pages are the server's (`GET partners/`); the browser neither
  * filters nor sorts (the API orders by code). Columns: what the list endpoint gives — no
  * request per row.
@@ -113,7 +113,7 @@ export class PartnerListPage {
   protected readonly roleLabel = roleLabel;
   protected readonly pageSize = PARTNER_PAGE_SIZE;
 
-  protected readonly title = computed(() => this.trail().at(-1)?.label ?? 'Tiers');
+  protected readonly title = computed(() => this.trail().at(-1)?.label ?? 'Contacts');
   /** Clients / Fournisseurs screens: the role is the screen's, not a filter. */
   protected readonly fixedRole =
     (this.route.snapshot.data['role'] as PartnerRole | undefined) ?? null;
@@ -235,8 +235,8 @@ export class PartnerListPage {
         : role === 'supplier'
           ? 'fournisseurs'
           : role === 'other'
-            ? 'tiers ni clients ni fournisseurs'
-            : 'tous les tiers';
+            ? 'contacts ni clients ni fournisseurs'
+            : 'tous les contacts';
     const state = status === 'active' ? ' actifs' : status === 'inactive' ? ' désactivés' : '';
     const ignored =
       this.search() || this.country()

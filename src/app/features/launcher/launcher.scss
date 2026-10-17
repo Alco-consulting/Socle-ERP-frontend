@@ -31,28 +31,6 @@
   }
 }
 
-.intro {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: var(--space-2);
-  text-align: center;
-}
-
-.greeting {
-  color: var(--color-text-muted);
-  font-weight: var(--font-weight-medium);
-}
-
-.context {
-  display: inline-flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: center;
-  gap: var(--space-1);
-  color: var(--color-text-muted);
-}
-
 .search {
   display: flex;
   align-items: center;
@@ -161,14 +139,4 @@
   font-size: var(--font-size-section-title);
   font-weight: var(--font-weight-semibold);
   line-height: var(--line-height-tight);
-}
-
-.tile-description {
-  display: -webkit-box;
-  overflow: hidden;
-  color: var(--color-text-muted);
-  font-size: var(--font-size-caption);
-  -webkit-box-orient: vertical;
-  -webkit-line-clamp: 2;
-  line-clamp: 2;
 }

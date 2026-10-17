@@ -159,9 +159,9 @@ describe('LedgerPage (Analyse › Grand livre, Grand livre auxiliaire)', () => {
     expect(
       element.querySelector('a[href="/app/comptabilite/ecritures/e-1"]')?.textContent,
     ).toContain('ACH-000012');
-    expect(element.querySelector('a[href="/app/comptabilite/tiers/p-1"]')?.textContent).toContain(
-      'FOU-001',
-    );
+    expect(
+      element.querySelector('a[href="/app/comptabilite/contacts/p-1"]')?.textContent,
+    ).toContain('FOU-001');
     // The export of this account's ledger is offered (Actions ▾).
     expect(text).toContain('Actions');
   });

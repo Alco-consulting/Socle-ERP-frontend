@@ -17,6 +17,7 @@ import { toUserError } from '../../core/errors/user-error';
 import { requestState } from '../../core/http/request-state';
 import { SessionStore } from '../../core/session/session.store';
 import { AlcoFilterBar } from '../../shared/filters/filter-bar';
+import { AlcoStatusTabs, StatusTab } from '../../shared/filters/status-tabs';
 import { AlcoSearchBar, SearchFacet } from '../../shared/filters/search-bar';
 import { AlcoFormField } from '../../shared/forms/form-field';
 import { AlcoInput } from '../../shared/forms/input';
@@ -65,6 +66,7 @@ const STATUSES: readonly InvoiceStatus[] = ['draft', 'posted', 'cancelled'];
     AlcoPageHeader,
     AlcoPagination,
     AlcoSearchBar,
+    AlcoStatusTabs,
     AlcoTable,
   ],
   templateUrl: './invoice-list.html',
@@ -80,6 +82,13 @@ export class InvoiceListPage {
   protected readonly spec = KINDS[this.route.snapshot.data['kind'] as InvoiceKind];
   protected readonly pageSize = INVOICE_PAGE_SIZE;
   protected readonly statuses = STATUSES.map((id) => ({ id, label: INVOICE_STATUS[id].label }));
+  /** The states in one click, on top of the list. */
+  protected readonly statusTabs: readonly StatusTab[] = [
+    { id: null, label: 'Toutes' },
+    { id: 'draft', label: 'Brouillons' },
+    { id: 'posted', label: 'Comptabilisées' },
+    { id: 'cancelled', label: 'Annulées' },
+  ];
   protected readonly canCreate = computed(
     () => this.spec.creatable && this.session.can('invoicing.create'),
   );
@@ -184,6 +193,11 @@ export class InvoiceListPage {
     if (facet.id === 'status') {
       this.navigate({ [PARAM.status]: null, [PARAM.page]: null });
     }
+  }
+
+  /** A state tab: back to the first page. */
+  protected chooseStatus(status: string | null): void {
+    this.navigate({ [PARAM.status]: status, [PARAM.page]: null });
   }
 
   protected setPage(page: number): void {

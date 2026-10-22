@@ -10,6 +10,7 @@ import { FakeDashboards } from './fake-dashboards';
 import { FakeDues } from './fake-dues';
 import { FakeLettering } from './fake-lettering';
 import { FakeReporting } from './fake-reporting';
+import { FakeSettings } from './fake-settings';
 import { FakeTreasury } from './fake-treasury';
 import { FakePartners, PartnersContext } from './fake-partners';
 
@@ -212,6 +213,8 @@ export class FakeApi {
   /** Closing: a fiscal year's closing, its steps, its reopenings (note backend 0036). */
   readonly closing: FakeClosing;
   readonly invoicing: FakeInvoicing;
+  /** Paramètres: the company's record, the users, the company's members. */
+  readonly settings: FakeSettings;
 
   constructor(private readonly page: Page) {
     const context: PartnersContext = {
@@ -242,6 +245,12 @@ export class FakeApi {
     this.currencies = new FakeCurrencies(context, () => this.globalPermissions);
     this.closing = new FakeClosing(context, this.accounting);
     this.invoicing = new FakeInvoicing(context, this.accounting, this.entries, this.partners);
+    this.settings = new FakeSettings(
+      context,
+      USER,
+      (id) => [COMPANY_A, COMPANY_B, COMPANY_C].find((company) => company.public_id === id),
+      () => this.globalPermissions,
+    );
   }
 
   /** No session open at start (the login screen). */
@@ -325,6 +334,7 @@ export class FakeApi {
     await this.accountImport.install();
     await this.closing.install();
     await this.invoicing.install();
+    await this.settings.install();
     await page.route('**/api/v1/auth/me/', (route) => {
       this.calls.push(route.request());
       if (this.down) {

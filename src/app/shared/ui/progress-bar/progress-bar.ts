@@ -22,7 +22,7 @@ import { ChangeDetectionStrategy, Component, input } from '@angular/core';
       height: 3px;
       overflow: hidden;
       pointer-events: none;
-      animation: alco-appear var(--duration-base) var(--easing-standard) 300ms both;
+      animation: alco-appear var(--duration-base) var(--easing-standard) var(--delay-progress) both;
     }
     .runner {
       display: block;
@@ -30,7 +30,7 @@ import { ChangeDetectionStrategy, Component, input } from '@angular/core';
       height: 100%;
       border-radius: var(--radius-pill);
       background: var(--color-brand-accent);
-      animation: alco-run 1.2s var(--easing-standard) infinite;
+      animation: alco-run var(--duration-progress) var(--easing-standard) infinite;
     }
     @keyframes alco-appear {
       from {

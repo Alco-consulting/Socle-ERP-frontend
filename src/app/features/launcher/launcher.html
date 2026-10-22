@@ -25,8 +25,8 @@
       @for (app of results(); track app.id) {
         <li>
           <a class="tile" [routerLink]="homeUrl(app)">
-            <span class="tile-icon" [attr.data-family]="app.family">
-              <alco-icon [name]="app.icon" [size]="30" />
+            <span class="tile-box" aria-hidden="true">
+              <img class="tile-icon" [src]="app.image" width="48" height="48" alt="" />
             </span>
             <span class="tile-label">{{ app.label }}</span>
           </a>

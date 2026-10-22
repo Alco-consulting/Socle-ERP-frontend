@@ -21,21 +21,46 @@ const SCREENS = [
 ];
 
 test.describe('Accessibilité (axe-core, WCAG 2.1 A/AA)', () => {
-  for (const screen of SCREENS) {
-    test(`${screen.name}: no accessibility violation`, async ({ page }) => {
-      await page.goto(screen.url);
-      await expect(page.getByRole('heading', { level: 1 })).toBeVisible();
-      await page.waitForLoadState('networkidle');
-      const results = await new AxeBuilder({ page })
-        .withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa'])
-        .analyze();
-      const violations = results.violations.map(
-        (violation) =>
-          `${violation.id} (${violation.impact}): ${violation.nodes.map((node) => node.target.join(' ')).join(', ')}`,
-      );
-      expect(violations).toEqual([]);
-    });
+  // Both themes: the dark one is the device's choice or the account menu's (styles/_tokens.scss).
+  for (const [scheme, suffix] of [
+    ['light', ''],
+    ['dark', ' (sombre)'],
+  ] as const) {
+    for (const screen of SCREENS) {
+      test(`${screen.name}${suffix}: no accessibility violation`, async ({ page }) => {
+        await page.emulateMedia({ colorScheme: scheme });
+        await page.goto(screen.url);
+        await expect(page.getByRole('heading', { level: 1 })).toBeVisible();
+        await page.waitForLoadState('networkidle');
+        const results = await new AxeBuilder({ page })
+          .withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa'])
+          .analyze();
+        const violations = results.violations.map(
+          (violation) =>
+            `${violation.id} (${violation.impact}): ${violation.nodes.map((node) => node.target.join(' ')).join(', ')}`,
+        );
+        expect(violations).toEqual([]);
+      });
+    }
   }
+
+  test('le thème choisi dans le menu du compte s’applique et reste après un rechargement', async ({
+    page,
+  }) => {
+    await page.goto('/');
+    await page.getByRole('button', { name: /^Compte de / }).click();
+    await page.getByRole('menuitemradio', { name: 'Sombre' }).click();
+    await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark');
+    await page.reload();
+    await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark');
+    await page.getByRole('button', { name: /^Compte de / }).click();
+    await expect(page.getByRole('menuitemradio', { name: 'Sombre' })).toHaveAttribute(
+      'aria-checked',
+      'true',
+    );
+    await page.getByRole('menuitemradio', { name: 'Comme l’appareil' }).click();
+    await expect(page.locator('html')).not.toHaveAttribute('data-theme', /.+/);
+  });
 
   test('open menus and the filter panel stay accessible', async ({ page }) => {
     await page.goto('/app/comptabilite/ecritures/pieces');

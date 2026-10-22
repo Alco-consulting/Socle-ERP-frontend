@@ -2,8 +2,9 @@
 
 :host {
   display: block;
-  background: var(--color-brand-night);
-  color: var(--color-text-inverse);
+  border-bottom: var(--border-width) solid var(--color-border);
+  background: var(--color-topbar);
+  color: var(--color-text);
 }
 
 .bar {
@@ -40,11 +41,15 @@
   text-decoration: none;
 
   &:hover {
-    background: var(--color-brand-night-hover);
+    background: var(--color-surface-sunken);
   }
+}
 
-  &:focus-visible {
-    outline-color: var(--color-text-inverse);
+.icon-link {
+  color: var(--color-text-muted);
+
+  &:hover {
+    color: var(--color-text);
   }
 }
 
@@ -59,8 +64,7 @@
   width: var(--border-width);
   height: 20px;
   margin: 0 var(--space-2);
-  background: var(--color-text-inverse);
-  opacity: 0.25;
+  background: var(--color-border);
 
   @include bp.below-tablet {
     display: none;
@@ -80,25 +84,63 @@
 }
 
 .app-mark {
-  display: inline-flex;
   flex: none;
-  align-items: center;
-  justify-content: center;
   width: 26px;
   height: 26px;
+}
+
+// The global search, as a field: the whole bar finds a screen or a record (Ctrl+K).
+.search-trigger {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  width: 15rem;
+  height: var(--control-height-sm);
+  margin-right: var(--space-2);
+  padding: 0 var(--space-2) 0 var(--space-3);
+  border: var(--border-width) solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface-sunken);
+  color: var(--color-text-muted);
+  font: inherit;
+  cursor: pointer;
+  transition:
+    border-color var(--duration-fast) var(--easing-standard),
+    color var(--duration-fast) var(--easing-standard);
+
+  &:hover {
+    border-color: var(--color-border-strong);
+    color: var(--color-text);
+  }
+
+  @include bp.below-laptop {
+    width: auto;
+    margin-right: 0;
+    padding: 0 var(--space-2);
+    border-color: transparent;
+    background: transparent;
+  }
+}
+
+.search-text {
+  flex: 1;
+  text-align: left;
+
+  @include bp.below-laptop {
+    display: none;
+  }
+}
+
+.search-kbd {
+  padding: 0 var(--space-1);
+  border: var(--border-width) solid var(--color-border);
   border-radius: var(--radius-sm);
-  background: var(--app-family-finance);
+  background: var(--color-surface);
+  font-family: inherit;
+  font-size: var(--font-size-caption);
 
-  &[data-family='relations'] {
-    background: var(--app-family-relations);
-  }
-
-  &[data-family='steering'] {
-    background: var(--app-family-steering);
-  }
-
-  &[data-family='control'] {
-    background: var(--app-family-control);
+  @include bp.below-laptop {
+    display: none;
   }
 }
 
@@ -109,7 +151,7 @@
   line-height: var(--line-height-tight);
   text-align: left;
 
-  @include bp.below-laptop {
+  @include bp.below-tablet {
     display: none;
   }
 }
@@ -122,8 +164,8 @@
 }
 
 .company-context {
+  color: var(--color-text-muted);
   font-size: var(--font-size-caption);
-  opacity: 0.8;
 }
 
 .bell {
@@ -140,7 +182,7 @@
   padding: 0 4px;
   border-radius: var(--radius-pill);
   background: var(--color-brand-accent);
-  color: var(--color-brand-night);
+  color: var(--color-text-on-accent);
   font-size: var(--font-size-caption);
   font-weight: var(--font-weight-semibold);
   line-height: 17px;
@@ -156,6 +198,7 @@
   height: 30px;
   border-radius: var(--radius-pill);
   background: var(--color-primary);
+  color: var(--color-text-inverse);
   font-size: var(--font-size-caption);
   font-weight: var(--font-weight-semibold);
 }

@@ -172,7 +172,7 @@ export class NavigationService {
       .map((entry): NavEntry | null => {
         if (!entry.children) {
           return entry.path !== undefined && this.canOpenPath(app, relative(entry.path))
-            ? { label: entry.label, url: url(entry.path) }
+            ? { label: entry.label, icon: entry.icon, url: url(entry.path) }
             : null;
         }
         // A menu shows the screens the user may open, plus the functions the API does not
@@ -184,7 +184,9 @@ export class NavigationService {
               ? { label: child.label, group: child.group, unavailable: child.unavailable }
               : { label: child.label, group: child.group, url: url(child.path) },
           );
-        return children.some((child) => child.url) ? { label: entry.label, children } : null;
+        return children.some((child) => child.url)
+          ? { label: entry.label, icon: entry.icon, children }
+          : null;
       })
       .filter((entry): entry is NavEntry => entry !== null);
   }

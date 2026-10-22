@@ -1,0 +1,161 @@
+@use 'breakpoints' as bp;
+
+// Six figures in a row on a wide screen, three on a laptop, two on a tablet or a phone.
+.band {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.band-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2) var(--space-4);
+}
+
+.band-title {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--space-1) var(--space-3);
+}
+
+.period {
+  width: auto;
+  min-width: 12rem;
+}
+
+.kpis {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: var(--space-3);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+
+  @include bp.below-desktop {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  @include bp.below-tablet {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  li {
+    display: flex;
+    min-width: 0;
+  }
+}
+
+.kpi {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: var(--space-1);
+  min-width: 0;
+  padding: var(--space-4);
+  border: var(--border-width) solid var(--color-border);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface);
+  box-shadow: var(--shadow-sm);
+  color: var(--color-text);
+  text-decoration: none;
+}
+
+.kpi--link {
+  transition:
+    border-color var(--duration-fast) var(--easing-standard),
+    box-shadow var(--duration-fast) var(--easing-standard);
+
+  &:hover {
+    border-color: var(--color-primary);
+    box-shadow: var(--shadow-md);
+  }
+}
+
+.kpi-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  margin-bottom: var(--space-1);
+}
+
+.kpi-label {
+  color: var(--color-text-muted);
+  font-size: var(--font-size-caption);
+  font-weight: var(--font-weight-semibold);
+}
+
+// The figure's mark: an icon on a soft disc, one tone per kind of figure.
+.kpi-mark {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: 2rem;
+  height: 2rem;
+  border-radius: var(--radius-pill);
+}
+
+.kpi-mark--primary {
+  background: var(--color-primary-soft);
+  color: var(--color-primary-text);
+}
+
+.kpi-mark--success {
+  background: var(--color-success-soft);
+  color: var(--color-success-text);
+}
+
+.kpi-mark--warning {
+  background: var(--color-warning-soft);
+  color: var(--color-warning-text);
+}
+
+.kpi-mark--info {
+  background: var(--color-info-soft);
+  color: var(--color-info-text);
+}
+
+.kpi-mark--neutral {
+  background: var(--color-neutral-soft);
+  color: var(--color-neutral-text);
+}
+
+.kpi-value {
+  overflow-wrap: anywhere;
+  font-size: var(--font-size-figure);
+  font-weight: var(--font-weight-semibold);
+  font-variant-numeric: tabular-nums;
+  line-height: var(--line-height-tight);
+
+  @include bp.below-tablet {
+    font-size: var(--font-size-section-title);
+  }
+}
+
+.kpi-currency {
+  color: var(--color-text-muted);
+  font-size: var(--font-size-caption);
+  font-weight: var(--font-weight-medium);
+}
+
+// The result's sign in words and an arrow, its color only as a reminder.
+.positive {
+  color: var(--color-success-text);
+}
+
+.negative {
+  color: var(--color-danger-text);
+}
+
+.kpi-caption {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  color: var(--color-text-muted);
+  font-size: var(--font-size-caption);
+}

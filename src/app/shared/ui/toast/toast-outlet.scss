@@ -6,56 +6,63 @@
   display: flex;
   flex-direction: column;
   gap: var(--space-2);
-  width: min(400px, calc(100vw - 2 * var(--space-4)));
+  width: min(420px, calc(100vw - 2 * var(--space-4)));
 }
 
+// A card: the tone in a soft disc, the message, its action, the close button.
 .toast {
   display: flex;
   align-items: flex-start;
   gap: var(--space-3);
-  padding: var(--space-3) var(--space-3) var(--space-3) var(--space-4);
+  padding: var(--space-3);
   border: var(--border-width) solid var(--color-border);
-  border-left-width: 4px;
   border-radius: var(--radius-md);
   background: var(--color-surface);
   box-shadow: var(--shadow-lg);
+  animation: alco-toast-in var(--duration-base) var(--easing-standard) both;
 }
 
-.toast--success {
-  border-left-color: var(--color-success);
-
-  alco-icon {
-    color: var(--color-success);
+@keyframes alco-toast-in {
+  from {
+    opacity: 0;
+    transform: translateY(var(--space-2));
   }
 }
 
-.toast--info {
-  border-left-color: var(--color-info);
-
-  alco-icon {
-    color: var(--color-info);
-  }
+.tone {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: var(--radius-pill);
 }
 
-.toast--warning {
-  border-left-color: var(--color-warning);
-
-  alco-icon {
-    color: var(--color-warning);
-  }
+.toast--success .tone {
+  background: var(--color-success-soft);
+  color: var(--color-success-text);
 }
 
-.toast--danger {
-  border-left-color: var(--color-danger);
+.toast--info .tone {
+  background: var(--color-info-soft);
+  color: var(--color-info-text);
+}
 
-  alco-icon {
-    color: var(--color-danger);
-  }
+.toast--warning .tone {
+  background: var(--color-warning-soft);
+  color: var(--color-warning-text);
+}
+
+.toast--danger .tone {
+  background: var(--color-danger-soft);
+  color: var(--color-danger-text);
 }
 
 .message {
   flex: 1;
-  padding-top: 1px;
+  align-self: center;
+  color: var(--color-text);
 }
 
 .action,
@@ -66,9 +73,15 @@
 }
 
 .action {
-  padding: 0 var(--space-1);
+  align-self: center;
+  padding: var(--space-1) var(--space-2);
+  border-radius: var(--radius-sm);
   color: var(--color-primary-text);
   font-weight: var(--font-weight-semibold);
+
+  &:hover {
+    background: var(--color-primary-soft);
+  }
 }
 
 .close {
@@ -77,11 +90,8 @@
   border-radius: var(--radius-sm);
   color: var(--color-text-muted);
 
-  alco-icon {
-    color: inherit;
-  }
-
   &:hover {
     background: var(--color-surface-sunken);
+    color: var(--color-text);
   }
 }

@@ -1,0 +1,69 @@
+<div class="search">
+  <alco-icon class="search-icon" name="search" [size]="18" />
+  <input
+    class="input"
+    type="text"
+    role="combobox"
+    aria-expanded="true"
+    aria-controls="palette-results"
+    aria-autocomplete="list"
+    aria-label="Rechercher un écran, une action, un contact ou un compte"
+    placeholder="Rechercher un écran, un contact, un compte…"
+    autocomplete="off"
+    spellcheck="false"
+    data-autofocus
+    [attr.aria-activedescendant]="activeId()"
+    [value]="query()"
+    (input)="onInput($event)"
+    (keydown)="onKeydown($event)"
+  />
+  <kbd class="kbd">Échap</kbd>
+</div>
+
+<div class="body">
+  <div id="palette-results" class="results" role="listbox" aria-label="Résultats">
+    @for (group of groups(); track group.id) {
+      <div class="group" role="group" [attr.aria-labelledby]="'palette-group-' + group.id">
+        <div class="group-label" role="presentation" [id]="'palette-group-' + group.id">
+          {{ group.label }}
+        </div>
+        @for (item of group.items; track item.url) {
+          @let id = idOf(item);
+          <div
+            class="option"
+            role="option"
+            [id]="id"
+            [class.option--active]="id === activeId()"
+            [attr.aria-selected]="id === activeId()"
+            tabindex="-1"
+            (mousedown)="$event.preventDefault()"
+            (mousemove)="point(item)"
+            (click)="open(item)"
+            (keydown.enter)="open(item)"
+          >
+            <span class="option-mark" aria-hidden="true">
+              @if (item.image; as image) {
+                <img [src]="image" width="20" height="20" alt="" />
+              } @else if (item.icon; as icon) {
+                <alco-icon [name]="icon" [size]="16" />
+              }
+            </span>
+            <span class="option-label">{{ item.label }}</span>
+            <span class="option-detail">{{ item.detail }}</span>
+          </div>
+        }
+      </div>
+    }
+  </div>
+  @if (searching()) {
+    <p class="note" role="status">Recherche dans les contacts et les comptes…</p>
+  } @else if (entries().length === 0) {
+    <p class="note" role="status">Aucun résultat pour « {{ query().trim() }} ».</p>
+  }
+</div>
+
+<footer class="hints" aria-hidden="true">
+  <span><kbd class="kbd">↑</kbd><kbd class="kbd">↓</kbd> naviguer</span>
+  <span><kbd class="kbd">Entrée</kbd> ouvrir</span>
+  <span><kbd class="kbd">Échap</kbd> fermer</span>
+</footer>

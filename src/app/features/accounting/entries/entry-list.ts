@@ -17,6 +17,7 @@ import { Paginated } from '../../../core/http/api-client';
 import { requestState } from '../../../core/http/request-state';
 import { SessionStore } from '../../../core/session/session.store';
 import { AlcoFilterBar, FavoriteOption } from '../../../shared/filters/filter-bar';
+import { AlcoStatusTabs, StatusTab } from '../../../shared/filters/status-tabs';
 import { AlcoAutocomplete, AutocompleteOption } from '../../../shared/forms/autocomplete';
 import { AlcoFormField } from '../../../shared/forms/form-field';
 import { AlcoInput } from '../../../shared/forms/input';
@@ -101,6 +102,7 @@ interface ListQuery {
     AlcoLoading,
     AlcoPageHeader,
     AlcoPagination,
+    AlcoStatusTabs,
     AlcoTable,
   ],
   templateUrl: './entry-list.html',
@@ -120,6 +122,14 @@ export class EntryListPage {
   protected readonly pageSize = ENTRY_PAGE_SIZE;
   protected readonly statuses = ENTRY_STATUSES.map((id) => ({ id, label: ENTRY_STATUS[id].label }));
   protected readonly kinds = KINDS.map((id) => ({ id, label: ENTRY_KINDS[id] }));
+  /** The states in one click, on top of the list. */
+  protected readonly statusTabs: readonly StatusTab[] = [
+    { id: null, label: 'Toutes' },
+    { id: 'draft', label: 'Brouillons' },
+    { id: 'submitted', label: 'À valider' },
+    { id: 'validated', label: 'Validées' },
+    { id: 'locked', label: 'Verrouillées' },
+  ];
   protected readonly favorites: readonly FavoriteOption[] = [
     { id: 'draft', label: 'Brouillons' },
     { id: 'submitted', label: 'Soumises, à valider' },
@@ -302,6 +312,11 @@ export class EntryListPage {
 
   protected setPage(page: number): void {
     this.navigate({ [PARAM.page]: page > 1 ? page : null });
+  }
+
+  /** A state tab: the other criteria kept, back to the first page. */
+  protected chooseStatus(status: string | null): void {
+    this.navigate({ [PARAM.status]: status, [PARAM.page]: null });
   }
 
   protected open(entry: Entry): void {

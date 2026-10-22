@@ -33,23 +33,7 @@
   />
 } @else if (accounts.value() && !account()) {
   <p class="empty">Aucun journal de banque ou de caisse dans cette société.</p>
-} @else if (account(); as current) {
-  @if ((accounts.value()?.length ?? 0) > 1) {
-    <label class="journal">
-      <span>Journal</span>
-      <select
-        alcoSelect
-        [value]="current.code"
-        (change)="chooseAccount($any($event.target).value)"
-        aria-label="Journal"
-      >
-        @for (item of accounts.value(); track item.public_id) {
-          <option [value]="item.code">{{ item.name }}</option>
-        }
-      </select>
-    </label>
-  }
-
+} @else if (account()) {
   @if (invalid(); as message) {
     <p class="entry-error" role="alert">{{ message }}</p>
   }
@@ -88,85 +72,197 @@
           </tr>
         </thead>
         <tbody>
-          @if (canRecord() && editing()) {
-            <tr
-              class="entry alco-controls-underlined"
-              [formGroup]="form"
-              aria-label="Nouvelle transaction"
-              (keydown.enter)="onEnter($event)"
-            >
-              <td>
-                <input alcoDatePicker type="date" formControlName="date" aria-label="Date" />
-              </td>
-              <td>
-                <input
-                  alcoInput
-                  formControlName="description"
-                  maxlength="255"
-                  placeholder="Écrire un libellé…"
-                  aria-label="Libellé"
-                />
-              </td>
-              <!-- As Odoo's: « Partenaire », « Compte » or ⋮ (note backend 0048). -->
-              @switch (counterpart()) {
-                @case ('partner') {
-                  <td>
-                    <span class="with-close">
-                      <alco-autocomplete
-                        formControlName="partner"
-                        [search]="searchPartners"
-                        label="Partenaire"
-                        placeholder="Partenaire"
-                        emptyText="Aucun partenaire actif ne correspond."
-                      />
-                      <ng-container *ngTemplateOutlet="close" />
-                    </span>
-                  </td>
-                  <td>
-                    @if (hasPartner()) {
-                      <select alcoSelect formControlName="line" aria-label="Facture non payée">
-                        <option value="">
-                          {{
-                            openLines().length
-                              ? 'Aucune facture (avance)'
-                              : 'Aucune facture non payée'
-                          }}
-                        </option>
-                        @for (line of openLines(); track line.public_id) {
-                          <option [value]="line.public_id">{{ lineLabel(line) }}</option>
+          <!-- The line typed: on top when new, in its own place when completed (note 0050). -->
+          @for (item of displayRows(); track item.key) {
+            @if (item.entry) {
+              <tr
+                class="entry alco-controls-underlined"
+                [formGroup]="form"
+                [attr.aria-label]="reconciling() ? 'Ligne à rapprocher' : 'Nouvelle transaction'"
+                (keydown.enter)="onEnter($event)"
+                (keydown.escape)="ignore()"
+              >
+                <td>
+                  <input alcoDatePicker type="date" formControlName="date" aria-label="Date" />
+                </td>
+                <td>
+                  <input
+                    alcoInput
+                    formControlName="description"
+                    maxlength="255"
+                    placeholder="Écrire un libellé…"
+                    aria-label="Libellé"
+                  />
+                </td>
+                <!-- As Odoo's: « Partenaire », « Compte » or ⋮ (note backend 0048). -->
+                @switch (counterpart()) {
+                  @case ('partner') {
+                    <td>
+                      <span class="with-close">
+                        <alco-autocomplete
+                          formControlName="partner"
+                          [search]="searchPartners"
+                          label="Partenaire"
+                          placeholder="Partenaire"
+                          emptyText="Aucun partenaire actif ne correspond."
+                        />
+                        <ng-container *ngTemplateOutlet="close" />
+                      </span>
+                    </td>
+                    <td>
+                      @if (hasPartner()) {
+                        <span class="partner-extra">
+                          <select alcoSelect formControlName="line" aria-label="Facture non payée">
+                            <option value="">
+                              {{
+                                openLines().length
+                                  ? 'Aucune facture (avance)'
+                                  : 'Aucune facture non payée'
+                              }}
+                            </option>
+                            @for (line of openLines(); track line.public_id) {
+                              <option [value]="line.public_id">{{ lineLabel(line) }}</option>
+                            }
+                          </select>
+                          <!-- Without an invoice, another account than the contact's (note 0044). -->
+                          @if (!value().line) {
+                            <alco-autocomplete
+                              formControlName="account"
+                              [search]="searchAccounts"
+                              label="Compte"
+                              placeholder="Compte du contact"
+                              emptyText="Aucun compte ne correspond."
+                            />
+                          }
+                        </span>
+                      }
+                    </td>
+                  }
+                  @case ('account') {
+                    <td colspan="2">
+                      <span class="with-close">
+                        <alco-autocomplete
+                          formControlName="account"
+                          [search]="searchAccounts"
+                          label="Compte"
+                          placeholder="Compte (ex. 631100)"
+                          emptyText="Aucun compte ne correspond."
+                        />
+                        <ng-container *ngTemplateOutlet="close" />
+                      </span>
+                    </td>
+                  }
+                  @case ('transfer') {
+                    <!-- Through its account: a transfer waiting comes in, else one leaves. -->
+                    <td colspan="2">
+                      <span class="with-close">
+                        <span class="lead">
+                          Virement interne
+                          @if (transferModel(); as model) {
+                            <span class="lead-code">{{ model.account.code }}</span>
+                          }
+                        </span>
+                        <select
+                          alcoSelect
+                          formControlName="waiting"
+                          aria-label="Virement en attente"
+                        >
+                          <option value="">
+                            {{
+                              pendingTransfers().length
+                                ? 'Nouveau virement (départ)'
+                                : 'Aucun virement en attente : départ'
+                            }}
+                          </option>
+                          @for (line of pendingTransfers(); track line.public_id) {
+                            <option [value]="line.public_id">{{ transferLabel(line) }}</option>
+                          }
+                        </select>
+                        <!-- Sent: the journal it goes to, where its line waits (note 0050). -->
+                        @if (!value().waiting && !reconciling() && otherAccounts().length > 0) {
+                          <span class="lead">vers</span>
+                          <select
+                            alcoSelect
+                            formControlName="destination"
+                            aria-label="Journal d’arrivée"
+                          >
+                            @for (item of otherAccounts(); track item.public_id) {
+                              <option [value]="item.public_id">{{ item.name }}</option>
+                            }
+                          </select>
                         }
-                      </select>
-                    }
-                  </td>
+                        <ng-container *ngTemplateOutlet="close" />
+                      </span>
+                    </td>
+                  }
+                  @default {
+                    <td colspan="2">
+                      <span class="choices">
+                        <button
+                          alcoButton
+                          type="button"
+                          size="sm"
+                          variant="primary"
+                          (click)="choose('partner')"
+                        >
+                          Partenaire
+                        </button>
+                        <button
+                          alcoButton
+                          type="button"
+                          size="sm"
+                          variant="primary"
+                          (click)="choose('account')"
+                        >
+                          Compte
+                        </button>
+                        <alco-dropdown
+                          [items]="moreItems()"
+                          icon="more-vertical"
+                          [iconOnly]="true"
+                          [showChevron]="false"
+                          size="sm"
+                          ariaLabel="Plus de choix"
+                          (selected)="onMore($event)"
+                        >
+                          Plus de choix
+                        </alco-dropdown>
+                      </span>
+                    </td>
+                  }
                 }
-                @case ('account') {
-                  <td colspan="2">
-                    <span class="with-close">
-                      <alco-autocomplete
-                        formControlName="account"
-                        [search]="searchAccounts"
-                        label="Compte"
-                        placeholder="Compte (ex. 631100)"
-                        emptyText="Aucun compte ne correspond."
-                      />
-                      <ng-container *ngTemplateOutlet="close" />
-                    </span>
-                  </td>
-                }
-                @case ('transfer') {
-                  <td colspan="2">
-                    <span class="with-close">
-                      <span class="lead">Virement interne vers</span>
-                      <select alcoSelect formControlName="other" aria-label="Autre journal">
-                        @for (item of otherAccounts(); track item.public_id) {
-                          <option [value]="item.public_id">{{ item.name }}</option>
-                        }
-                      </select>
-                      <ng-container *ngTemplateOutlet="close" />
-                    </span>
-                  </td>
-                }
-                @default {
+                <td>
+                  <input
+                    alcoInput
+                    class="num"
+                    formControlName="amountIn"
+                    inputmode="decimal"
+                    placeholder="0"
+                    aria-label="Entrée"
+                    autocomplete="off"
+                  />
+                </td>
+                <td>
+                  <input
+                    alcoInput
+                    class="num"
+                    formControlName="amountOut"
+                    inputmode="decimal"
+                    placeholder="0"
+                    aria-label="Sortie"
+                    autocomplete="off"
+                  />
+                </td>
+                <td class="num running">{{ preview() }}</td>
+                <td></td>
+              </tr>
+            } @else {
+              @let row = item.row;
+              <tr [class.waiting]="row.toReconcile">
+                <td class="col-date">{{ row.day }}</td>
+                <td class="ellipsis">{{ row.label }}</td>
+                @if (row.toReconcile && canRecord()) {
+                  <!-- As Odoo's: the line waits for its counterpart, chosen in its own place. -->
                   <td colspan="2">
                     <span class="choices">
                       <button
@@ -174,7 +270,7 @@
                         type="button"
                         size="sm"
                         variant="primary"
-                        (click)="choose('partner')"
+                        (click)="completeRow(row.transaction, 'partner')"
                       >
                         Partenaire
                       </button>
@@ -183,7 +279,7 @@
                         type="button"
                         size="sm"
                         variant="primary"
-                        (click)="choose('account')"
+                        (click)="completeRow(row.transaction, 'account')"
                       >
                         Compte
                       </button>
@@ -194,64 +290,35 @@
                         [showChevron]="false"
                         size="sm"
                         ariaLabel="Plus de choix"
-                        (selected)="onMore($event)"
+                        (selected)="completeRowWith(row.transaction, $event)"
                       >
                         Plus de choix
                       </alco-dropdown>
                     </span>
                   </td>
+                } @else {
+                  <td class="ellipsis partner">{{ row.partner }}</td>
+                  <td class="ellipsis counterpart" [class.counterpart--pending]="!row.done">
+                    @if (row.done) {
+                      <alco-icon name="check-circle" [size]="16" class="check" />
+                    }
+                    {{ row.counterpart }}
+                  </td>
                 }
-              }
-              <td>
-                <input
-                  alcoInput
-                  class="num"
-                  formControlName="amountIn"
-                  inputmode="decimal"
-                  placeholder="0"
-                  aria-label="Entrée"
-                  autocomplete="off"
-                />
-              </td>
-              <td>
-                <input
-                  alcoInput
-                  class="num"
-                  formControlName="amountOut"
-                  inputmode="decimal"
-                  placeholder="0"
-                  aria-label="Sortie"
-                  autocomplete="off"
-                />
-              </td>
-              <td class="num running">{{ preview() }}</td>
-              <td></td>
-            </tr>
-          }
-          @for (row of rows(); track row.transaction.public_id) {
-            <tr>
-              <td class="col-date">{{ row.day }}</td>
-              <td class="ellipsis">{{ row.label }}</td>
-              <td class="ellipsis partner">{{ row.partner }}</td>
-              <td class="ellipsis counterpart" [class.counterpart--pending]="!row.done">
-                @if (row.done) {
-                  <alco-icon name="check-circle" [size]="16" class="check" />
-                }
-                {{ row.counterpart }}
-              </td>
-              <td class="num">{{ row.inflow }}</td>
-              <td class="num out">{{ row.outflow }}</td>
-              <td class="num running">{{ row.running }}</td>
-              <td class="col-open">
-                <a
-                  class="open"
-                  [routerLink]="[operationsUrl, row.transaction.public_id]"
-                  [attr.aria-label]="'Détails de la transaction du ' + row.day"
-                >
-                  <alco-icon name="chevron-right" [size]="16" />
-                </a>
-              </td>
-            </tr>
+                <td class="num">{{ row.inflow }}</td>
+                <td class="num out">{{ row.outflow }}</td>
+                <td class="num running">{{ row.running }}</td>
+                <td class="col-open">
+                  <a
+                    class="open"
+                    [routerLink]="[operationsUrl, row.transaction.public_id]"
+                    [attr.aria-label]="'Détails de la transaction du ' + row.day"
+                  >
+                    <alco-icon name="chevron-right" [size]="16" />
+                  </a>
+                </td>
+              </tr>
+            }
           } @empty {
             @if (!editing()) {
               <tr>

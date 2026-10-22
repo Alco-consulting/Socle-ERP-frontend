@@ -10,7 +10,11 @@
   border-radius: var(--radius-md);
   background: var(--color-surface);
   color: var(--color-text);
-  transition: border-color var(--duration-fast) var(--easing-standard);
+  // 16px on phones: no automatic zoom on focus (iOS).
+  font-size: var(--font-size-control);
+  transition:
+    border-color var(--duration-fast) var(--easing-standard),
+    background-color var(--duration-fast) var(--easing-standard);
 
   &::placeholder {
     color: var(--color-text-subtle);
@@ -60,6 +64,55 @@ textarea.alco-control {
   cursor: pointer;
 }
 
+// A field of an editable grid (Odoo's lines): no frame of its own, its row is one band; the
+// field typed in is underlined, a choice's arrow shown on its row. Framed on a touch screen
+// or a phone.
+.alco-control--quiet {
+  border-color: transparent;
+  border-radius: 0;
+  background-color: transparent;
+  background-size: 0 0;
+}
+
+tr:hover .alco-control--quiet,
+tr:focus-within .alco-control--quiet {
+  background-size: 5px 5px;
+}
+
+@media (hover: hover) and (min-width: 768px) {
+  .alco-control--quiet:hover {
+    border-color: transparent;
+  }
+
+  .alco-control--quiet:focus,
+  .alco-control--quiet:focus-visible {
+    outline: none;
+    border-color: transparent;
+    box-shadow: inset 0 calc(-1 * var(--focus-ring-width)) 0 var(--color-focus-ring);
+  }
+
+  // A field in error: underlined in red only, the line still one band.
+  .alco-control--quiet[aria-invalid='true'] {
+    border-color: transparent;
+    background-color: transparent;
+    box-shadow: inset 0 calc(-1 * var(--focus-ring-width)) 0 var(--color-danger);
+  }
+}
+
+@media (hover: none), (max-width: 767.98px) {
+  .alco-control--quiet {
+    border-color: var(--color-border-strong);
+    border-radius: var(--radius-md);
+    background-color: var(--color-surface);
+    background-size: 5px 5px;
+  }
+
+  .alco-control--quiet[aria-invalid='true'] {
+    border-color: var(--color-danger);
+    background-color: var(--color-danger-soft);
+  }
+}
+
 input[type='date'].alco-control {
   font-variant-numeric: tabular-nums;
 }
@@ -77,6 +130,51 @@ input[type='date'].alco-control {
 
 .alco-form-grid__full {
   grid-column: 1 / -1;
+}
+
+// Three columns on a wide screen (an entry's heading): fewer rows, the lines sooner in view.
+.alco-form-grid--3 {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+
+  @media (max-width: 1023.98px) {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  @media (max-width: 767.98px) {
+    grid-template-columns: 1fr;
+  }
+}
+
+// A section of a record, as Stripe's settings: its title and what it is for on the left,
+// its fields on the right; one under the other below a laptop.
+.alco-form-section {
+  display: grid;
+  grid-template-columns: minmax(0, 15rem) minmax(0, 1fr);
+  align-items: start;
+  gap: var(--space-4) var(--space-8);
+
+  @media (max-width: 1023.98px) {
+    grid-template-columns: minmax(0, 1fr);
+    gap: var(--space-3);
+  }
+}
+
+.alco-form-section + .alco-form-section,
+.alco-form-section + .more {
+  padding-top: var(--space-6);
+  border-top: var(--border-width) solid var(--color-border);
+}
+
+.alco-form-section__intro {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+
+  p {
+    margin: 0;
+    color: var(--color-text-muted);
+    font-size: var(--font-size-caption);
+  }
 }
 
 // Odoo's toggle (« Autoriser le lettrage », « Actif »): a checkbox with role="switch" and a
@@ -102,7 +200,7 @@ input[type='date'].alco-control {
     height: 1.25rem;
     border-radius: var(--radius-pill);
     background: var(--color-border-strong);
-    transition: background 0.15s;
+    transition: background var(--duration-fast) var(--easing-standard);
 
     &::after {
       content: '';
@@ -113,7 +211,7 @@ input[type='date'].alco-control {
       height: 1rem;
       border-radius: 50%;
       background: var(--color-surface);
-      transition: transform 0.15s;
+      transition: transform var(--duration-fast) var(--easing-standard);
     }
   }
 
@@ -126,8 +224,8 @@ input[type='date'].alco-control {
   }
 
   input:focus-visible + .track {
-    outline: 2px solid var(--color-focus-ring);
-    outline-offset: 2px;
+    outline: var(--focus-ring-width) solid var(--color-focus-ring);
+    outline-offset: var(--focus-ring-offset);
   }
 
   input:disabled {

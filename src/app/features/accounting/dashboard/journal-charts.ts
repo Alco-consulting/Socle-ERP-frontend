@@ -36,12 +36,25 @@ function amountText(value: string, decimals: number, currency: string): string {
         ></span>
       }
     </div>
+    @if (ends(); as days) {
+      <div class="axis" aria-hidden="true">
+        <span>{{ days.first }}</span>
+        <span>{{ days.last }}</span>
+      </div>
+    }
   `,
   styles: `
     .curve {
       position: relative;
-      height: 140px;
+      height: 120px;
       margin-top: var(--space-2);
+    }
+    .axis {
+      display: flex;
+      justify-content: space-between;
+      margin-top: var(--space-1);
+      color: var(--color-text-muted);
+      font-size: var(--font-size-caption);
     }
     svg {
       display: block;
@@ -50,11 +63,11 @@ function amountText(value: string, decimals: number, currency: string): string {
       overflow: visible;
     }
     .area {
-      fill: var(--color-primary-soft);
+      fill: var(--chart-area);
     }
     .line {
       fill: none;
-      stroke: var(--color-primary);
+      stroke: var(--chart-1);
       stroke-width: 2;
     }
     .dot {
@@ -62,7 +75,7 @@ function amountText(value: string, decimals: number, currency: string): string {
       width: 8px;
       height: 8px;
       margin: -4px 0 0 -4px;
-      border: 2px solid var(--color-primary);
+      border: 2px solid var(--chart-1);
       border-radius: 50%;
       background: var(--color-surface);
     }
@@ -118,6 +131,14 @@ export class AlcoBalanceCurve {
     })),
   );
 
+  /** The first and last days of the curve, under it. */
+  protected readonly ends = computed(() => {
+    const points = this.points();
+    return points.length < 2
+      ? null
+      : { first: this.day(points[0].date), last: this.day(points[points.length - 1].date) };
+  });
+
   protected readonly label = computed(() => {
     const points = this.points();
     if (points.length === 0) {
@@ -141,17 +162,22 @@ export class AlcoBalanceCurve {
 @Component({
   selector: 'alco-due-bars',
   template: `
-    <ul class="bars" role="list" [attr.aria-label]="label()">
-      @for (bar of bars(); track bar.label) {
-        <li class="bar" [attr.title]="bar.label + ' : ' + bar.amount">
-          <span class="track" aria-hidden="true">
-            <span class="fill" [class.fill--past]="bar.past" [style.height.%]="bar.height"></span>
-          </span>
-          <span class="bar-label">{{ bar.label }}</span>
-          <span class="alco-sr-only">{{ bar.amount }}</span>
-        </li>
-      }
-    </ul>
+    @if (nothing()) {
+      <p class="nothing">Aucun montant dû ces prochaines semaines.</p>
+    } @else {
+      <ul class="bars" role="list" [attr.aria-label]="label()">
+        @for (bar of bars(); track bar.label) {
+          <li class="bar" [attr.title]="bar.label + ' : ' + bar.amount">
+            <span class="bar-value" aria-hidden="true">{{ bar.short }}</span>
+            <span class="track" aria-hidden="true">
+              <span class="fill" [class.fill--past]="bar.past" [style.height.%]="bar.height"></span>
+            </span>
+            <span class="bar-label">{{ bar.label }}</span>
+            <span class="alco-sr-only">{{ bar.amount }}</span>
+          </li>
+        }
+      </ul>
+    }
   `,
   styles: `
     .bars {
@@ -171,27 +197,41 @@ export class AlcoBalanceCurve {
     .track {
       display: flex;
       align-items: flex-end;
-      height: 110px;
-      border-bottom: var(--border-width) solid var(--color-border);
+      height: 96px;
+      border-bottom: var(--border-width) solid var(--chart-grid);
     }
     .fill {
       width: 100%;
       min-height: 0;
       border-radius: var(--radius-sm) var(--radius-sm) 0 0;
-      background: var(--color-primary);
+      background: var(--chart-1);
     }
     .fill--past {
-      background: var(--color-warning);
+      background: var(--chart-4);
     }
-    /* Slanted as Odoo's, so that a week's dates stay whole. */
+    .bar-value {
+      min-height: 1rem;
+      color: var(--color-text);
+      font-size: var(--font-size-caption);
+      font-weight: var(--font-weight-semibold);
+      font-variant-numeric: tabular-nums;
+      text-align: center;
+      white-space: nowrap;
+    }
+    /* Straight, on two lines at most: a week's dates stay readable. */
     .bar-label {
-      height: 2.5rem;
-      padding-top: var(--space-1);
+      min-height: 2rem;
       color: var(--color-text-muted);
       font-size: var(--font-size-caption);
-      white-space: nowrap;
-      transform: rotate(-20deg);
-      transform-origin: top center;
+      line-height: var(--line-height-tight);
+      text-align: center;
+    }
+    .nothing {
+      margin: var(--space-2) 0 0;
+      padding: var(--space-4);
+      border-radius: var(--radius-md);
+      background: var(--color-surface-muted);
+      color: var(--color-text-muted);
       text-align: center;
     }
   `,
@@ -207,12 +247,23 @@ export class AlcoDueBars {
   readonly currency = input('');
   readonly label = input('Montants dus par semaine');
 
+  private readonly compact = new Intl.NumberFormat('fr-FR', {
+    notation: 'compact',
+    maximumFractionDigits: 1,
+  });
+
+  /** Nothing due, nothing late: a sentence instead of empty bars. */
+  protected readonly nothing = computed(() =>
+    this.weeks().every((week) => Number(week.amount) === 0),
+  );
+
   protected readonly bars = computed(() => {
     const weeks = this.weeks();
     const highest = Math.max(0, ...weeks.map((week) => Number(week.amount)));
     return weeks.map((week) => ({
       label: this.labelOf(week),
       amount: amountText(week.amount, this.decimals(), this.currency()),
+      short: Number(week.amount) > 0 ? this.compact.format(Number(week.amount)) : '',
       height: highest > 0 ? (Math.max(0, Number(week.amount)) / highest) * 100 : 0,
       past: week.date_to !== null && week.date_to < this.today(),
     }));

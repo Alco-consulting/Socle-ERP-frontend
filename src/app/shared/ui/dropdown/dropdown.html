@@ -7,7 +7,7 @@
     [attr.aria-label]="ariaLabel()"
   >
     @if (icon(); as name) {
-      <alco-icon [name]="name" [size]="20" />
+      <alco-icon class="trigger-icon" [name]="name" [size]="trigger() === 'nav' ? 18 : 20" />
     }
     <ng-container *ngTemplateOutlet="projected" />
     @if (showChevron()) {
@@ -59,7 +59,7 @@
           @if (item.dividerBefore) {
             <div class="menu-divider" role="separator"></div>
           }
-          @if (mode() === 'single') {
+          @if (mode() === 'single' || item.checked !== undefined) {
             <button
               type="button"
               class="menu-item"

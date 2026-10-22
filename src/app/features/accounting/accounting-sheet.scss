@@ -43,6 +43,12 @@
   gap: var(--space-3);
 }
 
+// The sections of a sheet, ruled apart as Odoo's form groups.
+.section + .section {
+  padding-top: var(--space-5);
+  border-top: var(--border-width) solid var(--color-border);
+}
+
 .facts {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));

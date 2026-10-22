@@ -110,7 +110,8 @@ test.describe('Règles de mise en page', () => {
 
   test('the dashboard cards: figures reachable, no overflow at every width', async ({ page }) => {
     await page.goto('/app/comptabilite/tableau-de-bord');
-    await expect(page.locator('alco-due-bars .bar')).toHaveCount(12);
+    // The sales' six weeks; the purchases, nothing due, say so in a sentence.
+    await expect(page.locator('alco-due-bars .bar')).toHaveCount(6);
     const overflow = await page.evaluate(
       () => document.documentElement.scrollWidth - document.documentElement.clientWidth,
     );

@@ -56,6 +56,16 @@ import { AlcoTopbar } from '../topbar/topbar';
     main:focus {
       outline: none;
     }
+    /* Each screen arrives softly (nothing when the device asks for less motion). */
+    main > :last-child {
+      animation: alco-page-in var(--duration-base) var(--easing-standard);
+    }
+    @keyframes alco-page-in {
+      from {
+        opacity: 0;
+        transform: translateY(4px);
+      }
+    }
   `,
   changeDetection: ChangeDetectionStrategy.OnPush,
 })

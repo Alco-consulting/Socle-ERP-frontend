@@ -40,8 +40,9 @@ import { AlcoLogo } from '../logo/logo';
       align-items: center;
       height: var(--topbar-height);
       padding: 0 var(--page-gutter);
-      background: var(--color-brand-night);
-      color: var(--color-text-inverse);
+      border-bottom: var(--border-width) solid var(--color-border);
+      background: var(--color-topbar);
+      color: var(--color-text);
     }
     .switching {
       padding-top: var(--space-6);

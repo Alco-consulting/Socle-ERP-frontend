@@ -730,8 +730,9 @@ describe('Comptabilité › Écritures (accounting/entries/)', () => {
           { status: 400, statusText: 'x' },
         );
       await stable();
-      expect(text(element().querySelector('[data-line="1"]') as Element)).toContain(
-        'Compte introuvable dans cette société.',
+      // Under the grid, named by its line and field (the row's field is marked invalid).
+      expect(text(element().querySelector('.line-errors') as Element)).toContain(
+        'Ligne 2 — Compte : Compte introuvable dans cette société.',
       );
 
       await chooseAccount(1, '401100');
@@ -750,8 +751,8 @@ describe('Comptabilité › Écritures (accounting/entries/)', () => {
           { status: 400, statusText: 'x' },
         );
       await stable();
-      expect(text(element().querySelector('[data-line="1"]') as Element)).toContain(
-        'Un compte choisi n’accepte pas d’écritures.',
+      expect(text(element().querySelector('.line-errors') as Element)).toContain(
+        'Ligne 2 — Compte : Un compte choisi n’accepte pas d’écritures.',
       );
       expect(text(element())).toContain('accounting_account_not_postable');
 

@@ -407,7 +407,49 @@ export class FakeAccountingEntries {
         ledger.entries.push(entry);
       }
     }
+    // Supporting documents of locked entries (fixtures): the Documents application lists them.
+    const locked = ledger.entries.filter((item) => item.status === 'locked');
+    const joined: [string, string, number, string][] = [
+      ['facture-fournisseur-0042.pdf', 'application/pdf', 184_320, 'Facture du fournisseur'],
+      [
+        'releve-bicigui-mars.xlsx',
+        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        26_624,
+        '',
+      ],
+    ];
+    joined.forEach(([name, type, size, description], index) => {
+      const entry = locked[index % Math.max(locked.length, 1)];
+      if (entry) {
+        ledger.documents.push({
+          ...this.document(entry.public_id, name, type),
+          size,
+          description,
+          created_at: `2026-03-${String(10 + index).padStart(2, '0')}T09:30:00Z`,
+        });
+      }
+    });
     return ledger;
+  }
+
+  private document(entryId: string, name: string, contentType: string): DocumentJson {
+    return {
+      public_id: uuid(),
+      resource_type: 'accounting.entry',
+      resource_id: entryId,
+      original_name: name,
+      content_type: contentType,
+      size: 2048,
+      checksum: 'e2e',
+      description: '',
+      status: 'active',
+      replaces: null,
+      uploaded_by: USER_ID,
+      created_at: new Date().toISOString(),
+      deleted_by: null,
+      deleted_at: null,
+      deletion_reason: '',
+    };
   }
 
   private tax(
@@ -739,33 +781,27 @@ export class FakeAccountingEntries {
       if (entry.status !== 'draft') {
         return this.answer(route, 400, error('document_resource_frozen'));
       }
-      const document: DocumentJson = {
-        public_id: uuid(),
+      const document = {
+        ...this.document(entry.public_id, filename, 'application/pdf'),
         resource_type: field('resource_type'),
-        resource_id: entry.public_id,
-        original_name: filename,
-        content_type: 'application/pdf',
-        size: 2048,
-        checksum: 'e2e',
-        description: '',
-        status: 'active',
-        replaces: null,
-        uploaded_by: USER_ID,
-        created_at: new Date().toISOString(),
-        deleted_by: null,
-        deleted_at: null,
-        deletion_reason: '',
       };
       ledger.documents.push(document);
       return this.answer(route, 201, document);
     }
+    // One record's documents, or all of them (Documents), the most recent first.
+    const q = (name: string) => url.searchParams.get(name);
+    const search = (q('search') ?? '').toLowerCase();
     return this.paged(
       route,
-      ledger.documents.filter(
-        (item) =>
-          item.resource_type === url.searchParams.get('resource_type') &&
-          item.resource_id === url.searchParams.get('resource_id'),
-      ),
+      ledger.documents
+        .filter(
+          (item) =>
+            (!q('resource_type') || item.resource_type === q('resource_type')) &&
+            (!q('resource_id') || item.resource_id === q('resource_id')) &&
+            item.status === (q('status') ?? 'active') &&
+            `${item.original_name} ${item.description}`.toLowerCase().includes(search),
+        )
+        .sort((a, b) => b.created_at.localeCompare(a.created_at)),
     );
   }
 

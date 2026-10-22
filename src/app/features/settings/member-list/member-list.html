@@ -1,0 +1,102 @@
+<alco-page-header
+  title="Rôles et droits"
+  [subtitle]="'Les membres de ' + company() + ' et ce que chacun peut faire'"
+>
+  <div alcoPageActions>
+    <a alcoButton variant="primary" icon="plus" routerLink="nouveau">Ajouter un membre</a>
+  </div>
+</alco-page-header>
+
+@if (list.value(); as result) {
+  <div class="control-panel">
+    <div class="controls">
+      <p class="alco-caption">{{ result.count }} membre{{ result.count > 1 ? 's' : '' }}</p>
+      <alco-pagination
+        class="pager"
+        [page]="result.count > 0 ? page() : 1"
+        [pageSize]="pageSize"
+        [total]="result.count"
+        (pageChange)="setPage($event)"
+      />
+    </div>
+  </div>
+}
+
+@switch (list.status()) {
+  @case ('forbidden') {
+    <alco-error-state
+      title="Vous ne gérez pas les membres de cette société."
+      message="Demandez l’accès à un administrateur de la société si vous en avez besoin."
+    />
+  }
+  @case ('error') {
+    @if (failure(); as error) {
+      <alco-error-state
+        [title]="error.title"
+        [message]="error.message"
+        [code]="error.code"
+        [correlationId]="error.correlationId ?? ''"
+        retryLabel="Réessayer"
+        (retry)="list.reload()"
+      />
+    }
+  }
+  @default {
+    @if (list.value() === null) {
+      <alco-loading variant="table" [rows]="5" [columns]="4" label="Chargement des membres…" />
+    } @else if (rows().length === 0) {
+      <div class="empty-frame">
+        <alco-empty-state
+          icon="user"
+          title="Aucun membre dans cette société."
+          message="Ajoutez une personne qui a déjà un compte, puis choisissez ses droits."
+        >
+          <a alcoButton variant="primary" icon="plus" routerLink="nouveau">Ajouter un membre</a>
+        </alco-empty-state>
+      </div>
+    } @else {
+      <alco-table
+        [class.reloading]="list.loading()"
+        caption="Membres de la société"
+        [columns]="columns"
+        [rows]="rows()"
+        [rowId]="rowId"
+        [rowLabel]="rowLabel"
+        [clickableRows]="true"
+        (rowActivated)="open($event)"
+      >
+        <ng-template alcoCell="person" let-member>
+          <span class="person">
+            <span class="avatar" aria-hidden="true">{{ initials(member.user) }}</span>
+            <span class="person-text">
+              <a class="code person-name" [routerLink]="member.public_id">{{
+                name(member.user)
+              }}</a>
+              <span class="person-email">{{ member.user.email }}</span>
+            </span>
+          </span>
+        </ng-template>
+        <ng-template alcoCell="email" let-member>{{ member.user.email }}</ng-template>
+        <ng-template alcoCell="roles" let-member>
+          @if (member.roles.length > 0) {
+            <span class="roles">
+              @for (role of member.roles; track role) {
+                <alco-badge tone="primary">{{ role }}</alco-badge>
+              }
+            </span>
+          } @else {
+            <span class="muted">—</span>
+          }
+        </ng-template>
+        <ng-template alcoCell="rights" let-member>{{ member.permissions.length }}</ng-template>
+        <ng-template alcoCell="status" let-member>
+          @if (member.status === 'active') {
+            <alco-badge tone="success" icon="check">Actif</alco-badge>
+          } @else {
+            <alco-badge tone="neutral" icon="close">Inactif</alco-badge>
+          }
+        </ng-template>
+      </alco-table>
+    }
+  }
+}

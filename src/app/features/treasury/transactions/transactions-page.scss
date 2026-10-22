@@ -11,19 +11,6 @@
   color: var(--color-text-muted);
 }
 
-.journal {
-  display: inline-flex;
-  align-self: flex-start;
-  align-items: center;
-  gap: var(--space-2);
-  color: var(--color-text-muted);
-
-  select {
-    width: auto;
-    min-width: 14rem;
-  }
-}
-
 .entry-error {
   margin: 0;
   color: var(--color-danger-text);
@@ -113,6 +100,11 @@
   font-style: italic;
 }
 
+// A line « à rapprocher » (note backend 0050): a soft amber ground, its choices in its place.
+tr.waiting {
+  background: var(--color-warning-soft);
+}
+
 .check {
   margin-right: var(--space-1);
   color: var(--color-success);
@@ -140,6 +132,19 @@
   gap: var(--space-2);
 }
 
+// The partner's invoice and, without one, the account taking the contact's: side by side.
+.partner-extra {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+
+  > select,
+  > alco-autocomplete {
+    flex: 1 1 0;
+    min-width: 0;
+  }
+}
+
 .with-close {
   > alco-autocomplete,
   > select {
@@ -150,5 +155,11 @@
   .lead {
     white-space: nowrap;
     color: var(--color-text-muted);
+  }
+
+  .lead-code {
+    margin-left: var(--space-1);
+    font-family: var(--font-family-mono);
+    font-size: var(--font-size-caption);
   }
 }

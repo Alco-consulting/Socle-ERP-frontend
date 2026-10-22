@@ -306,8 +306,7 @@ export class FakeTreasury {
       public_id: string;
       name: string;
       kind: string;
-      account: { public_id: string; code: string; name: string } | null;
-      destination: { public_id: string; code: string; name: string } | null;
+      account: { public_id: string; code: string; name: string };
       label: string;
       status: string;
     }[]
@@ -664,106 +663,153 @@ export class FakeTreasury {
       return true;
     }
     const data = body();
-    if (data['internal_account']) {
-      return this.internalTransfer(desk, account, data, json, reply);
-    }
-    const lineId = data['settled_line'] as string | null;
-    const partnerId = data['partner'] as string | null;
-    const partner = partnerId ? this.lettering.partnerOf(desk.company, partnerId) : null;
-    const created: OperationJson = {
-      public_id: uuid(),
-      treasury_account: { public_id: account.public_id, code: account.code },
-      operation_type: data['direction'] === 'inflow' ? 'deposit' : 'withdrawal',
-      direction: data['direction'] as Direction,
-      status: 'accounted',
-      operation_date: String(data['operation_date']),
-      value_date: null,
-      amount: D(String(data['amount'])),
-      currency: account.currency,
-      reference: '',
-      description: String(data['description'] ?? ''),
-      counterparty: partner ? { public_id: partner.public_id, code: partner.code } : null,
-      counterparty_name: '',
-      // A model's account keeps its code and name (note backend 0048).
-      offset_account: data['offset_account']
-        ? ((this.models[desk.company] ?? []).find(
-            (model) => model.account?.public_id === data['offset_account'],
-          )?.account ?? { public_id: String(data['offset_account']), code: 'compte' })
-        : null,
-      transfer: null,
-      related_operation: null,
-      reason: '',
-      accounting_entry: uuid(),
-      confirmed_at: NOW,
-      accounted_at: NOW,
-      cancelled_at: null,
-      created_at: NOW,
-    };
-    if (lineId) {
-      const settled = this.lettering.settle(desk.company, lineId, String(data['amount']));
-      if (!settled) {
-        await reply(400, error('validation_error', { settled_line: [{ code: 'unknown' }] }));
-        return true;
-      }
-      created.offset_account = settled.line.account;
-      created.counterparty ??= settled.line.partner;
-      this.settled.set(created.public_id, [settled.reference]);
-    }
-    desk.operations.set(`T${desk.operations.size + 1}`, created);
-    await reply(201, { ...json(created), running_balance: null });
-    return true;
-  }
-
-  /** « Virement interne » (note backend 0046): out here, in there, both accounted at once. */
-  private async internalTransfer(
-    desk: Desk,
-    account: AccountJson,
-    data: Record<string, unknown>,
-    json: (operation: OperationJson) => unknown,
-    reply: (status: number, json: unknown) => Promise<void>,
-  ): Promise<true> {
-    const other = desk.accounts.find((item) => item.public_id === data['internal_account']);
-    if (!other || other.public_id === account.public_id) {
-      await reply(400, error('validation_error', { internal_account: [{ code: 'unknown' }] }));
-      return true;
-    }
-    const out = data['direction'] === 'outflow';
-    const [source, destination] = out ? [account, other] : [other, account];
-    const transfer = uuid();
-    const entry = uuid();
-    const description =
-      String(data['description'] ?? '') || `Virement interne ${source.name} → ${destination.name}`;
-    const leg = (owner: AccountJson, direction: Direction): OperationJson => ({
+    const line = (owner: AccountJson, direction: Direction): OperationJson => ({
       public_id: uuid(),
       treasury_account: { public_id: owner.public_id, code: owner.code },
-      operation_type: 'transfer',
+      operation_type: direction === 'inflow' ? 'deposit' : 'withdrawal',
       direction,
-      status: 'accounted',
+      status: 'confirmed',
       operation_date: String(data['operation_date']),
       value_date: null,
       amount: D(String(data['amount'])),
       currency: owner.currency,
       reference: '',
-      description,
+      description: String(data['description'] ?? ''),
       counterparty: null,
       counterparty_name: '',
       offset_account: null,
-      transfer,
+      transfer: null,
       related_operation: null,
       reason: '',
-      accounting_entry: entry,
+      accounting_entry: null,
       confirmed_at: NOW,
-      accounted_at: NOW,
+      accounted_at: null,
       cancelled_at: null,
       created_at: NOW,
     });
-    const legs = [leg(source, 'outflow'), leg(destination, 'inflow')];
-    for (const item of legs) {
-      desk.operations.set(`T${desk.operations.size + 1}`, item);
+    const created = line(account, data['direction'] as Direction);
+    // Nothing chosen: a line « à rapprocher », no entry yet (note backend 0050).
+    const pending = !data['partner'] && !data['settled_line'] && !data['offset_account'];
+    if (!pending) {
+      const refused = this.applyCounterpart(desk, account, created, data);
+      if (refused) {
+        await reply(400, refused);
+        return true;
+      }
     }
-    const mine = legs.find((item) => item.treasury_account.public_id === account.public_id)!;
-    await reply(201, { ...(json(mine) as object), running_balance: null });
+    desk.operations.set(`T${desk.operations.size + 1}`, created);
+    // A transfer sent to a journal: its line « à rapprocher » there.
+    const destination = desk.accounts.find((item) => item.public_id === data['destination']);
+    if (destination && !pending) {
+      const arrived = line(destination, created.direction === 'outflow' ? 'inflow' : 'outflow');
+      desk.operations.set(`T${desk.operations.size + 1}`, arrived);
+    }
+    await reply(201, { ...json(created), running_balance: null });
     return true;
+  }
+
+  /**
+   * A line given its counterpart (recorded with it, or reconciled later): its partner, its
+   * account, the open line it settles; accounted. The refusal, if any.
+   */
+  private applyCounterpart(
+    desk: Desk,
+    account: AccountJson,
+    operation: OperationJson,
+    data: Record<string, unknown>,
+  ): unknown {
+    const lineId = data['settled_line'] as string | null;
+    const partnerId = data['partner'] as string | null;
+    const partner = partnerId ? this.lettering.partnerOf(desk.company, partnerId) : null;
+    if (!partner && !lineId && !data['offset_account']) {
+      return error('treasury_transaction_counterpart_missing');
+    }
+    operation.counterparty = partner ? { public_id: partner.public_id, code: partner.code } : null;
+    // A model's account keeps its code and name (note backend 0048).
+    operation.offset_account = data['offset_account']
+      ? (this.modelAccount(desk.company, String(data['offset_account'])) ?? {
+          public_id: String(data['offset_account']),
+          code: 'compte',
+        })
+      : null;
+    if (lineId) {
+      const settled = this.lettering.settle(desk.company, lineId, operation.amount);
+      if (!settled) {
+        return error('validation_error', { settled_line: [{ code: 'unknown' }] });
+      }
+      operation.offset_account = settled.line.account;
+      operation.counterparty ??= settled.line.partner;
+      this.settled.set(operation.public_id, [settled.reference]);
+    } else if (this.isTransferAccount(desk.company, operation.offset_account?.public_id)) {
+      // An internal transfer sent: open on its account until the other journal takes it in.
+      this.lettering.openLine(desk.company, {
+        account: {
+          public_id: operation.offset_account!.public_id,
+          code: operation.offset_account!.code,
+        },
+        journal: account.journal?.code ?? account.code,
+        side: operation.direction === 'outflow' ? 'debit' : 'credit',
+        label: operation.description,
+        entry_date: operation.operation_date,
+        units: operation.amount.split('.')[0],
+      });
+    }
+    operation.status = 'accounted';
+    operation.accounting_entry = uuid();
+    operation.accounted_at = NOW;
+    return null;
+  }
+
+  /**
+   * The company's models: « Frais bancaires », and « Virements internes » through 585100 with
+   * a transfer sent from the cash box, waiting to come in (note backend 0049).
+   */
+  private modelsOf(company: string) {
+    const known = this.models[company];
+    if (known) {
+      return known;
+    }
+    const transfers = { public_id: uuid(), code: '585100', name: 'Virements de fonds' };
+    const models = [
+      {
+        public_id: uuid(),
+        name: 'Frais bancaires',
+        kind: 'account',
+        account: { public_id: uuid(), code: '631800', name: 'Autres frais bancaires' },
+        label: 'Frais bancaires',
+        status: 'active',
+      },
+      {
+        public_id: uuid(),
+        name: 'Virements internes',
+        kind: 'transfer',
+        account: transfers,
+        label: '',
+        status: 'active',
+      },
+    ];
+    this.models[company] = models;
+    if (company === 'A') {
+      this.lettering.openLine(company, {
+        account: { public_id: transfers.public_id, code: transfers.code },
+        journal: 'CAI',
+        side: 'debit',
+        label: 'Versement de la caisse',
+        entry_date: '2026-03-05',
+        units: '300000',
+      });
+    }
+    return models;
+  }
+
+  private modelAccount(company: string, publicId: string) {
+    return this.modelsOf(company).find((model) => model.account.public_id === publicId)?.account;
+  }
+
+  private isTransferAccount(company: string, publicId: string | undefined): boolean {
+    return this.modelsOf(company).some(
+      (model) => model.kind === 'transfer' && model.account.public_id === publicId,
+    );
   }
 
   private paged<T>(route: Route, items: readonly T[]): Promise<void> {
@@ -976,20 +1022,10 @@ export class FakeTreasury {
     };
     const parts = path.split('/').filter(Boolean);
 
-    // Odoo's « Modèles de rapprochement » (note backend 0048): « Frais bancaires » to start;
-    // « Virements internes », the company configures it.
+    // Odoo's « Modèles de rapprochement » (note backend 0048): « Frais bancaires » and the
+    // « Virements internes » through 585100 (note backend 0049).
     if (parts[0] === 'reconcile-models') {
-      const models = (this.models[desk.company] ??= [
-        {
-          public_id: uuid(),
-          name: 'Frais bancaires',
-          kind: 'account',
-          account: { public_id: uuid(), code: '631800', name: 'Autres frais bancaires' },
-          destination: null,
-          label: 'Frais bancaires',
-          status: 'active',
-        },
-      ]);
+      const models = this.modelsOf(desk.company);
       if (method === 'GET') {
         const status = params.get('status');
         return reply(200, {
@@ -1008,28 +1044,29 @@ export class FakeTreasury {
       if (models.some((item) => item !== found && item.name.toLowerCase() === name.toLowerCase())) {
         return reply(400, error('treasury_reconcile_model_exists'));
       }
-      // An account model has its account; a transfer, its journal at most.
+      // Every model has its account; a transfer's allows lettering (note backend 0049).
       const kind = String(data['kind'] ?? found?.kind ?? 'account');
+      const chart = this.accounting?.books(desk.company).accounts ?? [];
+      const typed = chart.find((item) => item.public_id === data['account']);
       const account = data['account']
-        ? { public_id: String(data['account']), code: 'compte', name: '' }
-        : 'account' in data
-          ? null
-          : (found?.account ?? null);
-      const target = desk.accounts.find((item) => item.public_id === data['destination']);
-      const destination = target
-        ? { public_id: target.public_id, code: target.code, name: target.name }
-        : 'destination' in data
-          ? null
-          : (found?.destination ?? null);
-      if (kind === 'account' && !account) {
+        ? typed
+          ? { public_id: typed.public_id, code: typed.code, name: typed.name }
+          : { public_id: String(data['account']), code: 'compte', name: '' }
+        : found?.account;
+      if (!account) {
         return reply(400, error('validation_error', { account: [{ code: 'required' }] }));
+      }
+      const letterable = typed
+        ? typed.letterable
+        : this.isTransferAccount(desk.company, account.public_id);
+      if (kind === 'transfer' && !letterable) {
+        return reply(400, error('treasury_transfer_account_not_letterable'));
       }
       const model = {
         public_id: found?.public_id ?? uuid(),
         name,
         kind,
-        account: kind === 'account' ? account : null,
-        destination: kind === 'transfer' ? destination : null,
+        account,
         label: String(data['label'] ?? found?.label ?? ''),
         status: String(data['status'] ?? found?.status ?? 'active'),
       };
@@ -1368,6 +1405,34 @@ export class FakeTreasury {
       return reply(400, error('treasury_operation_is_transfer'));
     }
     const shown = () => this.operationJson(desk, operation);
+    // A line « à rapprocher » given its counterpart (note backend 0050).
+    if (command === 'reconcile') {
+      if (operation.status !== 'confirmed') {
+        return reply(400, error('treasury_operation_already_accounted'));
+      }
+      const account = desk.accounts.find(
+        (item) => item.public_id === operation.treasury_account.public_id,
+      )!;
+      const data = body();
+      // Its fields as typed again; without a counterpart, it keeps waiting.
+      if (data['operation_date']) {
+        operation.operation_date = String(data['operation_date']);
+      }
+      if (typeof data['description'] === 'string') {
+        operation.description = data['description'];
+      }
+      if (data['direction']) {
+        operation.direction = data['direction'] as Direction;
+      }
+      if (data['amount']) {
+        operation.amount = D(String(data['amount']));
+      }
+      if (!data['partner'] && !data['settled_line'] && !data['offset_account']) {
+        return reply(200, shown());
+      }
+      const refused = this.applyCounterpart(desk, account, operation, data);
+      return refused ? reply(400, refused) : reply(200, shown());
+    }
     switch (command) {
       case 'confirm':
         if (operation.status !== 'draft') {

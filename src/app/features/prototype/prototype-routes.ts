@@ -2,7 +2,9 @@ import { Routes } from '@angular/router';
 
 import { APPLICATIONS } from '../../core/navigation/applications';
 import { ACCOUNTING_ROUTES } from '../accounting/accounting.routes';
+import { DOCUMENT_ROUTES } from '../documents/documents.routes';
 import { PARTNER_ROUTES, partnerListScreen } from '../partners/partners.routes';
+import { SETTINGS_ROUTES } from '../settings/settings.routes';
 import { applicationRoute } from './placeholder-routes';
 
 /**
@@ -20,6 +22,8 @@ const SCREENS: Readonly<Record<string, Routes>> = {
   ],
   // Real screens (Module 3), on the API.
   partners: PARTNER_ROUTES,
+  documents: DOCUMENT_ROUTES,
+  settings: SETTINGS_ROUTES,
 };
 
 /**

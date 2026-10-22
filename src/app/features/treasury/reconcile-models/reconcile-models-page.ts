@@ -2,7 +2,7 @@ import { NgTemplateOutlet } from '@angular/common';
 import { ChangeDetectionStrategy, Component, ElementRef, inject, signal } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { FormControl, FormGroup, ReactiveFormsModule } from '@angular/forms';
-import { Observable, catchError, firstValueFrom, map, of } from 'rxjs';
+import { Observable, firstValueFrom, map } from 'rxjs';
 
 import { UserError, toUserError } from '../../../core/errors/user-error';
 import { toApiError } from '../../../core/http/api-error';
@@ -24,7 +24,6 @@ import {
   ReconcileModel,
   ReconcileModelKind,
   ReconcileModelWrite,
-  TreasuryAccount,
 } from '../data-access/reconciliation-models';
 import { TreasuryApi } from '../data-access/treasury-api';
 import { TREASURY_ERRORS } from '../treasury-presentation';
@@ -48,8 +47,8 @@ type Editing =
 /**
  * Odoo's « Modèles de rapprochement » (note backend 0048), opened by « Gérer modèles » of the ⋮
  * menu of a line: each active model is offered in that menu. A model gives the line its account
- * and label (« Frais bancaires »: 631100), or makes it an internal transfer to its journal, or
- * to the one chosen on the line (« Virements internes »). Typed in the list itself.
+ * and label (« Frais bancaires »: 631100); an internal transfer goes through its letterable
+ * account (« Virements internes »: 585100, note backend 0049). Typed in the list itself.
  */
 @Component({
   selector: 'alco-reconcile-models-page',
@@ -78,13 +77,6 @@ export class ReconcileModelsPage {
   protected readonly models = requestState(() =>
     this.treasury.reconcileModels().pipe(map((found) => found.results)),
   );
-  /** The bank and cash journals a transfer may go to. */
-  protected readonly journals = requestState(() =>
-    this.treasury.accounts().pipe(
-      map((found) => found.results.filter((item) => item.status === 'active')),
-      catchError(() => of([] as TreasuryAccount[])),
-    ),
-  );
 
   protected readonly editing = signal<Editing | null>(null);
   protected readonly saving = signal(false);
@@ -95,8 +87,6 @@ export class ReconcileModelsPage {
     name: new FormControl('', { nonNullable: true }),
     kind: new FormControl<ReconcileModelKind>('account', { nonNullable: true }),
     account: new FormControl<AutocompleteOption | null>(null),
-    /** A transfer's journal (its treasury account); '': chosen on the line. */
-    destination: new FormControl('', { nonNullable: true }),
     label: new FormControl('', { nonNullable: true }),
   });
   protected readonly kindTyped = toSignal(this.form.controls.kind.valueChanges, {
@@ -107,12 +97,9 @@ export class ReconcileModelsPage {
   protected readonly searchAccounts: AutocompleteSearch = (term) =>
     this.entries.postableAccounts(term).pipe(map((found) => found.map(accountOption)));
 
-  /** « 631100 Frais bancaires », « Coris bank », or the journal chosen on the line. */
+  /** « 631100 Frais bancaires », « 585100 Virements de fonds ». */
   protected counterpart(model: ReconcileModel): string {
-    if (model.kind === 'transfer') {
-      return model.destination?.name ?? 'Journal choisi sur la ligne';
-    }
-    return model.account ? `${model.account.code} ${model.account.name}` : '';
+    return `${model.account.code} ${model.account.name}`;
   }
 
   protected isEdited(model: ReconcileModel): boolean {
@@ -121,7 +108,7 @@ export class ReconcileModelsPage {
   }
 
   protected newModel(): void {
-    this.form.reset({ name: '', kind: 'account', account: null, destination: '', label: '' });
+    this.form.reset({ name: '', kind: 'account', account: null, label: '' });
     this.start({ kind: 'new' });
   }
 
@@ -129,8 +116,7 @@ export class ReconcileModelsPage {
     this.form.reset({
       name: model.name,
       kind: model.kind,
-      account: model.account ? accountOption(model.account) : null,
-      destination: model.destination?.public_id ?? '',
+      account: accountOption(model.account),
       label: model.label,
     });
     this.start({ kind: 'model', model });
@@ -157,20 +143,14 @@ export class ReconcileModelsPage {
       return;
     }
     const value = this.form.getRawValue();
-    const transfer = value.kind === 'transfer';
-    if (!value.name.trim() || (!transfer && !value.account)) {
-      this.invalid.set(
-        transfer
-          ? 'Saisissez le nom du modèle.'
-          : 'Saisissez le nom du modèle et choisissez son compte.',
-      );
+    if (!value.name.trim() || !value.account) {
+      this.invalid.set('Saisissez le nom du modèle et choisissez son compte.');
       return;
     }
     const write: ReconcileModelWrite = {
       name: value.name.trim(),
       kind: value.kind,
-      account: transfer ? null : (value.account?.id ?? null),
-      destination: transfer ? value.destination || null : null,
+      account: value.account.id,
       label: value.label.trim(),
     };
     await this.run(

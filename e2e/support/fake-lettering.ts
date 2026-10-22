@@ -289,6 +289,38 @@ export class FakeLettering {
     return { line, reference: line.document_reference || line.entry.entry_number };
   }
 
+  /**
+   * A line left open on an account by a treasury transaction: an internal transfer sent onto
+   * its transfer account, waiting for the other journal (note backend 0049).
+   */
+  openLine(
+    company: string,
+    line: Pick<LineJson, 'account' | 'journal' | 'side' | 'label' | 'entry_date'> & {
+      units: string;
+    },
+  ): LineJson {
+    const desk = this.desk(company);
+    const key = `T${desk.lines.size + 1}`;
+    const json: LineJson = {
+      public_id: uuid(),
+      entry: { public_id: uuid(), entry_number: `${line.journal}-${key}` },
+      entry_date: line.entry_date,
+      journal: line.journal,
+      document_reference: '',
+      account: line.account,
+      partner: null,
+      label: line.label,
+      side: line.side,
+      currency: 'GNF',
+      amount: D(line.units),
+      lettered_amount: D('0'),
+      open_amount: D(line.units),
+      status: 'open',
+    };
+    desk.lines.set(key, json);
+    return json;
+  }
+
   /** Another user letters these lines first (the screen then shows stale lines). */
   letterBehind(company: string, keys: readonly string[]): void {
     const desk = this.desk(company);

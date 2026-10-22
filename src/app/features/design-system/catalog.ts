@@ -32,7 +32,7 @@ const SWATCHES: readonly { group: string; items: readonly Swatch[] }[] = [
     group: 'Identité et texte',
     items: [
       { token: '--color-primary', role: 'Action principale, liens, sélection' },
-      { token: '--color-brand-night', role: 'Barre supérieure' },
+      { token: '--color-topbar', role: 'Barre supérieure (blanche)' },
       { token: '--color-brand-accent', role: 'Accent du logo, compteur' },
       { token: '--color-text', role: 'Texte' },
       { token: '--color-text-muted', role: 'Texte secondaire' },

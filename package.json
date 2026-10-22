@@ -7,7 +7,7 @@
     "build": "ng build",
     "watch": "ng build --watch --configuration development",
     "test": "ng test --watch=false",
-    "lint": "eslint . && stylelint \"src/**/*.scss\" && prettier --check \"src/**/*.{ts,html,scss}\" \"e2e/**/*.ts\"",
+    "lint": "eslint . && stylelint \"src/**/*.scss\" && node scripts/stylelint-inline.mjs && prettier --check \"src/**/*.{ts,html,scss}\" \"e2e/**/*.ts\"",
     "format": "prettier --write \"src/**/*.{ts,html,scss}\" \"e2e/**/*.ts\"",
     "e2e": "playwright test --project=desktop --project=tablet --project=phone",
     "captures": "playwright test --project=captures"

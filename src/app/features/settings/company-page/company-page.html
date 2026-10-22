@@ -1,0 +1,144 @@
+@if (loadError(); as failure) {
+  <alco-error-state
+    [title]="failure.title"
+    [message]="failure.message"
+    [code]="failure.code"
+    [correlationId]="failure.correlationId ?? ''"
+  />
+} @else if (company() === null) {
+  <alco-loading [rows]="6" label="Chargement de la fiche de la société…" />
+} @else {
+  <alco-page-header
+    [title]="title()"
+    subtitle="Fiche de la société"
+    [sticky]="canSave()"
+    [dirty]="form.dirty"
+  >
+    @if (canSave()) {
+      <div alcoPageActions>
+        @if (form.dirty) {
+          <button alcoButton type="button" variant="ghost" (click)="discard()">Annuler</button>
+        }
+        <button
+          alcoButton
+          type="submit"
+          form="company-form"
+          variant="primary"
+          [loading]="saving()"
+          loadingLabel="Enregistrement…"
+        >
+          Enregistrer
+        </button>
+      </div>
+    }
+  </alco-page-header>
+
+  @if (!canSave()) {
+    <p class="note">
+      Fiche en lecture seule : votre profil ne permet pas de la modifier dans cette société.
+    </p>
+  }
+  @if (error(); as failure) {
+    <alco-error-state
+      [inline]="true"
+      [title]="failure.title"
+      [message]="failure.message"
+      [code]="failure.code"
+      [correlationId]="failure.correlationId ?? ''"
+    />
+  }
+  @if (invalidSubmit() && form.invalid) {
+    <alco-error-state
+      [inline]="true"
+      title="Certaines informations sont manquantes ou incorrectes."
+      message="Corrigez les champs signalés, puis enregistrez à nouveau."
+    />
+  }
+
+  <form id="company-form" class="sheet" [formGroup]="form" (ngSubmit)="save()" novalidate>
+    <section class="alco-form-section" aria-labelledby="identity-title">
+      <div class="alco-form-section__intro">
+        <h2 id="identity-title" class="alco-section-title">Identité</h2>
+        <p>Le nom légal, le nom affiché et les numéros officiels.</p>
+      </div>
+      <div class="grid">
+        <alco-form-field label="Raison sociale" [required]="true">
+          <input alcoInput formControlName="legal_name" maxlength="255" autocomplete="off" />
+        </alco-form-field>
+        <alco-form-field label="Nom commercial" hint="Affiché dans l’application, s’il est donné.">
+          <input alcoInput formControlName="trade_name" maxlength="255" autocomplete="off" />
+        </alco-form-field>
+        <alco-form-field label="RCCM" hint="Numéro du registre du commerce.">
+          <input
+            alcoInput
+            formControlName="registration_number"
+            maxlength="64"
+            autocomplete="off"
+          />
+        </alco-form-field>
+        <alco-form-field label="NIF" hint="Numéro d’identification fiscale.">
+          <input alcoInput formControlName="tax_identifier" maxlength="64" autocomplete="off" />
+        </alco-form-field>
+      </div>
+    </section>
+
+    <section class="alco-form-section" aria-labelledby="contact-title">
+      <div class="alco-form-section__intro">
+        <h2 id="contact-title" class="alco-section-title">Coordonnées</h2>
+        <p>Imprimées sur les factures et les documents.</p>
+      </div>
+      <div class="grid">
+        <alco-form-field label="Adresse" class="wide">
+          <textarea alcoInput formControlName="address" rows="2"></textarea>
+        </alco-form-field>
+        <alco-form-field label="Ville">
+          <input alcoInput formControlName="city" maxlength="128" autocomplete="off" />
+        </alco-form-field>
+        <div class="fixed">
+          <span class="fixed-label">Pays</span>
+          <span class="fixed-value">{{ country() }}</span>
+        </div>
+        <alco-form-field label="Téléphone">
+          <input alcoInput type="tel" formControlName="phone" maxlength="32" autocomplete="off" />
+        </alco-form-field>
+        <alco-form-field label="E-mail">
+          <input alcoInput type="email" formControlName="email" autocomplete="off" />
+        </alco-form-field>
+      </div>
+    </section>
+
+    <section class="alco-form-section" aria-labelledby="accounting-title">
+      <div class="alco-form-section__intro">
+        <h2 id="accounting-title" class="alco-section-title">Comptabilité et affichage</h2>
+        <p>Comment les dates et les montants s’affichent.</p>
+      </div>
+      <div class="grid">
+        <div class="fixed">
+          <span class="fixed-label">Devise de référence</span>
+          <span class="fixed-value">{{ company()?.reference_currency }}</span>
+        </div>
+        <div class="fixed">
+          <span class="fixed-label">Référentiel comptable</span>
+          <span class="fixed-value">{{ company()?.accounting_framework }}</span>
+        </div>
+        <alco-form-field label="Format des dates">
+          <select alcoSelect formControlName="date_format">
+            @for (format of dateFormats; track format.id) {
+              <option [value]="format.id">{{ format.label }}</option>
+            }
+          </select>
+        </alco-form-field>
+        <alco-form-field label="Format des nombres">
+          <select alcoSelect formControlName="number_format">
+            @for (format of numberFormats; track format.id) {
+              <option [value]="format.id">{{ format.label }}</option>
+            }
+          </select>
+        </alco-form-field>
+        <p class="alco-caption wide">
+          Le pays, la devise et le référentiel sont fixés à la création de la société.
+        </p>
+      </div>
+    </section>
+  </form>
+}

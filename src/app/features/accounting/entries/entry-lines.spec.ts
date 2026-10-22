@@ -152,12 +152,9 @@ describe('Comptabilité › Écritures comptables (accounting/entry-lines/)', ()
     expect(rows[0]).toContain('LET-000001');
     expect(rows[1]).toContain('31 déc. 2025');
     expect(rows[1]).toContain('TVA 18 %');
-    // As in Odoo: a zero side shows « 0 GNF », muted.
-    expect(rows[1]).toContain('0 GNF');
+    // A line is debit or credit: the other side stays empty (no « 0 GNF » noise).
     expect(rows[1]).toContain('180 000 GNF');
-    expect(element().querySelectorAll('tbody tr')[1].querySelector('.zero')?.textContent).toContain(
-      '0 GNF',
-    );
+    expect(rows[1]).not.toMatch(/(^|\s)0 GNF/);
     expect(element().querySelector(`a[href="${BASE}/e-1"]`)).not.toBeNull();
     // The class of the URL's group starts unfolded; no counts, as in Odoo.
     expect(prefixes(element()).map((item) => item.label)).toEqual(['Tous', '4', '41', '44', '7']);

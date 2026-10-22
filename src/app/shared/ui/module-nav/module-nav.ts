@@ -4,6 +4,8 @@ import { NavigationEnd, Router, RouterLink, RouterLinkActive } from '@angular/ro
 import { filter, map } from 'rxjs';
 
 import { AlcoDropdown, DropdownItem } from '../dropdown/dropdown';
+import { AlcoIcon } from '../icon/icon';
+import { IconName } from '../icon/icons';
 
 export interface NavLink {
   readonly label: string;
@@ -24,6 +26,8 @@ export interface NavLink {
  */
 export interface NavEntry {
   readonly label: string;
+  /** Drawn before the label (decorative). */
+  readonly icon?: IconName;
   readonly url?: string;
   readonly children?: readonly NavLink[];
 }
@@ -41,7 +45,7 @@ const MORE = 'Plus';
  */
 @Component({
   selector: 'alco-module-nav',
-  imports: [RouterLink, RouterLinkActive, AlcoDropdown],
+  imports: [RouterLink, RouterLinkActive, AlcoDropdown, AlcoIcon],
   templateUrl: './module-nav.html',
   styleUrl: './module-nav.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,

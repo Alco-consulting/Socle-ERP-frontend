@@ -20,6 +20,7 @@ import {
   StatementLineStatus,
   StatementState,
   Transfer,
+  TransactionReconcile,
   TransactionWrite,
   TransferWrite,
   TreasuryAccount,
@@ -108,6 +109,20 @@ export class TreasuryApi {
     return this.api.post<TreasuryTransaction>(
       `treasury/accounts/${id(accountId)}/transactions/`,
       write,
+    );
+  }
+
+  /**
+   * A line « à rapprocher » taken back (note backend 0050): its fields changed; with a
+   * counterpart, accounted and lettered; without, still waiting.
+   */
+  reconcileTransaction(
+    operationId: string,
+    reconcile: TransactionReconcile,
+  ): Observable<TreasuryTransaction> {
+    return this.api.post<TreasuryTransaction>(
+      `treasury/operations/${id(operationId)}/reconcile/`,
+      reconcile,
     );
   }
 

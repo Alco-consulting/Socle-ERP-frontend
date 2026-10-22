@@ -11,57 +11,252 @@
   gap: var(--space-2);
 }
 
-.lines {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-3);
-}
-
-.line {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-2);
-  min-width: 0;
-  margin: 0;
-  padding: var(--space-3) var(--space-4) var(--space-2);
+.grid-wrap {
+  // Containing block of the screen-reader-only labels: clipped with the grid, never past it.
+  position: relative;
+  overflow-x: auto;
   border: var(--border-width) solid var(--color-border);
   border-radius: var(--radius-md);
-  background: var(--color-surface-muted);
 }
 
-.line-title {
-  padding: 0 var(--space-1);
-  color: var(--color-text-muted);
-  font-size: var(--font-size-caption);
-  font-weight: var(--font-weight-semibold);
+// One row per line, as Odoo's: the amounts narrow and right aligned, debit and credit split.
+.lines-grid {
+  width: 100%;
+  min-width: 58rem;
+  border-collapse: collapse;
+
+  th,
+  td {
+    padding: var(--space-1) var(--space-2);
+    border-bottom: var(--border-width) solid var(--color-border);
+    text-align: left;
+    vertical-align: top;
+  }
+
+  // Titles and totals in line with the text typed: the fields have no frame.
+  thead th,
+  tfoot td {
+    padding-inline: calc(var(--space-2) + var(--border-width) + var(--space-3));
+  }
+
+  thead th {
+    height: 36px;
+    padding-block: var(--space-2);
+    background: var(--color-surface-muted);
+    color: var(--color-text-muted);
+    font-size: var(--font-size-caption);
+    font-weight: var(--font-weight-semibold);
+    white-space: nowrap;
+    vertical-align: middle;
+  }
+
+  // The line is one band, its fields without frames: tinted pointed at, marked once typed in.
+  tbody tr {
+    transition: background-color var(--duration-fast) var(--easing-standard);
+  }
+
+  tbody tr:hover {
+    background: var(--color-surface-muted);
+  }
+
+  tbody tr:focus-within {
+    background: var(--color-primary-soft);
+  }
+
+  .num {
+    text-align: right;
+  }
+
+  input[inputmode='decimal'] {
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+  }
+
+  tfoot th,
+  tfoot td {
+    padding-block: var(--space-3);
+    border-bottom: 0;
+    background: var(--color-surface-muted);
+    font-weight: var(--font-weight-semibold);
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+  }
 }
 
-// Desktop: account and label wide, the amounts narrow; details on a second row.
-.line-grid {
-  display: grid;
-  grid-template-columns: minmax(0, 2fr) minmax(0, 2fr) minmax(0, 1fr) minmax(0, 1fr);
-  gap: var(--space-2) var(--space-3);
+.required {
+  color: var(--color-danger-text);
+}
 
-  .partner {
-    grid-column: span 2;
-  }
+// Phone: each line a card, its fields one under the other, named by their column.
+@include bp.below-tablet {
+  .lines-grid {
+    min-width: 0;
 
-  @include bp.below-laptop {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
+    thead {
+      display: none;
+    }
 
-  // Phone: one column.
-  @include bp.below-tablet {
-    grid-template-columns: 1fr;
+    tbody,
+    tfoot,
+    tr,
+    td,
+    th {
+      display: block;
+      width: 100%;
+    }
 
-    .partner {
-      grid-column: auto;
+    tbody tr {
+      position: relative;
+      padding: var(--space-3) var(--space-3) var(--space-2);
+      border-bottom: var(--border-width) solid var(--color-border);
+    }
+
+    td,
+    tfoot th,
+    tfoot td {
+      padding: var(--space-1) 0;
+      border: 0;
+      text-align: left;
+    }
+
+    td[data-label]::before {
+      content: attr(data-label);
+      display: block;
+      margin-bottom: var(--space-1);
+      color: var(--color-text-muted);
+      font-size: var(--font-size-caption);
+      font-weight: var(--font-weight-semibold);
+    }
+
+    tfoot tr {
+      padding: var(--space-2) var(--space-3);
+    }
+
+    tfoot td:empty {
+      display: none;
     }
   }
+
+  // « Ligne 1 » instead of the bare number.
+  .col-n {
+    padding: 0;
+    color: var(--color-text);
+    font-size: var(--font-size-subtitle);
+    font-weight: var(--font-weight-semibold);
+    text-align: left;
+  }
+
+  .col-n .line-word {
+    display: inline;
+  }
+
+  .col-n,
+  .col-account,
+  .col-partner,
+  .col-tax,
+  .col-amount,
+  .col-remove {
+    width: 100%;
+  }
+
+  .col-remove {
+    position: absolute;
+    top: var(--space-2);
+    right: var(--space-2);
+    width: auto;
+  }
+
+  .total-label {
+    display: none;
+  }
 }
 
-.remove {
-  align-self: flex-end;
+.line-word {
+  display: none;
+}
+
+.col-n {
+  width: 2.5rem;
+  padding-top: var(--space-3);
+  color: var(--color-text-muted);
+  font-variant-numeric: tabular-nums;
+  text-align: center;
+}
+
+.col-account {
+  width: 16rem;
+}
+
+.col-partner {
+  width: 13rem;
+}
+
+.col-tax {
+  width: 11rem;
+
+  .base {
+    margin-top: var(--space-1);
+  }
+}
+
+.col-amount {
+  width: 9.5rem;
+}
+
+.col-remove {
+  width: 2.75rem;
+  padding-top: var(--space-1);
+}
+
+.cell-detail {
+  display: block;
+  overflow: hidden;
+  padding: 0 var(--space-3) var(--space-1);
+  color: var(--color-text-muted);
+  font-size: var(--font-size-caption);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.total-label {
+  text-align: right;
+}
+
+.line-errors {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  color: var(--color-danger-text);
+  font-size: var(--font-size-caption);
+
+  li {
+    display: flex;
+    align-items: center;
+    gap: var(--space-1);
+  }
+}
+
+.unbalanced {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin: 0;
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-md);
+  background: var(--color-warning-soft);
+  color: var(--color-warning-text);
+}
+
+.keys {
+  margin: 0 auto 0 0;
+  align-self: center;
+
+  @include bp.below-tablet {
+    display: none;
+  }
 }
 
 .lines-footer {
@@ -114,4 +309,20 @@
 
 .gap--ok dd {
   color: var(--color-success-text);
+}
+
+// The line's number and its removal, centred on the row's fields (wide screens).
+@media (min-width: 768px) {
+  .lines-grid td.col-n {
+    line-height: var(--control-height);
+  }
+
+  .lines-grid td.col-remove {
+    padding-top: calc(var(--space-1) + (var(--control-height) - var(--control-height-sm)) / 2);
+  }
+
+  // The line typed in, marked on its left edge.
+  .lines-grid tbody tr:focus-within td:first-child {
+    box-shadow: inset var(--focus-ring-width) 0 0 var(--color-primary);
+  }
 }

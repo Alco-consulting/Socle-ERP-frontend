@@ -146,11 +146,21 @@
           <a class="code" [routerLink]="partner.public_id">{{ partner.code }}</a>
         </ng-template>
         <ng-template alcoCell="name" let-partner>
-          <span class="name">{{ partner.name }}</span>
-          @if (partner.legal_name && partner.legal_name !== partner.name) {
-            <span class="alco-sr-only">, </span>
-            <span class="legal alco-caption">{{ partner.legal_name }}</span>
-          }
+          <span class="who">
+            <!-- The initial is drawn by CSS: not read, not part of the cell's text. -->
+            <span
+              class="avatar"
+              aria-hidden="true"
+              [attr.data-initial]="partner.name.charAt(0).toUpperCase()"
+            ></span>
+            <span class="who-text">
+              <span class="name">{{ partner.name }}</span>
+              @if (partner.legal_name && partner.legal_name !== partner.name) {
+                <span class="alco-sr-only">, </span>
+                <span class="legal alco-caption">{{ partner.legal_name }}</span>
+              }
+            </span>
+          </span>
         </ng-template>
         <ng-template alcoCell="role" let-partner>{{ roleLabel(partner) }}</ng-template>
         <ng-template alcoCell="status" let-partner>

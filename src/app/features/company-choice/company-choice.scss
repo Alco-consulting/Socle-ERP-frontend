@@ -6,9 +6,7 @@
   align-items: flex-start;
   min-height: 100vh;
   padding: var(--space-8) var(--space-4);
-  background:
-    radial-gradient(circle at 50% -20%, var(--color-primary-soft) 0%, transparent 60%),
-    var(--color-bg);
+  background: var(--color-bg);
 
   @include bp.below-tablet {
     padding-top: var(--space-6);

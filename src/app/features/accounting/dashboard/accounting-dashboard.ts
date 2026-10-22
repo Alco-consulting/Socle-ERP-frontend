@@ -13,7 +13,6 @@ import { AlcoButton } from '../../../shared/ui/button/button';
 import { AlcoDropdown, DropdownItem } from '../../../shared/ui/dropdown/dropdown';
 import { AlcoErrorState } from '../../../shared/ui/error-state/error-state';
 import { AlcoLoading } from '../../../shared/ui/loading/loading';
-import { AlcoPageHeader } from '../../../shared/ui/page-header/page-header';
 import { localToday } from '../../../shared/utils/dates';
 import { JournalSummary } from '../../dashboards/data-access/dashboard-models';
 import { DashboardsApi } from '../../dashboards/data-access/dashboards-api';
@@ -21,6 +20,7 @@ import { PartnersApi } from '../../partners/data-access/partners-api';
 import { CurrencyOption } from '../../partners/data-access/partner-models';
 import { ACCOUNTING_REFERENTIAL_ERRORS } from '../accounting-presentation';
 import { AlcoBalanceCurve, AlcoDueBars } from './journal-charts';
+import { AlcoKpiBand } from './kpi-band';
 import { CARD_ORDER, DOCUMENT_PATHS } from './dashboard-presentation';
 
 /** A figure of a card, Odoo's « 1 À valider … 0 GNF »: the server's count and its list. */
@@ -64,8 +64,8 @@ function shown(...figures: readonly (Figure & { readonly count: number })[]): Fi
     AlcoDropdown,
     AlcoDueBars,
     AlcoErrorState,
+    AlcoKpiBand,
     AlcoLoading,
-    AlcoPageHeader,
   ],
   templateUrl: './accounting-dashboard.html',
   styleUrl: './accounting-dashboard.scss',
@@ -106,10 +106,10 @@ export class AccountingDashboardPage {
       .map((journal) => this.cardOf(journal)),
   );
 
-  protected readonly subtitle = computed(() => this.session.activeCompany()?.name ?? '');
-
   /** The screen of reconciliation, when the user may open it. */
   protected readonly reconcileUrl = computed(() => this.screen('tresorerie/rapprochements'));
+  /** The journal's lines, where its lines « à rapprocher » wait (note backend 0050). */
+  protected readonly transactionsUrl = computed(() => this.screen('tresorerie/transactions'));
 
   protected decimals(currency: string): number {
     // Unknown precision: no digit is ever dropped (the pipe only trims zeros).

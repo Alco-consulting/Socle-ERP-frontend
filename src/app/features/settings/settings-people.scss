@@ -1,0 +1,56 @@
+@use 'breakpoints' as bp;
+
+// A person: initials in a disc, the name, the address under it (on a phone only, where the
+// e-mail column is hidden).
+.person {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  min-width: 0;
+}
+
+.avatar {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: 2rem;
+  height: 2rem;
+  border-radius: var(--radius-pill);
+  background: var(--color-primary-soft);
+  color: var(--color-primary-text);
+  font-size: var(--font-size-caption);
+  font-weight: var(--font-weight-semibold);
+}
+
+.person-text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.person-name {
+  font-weight: var(--font-weight-medium);
+  overflow-wrap: anywhere;
+}
+
+.person-email {
+  display: none;
+  color: var(--color-text-muted);
+  font-size: var(--font-size-caption);
+  overflow-wrap: anywhere;
+
+  @include bp.below-tablet {
+    display: block;
+  }
+}
+
+.roles {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+}
+
+.muted {
+  color: var(--color-text-muted);
+}

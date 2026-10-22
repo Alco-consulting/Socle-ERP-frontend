@@ -1,0 +1,153 @@
+@use 'breakpoints' as bp;
+
+// A floating panel near the top of the screen, as Linear's command menu.
+:host {
+  display: flex;
+  flex-direction: column;
+  width: min(40rem, calc(100vw - 2 * var(--space-4)));
+  max-height: min(32rem, calc(100vh - 20vh));
+  overflow: hidden;
+  border: var(--border-width) solid var(--color-border);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface);
+  box-shadow: var(--shadow-lg);
+}
+
+.search {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  border-bottom: var(--border-width) solid var(--color-border);
+}
+
+.search-icon {
+  flex: none;
+  color: var(--color-text-muted);
+}
+
+.input {
+  flex: 1;
+  min-width: 0;
+  padding: var(--space-2) 0;
+  border: 0;
+  outline: none;
+  background: transparent;
+  color: var(--color-text);
+  font: inherit;
+  font-size: var(--font-size-lead);
+
+  &::placeholder {
+    color: var(--color-text-subtle);
+  }
+}
+
+.kbd {
+  display: inline-flex;
+  align-items: center;
+  min-width: 1.5rem;
+  justify-content: center;
+  padding: 0 var(--space-1);
+  border: var(--border-width) solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface-sunken);
+  color: var(--color-text-muted);
+  font-family: inherit;
+  font-size: var(--font-size-caption);
+  line-height: 1.5;
+}
+
+.body {
+  flex: 1;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: var(--space-2);
+}
+
+.group + .group {
+  margin-top: var(--space-2);
+}
+
+.group-label {
+  padding: var(--space-2) var(--space-3) var(--space-1);
+  color: var(--color-text-muted);
+  font-size: var(--font-size-caption);
+  font-weight: var(--font-weight-semibold);
+}
+
+.option {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  min-height: 2.5rem;
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-md);
+  color: var(--color-text);
+  cursor: pointer;
+}
+
+.option--active {
+  background: var(--color-primary-soft);
+  color: var(--color-primary-text);
+
+  .option-detail {
+    color: var(--color-primary-text);
+  }
+}
+
+.option-mark {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: 1.5rem;
+  color: var(--color-text-muted);
+}
+
+.option-label {
+  flex: none;
+  max-width: 55%;
+  overflow: hidden;
+  font-weight: var(--font-weight-medium);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.option-detail {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  color: var(--color-text-muted);
+  font-size: var(--font-size-caption);
+  text-align: right;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.note {
+  margin: 0;
+  padding: var(--space-4) var(--space-3);
+  color: var(--color-text-muted);
+  text-align: center;
+}
+
+.hints {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-4);
+  padding: var(--space-2) var(--space-4);
+  border-top: var(--border-width) solid var(--color-border);
+  background: var(--color-surface-muted);
+  color: var(--color-text-muted);
+  font-size: var(--font-size-caption);
+
+  span {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-1);
+  }
+
+  @include bp.below-tablet {
+    display: none;
+  }
+}

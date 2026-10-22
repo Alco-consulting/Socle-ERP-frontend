@@ -63,9 +63,9 @@
 
 .number {
   margin: 0;
-  font-size: 2rem;
+  font-size: var(--font-size-display);
   font-weight: var(--font-weight-semibold);
-  line-height: 1.2;
+  line-height: var(--line-height-tight);
   overflow-wrap: anywhere;
 }
 
@@ -223,7 +223,7 @@
   background: var(--color-surface);
 
   &:focus-visible {
-    outline-offset: 1px;
+    outline-offset: var(--border-width);
   }
 }
 
@@ -309,8 +309,8 @@
   }
 
   &:focus-visible {
-    outline: 2px solid var(--color-focus-ring);
-    outline-offset: 2px;
+    outline: var(--focus-ring-width) solid var(--color-focus-ring);
+    outline-offset: var(--focus-ring-offset);
   }
 }
 

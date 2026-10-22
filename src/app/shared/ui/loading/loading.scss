@@ -17,7 +17,7 @@
     var(--color-surface-sunken) 100%
   );
   background-size: 200% 100%;
-  animation: alco-shimmer 1.4s ease-in-out infinite;
+  animation: alco-shimmer var(--duration-shimmer) ease-in-out infinite;
 }
 
 .bone--short {

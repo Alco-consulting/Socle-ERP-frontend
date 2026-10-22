@@ -7,6 +7,7 @@
           <alco-dropdown
             trigger="nav"
             mode="single"
+            [icon]="entry.icon"
             [class.group-active]="groupActive(entry)"
             [items]="groupItems(entry)"
           >
@@ -19,6 +20,9 @@
             routerLinkActive="active"
             ariaCurrentWhenActive="page"
           >
+            @if (entry.icon; as name) {
+              <alco-icon class="link-icon" [name]="name" [size]="18" />
+            }
             {{ entry.label }}
           </a>
         }
@@ -35,6 +39,7 @@
             <alco-dropdown
               trigger="nav"
               mode="single"
+              [icon]="entry.icon"
               [class.group-active]="groupActive(entry)"
               [items]="groupItems(entry)"
             >
@@ -47,6 +52,9 @@
               routerLinkActive="active"
               ariaCurrentWhenActive="page"
             >
+              @if (entry.icon; as name) {
+                <alco-icon class="link-icon" [name]="name" [size]="18" />
+              }
               {{ entry.label }}
             </a>
           }

@@ -193,6 +193,46 @@ test.describe('Écritures — saisie', () => {
   });
 });
 
+test.describe('Écritures — saisie au clavier, comme Odoo', () => {
+  test('Entrée passe au champ suivant ; la ligne ajoutée propose l’écart ; Ctrl+Entrée enregistre', async ({
+    page,
+  }) => {
+    await page.goto(`${ENTRIES}/nouvelle`);
+    await page.getByLabel('Journal').selectOption({ label: 'OD — Opérations diverses' });
+    await dateField(page).fill('2026-03-10');
+    await page.getByRole('textbox', { name: 'Libellé', exact: true }).fill('Achat au clavier');
+    await fillLine(page, 0, '601', 'Débit', '1000');
+    const first = page.locator('[data-line="0"]');
+    await first.getByRole('textbox', { name: 'Débit' }).press('Enter');
+    await expect(first.getByRole('textbox', { name: 'Crédit' })).toBeFocused();
+    await first.getByRole('textbox', { name: 'Crédit' }).press('Enter');
+    const second = page.locator('[data-line="1"]');
+    const account = second.getByRole('combobox', { name: 'Compte' });
+    await expect(account).toBeFocused();
+
+    // Tab keeps the proposal highlighted, as Odoo's.
+    await account.fill('401');
+    await expect(page.getByRole('option', { name: /^401\b/ }).first()).toBeVisible();
+    await account.press('Tab');
+    await expect(account).toHaveValue('401');
+
+    // After the last field of the last line: a new line, with what balances the entry.
+    await second.getByRole('textbox', { name: 'Crédit' }).press('Enter');
+    const third = page.locator('[data-line="2"]');
+    await expect(third.getByRole('combobox', { name: 'Compte' })).toBeFocused();
+    await expect(third.getByRole('textbox', { name: 'Crédit' })).toHaveValue('1000');
+    await expect(page.locator('dl.totals')).toContainText('Équilibrée');
+    await page.getByRole('button', { name: 'Retirer la ligne 3' }).click();
+    await expect(page.getByText('Écriture déséquilibrée')).toBeVisible();
+    await second.getByRole('textbox', { name: 'Crédit' }).fill('1000');
+    await expect(page.getByText('Écriture déséquilibrée')).toHaveCount(0);
+    await expect(page.locator('dl.totals')).toContainText('Équilibrée');
+
+    await second.getByRole('textbox', { name: 'Crédit' }).press('Control+Enter');
+    await expect(page.getByText('Écriture créée.')).toBeVisible();
+  });
+});
+
 test.describe('Écritures — workflow du serveur', () => {
   test('Scénario 7 : soumission puis validation, numéro attribué par le serveur', async ({
     page,

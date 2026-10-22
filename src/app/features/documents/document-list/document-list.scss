@@ -1,0 +1,52 @@
+@use 'breakpoints' as bp;
+
+.count {
+  margin: 0;
+}
+
+// The file: its kind in a soft square, its name, its description under it.
+.file {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  min-width: 0;
+}
+
+.file-icon {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: 2rem;
+  height: 2rem;
+  border-radius: var(--radius-sm);
+  background: var(--color-primary-soft);
+  color: var(--color-primary-text);
+}
+
+.file-text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.file-name {
+  font-weight: var(--font-weight-medium);
+  overflow-wrap: anywhere;
+}
+
+.file-description {
+  color: var(--color-text-muted);
+  font-size: var(--font-size-caption);
+}
+
+// On a phone, where those columns are hidden: the date and the record under the name.
+.file-meta {
+  display: none;
+  color: var(--color-text-muted);
+  font-size: var(--font-size-caption);
+
+  @include bp.below-tablet {
+    display: block;
+  }
+}

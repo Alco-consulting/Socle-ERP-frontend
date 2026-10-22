@@ -1,6 +1,11 @@
-<alco-page-header title="Tableau de bord" [subtitle]="subtitle()" />
+<!-- No visible title: the breadcrumb names the screen, the figures come first. -->
+<h1 class="alco-sr-only">Tableau de bord</h1>
+
+<!-- The six headline figures over a period (dashboards/overview/). -->
+<alco-kpi-band [decimals]="decimals(reference())" />
 
 <!-- One card per active journal, as Odoo's: dashboards/journals/ -->
+<h2 class="alco-section-title journals-title">Journaux</h2>
 @if (journals.error(); as error) {
   @let text = failure(error);
   <alco-error-state
@@ -52,6 +57,18 @@
             }
             @if (card.kind === 'treasury') {
               @for (account of journal.treasury_accounts ?? []; track account.public_id) {
+                <!-- As Odoo's « 1 à réconcilier »: the lines waiting for their counterpart. -->
+                @if (account.lines_to_reconcile > 0 && transactionsUrl(); as url) {
+                  <a
+                    alcoButton
+                    [routerLink]="url"
+                    [queryParams]="{ compte: account.code }"
+                    [attr.aria-label]="
+                      account.lines_to_reconcile + ' à réconcilier — ' + account.name
+                    "
+                    >{{ account.lines_to_reconcile }} à réconcilier</a
+                  >
+                }
                 @if (account.unreconciled_statement_lines > 0 && reconcileUrl(); as url) {
                   <a alcoButton [routerLink]="url">
                     Rapprocher {{ account.unreconciled_statement_lines }}

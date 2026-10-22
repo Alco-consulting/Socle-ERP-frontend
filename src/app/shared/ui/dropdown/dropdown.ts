@@ -17,7 +17,8 @@ export interface DropdownItem {
   readonly route?: string;
   readonly disabled?: boolean;
   readonly danger?: boolean;
-  /** Used by `mode="single"` menus (group by, company switcher). */
+  /** A choice: `mode="single"` menus (group by, company switcher), or a radio item of an action
+   * menu (the theme). */
   readonly checked?: boolean;
   readonly dividerBefore?: boolean;
   /**

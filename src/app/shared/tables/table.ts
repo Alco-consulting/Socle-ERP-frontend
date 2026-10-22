@@ -2,8 +2,11 @@ import { NgTemplateOutlet } from '@angular/common';
 import {
   ChangeDetectionStrategy,
   Component,
+  DestroyRef,
   Directive,
+  ElementRef,
   TemplateRef,
+  afterNextRender,
   computed,
   contentChildren,
   inject,
@@ -11,6 +14,7 @@ import {
   model,
   output,
   signal,
+  viewChild,
 } from '@angular/core';
 
 import { AlcoIcon } from '../ui/icon/icon';
@@ -52,6 +56,7 @@ export class AlcoCell {
  * - Selection by checkbox; the page shows bulk actions when the selection is not empty.
  * - `totals` renders a distinct footer row (amounts come already formatted).
  * - Scrolls horizontally inside its own frame on small screens (keyboard reachable).
+ * - When it fits in width, its header stays under the page's top bar while the page scrolls.
  */
 @Component({
   selector: 'alco-table',
@@ -80,6 +85,9 @@ export class AlcoTable<T> {
   readonly rowActivated = output<T>();
 
   private readonly cells = contentChildren(AlcoCell);
+  private readonly frame = viewChild.required<ElementRef<HTMLElement>>('frame');
+  /** No horizontal scrolling needed: the frame clips instead, and the header can stick. */
+  protected readonly fits = signal(false);
   protected readonly collapsed = signal<ReadonlySet<string>>(new Set());
 
   protected readonly cellTemplates = computed(() => {
@@ -107,6 +115,25 @@ export class AlcoTable<T> {
   protected readonly someSelected = computed(
     () => this.selection().size > 0 && !this.allSelected(),
   );
+
+  constructor() {
+    const destroyRef = inject(DestroyRef);
+    afterNextRender(() => {
+      const frame = this.frame().nativeElement;
+      const measure = () => this.fits.set(frame.scrollWidth <= frame.clientWidth + 1);
+      measure();
+      if (typeof ResizeObserver === 'undefined') {
+        return;
+      }
+      const observer = new ResizeObserver(measure);
+      observer.observe(frame);
+      const table = frame.querySelector('table');
+      if (table) {
+        observer.observe(table);
+      }
+      destroyRef.onDestroy(() => observer.disconnect());
+    });
+  }
 
   protected cellValue(row: T, key: string): unknown {
     return (row as Record<string, unknown>)[key];

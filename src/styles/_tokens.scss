@@ -1,63 +1,130 @@
 // Alco design tokens — the ONLY place where raw colors, sizes and timings are written.
 // Components consume `var(--…)`; stylelint rejects hex/rgb colors anywhere else.
 // Documented in docs/frontend/design-system.md (section « Design tokens »).
+//
+// Two layers: the brand palette (`--blue-700`…), then the tokens of meaning the components
+// use (`--color-primary`…). The dark theme redefines the second layer only: when the device
+// asks for it (`prefers-color-scheme`), or when chosen in the account menu (`data-theme`).
 
 :root {
-  // ---- Colors: neutrals -------------------------------------------------------------
-  --color-bg: #f4f6f9;
-  --color-surface: #ffffff;
-  --color-surface-muted: #f7f9fb;
-  --color-surface-sunken: #edf1f5;
-  --color-border: #d9dfe7;
-  --color-border-strong: #b3bdca;
+  // ---- Brand palette (charte Alco) -------------------------------------------------------
+  --blue-50: #eaf3f9;
+  --blue-100: #d5e8f4;
+  --blue-300: #7cc3ea;
+  --blue-400: #38a3d9;
+  --blue-600: #1c6fa3;
+  --blue-700: #155e8a;
+  --blue-800: #114c70;
+  --blue-900: #0d3b57;
+  --blue-950: #13324a;
 
-  --color-text: #14213d;
-  --color-text-muted: #505d6e;
-  --color-text-subtle: #677284;
+  --indigo-50: #eceffa;
+  --indigo-300: #93a6e6;
+  --indigo-600: #3d55a3;
+  --indigo-700: #2f4385;
+  --indigo-950: #1e2648;
+
+  --amber-50: #fdf1e1;
+  --amber-300: #f4c07a;
+  --amber-400: #f0a23b;
+  --amber-700: #a65a12;
+  --amber-800: #7a400b;
+  --amber-950: #3a2a12;
+
+  --slate-600: #4a5468;
+
+  // Neutrals of the light theme: background #EEF2F8, surfaces white, borders #DFE4EC.
+  --gray-0: #ffffff;
+  --gray-25: #f6f8fb;
+  --gray-50: #eef2f8;
+  --gray-100: #e6ebf3;
+  --gray-150: #dfe4ec;
+  --gray-400: #838ea0;
+  --gray-500: #5b6474;
+  --gray-600: #4b5563;
+  --gray-700: #3b4656;
+  --gray-900: #111827;
+
+  // Neutrals of the dark theme.
+  --night-950: #0f1620;
+  --night-925: #121a24;
+  --night-900: #17202c;
+  --night-850: #1d2733;
+  --night-800: #232d3a;
+  --night-700: #2a3442;
+  --night-500: #6b788b;
+  --night-400: #8f9bab;
+  --night-300: #a7b2c1;
+  --night-100: #e6ebf2;
+
+  // ---- Colors: neutrals -------------------------------------------------------------
+  --color-bg: var(--gray-50);
+  --color-surface: var(--gray-0);
+  --color-surface-muted: var(--gray-25);
+  --color-surface-sunken: var(--gray-100);
+  --color-border: var(--gray-150);
+  // Form controls: 3:1 at least against their surface (WCAG 1.4.11).
+  --color-border-strong: var(--gray-400);
+
+  --color-text: var(--gray-900);
+  --color-text-muted: var(--gray-600);
+  --color-text-subtle: var(--gray-500);
+  // Text on a filled color (primary or danger button, colored tile): white in both themes.
   --color-text-inverse: #ffffff;
 
   // ---- Colors: identity ------------------------------------------------------------
-  --color-primary: #155e8b;
-  --color-primary-hover: #104b70;
-  --color-primary-active: #0c3b58;
-  --color-primary-soft: #e6f0f7;
-  --color-primary-text: #115078;
+  --color-primary: var(--blue-700);
+  --color-primary-hover: var(--blue-800);
+  --color-primary-active: var(--blue-900);
+  --color-primary-soft: var(--blue-50);
+  --color-primary-text: #12527a;
+  --color-accent: var(--blue-400);
 
-  --color-brand-night: #0f2238;
-  --color-brand-night-hover: #1b3350;
-  --color-brand-accent: #e3a42b;
+  // The top bar: white, as the surfaces (the user's choice of 2026-10-17).
+  --color-topbar: var(--color-surface);
+  --color-brand-accent: var(--amber-400);
+  // Text on the amber accent (notification count): dark in both themes.
+  --color-text-on-accent: var(--gray-900);
 
-  --color-focus-ring: #2f7fd1;
-  --color-overlay: rgba(15, 34, 56, 0.45);
+  --color-focus-ring: var(--blue-600);
+  --color-overlay: rgba(17, 24, 39, 0.45);
 
   // ---- Colors: feedback (strong = icons/borders, soft = backgrounds, text = on soft) --
   --color-success: #1b7a4b;
   --color-success-soft: #e4f3ea;
   --color-success-text: #14603a;
 
-  --color-warning: #b25e00;
-  --color-warning-soft: #fdf0db;
-  --color-warning-text: #7f4300;
+  --color-warning: var(--amber-700);
+  --color-warning-soft: var(--amber-50);
+  --color-warning-text: var(--amber-800);
 
   --color-danger: #b42318;
   --color-danger-hover: #93190f;
   --color-danger-soft: #fdeceb;
   --color-danger-text: #97190f;
 
-  --color-info: #1f5fad;
-  --color-info-soft: #e7f0fb;
-  --color-info-text: #1a4f91;
+  --color-info: var(--indigo-600);
+  --color-info-soft: var(--indigo-50);
+  --color-info-text: var(--indigo-700);
 
-  --color-neutral: #5b6778;
-  --color-neutral-soft: #edf0f3;
-  --color-neutral-text: #3b4656;
+  --color-neutral: var(--slate-600);
+  --color-neutral-soft: var(--gray-100);
+  --color-neutral-text: var(--gray-700);
 
   // ---- Colors: application families (App Launcher tiles, module mark) ---------------
   // One color per family of applications, never one random color per application.
-  --app-family-finance: #155e8b; // Comptabilité (and its domains: trésorerie, taxes…)
-  --app-family-relations: #3b55a0; // Tiers, Documents
-  --app-family-steering: #a35a10; // Reporting, Tableau de bord
-  --app-family-control: #4a5668; // Paramètres
+  --app-family-finance: var(--blue-700); // Comptabilité (and its domains: trésorerie, taxes…)
+  --app-family-relations: var(--indigo-600); // Contacts, Documents
+  --app-family-steering: var(--amber-700); // Tableau de bord
+  --app-family-control: var(--slate-600); // Paramètres
+
+  // ---- Colors: charts (dashboard) --------------------------------------------------------
+  --chart-1: var(--blue-700);
+  --chart-2: var(--blue-400);
+  --chart-3: var(--indigo-600);
+  --chart-4: var(--amber-400);
+  --chart-area: var(--blue-50);
+  --chart-grid: var(--gray-150);
 
   // ---- Typography --------------------------------------------------------------------
   --font-family-base:
@@ -65,12 +132,15 @@
     Arial, sans-serif;
   --font-family-mono: ui-monospace, 'Cascadia Mono', 'Segoe UI Mono', Consolas, monospace;
 
+  --font-size-display: 1.75rem; // 28px, a document's name (invoice number)
+  --font-size-figure: 1.5rem; // 24px, dashboard figures only
   --font-size-page-title: 1.375rem; // 22px
+  --font-size-lead: 1.125rem; // 18px, the brand name
   --font-size-section-title: 1rem; // 16px
   --font-size-subtitle: 0.875rem; // 14px, semibold
   --font-size-body: 0.875rem; // 14px
+  --font-size-control: 0.875rem; // 14px; 16px on phones (no zoom on focus)
   --font-size-caption: 0.75rem; // 12px
-  --font-size-figure: 1.5rem; // 24px, dashboard figures only
 
   --font-weight-regular: 400;
   --font-weight-medium: 500;
@@ -90,10 +160,10 @@
   --space-7: 3rem; // 48
   --space-8: 4rem; // 64
 
-  // ---- Radius ---------------------------------------------------------------------------
+  // ---- Radius: 4px small elements, 10px buttons and fields, 16px cards and tiles --------
   --radius-sm: 4px;
-  --radius-md: 8px;
-  --radius-lg: 12px;
+  --radius-md: 10px;
+  --radius-lg: 16px;
   --radius-xl: 16px;
   --radius-pill: 999px;
 
@@ -102,15 +172,20 @@
   --focus-ring-width: 2px;
   --focus-ring-offset: 2px;
 
-  // ---- Shadows --------------------------------------------------------------------------
-  --shadow-sm: 0 1px 2px rgba(15, 34, 56, 0.06), 0 1px 1px rgba(15, 34, 56, 0.04);
-  --shadow-md: 0 4px 12px rgba(15, 34, 56, 0.08), 0 1px 3px rgba(15, 34, 56, 0.06);
-  --shadow-lg: 0 16px 40px rgba(15, 34, 56, 0.16), 0 2px 6px rgba(15, 34, 56, 0.08);
+  // ---- Shadows: very soft ----------------------------------------------------------------
+  --shadow-sm: 0 1px 2px rgba(17, 24, 39, 0.05);
+  --shadow-md: 0 2px 8px rgba(17, 24, 39, 0.06), 0 1px 2px rgba(17, 24, 39, 0.04);
+  --shadow-lg: 0 8px 24px rgba(17, 24, 39, 0.1), 0 2px 6px rgba(17, 24, 39, 0.05);
 
-  // ---- Motion ----------------------------------------------------------------------------
-  --duration-fast: 120ms;
+  // ---- Motion (150–200 ms; none when the user asks for reduced motion) -------------------
+  --duration-fast: 150ms;
   --duration-base: 200ms;
   --easing-standard: cubic-bezier(0.2, 0, 0, 1);
+  // Loops of loading indicators (they stop themselves under reduced motion).
+  --duration-spin: 700ms;
+  --duration-shimmer: 1400ms;
+  --duration-progress: 1200ms;
+  --delay-progress: 300ms;
 
   // ---- Layers ----------------------------------------------------------------------------
   --z-base: 0;
@@ -130,17 +205,90 @@
   --icon-size-sm: 16px;
   --icon-size-md: 20px;
   --icon-size-lg: 24px;
-  --app-icon-size: 64px;
+  --app-icon-size: 80px;
   --page-gutter: var(--space-5);
   --content-max-width: 1440px;
   --form-max-width: 1080px;
   --launcher-max-width: 920px;
+
+  color-scheme: light;
+}
+
+// ---- Dark theme -------------------------------------------------------------------------
+@mixin dark-theme {
+  --color-bg: var(--night-950);
+  --color-surface: var(--night-900);
+  --color-surface-muted: var(--night-850);
+  --color-surface-sunken: var(--night-925);
+  --color-border: var(--night-700);
+  --color-border-strong: var(--night-500);
+
+  --color-text: var(--night-100);
+  --color-text-muted: var(--night-300);
+  --color-text-subtle: var(--night-400);
+
+  --color-primary: var(--blue-600);
+  --color-primary-hover: #1b6699;
+  --color-primary-active: #165781;
+  --color-primary-soft: var(--blue-950);
+  --color-primary-text: var(--blue-300);
+  --color-accent: var(--blue-300);
+
+  --color-topbar: var(--night-900);
+
+  --color-focus-ring: var(--blue-300);
+  --color-overlay: rgba(0, 0, 0, 0.6);
+
+  --color-success: #4cc38a;
+  --color-success-soft: #123222;
+  --color-success-text: #7dd3a6;
+
+  --color-warning: var(--amber-400);
+  --color-warning-soft: var(--amber-950);
+  --color-warning-text: var(--amber-300);
+
+  --color-danger: #c2372b;
+  --color-danger-hover: #a62d23;
+  --color-danger-soft: #3b1816;
+  --color-danger-text: #f6a49c;
+
+  --color-info: var(--indigo-300);
+  --color-info-soft: var(--indigo-950);
+  --color-info-text: #b8c5f1;
+
+  --color-neutral: var(--night-400);
+  --color-neutral-soft: var(--night-800);
+  --color-neutral-text: #c9d2de;
+
+  --chart-1: var(--blue-300);
+  --chart-2: var(--blue-400);
+  --chart-3: var(--indigo-300);
+  --chart-4: var(--amber-400);
+  --chart-area: var(--blue-950);
+  --chart-grid: var(--night-700);
+
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.3);
+  --shadow-md: 0 2px 8px rgba(0, 0, 0, 0.35), 0 1px 2px rgba(0, 0, 0, 0.25);
+  --shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.45), 0 2px 6px rgba(0, 0, 0, 0.3);
+
+  color-scheme: dark;
+}
+
+:root[data-theme='dark'] {
+  @include dark-theme;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) {
+    @include dark-theme;
+  }
 }
 
 @media (max-width: 767.98px) {
   :root {
     --page-gutter: var(--space-4);
-    --app-icon-size: 56px;
+    --app-icon-size: 68px;
+    --font-size-control: 1rem;
   }
 }
 
@@ -148,5 +296,7 @@
   :root {
     --duration-fast: 0ms;
     --duration-base: 0ms;
+    // A spinner still says « en cours », slowly.
+    --duration-spin: 2s;
   }
 }

@@ -31,7 +31,16 @@ export interface DocumentDownload {
   readonly expires_in: number;
 }
 
-const PAGE_SIZE = 50;
+export const DOCUMENT_PAGE_SIZE = 50;
+const PAGE_SIZE = DOCUMENT_PAGE_SIZE;
+
+/** The documents list's criteria (`GET documents/`). */
+export interface DocumentQuery {
+  readonly page: number;
+  readonly search: string;
+  readonly status: Exclude<DocumentStatus, 'pending' | 'failed'> | null;
+  readonly resourceType: string | null;
+}
 
 /**
  * Documents of the API attached to a resource of a domain (`resource_type` registered by
@@ -40,6 +49,19 @@ const PAGE_SIZE = 50;
 @Injectable({ providedIn: 'root' })
 export class DocumentsApi {
   private readonly api = inject(ApiClient);
+
+  /** Every document the user may read, by state (`active` by default), one page. */
+  list(query: DocumentQuery): Observable<Paginated<StoredDocument>> {
+    return this.api.get<Paginated<StoredDocument>>('documents/', {
+      params: {
+        page: query.page,
+        page_size: PAGE_SIZE,
+        ...(query.search ? { search: query.search } : {}),
+        ...(query.status ? { status: query.status } : {}),
+        ...(query.resourceType ? { resource_type: query.resourceType } : {}),
+      },
+    });
+  }
 
   /** The active documents of one resource. */
   attachedTo(resourceType: string, resourceId: string): Observable<Paginated<StoredDocument>> {

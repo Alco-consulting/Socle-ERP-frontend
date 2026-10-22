@@ -18,6 +18,46 @@ test.beforeEach(async ({ page }) => {
   await fixToday(page);
 });
 
+test.describe('Tableau de bord — les six indicateurs clés', () => {
+  const kpis = (page: Page) => page.locator('.kpi');
+
+  test('trésorerie, produits, charges, résultat, créances, dettes ; la période se choisit', async ({
+    page,
+    api,
+  }) => {
+    await page.goto('/app/comptabilite/tableau-de-bord');
+    await expect(kpis(page).locator('.kpi-label')).toHaveText([
+      'Trésorerie',
+      'Produits',
+      'Charges',
+      'Résultat',
+      'Créances clients',
+      'Dettes fournisseurs',
+    ]);
+    await expect(kpis(page).nth(3)).toContainText(/23\s270\s700 GNF/);
+    await expect(kpis(page).nth(3)).toContainText('Bénéfice');
+    // The current fiscal year by default, then this month: one request each.
+    const overview = () => api.callsTo('dashboards/overview/');
+    expect(new URL(overview()[0].url()).searchParams.get('fiscal_year')).toBeTruthy();
+    await page.getByRole('combobox', { name: 'Période des indicateurs' }).selectOption({
+      label: 'Ce mois-ci',
+    });
+    await expect.poll(() => overview().length).toBe(2);
+    expect(new URL(overview()[1].url()).searchParams.get('date_from')).toMatch(/-01$/);
+    // Each figure leads to its report when the user may open it.
+    await kpis(page).filter({ hasText: 'Créances clients' }).click();
+    await expect(page).toHaveURL(/\/analyse\/balance-clients/);
+  });
+
+  test('sans le droit d’une source : « Accès restreint », sans chiffre', async ({ page, api }) => {
+    api.withPermissions(COMPANY_A.public_id, PROFILES.viewer);
+    await page.goto('/app/comptabilite/tableau-de-bord');
+    const result = kpis(page).filter({ hasText: 'Résultat' });
+    await expect(result).toContainText('Accès restreint');
+    await expect(result).toContainText('—');
+  });
+});
+
 test.describe('Tableau de bord comptable — comme Odoo', () => {
   test('lanceur → Comptabilité → tableau de bord : une carte par journal, dans l’ordre d’Odoo', async ({
     page,
@@ -58,6 +98,13 @@ test.describe('Tableau de bord comptable — comme Odoo', () => {
     );
     await expect(card(page, 'Caisse').locator('.figures')).toContainText(/1\s250\s000\s+GNF/);
     await expect(card(page, 'Caisse').getByRole('link', { name: /^Rapprocher/ })).toHaveCount(0);
+    // As Odoo's « 1 à réconcilier »: the lines waiting for their counterpart (note 0050).
+    await expect(bank.getByRole('link', { name: /à réconcilier/ })).toHaveText('1 à réconcilier');
+    await expect(bank.getByRole('link', { name: /à réconcilier/ })).toHaveAttribute(
+      'href',
+      '/app/comptabilite/tresorerie/transactions?compte=BANK-GNF',
+    );
+    await expect(card(page, 'Caisse').getByRole('link', { name: /à réconcilier/ })).toHaveCount(0);
 
     await bank.getByRole('link', { name: 'Transactions — Banque principale' }).click();
     await expect(page).toHaveURL(/\/app\/comptabilite\/tresorerie\/transactions\?compte=BANK-GNF$/);
@@ -80,9 +127,12 @@ test.describe('Tableau de bord comptable — comme Odoo', () => {
       '12 - 18 oct.',
       'Pas dû',
     ]);
-    // Nothing to count in the purchases: nothing said, the bars stay.
+    // Nothing to count in the purchases: no figure, and a sentence instead of empty bars.
     await expect(card(page, 'Achats').locator('.figure')).toHaveCount(0);
-    await expect(card(page, 'Achats').locator('.bar')).toHaveCount(6);
+    await expect(card(page, 'Achats').locator('.bar')).toHaveCount(0);
+    await expect(
+      card(page, 'Achats').getByText('Aucun montant dû ces prochaines semaines.'),
+    ).toBeVisible();
 
     await sales.getByRole('link', { name: '1 À valider' }).click();
     await expect(page).toHaveURL(/\/app\/comptabilite\/ventes\/factures\?etat=draft$/);

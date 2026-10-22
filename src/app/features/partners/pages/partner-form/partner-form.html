@@ -12,6 +12,8 @@
   <alco-loading [rows]="8" label="Chargement du contact…" />
 } @else {
   <alco-page-header
+    [sticky]="true"
+    [dirty]="form.dirty"
     [title]="isNew ? 'Nouveau contact' : 'Modifier ' + (partner()?.name ?? '')"
     [subtitle]="
       isNew ? 'Le code du contact est attribué à l’enregistrement.' : (partner()?.code ?? '')
@@ -50,8 +52,11 @@
   }
 
   <form id="partner-form" class="sheet" [formGroup]="form" (ngSubmit)="save()" novalidate>
-    <section class="section" aria-labelledby="general-title">
-      <h2 id="general-title" class="alco-section-title">Informations générales</h2>
+    <section class="alco-form-section" aria-labelledby="general-title">
+      <div class="alco-form-section__intro">
+        <h2 id="general-title" class="alco-section-title">Informations générales</h2>
+        <p>Le nom affiché partout, ce que le contact est pour la société, ses identifiants.</p>
+      </div>
       <div class="alco-form-grid">
         @if (!isNew) {
           <div class="fixed">
@@ -66,10 +71,34 @@
         <alco-form-field label="Raison sociale" hint="Si elle diffère du nom">
           <input alcoInput formControlName="legal_name" maxlength="255" />
         </alco-form-field>
-        <fieldset class="roles">
+        <fieldset class="roles alco-form-grid__full">
           <legend>Rôle</legend>
-          <label><input type="checkbox" formControlName="is_customer" /> Client</label>
-          <label><input type="checkbox" formControlName="is_supplier" /> Fournisseur</label>
+          <label class="choice">
+            <input
+              type="checkbox"
+              formControlName="is_customer"
+              aria-describedby="role-customer-hint"
+            />
+            <span class="choice-text">
+              <span class="choice-title">Client</span>
+              <span id="role-customer-hint" class="choice-hint" aria-hidden="true">
+                Il achète à la société
+              </span>
+            </span>
+          </label>
+          <label class="choice">
+            <input
+              type="checkbox"
+              formControlName="is_supplier"
+              aria-describedby="role-supplier-hint"
+            />
+            <span class="choice-text">
+              <span class="choice-title">Fournisseur</span>
+              <span id="role-supplier-hint" class="choice-hint" aria-hidden="true">
+                Il vend à la société
+              </span>
+            </span>
+          </label>
         </fieldset>
         <alco-form-field
           label="Étiquettes"
@@ -87,8 +116,11 @@
       </div>
     </section>
 
-    <section class="section" aria-labelledby="contact-title">
-      <h2 id="contact-title" class="alco-section-title">Coordonnées</h2>
+    <section class="alco-form-section" aria-labelledby="contact-title">
+      <div class="alco-form-section__intro">
+        <h2 id="contact-title" class="alco-section-title">Coordonnées</h2>
+        <p>Pour le joindre, et l’adresse imprimée sur ses factures.</p>
+      </div>
       <div class="alco-form-grid">
         <alco-form-field label="Téléphone">
           <input alcoInput type="tel" formControlName="phone" maxlength="32" autocomplete="tel" />
@@ -119,8 +151,11 @@
 
     <!-- Odoo's « Comptabilité »: the partner's collective accounts (note backend 0045). -->
     @if (customerAccounts().length > 0 || supplierAccounts().length > 0) {
-      <section class="section" aria-labelledby="accounting-title">
-        <h2 id="accounting-title" class="alco-section-title">Comptabilité</h2>
+      <section class="alco-form-section" aria-labelledby="accounting-title">
+        <div class="alco-form-section__intro">
+          <h2 id="accounting-title" class="alco-section-title">Comptabilité</h2>
+          <p>Les comptes où ses factures sont enregistrées.</p>
+        </div>
         <div class="alco-form-grid">
           <alco-form-field label="Compte client" hint="Ce qu’il doit à la société.">
             <select alcoSelect formControlName="customer_account_code">

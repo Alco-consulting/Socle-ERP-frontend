@@ -46,7 +46,7 @@
         <tr>
           <th scope="col" class="col-name">Nom</th>
           <th scope="col" class="col-kind">Type</th>
-          <th scope="col">Compte ou journal</th>
+          <th scope="col">Compte</th>
           <th scope="col">Libellé</th>
           <th scope="col" class="col-status">Statut</th>
           <th scope="col" class="col-actions"><span class="alco-sr-only">Actions</span></th>
@@ -110,7 +110,7 @@
   <alco-loading [rows]="3" label="Chargement des modèles de rapprochement…" />
 }
 
-<!-- The model typed in its row: its name, its type, its account or journal, its label. -->
+<!-- The model typed in its row: its name, its type, its account, its label. -->
 <ng-template #entry>
   <tr
     class="entry alco-controls-underlined"
@@ -136,22 +136,14 @@
       </select>
     </td>
     <td>
-      @if (kindTyped() === 'transfer') {
-        <select alcoSelect formControlName="destination" aria-label="Journal de destination">
-          <option value="">Journal choisi sur la ligne</option>
-          @for (journal of journals.value() ?? []; track journal.public_id) {
-            <option [value]="journal.public_id">{{ journal.name }}</option>
-          }
-        </select>
-      } @else {
-        <alco-autocomplete
-          formControlName="account"
-          [search]="searchAccounts"
-          label="Compte"
-          placeholder="Compte (ex. 631800)"
-          emptyText="Aucun compte ne correspond."
-        />
-      }
+      <!-- A transfer goes through its letterable account: 585 « Virements de fonds ». -->
+      <alco-autocomplete
+        formControlName="account"
+        [search]="searchAccounts"
+        label="Compte"
+        [placeholder]="kindTyped() === 'transfer' ? 'Compte (ex. 585100)' : 'Compte (ex. 631800)'"
+        emptyText="Aucun compte ne correspond."
+      />
     </td>
     <td>
       <input

@@ -42,6 +42,8 @@ export interface JournalTreasuryAccount {
   /** Treasury's balance at the request's `on`. */
   readonly balance: string;
   readonly unreconciled_statement_lines: number;
+  /** Lines « à rapprocher », recorded without their counterpart yet (note backend 0050). */
+  readonly lines_to_reconcile: number;
   /** With `on`: the last 30 days, its first and last points included; `null` without. */
   readonly history: readonly BalancePoint[] | null;
 }
@@ -86,3 +88,30 @@ export interface JournalsDashboard {
   readonly restricted: readonly 'cash'[];
   readonly journals: readonly JournalSummary[];
 }
+
+/** `DashboardsMetric`: an amount (decimal string) or a count; `null` when not known. */
+export interface DashboardMetric {
+  readonly code: string;
+  readonly unit: 'amount' | 'count';
+  readonly value: string | number | null;
+  readonly currency: string | null;
+}
+
+/** `DashboardsOverviewResponse`: the headline metrics of each section the reader may read. */
+export interface OverviewDashboard {
+  readonly scope: {
+    readonly fiscal_year: CodeReference;
+    readonly date_from: string;
+    readonly date_to: string;
+  };
+  readonly sections: readonly {
+    readonly section: string;
+    readonly metrics: readonly DashboardMetric[];
+  }[];
+  /** Sections named without figures: the reader may not read their source. */
+  readonly restricted: readonly string[];
+}
+
+/** Reporting's scope: a fiscal year, or dates inside one. */
+export type DashboardScope =
+  { readonly fiscal_year: string } | { readonly date_from: string; readonly date_to: string };

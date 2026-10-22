@@ -28,6 +28,18 @@ describe('DocumentsApi and AuditApi (attached to a resource of a domain)', () =>
     request.flush({ count: 0, next: null, previous: null, results: [] });
   });
 
+  it('lists every readable document with the criteria the API knows, nothing else', () => {
+    const api = TestBed.inject(DocumentsApi);
+    void firstValueFrom(
+      api.list({ page: 2, search: 'facture', status: 'replaced', resourceType: null }),
+    );
+    const request = httpMock().expectOne((req) => req.url === '/api/v1/documents/');
+    expect(request.request.params.keys().sort()).toEqual(['page', 'page_size', 'search', 'status']);
+    expect(request.request.params.get('page')).toBe('2');
+    expect(request.request.params.get('status')).toBe('replaced');
+    request.flush({ count: 0, next: null, previous: null, results: [] });
+  });
+
   it('uploads a file as multipart, with the resource it belongs to', () => {
     const file = new File(['%PDF'], 'facture.pdf', { type: 'application/pdf' });
     void firstValueFrom(TestBed.inject(DocumentsApi).upload('accounting.entry', 'e-1', file));

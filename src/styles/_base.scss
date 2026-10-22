@@ -9,6 +9,15 @@
 html {
   -webkit-text-size-adjust: 100%;
   text-size-adjust: 100%;
+  // A field reached with Tab is never hidden under the sticky top bar and menu.
+  scroll-padding-top: calc(var(--topbar-height) + var(--module-nav-height) + var(--space-4));
+}
+
+// A form's heading stays in view while it scrolls: a field reached with Tab clears it too.
+@media (min-width: 768px) {
+  html:has(alco-page-header.sticky) {
+    scroll-padding-top: calc(var(--topbar-height) + var(--module-nav-height) + 8rem);
+  }
 }
 
 body {

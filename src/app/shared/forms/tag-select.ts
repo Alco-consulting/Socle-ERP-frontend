@@ -111,8 +111,8 @@ export interface TagOption {
     }
     .remove:focus-visible,
     .add:focus-visible {
-      outline: 2px solid var(--color-focus-ring);
-      outline-offset: 1px;
+      outline: var(--focus-ring-width) solid var(--color-focus-ring);
+      outline-offset: var(--border-width);
     }
     .add {
       width: 100%;

@@ -230,15 +230,16 @@
               @let label = row.label || row.entry.description;
               <span class="cut label" [title]="label">{{ label }}</span>
             </ng-template>
+            <!-- A line is either debit or credit: the other cell stays empty, as Odoo's. -->
             <ng-template alcoCell="debit" let-row>
-              <span [class.zero]="isZero(row.reference_debit)"
-                >{{ row.reference_debit | alcoAmount: 0 }} {{ row.reference_currency }}</span
-              >
+              @if (!isZero(row.reference_debit)) {
+                {{ row.reference_debit | alcoAmount: 0 }} {{ row.reference_currency }}
+              }
             </ng-template>
             <ng-template alcoCell="credit" let-row>
-              <span [class.zero]="isZero(row.reference_credit)"
-                >{{ row.reference_credit | alcoAmount: 0 }} {{ row.reference_currency }}</span
-              >
+              @if (!isZero(row.reference_credit)) {
+                {{ row.reference_credit | alcoAmount: 0 }} {{ row.reference_currency }}
+              }
             </ng-template>
             <ng-template alcoCell="lettering" let-row>{{ row.lettering ?? '' }}</ng-template>
           </alco-table>

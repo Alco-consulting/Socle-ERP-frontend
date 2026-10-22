@@ -73,7 +73,7 @@ export interface NamedReference extends CodeReference {
   readonly name: string;
 }
 
-/** A model gives the line its account, or makes it an internal transfer (note backend 0048). */
+/** A model gives the line its account; a transfer's is letterable (notes backend 0048, 0049). */
 export type ReconcileModelKind = 'account' | 'transfer';
 
 /** `TreasuryReconcileModel`: Odoo's « Modèle de rapprochement » (note backend 0048). */
@@ -81,10 +81,8 @@ export interface ReconcileModel {
   readonly public_id: string;
   readonly name: string;
   readonly kind: ReconcileModelKind;
-  /** An account model's counterpart account. */
-  readonly account: NamedReference | null;
-  /** A transfer's other journal; none: chosen on the line. */
-  readonly destination: NamedReference | null;
+  /** Its counterpart account; a transfer's: 585 « Virements de fonds », letterable. */
+  readonly account: NamedReference;
   /** The line's label when none is typed. */
   readonly label: string;
   readonly status: RecordStatus;
@@ -93,8 +91,7 @@ export interface ReconcileModel {
 export interface ReconcileModelWrite {
   readonly name?: string;
   readonly kind?: ReconcileModelKind;
-  readonly account?: string | null;
-  readonly destination?: string | null;
+  readonly account?: string;
   readonly label?: string;
   readonly status?: RecordStatus;
 }
@@ -128,14 +125,27 @@ export interface TransactionWrite {
   readonly direction: Direction;
   readonly amount: string;
   readonly partner: string | null;
-  /** An open line of the partner (an invoice), lettered with the transaction. */
+  /**
+   * An open line lettered with the transaction: an invoice of the partner, or a transfer
+   * waiting on its transfer account (note backend 0049).
+   */
   readonly settled_line: string | null;
   /** The counterpart account when no line is settled. */
   readonly offset_account: string | null;
-  /** « Virement interne »: the other bank or cash journal's account (note backend 0046). */
-  readonly internal_account?: string | null;
+  /** An internal transfer sent: the journal where its line « à rapprocher » is created. */
+  readonly destination?: string | null;
   readonly idempotency_key: string;
 }
+
+/** What a line « à rapprocher » is set against (note backend 0050). */
+export type TransactionCounterpart = Pick<
+  TransactionWrite,
+  'partner' | 'settled_line' | 'offset_account'
+>;
+
+/** A line « à rapprocher » taken back: its fields as typed, its counterpart if chosen. */
+export type TransactionReconcile = TransactionCounterpart &
+  Partial<Pick<TransactionWrite, 'operation_date' | 'description' | 'direction' | 'amount'>>;
 
 export type StatementLineStatus = 'unreconciled' | 'reconciled' | 'excluded';
 

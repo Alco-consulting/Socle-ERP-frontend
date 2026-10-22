@@ -91,19 +91,33 @@ const FEES = {
   name: 'Frais bancaires',
   kind: 'account',
   account: { public_id: 'a-631', code: '631800', name: 'Autres frais bancaires' },
-  destination: null,
   label: 'Frais de tenue de compte',
   status: 'active',
 };
-/** Configured by the company: to Coris bank (note backend 0048). */
+/** Configured by the company: through 585100 (note backend 0049). */
 const VERSEMENT = {
   public_id: 'm-vir',
   name: 'Versement en banque',
   kind: 'transfer',
-  account: null,
-  destination: { public_id: 't-bq', code: 'BQ', name: 'Coris bank' },
+  account: { public_id: 'a-585', code: '585100', name: 'Virements de fonds' },
   label: '',
   status: 'active',
+};
+/** 500 000 sent from Coris bank onto 585100, waiting to come in (note backend 0049). */
+const SENT = {
+  ...INVOICE,
+  public_id: 'l-585',
+  entry: { public_id: 'e-bq', entry_number: 'BQ-000012' },
+  entry_date: '2026-10-13',
+  journal: 'BQ',
+  document_reference: '',
+  account: { public_id: 'a-585', code: '585100' },
+  partner: null,
+  label: 'Versement en caisse',
+  amount: '500000.000000',
+  lettered_amount: '0.000000',
+  open_amount: '500000.000000',
+  status: 'open',
 };
 const settle = () => new Promise((resolve) => setTimeout(resolve, 0));
 const text = (element: Element | null | undefined) =>
@@ -273,6 +287,7 @@ describe('Réconciliation bancaire (treasury/accounts/{id}/transactions/, note b
       partner: 'p-9',
       settled_line: null,
       offset_account: null,
+      destination: null,
       idempotency_key: expect.any(String),
     });
     post.flush(ROWS[0]);
@@ -330,16 +345,13 @@ describe('Réconciliation bancaire (treasury/accounts/{id}/transactions/, note b
     expect(element.querySelector('tr.entry')).toBeNull();
   });
 
-  it('nothing sent without an amount, nor without what the line is set against', async () => {
+  it('nothing sent without an amount, nor with a choice begun and left empty', async () => {
     const { component, element, stable } = await open();
     const error = () => text(element.querySelector('.entry-error'));
     enter(element);
     await stable();
     expect(error()).toBe('Saisissez la date et un montant en entrée ou en sortie.');
     component['form'].patchValue({ amountIn: '1000' });
-    enter(element);
-    await stable();
-    expect(error()).toBe('Choisissez un partenaire, un compte ou un virement interne.');
     await press(element, 'Partenaire', stable);
     enter(element);
     await stable();
@@ -350,11 +362,74 @@ describe('Réconciliation bancaire (treasury/accounts/{id}/transactions/, note b
     await stable();
     expect(error()).toBe('Choisissez le compte.');
     component['choose']('transfer');
-    component['form'].controls.other.setValue('');
     enter(element);
     await stable();
-    expect(error()).toBe('Choisissez l’autre journal.');
+    expect(error()).toBe('Choisissez le virement interne.');
     httpMock().expectNone((req) => req.method === 'POST');
+  });
+
+  it('nothing chosen: the line kept « à rapprocher », then reconciled (note backend 0050)', async () => {
+    const { component, element, stable } = await open();
+    component['form'].patchValue({ description: 'versement inconnu', amountIn: '7000' });
+    enter(element);
+    await stable();
+    const kept = httpMock().expectOne('/api/v1/treasury/accounts/t-css/transactions/');
+    expect(kept.request.body).toMatchObject({
+      direction: 'inflow',
+      amount: '7000',
+      partner: null,
+      settled_line: null,
+      offset_account: null,
+    });
+    const pending = {
+      ...ROWS[0],
+      public_id: 'o-9',
+      description: 'versement inconnu',
+      direction: 'inflow',
+      amount: '7000.000000',
+      status: 'confirmed',
+      offset_account: null,
+      accounting_entry: null,
+    };
+    kept.flush(pending);
+    await stable();
+    httpMock().expectOne('/api/v1/treasury/accounts/t-css/balance/').flush({ balance: '0' });
+    httpMock()
+      .expectOne((req) => req.url === '/api/v1/treasury/accounts/t-css/transactions/')
+      .flush(page([pending, ...ROWS]));
+    await stable();
+    const waiting = element.querySelector<HTMLElement>('tbody tr.waiting')!;
+    expect(text(waiting)).toContain('versement inconnu');
+    Array.from(waiting.querySelectorAll<HTMLButtonElement>('button'))
+      .find((button) => text(button) === 'Compte')!
+      .click();
+    await stable();
+
+    // Completed in its own place, as Odoo's: the same row, every field to change.
+    expect(element.querySelectorAll('tbody tr.entry').length).toBe(1);
+    expect(element.querySelector('tbody tr')?.classList.contains('entry')).toBe(true);
+    expect(row(element).getAttribute('aria-label')).toBe('Ligne à rapprocher');
+    expect(component['counterpart']()).toBe('account');
+    component['form'].patchValue({ description: 'rentrée de caisse', amountIn: '7500' });
+    component['form'].controls.account.setValue({ id: 'a-605', label: '605100' });
+    enter(element);
+    await stable();
+    const reconciled = httpMock().expectOne('/api/v1/treasury/operations/o-9/reconcile/');
+    expect(reconciled.request.body).toEqual({
+      operation_date: '2026-10-10',
+      description: 'rentrée de caisse',
+      direction: 'inflow',
+      amount: '7500',
+      partner: null,
+      settled_line: null,
+      offset_account: 'a-605',
+    });
+    reconciled.flush({ ...pending, status: 'accounted' });
+    await stable();
+    httpMock().expectOne('/api/v1/treasury/accounts/t-css/balance/').flush({ balance: '0' });
+    httpMock()
+      .expectOne((req) => req.url === '/api/v1/treasury/accounts/t-css/transactions/')
+      .flush(page(ROWS));
   });
 
   it('« Compte »: any account of the chart, without partner', async () => {
@@ -419,41 +494,47 @@ describe('Réconciliation bancaire (treasury/accounts/{id}/transactions/, note b
       .flush(page(ROWS));
   });
 
-  it('⋮ a transfer model: its journal, both legs at once', async () => {
+  it('⋮ a transfer model: what waits on its account comes in, its amount by itself', async () => {
     const { component, element, stable } = await open();
     const form = component['form'];
     component['onMore']({ id: 'model:m-vir', label: 'Versement en banque' });
-    form.patchValue({ date: '2026-10-14', amountOut: '500000' });
+    form.patchValue({ date: '2026-10-14' });
     await stable();
-    httpMock().expectNone((req) => req.url === '/api/v1/accounting/letterable-lines/');
-    const journals = row(element).querySelector<HTMLSelectElement>(
-      'select[aria-label="Autre journal"]',
+    const waiting = httpMock().expectOne(
+      (req) => req.url === '/api/v1/accounting/letterable-lines/',
+    );
+    expect(waiting.request.params.get('account')).toBe('a-585');
+    expect(waiting.request.params.get('status')).toBe('open');
+    waiting.flush(page([SENT]));
+    await stable();
+    const select = row(element).querySelector<HTMLSelectElement>(
+      'select[aria-label="Virement en attente"]',
     )!;
-    expect(Array.from(journals.options).map((option) => text(option))).toEqual(['Coris bank']);
-    expect(form.controls.other.value).toBe('t-bq');
+    expect(Array.from(select.options).map((option) => text(option))).toEqual([
+      'Nouveau virement (départ)',
+      'BQ · 13/10/2026 · 500 000 GNF · Versement en caisse',
+    ]);
+    expect(form.controls.waiting.value).toBe('l-585');
+    expect(form.controls.amountIn.value).toBe('500000');
+    expect(form.controls.description.value).toBe('Versement en caisse');
     enter(element);
     await stable();
 
     const post = httpMock().expectOne('/api/v1/treasury/accounts/t-css/transactions/');
     expect(post.request.body).toMatchObject({
       operation_date: '2026-10-14',
-      direction: 'outflow',
+      direction: 'inflow',
       amount: '500000',
       partner: null,
-      settled_line: null,
-      internal_account: 't-bq',
+      settled_line: 'l-585',
+      offset_account: 'a-585',
     });
-    post.flush({
-      ...ROWS[0],
-      public_id: 'o-3',
-      description: 'Virement interne Caisse Principale → Coris bank',
-      offset_account: null,
-      transfer_account: { public_id: 't-bq', code: 'BQ', name: 'Coris bank' },
-    });
+    expect(post.request.body).not.toHaveProperty('internal_account');
+    post.flush({ ...ROWS[0], public_id: 'o-3', direction: 'inflow' });
     await stable();
     httpMock()
       .expectOne('/api/v1/treasury/accounts/t-css/balance/')
-      .flush({ balance: '5608500.000000', currency: 'GNF' });
+      .flush({ balance: '6608500.000000', currency: 'GNF' });
     httpMock()
       .expectOne((req) => req.url === '/api/v1/treasury/accounts/t-css/transactions/')
       .flush(
@@ -461,8 +542,9 @@ describe('Réconciliation bancaire (treasury/accounts/{id}/transactions/, note b
           {
             ...ROWS[0],
             public_id: 'o-3',
-            offset_account: null,
-            transfer_account: { public_id: 't-bq', code: 'BQ', name: 'Coris bank' },
+            direction: 'inflow',
+            offset_account: { public_id: 'a-585', code: '585100', name: 'Virements de fonds' },
+            settled: ['BQ-000012'],
           },
         ]),
       );
@@ -472,7 +554,20 @@ describe('Réconciliation bancaire (treasury/accounts/{id}/transactions/, note b
       Array.from(line.querySelectorAll('td'))
         .slice(2, 4)
         .map((cell) => text(cell)),
-    ).toEqual(['Virement interne', 'Coris bank']);
+    ).toEqual(['Virement interne', 'BQ-000012']);
+  });
+
+  it('a transfer account typed in « Compte »: the internal transfer, as from ⋮', async () => {
+    const { component, stable } = await open();
+    await press(component['host'].nativeElement as HTMLElement, 'Compte', stable);
+    component['form'].controls.account.setValue({ id: 'a-585', label: '585100' });
+    await stable();
+    expect(component['counterpart']()).toBe('transfer');
+    httpMock()
+      .expectOne((req) => req.url === '/api/v1/accounting/letterable-lines/')
+      .flush(page([]));
+    await stable();
+    expect(component['form'].controls.waiting.value).toBe('');
   });
 
   it('read only: the lines, no line to type nor « Nouveau »', async () => {

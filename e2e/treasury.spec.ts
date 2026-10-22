@@ -447,39 +447,149 @@ test.describe('Réconciliation bancaire — comme Odoo (note backend 0044)', () 
     });
   });
 
-  test('un virement interne : la sortie de la banque, l’entrée dans la caisse, en une fois', async ({
+  test('un partenaire sans facture : un autre compte que celui du contact', async ({
+    page,
+    api,
+  }) => {
+    await page.goto(`${ROOT}/transactions?compte=BQ-GNF`);
+    await entry(page).getByRole('textbox', { name: 'Libellé' }).fill('achat de fournitures');
+    await press(page, 'Partenaire');
+    await entry(page).getByRole('combobox', { name: 'Partenaire' }).fill('FOU-001');
+    await page.getByRole('option', { name: /FOU-001/ }).click();
+    // Without an invoice, the account replaces the contact's (here 401).
+    const account = entry(page).getByRole('combobox', { name: 'Compte' });
+    await account.fill('601');
+    await page.getByRole('option', { name: /^601\b/ }).click();
+    await entry(page).getByRole('textbox', { name: 'Sortie' }).fill('30000');
+    await page.locator('alco-page-header').getByRole('button', { name: 'Enregistrer' }).click();
+    await expect(lines(page).first()).toContainText('achat de fournitures');
+    const post = api.calls.filter(
+      (call) => call.method() === 'POST' && call.url().includes('/transactions/'),
+    );
+    const body = post[0].postDataJSON() as Record<string, unknown>;
+    expect(body['partner']).toEqual(expect.any(String));
+    expect(body['settled_line']).toBeNull();
+    expect(body['offset_account']).toEqual(expect.any(String));
+
+    // With an invoice, its own account: the field is not offered.
+    await page.getByRole('button', { name: 'Nouveau' }).click();
+    await press(page, 'Partenaire');
+    await entry(page).getByRole('combobox', { name: 'Partenaire' }).fill('CLI-002');
+    await page.getByRole('option', { name: /CLI-002/ }).click();
+    await expect(entry(page).getByRole('combobox', { name: 'Compte' })).toBeVisible();
+    await entry(page)
+      .getByRole('combobox', { name: 'Facture non payée' })
+      .selectOption({ index: 1 });
+    await expect(entry(page).getByRole('combobox', { name: 'Compte' })).toHaveCount(0);
+  });
+
+  test('un virement interne par son compte : le montant en attente vient tout seul', async ({
+    page,
+    api,
+  }) => {
+    // Note backend 0049: « Virements internes » goes through 585100; the cash box sent 300 000.
+    await page.goto(`${ROOT}/transactions?compte=BQ-GNF`);
+    await entry(page).getByRole('textbox', { name: 'Libellé' }).fill('Réception du versement');
+    await more(page, 'Virements internes');
+    const waiting = entry(page).getByRole('combobox', { name: 'Virement en attente' });
+    await expect(waiting.locator('option:checked')).toHaveText(/^CAI · .*300\s000 GNF/);
+    await expect(entry(page).getByRole('textbox', { name: 'Entrée' })).toHaveValue('300000');
+    await entry(page).getByRole('textbox', { name: 'Entrée' }).press('Enter');
+
+    const into = lines(page).first();
+    await expect(into).toContainText('Réception du versement');
+    await expect(into.locator('.partner')).toHaveText('Virement interne');
+    await expect(into.locator('td').nth(4)).toHaveText(/^300\s000 GNF$/);
+    const posts = () =>
+      api.calls.filter((call) => call.method() === 'POST' && call.url().includes('/transactions/'));
+    expect(posts()[0].postDataJSON()).toMatchObject({
+      direction: 'inflow',
+      partner: null,
+      settled_line: expect.any(String),
+      offset_account: expect.any(String),
+    });
+
+    // Nothing waits any more: this line sends one, onto 585100, to the cash box (note 0050).
+    await more(page, 'Virements internes');
+    await expect(waiting.locator('option:checked')).toHaveText(
+      'Aucun virement en attente : départ',
+    );
+    await expect(
+      entry(page).getByRole('combobox', { name: 'Journal d’arrivée' }).locator('option:checked'),
+    ).toHaveText('Caisse A (test)');
+    await entry(page).getByRole('textbox', { name: 'Libellé' }).fill('Approvisionnement caisse');
+    await entry(page).getByRole('textbox', { name: 'Sortie' }).fill('50000');
+    await entry(page).getByRole('textbox', { name: 'Sortie' }).press('Enter');
+    await expect(
+      lines(page).filter({ hasText: 'Approvisionnement caisse' }).locator('.counterpart'),
+    ).toHaveText('585100 Virements de fonds (en attente)');
+    expect(posts()[1].postDataJSON()).toMatchObject({
+      direction: 'outflow',
+      settled_line: null,
+      destination: expect.any(String),
+    });
+
+    // The cash box has its line « à rapprocher »; reconciled, the transfer waiting is chosen.
+    await page.goto(`${ROOT}/transactions?compte=CAISSE`);
+    const arrived = lines(page).filter({ hasText: 'Approvisionnement caisse' });
+    await expect(arrived).toHaveClass(/waiting/);
+    await expect(arrived.locator('td').nth(3)).toHaveText(/^50\s000 GNF$/);
+    // As Odoo's: ⋮ « Virements internes » on the line itself, completed in its own place.
+    await arrived.getByRole('button', { name: 'Plus de choix' }).click();
+    await page.getByRole('menuitem', { name: 'Virements internes' }).click();
+    await expect(entry(page)).toHaveAttribute('aria-label', 'Ligne à rapprocher');
+    await expect(entry(page).getByRole('textbox', { name: 'Libellé' })).toHaveValue(
+      'Approvisionnement caisse',
+    );
+    await expect(entry(page).getByRole('textbox', { name: 'Entrée' })).toHaveValue('50000');
+    await expect(waiting.locator('option:checked')).toHaveText(/^BQ1 · .*50\s000 GNF/);
+    await page.locator('alco-page-header').getByRole('button', { name: 'Enregistrer' }).click();
+    await expect(arrived).not.toHaveClass(/waiting/);
+    await expect(arrived.locator('.partner')).toHaveText('Virement interne');
+    await expect(arrived.locator('.check')).toBeVisible();
+    const reconciled = api.calls.filter(
+      (call) => call.method() === 'POST' && call.url().includes('/reconcile/'),
+    );
+    expect(reconciled[0].postDataJSON()).toMatchObject({
+      settled_line: expect.any(String),
+      offset_account: expect.any(String),
+    });
+  });
+
+  test('une ligne commencée puis quittée : gardée « à rapprocher », comme Odoo', async ({
     page,
   }) => {
-    // Note backend 0048: « Virements internes » configured by the company, then in ⋮.
-    await page.goto('/app/comptabilite/configuration/modeles-rapprochement');
-    await page.getByRole('button', { name: 'Nouveau' }).click();
-    await page.getByRole('textbox', { name: 'Nom du modèle' }).fill('Virements internes');
-    await page.getByRole('combobox', { name: 'Type' }).selectOption({ label: 'Virement interne' });
-    await page.getByRole('button', { name: 'Enregistrer' }).click();
-    await expect(page.getByRole('row', { name: /Virements internes/ })).toContainText(
-      'Journal choisi sur la ligne',
-    );
-    // Note backend 0046: ⋮ « Virements internes », then the other journal.
+    // Note backend 0050: no counterpart chosen, the line waits in the journal and its balance.
     await page.goto(`${ROOT}/transactions?compte=BQ-GNF`);
-    await more(page, 'Virements internes');
-    const journal = entry(page).getByRole('combobox', { name: 'Autre journal' });
-    await expect(journal.locator('option:checked')).toHaveText('Caisse A (test)');
-    await expect(entry(page).getByRole('combobox', { name: 'Facture non payée' })).toHaveCount(0);
-    await entry(page).getByRole('textbox', { name: 'Sortie' }).fill('100000');
-    await entry(page).getByRole('textbox', { name: 'Sortie' }).press('Enter');
+    await expect(page.getByRole('combobox', { name: 'Journal' })).toHaveCount(0);
+    await entry(page).getByRole('textbox', { name: 'Libellé' }).fill('versement inconnu');
+    await entry(page).getByRole('textbox', { name: 'Entrée' }).fill('7000');
+    // Left through the menu, without « Enregistrer ».
+    await page.getByRole('link', { name: 'Tableau de bord' }).click();
+    await expect(page.getByText('Ligne « versement inconnu » gardée à rapprocher.')).toBeVisible();
 
-    const out = lines(page).first();
-    await expect(out.locator('.partner')).toHaveText('Virement interne');
-    await expect(out.locator('.counterpart')).toHaveText('Caisse A (test)');
-    await expect(out.locator('td').nth(5)).toHaveText(/^100\s000 GNF$/);
+    await page.goto(`${ROOT}/transactions?compte=BQ-GNF`);
+    const kept = lines(page).filter({ hasText: 'versement inconnu' });
+    await expect(kept).toHaveClass(/waiting/);
+    await expect(kept.locator('td').nth(3)).toHaveText(/^7\s000 GNF$/);
 
-    await page.goto(`${ROOT}/transactions?compte=CAISSE`);
-    const into = lines(page).first();
-    await expect(into).toContainText(
-      'Virement interne Banque principale A (test) → Caisse A (test)',
-    );
-    await expect(into.locator('.counterpart')).toHaveText('Banque principale A (test)');
-    await expect(into.locator('td').nth(4)).toHaveText(/^100\s000 GNF$/);
+    // As Odoo's: « Compte » on the line itself, which is completed in its own place.
+    await kept.getByRole('button', { name: 'Compte', exact: true }).click();
+    await expect(entry(page)).toHaveAttribute('aria-label', 'Ligne à rapprocher');
+    await expect(page.locator('tr.entry')).toHaveCount(1);
+    // Changed, still waiting: Entrée with no account picked.
+    await entry(page).getByRole('textbox', { name: 'Libellé' }).fill('versement du gérant');
+    await entry(page).getByRole('textbox', { name: 'Libellé' }).press('Enter');
+    const changed = lines(page).filter({ hasText: 'versement du gérant' });
+    await expect(changed).toHaveClass(/waiting/);
+
+    // Then reconciled with an account, in its place.
+    await changed.getByRole('button', { name: 'Compte', exact: true }).click();
+    await entry(page).getByRole('combobox', { name: 'Compte' }).fill('601');
+    await page.getByRole('option', { name: /^601\b/ }).click();
+    await page.locator('alco-page-header').getByRole('button', { name: 'Enregistrer' }).click();
+    await expect(changed).not.toHaveClass(/waiting/);
+    await expect(changed.locator('.check')).toBeVisible();
   });
 
   test('« Compte » ou un modèle du menu ⋮ ; « Gérer modèles » ouvre les modèles', async ({
@@ -518,5 +628,19 @@ test.describe('Réconciliation bancaire — comme Odoo (note backend 0044)', () 
     await page.getByRole('button', { name: 'Enregistrer' }).click();
     await expect(page.getByRole('row', { name: /Agios/ })).toBeVisible();
     expect(await axe(page)).toEqual([]);
+
+    // Note backend 0049: an internal transfer has its account, one that allows lettering.
+    await expect(page.getByRole('row', { name: /Virements internes/ })).toContainText(
+      '585100 Virements de fonds',
+    );
+    await page.getByRole('button', { name: 'Nouveau' }).click();
+    await page.getByRole('textbox', { name: 'Nom du modèle' }).fill('Transfert');
+    await page.getByRole('combobox', { name: 'Type' }).selectOption({ label: 'Virement interne' });
+    await page.getByRole('combobox', { name: 'Compte' }).fill('601');
+    await page.getByRole('option', { name: /^601\b/ }).click();
+    await page.getByRole('button', { name: 'Enregistrer' }).click();
+    await expect(
+      page.getByText('Le compte d’un virement interne doit autoriser le lettrage.'),
+    ).toBeVisible();
   });
 });

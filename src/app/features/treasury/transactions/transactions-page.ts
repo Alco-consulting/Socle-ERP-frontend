@@ -2,6 +2,7 @@ import { NgTemplateOutlet, formatDate } from '@angular/common';
 import {
   ChangeDetectionStrategy,
   Component,
+  DestroyRef,
   ElementRef,
   LOCALE_ID,
   computed,
@@ -12,7 +13,7 @@ import {
 } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { FormControl, FormGroup, ReactiveFormsModule } from '@angular/forms';
-import { ActivatedRoute, Router, RouterLink } from '@angular/router';
+import { ActivatedRoute, RouterLink } from '@angular/router';
 import { catchError, firstValueFrom, map, of } from 'rxjs';
 
 import { UserError, toUserError } from '../../../core/errors/user-error';
@@ -34,6 +35,7 @@ import { AlcoIcon } from '../../../shared/ui/icon/icon';
 import { AlcoLoading } from '../../../shared/ui/loading/loading';
 import { AlcoPageHeader } from '../../../shared/ui/page-header/page-header';
 import { AlcoPagination } from '../../../shared/ui/pagination/pagination';
+import { AlcoToastService } from '../../../shared/ui/toast/toast.service';
 import { localToday } from '../../../shared/utils/dates';
 import {
   formatDecimal,
@@ -46,6 +48,7 @@ import { LetteringApi } from '../../accounting/data-access/lettering-api';
 import { PartnersApi } from '../../partners/data-access/partners-api';
 import {
   ReconcileModel,
+  TransactionCounterpart,
   TreasuryAccount,
   TreasuryTransaction,
 } from '../data-access/reconciliation-models';
@@ -58,8 +61,8 @@ const TRANSFER = 'Virement interne';
 
 /**
  * What the line is set against, as Odoo's buttons (note backend 0048): « Partenaire » (and one
- * of its unpaid invoices), « Compte » (any account of the chart), a « Virement interne » to
- * another journal; none chosen yet: the three buttons.
+ * of its unpaid invoices), « Compte » (any account of the chart), a « Virement interne » through
+ * its transfer account (note backend 0049); none chosen yet: the three buttons.
  */
 type Counterpart = 'choose' | 'partner' | 'account' | 'transfer';
 
@@ -70,6 +73,11 @@ const accountOption = (account: { public_id: string; code: string; name: string 
   detail: account.name,
 });
 
+/** A row of the table: a line of the journal, or the line typed (new, or being completed). */
+type DisplayRow =
+  | { readonly key: string; readonly entry: true; readonly row: Row | null }
+  | { readonly key: string; readonly entry: false; readonly row: Row };
+
 /** A row of the list, in Odoo's words: the date, the partner and label, what it settled. */
 interface Row {
   readonly transaction: TreasuryTransaction;
@@ -78,6 +86,7 @@ interface Row {
   readonly label: string;
   readonly counterpart: string;
   readonly done: boolean;
+  readonly toReconcile: boolean;
   readonly inflow: string;
   readonly outflow: string;
   readonly running: string;
@@ -90,8 +99,9 @@ interface Row {
  * balance after it), then the journal's lines with their running balance. A line is recorded,
  * posted and lettered by the server at once: no lettering to do afterwards. As Odoo's, the
  * line is set against « Partenaire », « Compte » or, in its ⋮ menu, a reconcile model the
- * company configured: an account, or an internal transfer (note backend 0046), with « Gérer
- * modèles » (note backend 0048).
+ * company configured: an account, or an internal transfer through its account — out of one
+ * journal, then into the other with the amount waiting there (note backend 0049) — with
+ * « Gérer modèles » (note backend 0048).
  */
 @Component({
   selector: 'alco-transactions-page',
@@ -120,10 +130,10 @@ export class TransactionsPage {
   private readonly partners = inject(PartnersApi);
   private readonly navigation = inject(NavigationService);
   private readonly session = inject(SessionStore);
-  private readonly router = inject(Router);
   private readonly route = inject(ActivatedRoute);
   private readonly locale = inject(LOCALE_ID);
   private readonly host = inject<ElementRef<HTMLElement>>(ElementRef);
+  private readonly toast = inject(AlcoToastService);
 
   protected readonly pageSize = TREASURY_PAGE_SIZE;
   protected readonly operationsUrl = `${TREASURY}/operations`;
@@ -168,6 +178,20 @@ export class TransactionsPage {
   protected readonly rows = computed<readonly Row[]>(() =>
     (this.lines.value()?.results ?? []).map((transaction) => this.rowOf(transaction)),
   );
+  /**
+   * The table's rows, as Odoo's list: the new line typed on top, or the line « à rapprocher »
+   * being completed in its own place (note backend 0050).
+   */
+  protected readonly displayRows = computed<readonly DisplayRow[]>(() => {
+    const taken = this.reconciling();
+    const typed = this.canRecord() && this.editing();
+    const rows: DisplayRow[] = this.rows().map((row) =>
+      typed && taken?.public_id === row.transaction.public_id
+        ? { key: row.transaction.public_id, entry: true, row }
+        : { key: row.transaction.public_id, entry: false, row },
+    );
+    return typed && !taken ? [{ key: 'new', entry: true, row: null }, ...rows] : rows;
+  });
 
   // ---- The line typed at the top -------------------------------------------------------
   protected readonly canRecord = computed(
@@ -191,12 +215,14 @@ export class TransactionsPage {
     line: new FormControl('', { nonNullable: true }),
     /** « Compte »: any account of the chart that takes entries. */
     account: new FormControl<AutocompleteOption | null>(null),
-    /** « Virement interne »: the other journal's account. */
-    other: new FormControl('', { nonNullable: true }),
+    /** « Virement interne »: the transfer waiting on its account, received; '': one sent. */
+    waiting: new FormControl('', { nonNullable: true }),
+    /** A transfer sent: the journal where its line « à rapprocher » is created. */
+    destination: new FormControl('', { nonNullable: true }),
     amountIn: new FormControl('', { nonNullable: true }),
     amountOut: new FormControl('', { nonNullable: true }),
   });
-  private readonly value = toSignal(
+  protected readonly value = toSignal(
     this.form.valueChanges.pipe(map(() => this.form.getRawValue())),
     {
       initialValue: this.form.getRawValue(),
@@ -205,6 +231,22 @@ export class TransactionsPage {
   /** The partner's unpaid invoices (its open lines), read when the partner is chosen. */
   protected readonly openLines = signal<readonly LetterableLine[]>([]);
   protected readonly counterpart = signal<Counterpart>('choose');
+  /** « Virement interne »: its model (its transfer account), and what waits on that account. */
+  protected readonly transferModel = signal<ReconcileModel | null>(null);
+  protected readonly pendingTransfers = signal<readonly LetterableLine[]>([]);
+  /** A line « à rapprocher » taken back in the typed row: its counterpart is chosen. */
+  protected readonly reconciling = signal<TreasuryTransaction | null>(null);
+  /** The other journals in this one's currency: where a transfer can go. */
+  protected readonly otherAccounts = computed(() => {
+    const current = this.account();
+    return (this.accounts.value() ?? []).filter(
+      (item) =>
+        !!current &&
+        item.public_id !== current.public_id &&
+        item.currency === current.currency &&
+        item.status === 'active',
+    );
+  });
   protected readonly hasPartner = computed(
     () => this.counterpart() === 'partner' && this.value().partner !== null,
   );
@@ -222,8 +264,6 @@ export class TransactionsPage {
       ...models.map((model) => ({
         id: `model:${model.public_id}`,
         label: model.name,
-        // A transfer needs another journal in the same currency.
-        disabled: model.kind === 'transfer' && this.otherAccounts().length === 0,
       })),
       {
         id: 'manage',
@@ -233,17 +273,25 @@ export class TransactionsPage {
       },
     ];
   });
-  /** The journals an internal transfer can go to: the others, in the same currency. */
-  protected readonly otherAccounts = computed(() => {
-    const current = this.account();
-    return (this.accounts.value() ?? []).filter(
-      (item) =>
-        current && item.public_id !== current.public_id && item.currency === current.currency,
-    );
-  });
+  /** The transfer accounts of the company (its transfer models'): their lines are transfers. */
+  private readonly transferAccounts = computed(
+    () =>
+      new Set(
+        (this.models.value() ?? [])
+          .filter((model) => model.kind === 'transfer')
+          .map((model) => model.account.public_id),
+      ),
+  );
   /** The balance after the line typed, as Odoo's « Solde courant » of the new row. */
   protected readonly preview = computed(() => {
     const found = this.balance.value();
+    const taken = this.reconciling();
+    if (taken) {
+      // A line already in the journal: its own place in the balance.
+      return taken.running_balance === null
+        ? ''
+        : `${this.money(taken.running_balance)} ${taken.currency}`;
+    }
     if (!found) {
       return '';
     }
@@ -268,6 +316,8 @@ export class TransactionsPage {
     this.entries.postableAccounts(term).pipe(map((found) => found.map(accountOption)));
 
   constructor() {
+    // Left with a line begun (an amount typed), as Odoo: kept « à rapprocher ».
+    inject(DestroyRef).onDestroy(() => this.keepBegunLine());
     // The journal known: its balance and its lines.
     effect(() => {
       if (this.account()) {
@@ -277,6 +327,16 @@ export class TransactionsPage {
     const controls = this.form.controls;
     controls.partner.valueChanges.subscribe((partner) => this.readOpenLines(partner));
     controls.line.valueChanges.subscribe((id) => this.fillFromLine(id));
+    controls.waiting.valueChanges.subscribe((id) => this.fillFromTransfer(id));
+    // « Compte » given a transfer account: the internal transfer, as from the ⋮ menu.
+    controls.account.valueChanges.subscribe((account) => {
+      const model = (this.models.value() ?? []).find(
+        (item) => item.kind === 'transfer' && item.account.public_id === account?.id,
+      );
+      if (model && this.counterpart() === 'account') {
+        this.useTransfer(model);
+      }
+    });
     // One amount: money in, or money out.
     controls.amountIn.valueChanges.subscribe((amount) => {
       if (amount.trim() && controls.amountOut.value) {
@@ -294,6 +354,13 @@ export class TransactionsPage {
     const name = line.document_reference || line.entry.entry_number;
     const day = formatDate(line.entry_date, 'dd/MM/yyyy', this.locale);
     return `${name} · ${day} · ${this.money(line.open_amount)} ${line.currency}`;
+  }
+
+  /** « CAI · 17/10/2026 · 500 000 GNF · Initiation de OM »: where it left, when, how much. */
+  protected transferLabel(line: LetterableLine): string {
+    const day = formatDate(line.entry_date, 'dd/MM/yyyy', this.locale);
+    const parts = [line.journal, day, `${this.money(line.open_amount)} ${line.currency}`];
+    return [...parts, line.label].filter(Boolean).join(' · ');
   }
 
   protected money(value: string): string {
@@ -314,19 +381,19 @@ export class TransactionsPage {
   protected choose(counterpart: Counterpart): void {
     const controls = this.form.controls;
     controls.partner.setValue(null);
-    controls.account.setValue(null);
-    controls.other.setValue(
-      counterpart === 'transfer' ? (this.otherAccounts()[0]?.public_id ?? '') : '',
-    );
+    controls.account.setValue(null, { emitEvent: false });
+    controls.waiting.setValue('', { emitEvent: false });
+    this.transferModel.set(null);
+    this.pendingTransfers.set([]);
     this.invalid.set(null);
     this.counterpart.set(counterpart);
-    const field = { partner: 'partner', account: 'account', transfer: 'other' } as const;
+    const field = { partner: 'partner', account: 'account', transfer: 'waiting' } as const;
     if (counterpart !== 'choose') {
       setTimeout(() => this.focus(field[counterpart]));
     }
   }
 
-  /** A model of the ⋮ menu: an internal transfer to its journal, or its account; its label. */
+  /** A model of the ⋮ menu: an internal transfer, or its account; its label. */
   protected onMore(item: DropdownItem): void {
     const model = (this.models.value() ?? []).find(
       (found) => `model:${found.public_id}` === item.id,
@@ -336,14 +403,8 @@ export class TransactionsPage {
     }
     const controls = this.form.controls;
     if (model.kind === 'transfer') {
-      this.choose('transfer');
-      const destination = this.otherAccounts().find(
-        (other) => other.public_id === model.destination?.public_id,
-      );
-      if (destination) {
-        controls.other.setValue(destination.public_id);
-      }
-    } else if (model.account) {
+      this.useTransfer(model);
+    } else {
       this.choose('account');
       controls.account.setValue(accountOption(model.account));
     }
@@ -355,6 +416,35 @@ export class TransactionsPage {
   protected ignore(): void {
     this.reset();
     this.editing.set(false);
+  }
+
+  /**
+   * A line « à rapprocher »: completed in its own place, as Odoo's — « Partenaire », « Compte »
+   * or ⋮ chosen on it, every field still to change (note backend 0050).
+   */
+  protected completeRow(transaction: TreasuryTransaction, counterpart: Counterpart): void {
+    this.reconcileRow(transaction);
+    this.choose(counterpart);
+  }
+
+  /** ⋮ on a line « à rapprocher »: its model applied there. */
+  protected completeRowWith(transaction: TreasuryTransaction, item: DropdownItem): void {
+    this.reconcileRow(transaction);
+    this.onMore(item);
+  }
+
+  private reconcileRow(transaction: TreasuryTransaction): void {
+    // A new line begun on top is kept « à rapprocher » first, as Odoo saves it.
+    this.keepBegunLine(true);
+    this.reset(transaction.operation_date);
+    this.reconciling.set(transaction);
+    const amount = trimDecimalZeros(transaction.amount, this.decimals());
+    const out = transaction.direction === 'outflow';
+    const controls = this.form.controls;
+    controls.description.setValue(transaction.description || transaction.reference);
+    controls.amountIn.setValue(out ? '' : amount, { emitEvent: false });
+    controls.amountOut.setValue(out ? amount : '', { emitEvent: false });
+    this.editing.set(true);
   }
 
   /** Entrée in the row: the line saved, a new one to type (a choice in a list stays a choice). */
@@ -383,38 +473,67 @@ export class TransactionsPage {
       return;
     }
     const counterpart = this.counterpart();
+    const reconciling = this.reconciling();
+    const transfer = counterpart === 'transfer' ? this.transferModel() : null;
+    const sends = !!transfer && !value.waiting && !reconciling;
     const missing = {
-      choose: 'Choisissez un partenaire, un compte ou un virement interne.',
+      // Nothing chosen: the line is kept (or stays) « à rapprocher » (note backend 0050).
+      choose: null,
       partner: value.partner ? null : 'Choisissez le partenaire.',
       account: value.account ? null : 'Choisissez le compte.',
-      transfer: value.other ? null : 'Choisissez l’autre journal.',
+      transfer: !transfer
+        ? 'Choisissez le virement interne.'
+        : sends && !value.destination && this.otherAccounts().length > 0
+          ? 'Choisissez le journal d’arrivée du virement.'
+          : null,
     }[counterpart];
-    if (missing) {
+    // A line « à rapprocher » with nothing picked yet: its changes kept, still waiting.
+    if (missing && !reconciling) {
       this.invalid.set(missing);
       return;
     }
-    const transfer = counterpart === 'transfer';
+    const chosen: TransactionCounterpart = {
+      partner: counterpart === 'partner' ? (value.partner?.id ?? null) : null,
+      // An invoice of the partner, or the transfer waiting to come (note backend 0049).
+      settled_line:
+        counterpart === 'partner' ? value.line || null : transfer ? value.waiting || null : null,
+      // « Compte », or with a partner and no invoice: an account instead of the contact's;
+      // a transfer: its account.
+      offset_account: transfer
+        ? transfer.account.public_id
+        : counterpart === 'account' || (counterpart === 'partner' && !value.line)
+          ? (value.account?.id ?? null)
+          : null,
+    };
     this.invalid.set(null);
     this.saving.set(true);
     try {
       await firstValueFrom(
-        this.treasury.recordTransaction(account.public_id, {
-          operation_date: value.date,
-          description: value.description.trim(),
-          direction: amountIn ? 'inflow' : 'outflow',
-          amount,
-          partner: counterpart === 'partner' ? (value.partner?.id ?? null) : null,
-          settled_line: counterpart === 'partner' ? value.line || null : null,
-          offset_account: counterpart === 'account' ? (value.account?.id ?? null) : null,
-          ...(transfer ? { internal_account: value.other } : {}),
-          idempotency_key: this.idempotencyKey,
-        }),
+        reconciling
+          ? this.treasury.reconcileTransaction(reconciling.public_id, {
+              operation_date: value.date,
+              description: value.description.trim(),
+              direction: amountIn ? 'inflow' : 'outflow',
+              amount,
+              ...chosen,
+            })
+          : this.treasury.recordTransaction(account.public_id, {
+              operation_date: value.date,
+              description: value.description.trim(),
+              direction: amountIn ? 'inflow' : 'outflow',
+              amount,
+              ...chosen,
+              // A transfer sent: its line « à rapprocher » in the journal it goes to.
+              destination: sends ? value.destination || null : null,
+              idempotency_key: this.idempotencyKey,
+            }),
       );
       this.idempotencyKey = crypto.randomUUID();
       this.reset(value.date);
       this.page.set(1);
       this.reload();
-      if (close) {
+      // A line completed in its place: done, the list as it is.
+      if (close || reconciling) {
         this.editing.set(false);
       } else {
         setTimeout(() => this.focus('description'));
@@ -435,17 +554,22 @@ export class TransactionsPage {
   }
 
   private reset(date = localToday()): void {
+    this.form.enable({ emitEvent: false });
     this.form.reset({
       date,
       description: '',
       partner: null,
       line: '',
       account: null,
-      other: '',
+      waiting: '',
+      destination: '',
       amountIn: '',
       amountOut: '',
     });
+    this.reconciling.set(null);
     this.openLines.set([]);
+    this.transferModel.set(null);
+    this.pendingTransfers.set([]);
     this.counterpart.set('choose');
     this.invalid.set(null);
     this.error.set(null);
@@ -466,10 +590,106 @@ export class TransactionsPage {
       .subscribe((found) => this.openLines.set(found));
   }
 
+  /**
+   * « Virement interne »: its account, and the transfers waiting there from the other journals;
+   * the first one comes in at once (note backend 0049). None: this line sends one.
+   */
+  private useTransfer(model: ReconcileModel): void {
+    const description = this.form.controls.description.value;
+    this.choose('transfer');
+    this.form.controls.description.setValue(description);
+    this.transferModel.set(model);
+    this.form.controls.account.setValue(accountOption(model.account), { emitEvent: false });
+    const journal = this.account()?.journal?.code;
+    this.lettering
+      .lines({ account: model.account.public_id, status: 'open' })
+      .pipe(
+        map((found) => found.results.filter((line) => !journal || line.journal !== journal)),
+        catchError(() => of([] as LetterableLine[])),
+      )
+      .subscribe((found) => {
+        if (this.transferModel() !== model) {
+          return;
+        }
+        this.pendingTransfers.set(found);
+        // A line taken back: the transfer of its very amount; otherwise the first waiting.
+        const amount = this.reconciling()?.amount;
+        const match = amount
+          ? found.find((line) => Number(line.open_amount) === Number(amount))
+          : found[0];
+        if (match) {
+          this.form.controls.waiting.setValue(match.public_id);
+        } else if (!this.reconciling()) {
+          this.form.controls.destination.setValue(this.otherAccounts()[0]?.public_id ?? '');
+        }
+      });
+  }
+
+  /** A line begun and left (an amount typed, not recorded): kept « à rapprocher ». */
+  private keepBegunLine(alive = false): void {
+    const account = this.account();
+    const value = this.form.getRawValue();
+    const amountIn = normalizeDecimalInput(value.amountIn.trim());
+    const amount = amountIn || normalizeDecimalInput(value.amountOut.trim());
+    if (
+      !account ||
+      !this.canRecord() ||
+      !this.editing() ||
+      this.saving() ||
+      this.reconciling() ||
+      !value.date ||
+      !amount ||
+      Number(amount) <= 0
+    ) {
+      return;
+    }
+    this.treasury
+      .recordTransaction(account.public_id, {
+        operation_date: value.date,
+        description: value.description.trim(),
+        direction: amountIn ? 'inflow' : 'outflow',
+        amount,
+        partner: null,
+        settled_line: null,
+        offset_account: null,
+        idempotency_key: this.idempotencyKey,
+      })
+      .subscribe({
+        next: () => {
+          this.idempotencyKey = crypto.randomUUID();
+          this.toast.info(`Ligne « ${value.description.trim() || amount} » gardée à rapprocher.`);
+          if (alive) {
+            this.reload();
+          }
+        },
+        error: () => undefined,
+      });
+  }
+
+  /** A transfer waiting chosen: its amount, on the other side; its label if none is typed. */
+  private fillFromTransfer(id: string): void {
+    const line = this.pendingTransfers().find((item) => item.public_id === id);
+    if (!line) {
+      return;
+    }
+    const controls = this.form.controls;
+    if (this.reconciling()) {
+      return; // the line's own amount
+    }
+    const amount = trimDecimalZeros(line.open_amount, this.decimals());
+    // Sent from another journal (a debit on the transfer account): it comes in here.
+    const comesIn = line.side === 'debit';
+    controls.amountIn.setValue(comesIn ? amount : '', { emitEvent: false });
+    controls.amountOut.setValue(comesIn ? '' : amount, { emitEvent: false });
+    if (!controls.description.value.trim()) {
+      controls.description.setValue(line.label || TRANSFER);
+    }
+  }
+
   /** An invoice chosen: what remains on it, received or paid; its number as the label. */
   private fillFromLine(id: string): void {
     const line = this.openLines().find((item) => item.public_id === id);
-    if (!line) {
+    if (!line || this.reconciling()) {
       return;
     }
     const controls = this.form.controls;
@@ -490,20 +710,27 @@ export class TransactionsPage {
     const money = (value: string) => `${this.money(value)} ${transaction.currency}`;
     const account = transaction.offset_account;
     const other = transaction.transfer_account;
+    // Through the transfer account (note backend 0049): an internal transfer, too.
+    const viaTransfer = !!account && this.transferAccounts().has(account.public_id);
     const counterpart = other
       ? other.name
       : transaction.settled.length
         ? transaction.settled.join(', ')
         : account
-          ? `${account.code} ${account.name}`
+          ? `${account.code} ${account.name}${viaTransfer ? ' (en attente)' : ''}`
           : '';
     return {
       transaction,
       day: formatDate(transaction.operation_date, 'd MMM', this.locale),
-      partner: other ? TRANSFER : (transaction.counterparty?.name ?? transaction.counterparty_name),
+      partner:
+        other || viaTransfer
+          ? TRANSFER
+          : (transaction.counterparty?.name ?? transaction.counterparty_name),
       label: transaction.description || transaction.reference,
-      counterpart: done ? counterpart : 'À comptabiliser',
+      counterpart: done ? counterpart : 'À rapprocher',
       done,
+      // No entry yet (confirmed, or a draft of « Opérations »): « à rapprocher » (note 0050).
+      toReconcile: (transaction.status === 'confirmed' || transaction.status === 'draft') && !other,
       inflow: out ? '' : money(transaction.amount),
       outflow: out ? money(transaction.amount) : '',
       running: transaction.running_balance === null ? '' : money(transaction.running_balance),
@@ -517,14 +744,6 @@ export class TransactionsPage {
       ? url
       : null;
   });
-
-  protected chooseAccount(code: string): void {
-    void this.router.navigate([], {
-      relativeTo: this.route,
-      queryParams: { compte: code },
-      replaceUrl: true,
-    });
-  }
 
   private focus(name: string): void {
     this.host.nativeElement

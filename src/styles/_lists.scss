@@ -1,0 +1,20 @@
+// A list, as one card (Polaris' index tables): its toolbar — state tabs, search, filters,
+// pages — on top of its table, its loading rows or its empty state. Global because the
+// toolbar (`.control-panel`) and the table (`alco-table`) belong to different components.
+
+.control-panel:has(+ alco-table, + alco-loading, + .empty-frame) {
+  // The page's own gap between them is taken back: they touch.
+  margin-bottom: calc(-1 * var(--space-4));
+  padding: var(--space-3) var(--space-4);
+  border: var(--border-width) solid var(--color-border);
+  border-bottom: 0;
+  border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+  background: var(--color-surface);
+}
+
+.control-panel + alco-table .scroll,
+.control-panel + alco-loading .skeleton-table,
+div.control-panel + div.empty-frame {
+  border-top-left-radius: 0;
+  border-top-right-radius: 0;
+}

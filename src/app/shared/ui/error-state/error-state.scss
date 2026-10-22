@@ -15,7 +15,7 @@
   height: 56px;
   border-radius: var(--radius-pill);
   background: var(--color-danger-soft);
-  color: var(--color-danger);
+  color: var(--color-danger-text);
 }
 
 .error-body {
@@ -75,8 +75,7 @@
   flex-direction: row;
   align-items: flex-start;
   padding: var(--space-3) var(--space-4);
-  border: var(--border-width) solid var(--color-danger);
-  border-left-width: 4px;
+  border: var(--border-width) solid var(--color-danger-soft);
   border-radius: var(--radius-md);
   background: var(--color-danger-soft);
   color: var(--color-danger-text);

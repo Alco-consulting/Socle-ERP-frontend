@@ -1,0 +1,176 @@
+<alco-page-header
+  title="Documents"
+  subtitle="Pièces justificatives jointes aux écritures et aux opérations de trésorerie"
+/>
+
+<div class="control-panel">
+  <alco-status-tabs
+    class="status-tabs"
+    label="États des pièces"
+    [tabs]="statusTabs"
+    [value]="status()"
+    (selected)="chooseStatus($event)"
+  />
+  <alco-search-bar
+    class="search"
+    label="Rechercher une pièce"
+    placeholder="Rechercher par nom ou description…"
+    [query]="searchText()"
+    [facets]="facets()"
+    (queryChange)="onSearch($event)"
+    (facetRemoved)="removeFacet($event)"
+  />
+  <div class="controls">
+    <alco-filter-bar
+      [activeFilterCount]="activeFilterCount()"
+      (applied)="applyFilters()"
+      (cleared)="resetFilters()"
+    >
+      <div alcoFilterFields class="filter-fields" [formGroup]="filterForm">
+        <alco-form-field label="Rattachées à">
+          <select alcoSelect formControlName="type">
+            <option value="">Tous les enregistrements</option>
+            @for (resource of resources; track resource.id) {
+              <option [value]="resource.id">{{ resource.label }}</option>
+            }
+          </select>
+        </alco-form-field>
+      </div>
+    </alco-filter-bar>
+    @if (list.value(); as result) {
+      <p class="alco-caption count">{{ result.count }} pièce{{ result.count > 1 ? 's' : '' }}</p>
+      <alco-pagination
+        class="pager"
+        [page]="result.count > 0 ? page() : 1"
+        [pageSize]="pageSize"
+        [total]="result.count"
+        (pageChange)="setPage($event)"
+      />
+    }
+  </div>
+</div>
+
+@if (actionError(); as failure) {
+  <alco-error-state
+    [inline]="true"
+    [title]="failure.title"
+    [message]="failure.message"
+    [code]="failure.code"
+    [correlationId]="failure.correlationId ?? ''"
+  />
+}
+
+@switch (list.status()) {
+  @case ('forbidden') {
+    <alco-error-state
+      title="Vous n’avez pas accès aux documents de cette société."
+      message="Demandez l’accès à un administrateur de la société si vous en avez besoin."
+    />
+  }
+  @case ('error') {
+    @if (failure(); as error) {
+      <alco-error-state
+        [title]="error.title"
+        [message]="error.message"
+        [code]="error.code"
+        [correlationId]="error.correlationId ?? ''"
+        retryLabel="Réessayer"
+        (retry)="list.reload()"
+      />
+    }
+  }
+  @default {
+    @if (list.value() === null) {
+      <alco-loading variant="table" [rows]="6" [columns]="5" label="Chargement des pièces…" />
+    } @else if (rows().length === 0) {
+      <div class="empty-frame">
+        @if (hasCriteria()) {
+          <alco-empty-state
+            icon="search"
+            title="Aucune pièce ne correspond à ces critères."
+            message="Modifiez la recherche ou retirez un filtre."
+          >
+            <button alcoButton type="button" icon="refresh" (click)="resetFilters()">
+              Réinitialiser les filtres
+            </button>
+          </alco-empty-state>
+        } @else {
+          <alco-empty-state
+            icon="documents"
+            title="Aucune pièce justificative pour l’instant."
+            message="Une facture, un reçu ou un relevé se joint depuis l’écriture ou l’opération qu’il justifie ; il apparaît ensuite ici."
+          >
+            @if (entriesUrl(); as url) {
+              <a alcoButton variant="primary" icon="accounting" [routerLink]="url">
+                Ouvrir les écritures
+              </a>
+            }
+          </alco-empty-state>
+        }
+      </div>
+    } @else {
+      <alco-table
+        [class.reloading]="list.loading()"
+        [attr.aria-busy]="list.loading()"
+        caption="Pièces justificatives, les plus récentes d’abord"
+        [columns]="columns()"
+        [rows]="rows()"
+        [rowId]="rowId"
+        [rowLabel]="rowLabel"
+      >
+        <ng-template alcoCell="name" let-document>
+          @let file = kind(document.content_type);
+          <span class="file">
+            <span class="file-icon" aria-hidden="true">
+              <alco-icon [name]="file.icon" [size]="18" />
+            </span>
+            <span class="file-text">
+              <span class="file-name">{{ document.original_name }}</span>
+              @if (document.description) {
+                <span class="file-description">{{ document.description }}</span>
+              }
+              <span class="file-meta">
+                {{ document.created_at | date: 'dd/MM/yyyy' }} · {{ resourceLabel(document) }}
+              </span>
+            </span>
+          </span>
+        </ng-template>
+        <ng-template alcoCell="resource" let-document>
+          @if (resourceUrl(document); as url) {
+            <a class="code" [routerLink]="url">{{ resourceLabel(document) }}</a>
+          } @else {
+            {{ resourceLabel(document) }}
+          }
+        </ng-template>
+        <ng-template alcoCell="kind" let-document>{{
+          kind(document.content_type).label
+        }}</ng-template>
+        <ng-template alcoCell="size" let-document>{{ size(document.size) }}</ng-template>
+        <ng-template alcoCell="created_at" let-document>
+          {{ document.created_at | date: 'dd/MM/yyyy' }}
+        </ng-template>
+        <ng-template alcoCell="status" let-document>
+          @let look = statusOf(document);
+          <alco-badge [tone]="look.tone" [icon]="look.icon">{{ look.label }}</alco-badge>
+        </ng-template>
+        <ng-template alcoCell="open" let-document>
+          @if (canDownload() && document.status !== 'deleted') {
+            <button
+              alcoButton
+              type="button"
+              size="sm"
+              variant="ghost"
+              icon="download"
+              [disabled]="opening() !== null"
+              [loading]="opening() === document.public_id"
+              loadingLabel="Ouverture…"
+              (click)="open(document)"
+            >
+              Ouvrir <span class="alco-sr-only">{{ document.original_name }}</span>
+            </button>
+          }
+        </ng-template>
+      </alco-table>
+    }
+  }
+}

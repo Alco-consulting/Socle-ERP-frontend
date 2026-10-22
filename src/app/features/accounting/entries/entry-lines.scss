@@ -1,6 +1,6 @@
 @use 'breakpoints' as bp;
 
-// As in Odoo: a narrow panel, one line per row, long texts cut, a zero side muted.
+// As in Odoo: a narrow panel, one line per row, long texts cut, a zero side empty.
 .chart-layout {
   grid-template-columns: 6rem minmax(0, 1fr);
 
@@ -32,8 +32,4 @@
 
 .partner {
   max-width: 8rem;
-}
-
-.zero {
-  color: var(--color-text-muted);
 }

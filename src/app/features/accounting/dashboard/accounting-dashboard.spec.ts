@@ -36,6 +36,7 @@ const ACCOUNT = {
   currency: 'GNF',
   balance: '20000000.000000',
   unreconciled_statement_lines: 2,
+  lines_to_reconcile: 1,
   history: [
     { date: '2026-09-04', balance: '0.000000' },
     { date: '2026-10-01', balance: '20000000.000000' },
@@ -60,7 +61,13 @@ const CASH: JournalSummary = {
   name: 'Caisse Principale',
   journal_type: 'cash',
   treasury_accounts: [
-    { ...ACCOUNT, public_id: 't-cai', code: 'CAISSE', unreconciled_statement_lines: 0 },
+    {
+      ...ACCOUNT,
+      public_id: 't-cai',
+      code: 'CAISSE',
+      unreconciled_statement_lines: 0,
+      lines_to_reconcile: 0,
+    },
   ],
 };
 const WEEKS = [
@@ -125,6 +132,41 @@ describe('AccountingDashboardPage (dashboards/journals/, as Odoo)', () => {
     vi.useFakeTimers({ toFake: ['Date'] });
     vi.setSystemTime(new Date(2026, 9, 4, 10, 30));
   });
+  const YEAR = {
+    public_id: 'fy-2026',
+    code: '2026',
+    label: 'Exercice 2026',
+    start_date: '2026-01-01',
+    end_date: '2026-12-31',
+    status: 'open',
+  };
+  const amount = (code: string, value: string | null) => ({
+    code,
+    unit: 'amount',
+    value,
+    currency: 'GNF',
+    comparison: null,
+  });
+  const OVERVIEW = {
+    scope: {
+      fiscal_year: { public_id: 'fy-2026', code: '2026' },
+      date_from: '2026-01-01',
+      date_to: '2026-12-31',
+    },
+    sections: [
+      {
+        section: 'financial',
+        metrics: [
+          amount('total_income', '1000.000000'),
+          amount('total_expense', '1500.000000'),
+          amount('result', '-500.000000'),
+        ],
+      },
+      { section: 'cash', metrics: [amount('booked_balance', '26730000.000000')] },
+    ],
+    restricted: ['receivables', 'payables'],
+  };
+
   afterEach(() => {
     httpMock().verify();
     vi.useRealTimers();
@@ -164,6 +206,14 @@ describe('AccountingDashboardPage (dashboards/journals/, as Odoo)', () => {
     mock
       .expectOne((req) => req.url === '/api/v1/currencies/')
       .flush(page([{ code: 'GNF', name: 'Franc guinéen', decimal_places: 0, status: 'active' }]));
+    // The headline figures: the fiscal years first, then the current one's overview.
+    for (const years of mock.match((req) => req.url === '/api/v1/accounting/fiscal-years/')) {
+      years.flush(page([YEAR]));
+    }
+    await stable();
+    for (const overview of mock.match((req) => req.url === '/api/v1/dashboards/overview/')) {
+      overview.flush(OVERVIEW);
+    }
     await stable();
     return request;
   }
@@ -172,6 +222,29 @@ describe('AccountingDashboardPage (dashboards/journals/, as Odoo)', () => {
     Array.from(element.querySelectorAll('.card')).find(
       (item) => text(item.querySelector('.card-title')) === name,
     );
+
+  it('the six headline figures of the current fiscal year; a loss said in words', async () => {
+    const { element, stable } = await open();
+    await answer(stable, journals([CASH]));
+
+    const figures = Array.from(element.querySelectorAll('.kpi')).map((kpi) => text(kpi));
+    expect(figures).toEqual([
+      'Trésorerie 26 730 000 GNF Banques et caisses',
+      'Produits 1 000 GNF Ventes et autres produits',
+      'Charges 1 500 GNF Achats et autres charges',
+      'Résultat -500 GNF Perte',
+      'Créances clients — Accès restreint',
+      'Dettes fournisseurs — Accès restreint',
+    ]);
+    const period = element.querySelector<HTMLSelectElement>(
+      'select[aria-label="Période des indicateurs"]',
+    )!;
+    expect(Array.from(period.options).map((option) => text(option))).toEqual([
+      'Exercice 2026',
+      'Ce trimestre',
+      'Ce mois-ci',
+    ]);
+  });
 
   it('one request for every journal, with the day; cards in Odoo’s order; no alert', async () => {
     const { element, stable } = await open();
@@ -205,6 +278,14 @@ describe('AccountingDashboardPage (dashboards/journals/, as Odoo)', () => {
     );
     expect(text(reconcile)).toBe('Rapprocher 2 éléments');
     expect(reconcile?.getAttribute('href')).toBe('/app/comptabilite/tresorerie/rapprochements');
+    // As Odoo's « 1 à réconcilier »: its lines waiting for their counterpart (note backend 0050).
+    const waiting = Array.from(bank.querySelectorAll('a')).find((link) =>
+      text(link).endsWith('à réconcilier'),
+    );
+    expect(text(waiting)).toBe('1 à réconcilier');
+    expect(waiting?.getAttribute('href')).toBe(
+      '/app/comptabilite/tresorerie/transactions?compte=BANK1',
+    );
     const curve = bank.querySelector('alco-balance-curve [role="img"]');
     expect(norm(curve?.getAttribute('aria-label'))).toBe(
       'Solde sur 30 jours : 0 GNF le 4 sept., 20 000 000 GNF le 4 oct.',
@@ -213,6 +294,7 @@ describe('AccountingDashboardPage (dashboards/journals/, as Odoo)', () => {
     expect(norm(bank.querySelector('.dot')?.getAttribute('title'))).toBe('4 sept. : Solde 0 GNF');
     // Nothing to reconcile in the cash box: no button.
     expect(text(card(element, 'Caisse Principale'))).not.toContain('Rapprocher');
+    expect(text(card(element, 'Caisse Principale'))).not.toContain('à réconcilier');
   });
 
   it('treasury not readable (null): no balance, no curve, nothing said', async () => {

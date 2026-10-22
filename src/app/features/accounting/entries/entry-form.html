@@ -22,6 +22,8 @@
   </div>
 } @else {
   <alco-page-header
+    [sticky]="true"
+    [dirty]="form.dirty"
     [title]="isNew ? 'Nouvelle écriture' : 'Modifier le brouillon'"
     [subtitle]="
       isNew ? 'Enregistrée en brouillon, elle restera à valider.' : (entry()?.description ?? '')
@@ -60,10 +62,17 @@
     />
   }
 
-  <form id="entry-form" class="sheet" [formGroup]="form" (ngSubmit)="save()" novalidate>
+  <form
+    id="entry-form"
+    class="sheet"
+    [formGroup]="form"
+    (ngSubmit)="save()"
+    (keydown)="onFormKeydown($event)"
+    novalidate
+  >
     <section class="section" aria-labelledby="general-title">
       <h2 id="general-title" class="alco-section-title">Informations générales</h2>
-      <div class="alco-form-grid">
+      <div class="alco-form-grid alco-form-grid--3">
         <alco-form-field label="Journal" [required]="true">
           <select alcoSelect formControlName="journal">
             <option value="" disabled>Choisir un journal</option>
@@ -132,83 +141,167 @@
           écran, ni le journal, la date, la devise ou l’arrondi.
         </p>
       }
-      <div class="lines" formArrayName="lines">
-        @for (line of lines.controls; track line; let i = $index) {
-          <fieldset class="line" [formGroupName]="i" [attr.data-line]="i">
-            <legend class="line-title">Ligne {{ i + 1 }}</legend>
-            <div class="line-grid">
-              <alco-form-field class="account" label="Compte" [required]="true">
-                <alco-autocomplete
-                  formControlName="account"
-                  [search]="searchAccounts"
-                  placeholder="Code ou nom du compte"
-                  emptyText="Aucun compte imputable ne correspond."
-                />
-              </alco-form-field>
-              <alco-form-field class="label" label="Libellé de la ligne" [optional]="true">
-                <input alcoInput formControlName="label" maxlength="255" />
-              </alco-form-field>
-              <alco-form-field class="amount" label="Débit">
-                <input alcoInput [numeric]="true" inputmode="decimal" formControlName="debit" />
-              </alco-form-field>
-              <alco-form-field class="amount" label="Crédit">
-                <input alcoInput [numeric]="true" inputmode="decimal" formControlName="credit" />
-              </alco-form-field>
-              <alco-form-field class="partner" label="Tiers" [optional]="true">
-                <alco-autocomplete
-                  formControlName="partner"
-                  [search]="searchPartners"
-                  placeholder="Code ou nom du tiers"
-                  emptyText="Aucun tiers actif ne correspond."
-                />
-              </alco-form-field>
+      <!-- As Odoo's: one row per line, Entrée to the next field, the totals under their column. -->
+      <div class="grid-wrap" (focusout)="touched.update((tick) => tick + 1)">
+        <table class="lines-grid" formArrayName="lines">
+          <caption class="alco-sr-only">
+            Lignes de l’écriture
+          </caption>
+          <thead>
+            <tr>
+              <th scope="col" class="col-n"><span class="alco-sr-only">Ligne</span></th>
+              <th scope="col" class="col-account">
+                Compte <span class="required" aria-hidden="true">*</span>
+              </th>
+              <th scope="col" class="col-label">Libellé</th>
+              <th scope="col" class="col-partner">Tiers</th>
               @if (canSeeTaxes) {
-                <alco-form-field class="tax" label="Taxe" [optional]="true">
-                  <select alcoSelect formControlName="tax">
-                    <option value="">Aucune taxe</option>
-                    @for (tax of taxesFor(line.controls.tax.value); track tax.public_id) {
-                      <option
-                        [value]="tax.public_id"
-                        [selected]="tax.public_id === line.controls.tax.value"
-                      >
-                        {{ taxLabel(tax) }}
-                      </option>
-                    }
-                  </select>
-                </alco-form-field>
-                @if (line.controls.tax.value) {
-                  <alco-form-field
-                    class="base"
-                    label="Base taxable"
-                    hint="Montant hors taxe ; vide : déterminée par le serveur."
-                  >
-                    <input
-                      alcoInput
-                      [numeric]="true"
-                      inputmode="decimal"
-                      formControlName="tax_base_amount"
-                    />
-                  </alco-form-field>
-                }
+                <th scope="col" class="col-tax">Taxe</th>
               }
-            </div>
-            @if (!linesLocked()) {
-              <button
-                alcoButton
-                class="remove"
-                type="button"
-                variant="ghost"
-                size="sm"
-                icon="trash"
-                [disabled]="lines.length <= 1"
-                (click)="removeLine(i)"
-              >
-                Retirer la ligne {{ i + 1 }}
-              </button>
+              <th scope="col" class="col-amount num">Débit</th>
+              <th scope="col" class="col-amount num">Crédit</th>
+              <th scope="col" class="col-remove"><span class="alco-sr-only">Retirer</span></th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (line of lines.controls; track line; let i = $index) {
+              <tr [formGroupName]="i" [attr.data-line]="i">
+                <td class="col-n"><span class="line-word">Ligne </span>{{ i + 1 }}</td>
+                <td class="col-account" data-label="Compte">
+                  <alco-autocomplete
+                    [quiet]="true"
+                    formControlName="account"
+                    label="Compte"
+                    [search]="searchAccounts"
+                    placeholder="Numéro ou nom"
+                    emptyText="Aucun compte imputable ne correspond."
+                  />
+                  @if (line.controls.account.value?.detail; as name) {
+                    <span class="cell-detail" [title]="name">{{ name }}</span>
+                  }
+                </td>
+                <td class="col-label" data-label="Libellé">
+                  <input
+                    alcoInput
+                    class="alco-control--quiet"
+                    formControlName="label"
+                    maxlength="255"
+                    aria-label="Libellé de la ligne"
+                    [placeholder]="form.controls.description.value || 'Libellé de la ligne'"
+                  />
+                </td>
+                <td class="col-partner" data-label="Tiers">
+                  <alco-autocomplete
+                    [quiet]="true"
+                    formControlName="partner"
+                    label="Tiers"
+                    [search]="searchPartners"
+                    placeholder="Code ou nom"
+                    emptyText="Aucun tiers actif ne correspond."
+                  />
+                  @if (line.controls.partner.value?.detail; as name) {
+                    <span class="cell-detail" [title]="name">{{ name }}</span>
+                  }
+                </td>
+                @if (canSeeTaxes) {
+                  <td class="col-tax" data-label="Taxe">
+                    <select
+                      alcoSelect
+                      class="alco-control--quiet"
+                      formControlName="tax"
+                      aria-label="Taxe"
+                    >
+                      <option value="">Aucune</option>
+                      @for (tax of taxesFor(line.controls.tax.value); track tax.public_id) {
+                        <option
+                          [value]="tax.public_id"
+                          [selected]="tax.public_id === line.controls.tax.value"
+                        >
+                          {{ taxLabel(tax) }}
+                        </option>
+                      }
+                    </select>
+                    @if (line.controls.tax.value) {
+                      <input
+                        alcoInput
+                        class="base alco-control--quiet"
+                        [numeric]="true"
+                        inputmode="decimal"
+                        formControlName="tax_base_amount"
+                        aria-label="Base taxable"
+                        placeholder="Base (serveur)"
+                        title="Montant hors taxe ; vide : déterminée par le serveur."
+                      />
+                    }
+                  </td>
+                }
+                <td class="col-amount" data-label="Débit">
+                  <input
+                    alcoInput
+                    class="alco-control--quiet"
+                    [numeric]="true"
+                    inputmode="decimal"
+                    formControlName="debit"
+                    aria-label="Débit"
+                    autocomplete="off"
+                  />
+                </td>
+                <td class="col-amount" data-label="Crédit">
+                  <input
+                    alcoInput
+                    class="alco-control--quiet"
+                    [numeric]="true"
+                    inputmode="decimal"
+                    formControlName="credit"
+                    aria-label="Crédit"
+                    autocomplete="off"
+                  />
+                </td>
+                <td class="col-remove">
+                  @if (!linesLocked()) {
+                    <button
+                      alcoButton
+                      class="remove"
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      icon="trash"
+                      [iconOnly]="true"
+                      [disabled]="lines.length <= 1"
+                      (click)="removeLine(i)"
+                    >
+                      Retirer la ligne {{ i + 1 }}
+                    </button>
+                  }
+                </td>
+              </tr>
             }
-          </fieldset>
-        }
+          </tbody>
+          <tfoot>
+            <tr>
+              <th scope="row" [attr.colspan]="canSeeTaxes ? 5 : 4" class="total-label">Total</th>
+              <td class="num total" data-label="Total débit">
+                {{ totals().debit | alcoAmount: decimals() }} {{ currencyShown() }}
+              </td>
+              <td class="num total" data-label="Total crédit">
+                {{ totals().credit | alcoAmount: decimals() }} {{ currencyShown() }}
+              </td>
+              <td></td>
+            </tr>
+          </tfoot>
+        </table>
       </div>
+
+      @if (lineErrors().length > 0) {
+        <ul class="line-errors" role="list" aria-label="Erreurs des lignes">
+          @for (problem of lineErrors(); track problem.key) {
+            <li>
+              <alco-icon name="alert-circle" [size]="14" />
+              Ligne {{ problem.line }} — {{ problem.field }} : {{ problem.message }}
+            </li>
+          }
+        </ul>
+      }
 
       <div class="lines-footer">
         @if (!linesLocked()) {
@@ -216,15 +309,8 @@
             Ajouter une ligne
           </button>
         }
+        <p class="keys alco-caption">Entrée : champ suivant · Ctrl+Entrée : enregistrer</p>
         <dl class="totals" aria-live="polite">
-          <div>
-            <dt>Total débit</dt>
-            <dd>{{ totals().debit | alcoAmount: decimals() }} {{ currencyShown() }}</dd>
-          </div>
-          <div>
-            <dt>Total crédit</dt>
-            <dd>{{ totals().credit | alcoAmount: decimals() }} {{ currencyShown() }}</dd>
-          </div>
           <div class="gap" [class.gap--ok]="totals().balanced && !totals().empty">
             <dt>Écart</dt>
             <dd>
@@ -240,10 +326,13 @@
           </div>
         </dl>
       </div>
-      <p class="alco-caption">
-        Totaux affichés comme aide à la saisie. Le contrôle qui fait foi est celui du serveur ; un
-        brouillon peut être enregistré déséquilibré.
-      </p>
+      @if (!totals().empty && !totals().balanced) {
+        <p class="unbalanced" role="status">
+          <alco-icon name="alert-triangle" [size]="16" />
+          Écriture déséquilibrée : elle s’enregistre en brouillon, mais ne pourra être validée
+          qu’une fois le débit égal au crédit.
+        </p>
+      }
     </section>
 
     <details class="more" [open]="advancedOpen()" (toggle)="onToggle($event)">

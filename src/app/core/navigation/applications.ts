@@ -22,6 +22,8 @@ export interface AppNavLink {
 /** A top-level menu entry: a direct link, or a menu (« Analyse ▾ ») of links, maybe grouped. */
 export interface AppNavEntry {
   readonly label: string;
+  /** Drawn before the label in the menu. */
+  readonly icon?: IconName;
   readonly path?: string;
   /** Permission of the entry; for a group, required by all its links. */
   readonly permission?: string;
@@ -51,6 +53,8 @@ export interface AlcoApplication {
   /** One short line on the launcher tile. */
   readonly description: string;
   readonly icon: IconName;
+  /** The application's picture (public/svg, provided by Alco), drawn as given. */
+  readonly image: string;
   readonly family: AppFamily;
   /** URL segment: /comptabilite */
   readonly path: string;
@@ -83,6 +87,7 @@ export const APPLICATIONS: readonly AlcoApplication[] = [
     label: 'Comptabilité',
     description: 'Écritures, trésorerie, analyse, configuration…',
     icon: 'accounting',
+    image: 'svg/comptabilite.svg',
     family: 'finance',
     path: 'comptabilite',
     permission: 'accounting.read',
@@ -116,11 +121,17 @@ export const APPLICATIONS: readonly AlcoApplication[] = [
       'audit',
     ],
     nav: [
-      { label: 'Tableau de bord', path: 'tableau-de-bord', permission: 'dashboards.read' },
+      {
+        label: 'Tableau de bord',
+        icon: 'dashboard',
+        path: 'tableau-de-bord',
+        permission: 'dashboards.read',
+      },
       // As Odoo's Facturation (note backend 0038): the documents, then the products and
       // the partners of the side.
       {
         label: 'Clients',
+        icon: 'partners',
         children: [
           { label: 'Factures', path: 'ventes/factures', permission: 'invoicing.read' },
           { label: 'Avoirs', path: 'ventes/avoirs', permission: 'invoicing.read' },
@@ -130,6 +141,7 @@ export const APPLICATIONS: readonly AlcoApplication[] = [
       },
       {
         label: 'Fournisseurs',
+        icon: 'company',
         children: [
           { label: 'Factures', path: 'achats/factures', permission: 'invoicing.read' },
           { label: 'Avoirs', path: 'achats/avoirs', permission: 'invoicing.read' },
@@ -139,6 +151,7 @@ export const APPLICATIONS: readonly AlcoApplication[] = [
       },
       {
         label: 'Comptabilité',
+        icon: 'book',
         children: [
           { label: 'Écritures', path: 'ecritures' },
           { label: 'Pièces comptables', path: 'ecritures/pieces' },
@@ -152,6 +165,7 @@ export const APPLICATIONS: readonly AlcoApplication[] = [
       },
       {
         label: 'Analyse',
+        icon: 'analytics',
         children: [
           ...group('Rapports financiers', [
             {
@@ -200,6 +214,7 @@ export const APPLICATIONS: readonly AlcoApplication[] = [
       },
       {
         label: 'Configuration',
+        icon: 'settings',
         children: [
           ...group('Général', [
             { label: 'Paramètres comptables', path: 'configuration/parametres' },
@@ -336,14 +351,15 @@ export const APPLICATIONS: readonly AlcoApplication[] = [
     label: 'Contacts',
     description: 'Fiches clients et fournisseurs',
     icon: 'partners',
+    image: 'svg/tiers.svg',
     family: 'relations',
     path: 'contacts',
     permission: 'partners.read',
     keywords: ['client', 'fournisseur', 'partenaire', 'tiers'],
     nav: [
-      { label: 'Tous les contacts', path: 'liste' },
-      { label: 'Clients', path: 'clients' },
-      { label: 'Fournisseurs', path: 'fournisseurs' },
+      { label: 'Tous les contacts', icon: 'partners', path: 'liste' },
+      { label: 'Clients', icon: 'user', path: 'clients' },
+      { label: 'Fournisseurs', icon: 'company', path: 'fournisseurs' },
     ],
   },
   {
@@ -351,37 +367,45 @@ export const APPLICATIONS: readonly AlcoApplication[] = [
     label: 'Documents',
     description: 'Pièces justificatives',
     icon: 'documents',
+    image: 'svg/documents.svg',
     family: 'relations',
     path: 'documents',
     permission: 'documents.read',
     keywords: ['pièce', 'justificatif', 'fichier'],
-    nav: [{ label: 'Documents', path: 'liste' }],
+    nav: [{ label: 'Documents', icon: 'documents', path: 'liste' }],
   },
   {
     id: 'dashboard',
     label: 'Tableau de bord',
     description: 'Vue d’ensemble de la société',
     icon: 'dashboard',
+    image: 'svg/tableau-de-bord.svg',
     family: 'steering',
     path: 'tableau-de-bord',
     permission: 'dashboards.read',
     keywords: ['dashboard', 'indicateur', 'kpi', 'pilotage'],
-    nav: [{ label: 'Vue d’ensemble', path: 'vue-ensemble' }],
+    nav: [{ label: 'Vue d’ensemble', icon: 'dashboard', path: 'vue-ensemble' }],
   },
   {
     id: 'settings',
     label: 'Paramètres',
     description: 'Société, utilisateurs et droits',
     icon: 'settings',
+    image: 'svg/parametres.svg',
     family: 'control',
     path: 'parametres',
     keywords: ['utilisateur', 'rôle', 'droit', 'société'],
     // Each screen needs the permission of its API (OpenAPI x-permissions): a company
     // administrator without the global `users.read` still reaches its company and members.
     nav: [
-      { label: 'Société', path: 'societe', permission: 'companies.read' },
-      { label: 'Utilisateurs', path: 'utilisateurs', permission: 'users.read' },
-      { label: 'Rôles et droits', path: 'roles', permission: 'companies.manage_members' },
+      { label: 'Société', icon: 'company', path: 'societe', permission: 'companies.read' },
+      { label: 'Utilisateurs', icon: 'user', path: 'utilisateurs', permission: 'users.read' },
+      {
+        label: 'Rôles et droits',
+        icon: 'lock',
+        path: 'roles',
+        permission: 'companies.manage_members',
+      },
     ],
   },
 ];

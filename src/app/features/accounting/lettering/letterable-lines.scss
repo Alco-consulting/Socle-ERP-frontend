@@ -42,7 +42,7 @@
     margin: 0;
 
     &:focus-visible {
-      outline-offset: 2px;
+      outline-offset: var(--focus-ring-offset);
     }
   }
 }

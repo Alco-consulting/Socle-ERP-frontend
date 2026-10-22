@@ -55,6 +55,7 @@ let nextId = 0;
       <input
         #input
         class="alco-control alco-control--select"
+        [class.alco-control--quiet]="quiet()"
         type="text"
         role="combobox"
         autocomplete="off"
@@ -188,6 +189,8 @@ export class AlcoAutocomplete
   readonly placeholder = input('Rechercher…');
   /** Message when the server finds nothing. */
   readonly emptyText = input('Aucun résultat.');
+  /** A cell of an editable grid: framed only when its row is pointed at or it has the focus. */
+  readonly quiet = input(false);
 
   readonly state = signal<ControlState>({ invalid: false, touched: false, errors: null });
 
@@ -366,9 +369,15 @@ export class AlcoAutocomplete
           this.close();
         }
         break;
-      case 'Tab':
+      case 'Tab': {
+        // As Odoo's: Tab keeps the proposal highlighted, then the focus moves on.
+        const active = this.options()[this.active()];
+        if (this.open() && active) {
+          this.choose(active);
+        }
         this.close();
         break;
+      }
     }
   }
 

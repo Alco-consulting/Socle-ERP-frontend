@@ -1,14 +1,10 @@
 import { ChangeDetectionStrategy, Component, input } from '@angular/core';
 
-/** Alco mark + wordmark. `tone="dark"` on light backgrounds (launcher header). */
+/** Alco's mark (public/svg/logo-alco.svg, as provided) and its name. */
 @Component({
   selector: 'alco-logo',
   template: `
-    <svg class="mark" viewBox="0 0 32 32" width="28" height="28" aria-hidden="true">
-      <rect class="mark-bg" width="32" height="32" rx="8" />
-      <path class="mark-a" d="M9.5 23.5 16 9l6.5 14.5" />
-      <path class="mark-bar" d="M12.2 18.5h7.6" />
-    </svg>
+    <img class="mark" src="svg/logo-alco.svg" width="28" height="28" alt="" />
     <span class="wordmark">
       <span class="name">Alco</span>
       <span class="suffix">Consulting</span>
@@ -21,21 +17,10 @@ import { ChangeDetectionStrategy, Component, input } from '@angular/core';
       gap: var(--space-2);
       color: inherit;
     }
-    .mark-bg {
-      fill: var(--color-primary);
-    }
-    .mark-a,
-    .mark-bar {
-      fill: none;
-      stroke-width: 2.6;
-      stroke-linecap: round;
-      stroke-linejoin: round;
-    }
-    .mark-a {
-      stroke: var(--color-text-inverse);
-    }
-    .mark-bar {
-      stroke: var(--color-brand-accent);
+    .mark {
+      flex: none;
+      width: 28px;
+      height: 28px;
     }
     .wordmark {
       display: inline-flex;
@@ -44,14 +29,14 @@ import { ChangeDetectionStrategy, Component, input } from '@angular/core';
       line-height: 1;
     }
     .name {
-      font-size: 1.125rem;
+      font-size: var(--font-size-lead);
       font-weight: var(--font-weight-semibold);
       letter-spacing: -0.01em;
     }
     .suffix {
+      color: var(--color-text-muted);
       font-size: var(--font-size-caption);
       font-weight: var(--font-weight-medium);
-      opacity: 0.75;
     }
     :host(.compact) .suffix {
       display: none;

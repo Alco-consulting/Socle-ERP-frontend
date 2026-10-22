@@ -110,14 +110,22 @@ let nextId = 0;
       flex-wrap: wrap;
       align-items: center;
       gap: var(--space-1);
-      min-height: 2.5rem;
+      height: auto;
+      min-height: var(--control-height);
+      padding-block: var(--space-1);
+    }
+    /* The search input has no ring of its own: the whole field shows the focus. */
+    .tags:focus-within {
+      border-color: var(--color-focus-ring);
+      outline: var(--focus-ring-width) solid var(--color-focus-ring);
+      outline-offset: 0;
     }
     .chip {
       display: inline-flex;
       align-items: center;
       gap: var(--space-1);
       padding: 0 var(--space-2);
-      border-radius: 999px;
+      border-radius: var(--radius-pill);
       background: var(--color-primary-soft);
       color: var(--color-primary-text);
       font-size: var(--font-size-caption);
@@ -142,8 +150,8 @@ let nextId = 0;
     }
     .list {
       position: absolute;
-      z-index: 20;
-      top: calc(100% + 4px);
+      z-index: var(--z-dropdown);
+      top: calc(100% + var(--space-1));
       left: 0;
       right: 0;
       max-height: 15rem;

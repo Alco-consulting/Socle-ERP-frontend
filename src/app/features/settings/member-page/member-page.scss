@@ -1,0 +1,86 @@
+@use 'breakpoints' as bp;
+
+.email {
+  max-width: 28rem;
+}
+
+.member-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3) var(--space-5);
+  padding-bottom: var(--space-5);
+  border-bottom: var(--border-width) solid var(--color-border);
+}
+
+.avatar--large {
+  width: 3rem;
+  height: 3rem;
+  font-size: var(--font-size-subtitle);
+}
+
+.status {
+  gap: var(--space-2);
+}
+
+.rights-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-2);
+}
+
+.hint {
+  margin: 0;
+}
+
+// The rights by application: cards side by side, as many as the width allows.
+.groups {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(15rem, 1fr));
+  gap: var(--space-4);
+}
+
+.group {
+  min-width: 0;
+  overflow: hidden;
+  border: var(--border-width) solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+}
+
+.group-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  padding: var(--space-3) var(--space-4);
+  border-bottom: var(--border-width) solid var(--color-border);
+  background: var(--color-surface-sunken);
+}
+
+.group-label {
+  font-weight: var(--font-weight-semibold);
+}
+
+.group-count {
+  color: var(--color-text-muted);
+  font-size: var(--font-size-caption);
+  font-variant-numeric: tabular-nums;
+}
+
+.items {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin: 0;
+  padding: var(--space-3) var(--space-4) var(--space-4);
+  list-style: none;
+}
+
+.check--off {
+  color: var(--color-text-muted);
+  cursor: not-allowed;
+}

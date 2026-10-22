@@ -8,6 +8,13 @@
 </alco-page-header>
 
 <div class="control-panel">
+  <alco-status-tabs
+    class="status-tabs"
+    label="États des écritures"
+    [tabs]="statusTabs"
+    [value]="status()"
+    (selected)="chooseStatus($event)"
+  />
   <div class="controls">
     <alco-filter-bar
       [activeFilterCount]="activeFilterCount()"

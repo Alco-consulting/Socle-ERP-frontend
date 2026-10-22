@@ -1,0 +1,157 @@
+@if (loadError(); as failure) {
+  <alco-error-state
+    [title]="failure.title"
+    [message]="failure.message"
+    [code]="failure.code"
+    [correlationId]="failure.correlationId ?? ''"
+  />
+  <div class="center">
+    <a alcoButton icon="arrow-left" [routerLink]="list">Retour aux membres</a>
+  </div>
+} @else if (!ready()) {
+  <alco-loading [rows]="6" label="Chargement du membre…" />
+} @else {
+  <alco-page-header
+    [sticky]="!readOnly()"
+    [dirty]="dirty() || email.dirty"
+    [title]="title()"
+    [subtitle]="member()?.user?.email ?? 'Une personne qui a déjà un compte sur la plateforme'"
+  >
+    <div alcoPageActions>
+      <button alcoButton type="button" variant="ghost" (click)="discard()">
+        {{ dirty() || isNew ? 'Annuler' : 'Retour aux membres' }}
+      </button>
+      @if (!readOnly()) {
+        <button
+          alcoButton
+          type="submit"
+          form="member-form"
+          variant="primary"
+          [loading]="saving()"
+          loadingLabel="Enregistrement…"
+        >
+          {{ isNew ? 'Ajouter le membre' : 'Enregistrer' }}
+        </button>
+      }
+    </div>
+  </alco-page-header>
+
+  @if (isSelf()) {
+    <p class="note">
+      Ce sont vos propres droits : un autre administrateur de la société peut les changer.
+    </p>
+  } @else if (outOfReach()) {
+    <p class="note">
+      Ce membre a des droits que vous n’avez pas : seul un administrateur qui les détient peut les
+      modifier.
+    </p>
+  }
+  @if (error(); as failure) {
+    <alco-error-state
+      [inline]="true"
+      [title]="failure.title"
+      [message]="failure.message"
+      [code]="failure.code"
+      [correlationId]="failure.correlationId ?? ''"
+    />
+  }
+
+  <form id="member-form" class="sheet" (submit)="submit($event)" novalidate>
+    @if (isNew) {
+      <alco-form-field
+        class="email"
+        label="Adresse e-mail"
+        [required]="true"
+        hint="La personne doit déjà avoir un compte : elle retrouvera la société à sa connexion."
+      >
+        <input
+          alcoInput
+          id="email"
+          type="email"
+          [formControl]="email"
+          autocomplete="off"
+          placeholder="prenom.nom@exemple.org"
+        />
+      </alco-form-field>
+    } @else if (member(); as current) {
+      <div class="member-head">
+        <span class="person">
+          <span class="avatar avatar--large" aria-hidden="true">{{ initials(current.user) }}</span>
+          <span class="person-text">
+            <span class="person-name">{{ name(current.user) }}</span>
+            <span class="alco-caption">
+              @if (current.roles.length > 0) {
+                Rôles :
+                @for (role of current.roles; track role) {
+                  <alco-badge tone="primary">{{ role }}</alco-badge>
+                }
+              } @else {
+                Aucun rôle : seuls les droits cochés ci-dessous s’appliquent.
+              }
+            </span>
+          </span>
+        </span>
+        <label class="alco-switch status">
+          <input
+            type="checkbox"
+            role="switch"
+            [checked]="active()"
+            [disabled]="readOnly()"
+            (change)="setActive($any($event.target).checked)"
+          />
+          <span class="track" aria-hidden="true"></span>
+          Membre actif
+        </label>
+      </div>
+    }
+
+    <section class="section" aria-labelledby="rights-title">
+      <div class="rights-head">
+        <h2 id="rights-title" class="alco-section-title">Droits dans la société</h2>
+        <span class="alco-caption" aria-live="polite">
+          {{ count() }} droit{{ count() > 1 ? 's' : '' }} accordé{{ count() > 1 ? 's' : '' }}
+        </span>
+      </div>
+      <p class="alco-caption hint">
+        Les droits d’un rôle s’ajoutent à ceux cochés ici. Vous ne pouvez accorder que les droits
+        que vous détenez vous-même.
+      </p>
+      <div class="groups">
+        @for (group of groups; track group.id) {
+          @let checkedCount = countIn(group);
+          <div class="group" role="group" [attr.aria-labelledby]="'group-' + group.id">
+            <div class="group-head">
+              <label class="check group-check">
+                <input
+                  type="checkbox"
+                  [checked]="checkedCount === group.items.length"
+                  [indeterminate]="checkedCount > 0 && checkedCount < group.items.length"
+                  [disabled]="readOnly()"
+                  [attr.aria-label]="group.label + ' : tous les droits'"
+                  (change)="toggleGroup(group, $any($event.target).checked)"
+                />
+                <span class="group-label" [id]="'group-' + group.id">{{ group.label }}</span>
+              </label>
+              <span class="group-count">{{ checkedCount }}/{{ group.items.length }}</span>
+            </div>
+            <ul class="items" role="list">
+              @for (item of group.items; track item.code) {
+                <li>
+                  <label class="check" [class.check--off]="!grantable(item.code) && !readOnly()">
+                    <input
+                      type="checkbox"
+                      [checked]="has(item.code)"
+                      [disabled]="!grantable(item.code)"
+                      (change)="toggle(item.code, $any($event.target).checked)"
+                    />
+                    {{ item.label }}
+                  </label>
+                </li>
+              }
+            </ul>
+          </div>
+        }
+      </div>
+    </section>
+  </form>
+}

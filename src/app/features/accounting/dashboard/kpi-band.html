@@ -1,0 +1,79 @@
+<section class="band" aria-labelledby="kpi-title">
+  <div class="band-head">
+    <div class="band-title">
+      <h2 id="kpi-title" class="alco-section-title">Indicateurs clés</h2>
+      @if (range(); as text) {
+        <span class="alco-caption">{{ text }}</span>
+      }
+    </div>
+    @if (periods().length > 0) {
+      <select
+        alcoSelect
+        class="period"
+        aria-label="Période des indicateurs"
+        [value]="period().id"
+        (change)="choose($any($event.target).value)"
+      >
+        @for (item of periods(); track item.id) {
+          <option [value]="item.id">{{ item.label }}</option>
+        }
+      </select>
+    }
+  </div>
+
+  @if (overview.error()) {
+    <alco-error-state
+      [inline]="true"
+      title="Les indicateurs n’ont pas pu être calculés pour cette période."
+      message="Choisissez une autre période, ou réessayez."
+      retryLabel="Réessayer"
+      (retry)="overview.reload()"
+    />
+  } @else if (kpis().length > 0) {
+    <ul class="kpis" role="list">
+      @for (kpi of kpis(); track kpi.key) {
+        <li>
+          @if (kpi.url; as url) {
+            <a class="kpi kpi--link" [routerLink]="url">
+              <ng-container *ngTemplateOutlet="body; context: { $implicit: kpi }" />
+            </a>
+          } @else {
+            <div class="kpi">
+              <ng-container *ngTemplateOutlet="body; context: { $implicit: kpi }" />
+            </div>
+          }
+        </li>
+      }
+    </ul>
+  } @else {
+    <alco-loading variant="cards" [rows]="6" label="Calcul des indicateurs…" />
+  }
+</section>
+
+<ng-template #body let-kpi>
+  <span class="kpi-head">
+    <span class="kpi-label">{{ kpi.label }}</span>
+    <span [class]="'kpi-mark kpi-mark--' + kpi.mark" aria-hidden="true">
+      <alco-icon [name]="kpi.icon" [size]="16" />
+    </span>
+  </span>
+  <span
+    class="kpi-value"
+    [class.positive]="kpi.tone === 'positive'"
+    [class.negative]="kpi.tone === 'negative'"
+  >
+    @if (kpi.value !== null) {
+      {{ kpi.value }} <span class="kpi-currency">{{ kpi.currency }}</span>
+    } @else {
+      —
+    }
+  </span>
+  <span class="kpi-caption">
+    @if (kpi.tone === 'positive') {
+      <alco-icon name="arrow-up" [size]="14" />
+    } @else if (kpi.tone === 'negative') {
+      <alco-icon name="arrow-down" [size]="14" />
+    }
+    {{ kpi.caption }}
+  </span>
+</ng-template>

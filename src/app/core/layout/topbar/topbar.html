@@ -21,15 +21,25 @@
     @if (app(); as current) {
       <span class="divider" aria-hidden="true"></span>
       <span class="app-name">
-        <span class="app-mark" [attr.data-family]="current.family">
-          <alco-icon [name]="current.icon" [size]="16" />
-        </span>
+        <img class="app-mark" [src]="current.image" width="26" height="26" alt="" />
         {{ current.label }}
       </span>
     }
   </div>
 
   <div class="end">
+    <button
+      type="button"
+      class="search-trigger"
+      aria-label="Rechercher (Ctrl+K)"
+      aria-keyshortcuts="Control+K"
+      (click)="palette.open()"
+    >
+      <alco-icon name="search" [size]="16" />
+      <span class="search-text">Rechercher…</span>
+      <kbd class="search-kbd">Ctrl K</kbd>
+    </button>
+
     @if (session.activeCompany(); as company) {
       <alco-dropdown
         trigger="topbar"
@@ -84,7 +94,7 @@
         [subheading]="user.email"
         [ariaLabel]="'Compte de ' + user.displayName"
         [showChevron]="false"
-        [items]="userItems"
+        [items]="userItems()"
         (selected)="onUserSelected($event)"
       >
         <span class="avatar" aria-hidden="true">{{ session.initials() }}</span>

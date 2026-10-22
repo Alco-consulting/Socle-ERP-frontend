@@ -26,6 +26,7 @@ import {
 } from '../../../shared/forms/autocomplete';
 import { AlcoFormField } from '../../../shared/forms/form-field';
 import { AlcoInput } from '../../../shared/forms/input';
+import { validationMessage } from '../../../shared/forms/validation-messages';
 import { decimalFormat } from '../../../shared/forms/validators';
 import { AlcoAmountPipe } from '../../../shared/pipes/amount.pipe';
 import { AlcoButton } from '../../../shared/ui/button/button';
@@ -39,6 +40,7 @@ import {
   normalizeDecimalInput,
   subtractDecimals,
   sumDecimals,
+  trimDecimalZeros,
 } from '../../../shared/utils/decimal';
 import { localToday } from '../../../shared/utils/dates';
 import { CurrencyOption } from '../../partners/data-access/partner-models';
@@ -92,6 +94,16 @@ const HEADER_FIELDS = [
   'currency',
   'rounding',
 ] as const;
+/** The names of a line's fields, in the messages under the grid. */
+const LINE_LABELS: Readonly<Record<LineField, string>> = {
+  account: 'Compte',
+  label: 'Libellé',
+  debit: 'Débit',
+  credit: 'Crédit',
+  partner: 'Tiers',
+  tax: 'Taxe',
+  tax_base_amount: 'Base taxable',
+};
 const LINE_FIELDS: readonly LineField[] = [
   'account',
   'label',
@@ -263,6 +275,27 @@ export class EntryFormPage {
       empty: isZeroDecimal(debit) && isZeroDecimal(credit),
     };
   });
+  /** A field's state changes (touched, server error) too: the messages under the grid. */
+  private readonly formEvents = toSignal(this.form.events);
+  /** Bumped when the focus leaves a field of the grid: a field left empty is said at once. */
+  protected readonly touched = signal(0);
+  /** « Ligne 2 — Compte : Ce champ est obligatoire. », once touched or after a save. */
+  protected readonly lineErrors = computed(() => {
+    this.value();
+    this.formEvents();
+    this.touched();
+    const shown = this.invalidSubmit();
+    return this.lines.controls.flatMap((line, index) =>
+      LINE_FIELDS.flatMap((field) => {
+        const control = line.controls[field];
+        const message =
+          control.invalid && (control.touched || shown) ? validationMessage(control.errors) : null;
+        return message
+          ? [{ key: `${index}-${field}`, line: index + 1, field: LINE_LABELS[field], message }]
+          : [];
+      }),
+    );
+  });
   protected readonly currencyShown = computed(() => {
     this.value();
     return this.form.controls.currency.value || this.entry()?.currency || '';
@@ -360,8 +393,16 @@ export class EntryFormPage {
     this.advancedOpen.set((event.target as HTMLDetailsElement).open);
   }
 
+  /** A new line, as Odoo's: what is missing to balance the entry is proposed on it. */
   protected addLine(): void {
-    this.lines.push(this.lineForm());
+    const line = this.lineForm();
+    const totals = this.totals();
+    if (!totals.empty && !totals.balanced) {
+      const gap = trimDecimalZeros(subtractDecimals(totals.debit, totals.credit), 0);
+      const side = gap.startsWith('-') ? 'debit' : 'credit';
+      line.controls[side].setValue(gap.replace('-', ''));
+    }
+    this.lines.push(line);
     this.lines.markAsDirty();
     afterNextRender(() => this.focusLine(this.lines.length - 1, 'account'), {
       injector: this.injector,
@@ -549,8 +590,51 @@ export class EntryFormPage {
     this.journals.set([...known.values()].sort((a, b) => a.code.localeCompare(b.code)));
   }
 
+  /**
+   * Entrée moves to the next field, as Odoo's grid (a choice in a list stays a choice); after
+   * the last field of the last line, a new line. Ctrl+Entrée saves.
+   */
+  protected onFormKeydown(event: KeyboardEvent): void {
+    const target = event.target as HTMLElement;
+    if (
+      event.key !== 'Enter' ||
+      event.defaultPrevented ||
+      target instanceof HTMLTextAreaElement ||
+      target instanceof HTMLButtonElement
+    ) {
+      return;
+    }
+    event.preventDefault();
+    if (event.ctrlKey || event.metaKey) {
+      void this.save();
+      return;
+    }
+    const fields = Array.from(
+      this.host.nativeElement.querySelectorAll<HTMLElement>(
+        'form input:not([type="hidden"]):not(:disabled), form select:not(:disabled)',
+      ),
+    ).filter((field) => field.offsetParent !== null || field === target);
+    const next = fields[fields.indexOf(target) + 1];
+    if (target.closest('.lines-grid') && !next?.closest('.lines-grid') && !this.linesLocked()) {
+      this.addLine();
+      return;
+    }
+    next?.focus();
+  }
+
   private lineForm(line?: EntryLine): LineForm {
     const group = this.lineGroup(line);
+    // A line is debit or credit: typing one side empties the other.
+    for (const [typed, other] of [
+      ['debit', 'credit'],
+      ['credit', 'debit'],
+    ] as const) {
+      group.controls[typed].valueChanges.subscribe((value) => {
+        if (value.trim() && group.controls[other].value) {
+          group.controls[other].setValue('', { emitEvent: false });
+        }
+      });
+    }
     // Odoo's « Taxes par défaut »: an account chosen on a line without a tax proposes its first
     // active default tax; the user may change it, the server checks it.
     group.controls.account.valueChanges.subscribe((option) => {

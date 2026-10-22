@@ -1,4 +1,4 @@
-import { DOCUMENT, DatePipe } from '@angular/common';
+import { DatePipe } from '@angular/common';
 import {
   ChangeDetectionStrategy,
   Component,
@@ -22,22 +22,13 @@ import { AlcoErrorState } from '../../../shared/ui/error-state/error-state';
 import { AlcoIcon } from '../../../shared/ui/icon/icon';
 import { AlcoLoading } from '../../../shared/ui/loading/loading';
 import { AlcoToastService } from '../../../shared/ui/toast/toast.service';
+import { DocumentOpener } from '../../documents/data-access/document-opener';
 import { DocumentsApi, StoredDocument } from '../../documents/data-access/documents-api';
+import { fileSize } from '../../documents/documents-presentation';
 import { ENTRY_ERRORS } from './entry-presentation';
 
 /** Resource type registered by the backend for an entry (apps/accounting/attachments.py). */
 export const ENTRY_RESOURCE_TYPE = 'accounting.entry';
-
-/** « 12 Ko », « 1,4 Mo » (display only). */
-function fileSize(bytes: number): string {
-  if (bytes < 1024) {
-    return `${bytes} o`;
-  }
-  const kilo = bytes / 1024;
-  return kilo < 1024
-    ? `${Math.round(kilo)} Ko`
-    : `${(kilo / 1024).toFixed(1).replace('.', ',')} Mo`;
-}
 
 /**
  * Supporting documents of an entry, through the Documents API: the list (`documents.read`),
@@ -183,7 +174,7 @@ export class AlcoEntryDocuments {
   private readonly api = inject(DocumentsApi);
   private readonly session = inject(SessionStore);
   private readonly toast = inject(AlcoToastService);
-  private readonly window = inject(DOCUMENT).defaultView;
+  private readonly opener = inject(DocumentOpener);
 
   readonly entryId = input.required<string>();
   /** The Documents resource type of the record (an entry by default; `treasury.operation`…). */
@@ -240,50 +231,11 @@ export class AlcoEntryDocuments {
     this.opening.set(document.public_id);
     this.actionError.set(null);
     try {
-      const link = await firstValueFrom(this.api.downloadLink(document.public_id));
-      const url = this.safeUrl(link.url);
-      if (!url) {
-        this.actionError.set({
-          code: '', // the front end's own refusal: no code of the API
-          title: 'Le lien de cette pièce a été refusé.',
-          message: 'Il ne pointe pas vers une adresse sûre. Contactez l’administrateur.',
-        });
-        return;
-      }
-      if (!this.openDetached(url)) {
-        // Pop-up blocked: the user opens it with a click (the link stays valid a few minutes).
-        this.toast.show('info', `Le lien de « ${document.original_name} » est prêt.`, {
-          actionLabel: 'Ouvrir',
-          action: () => this.openDetached(url),
-        });
-      }
+      this.actionError.set(await this.opener.open(document));
     } catch (failure) {
       this.fail(failure);
     } finally {
       this.opening.set(null);
-    }
-  }
-
-  /**
-   * A new tab without access to this one. Not the `noopener` feature: the browser would then
-   * return null even when the tab opened. `false` when a pop-up blocker refused it.
-   */
-  private openDetached(url: string): boolean {
-    const opened = this.window?.open(url, '_blank');
-    if (opened) {
-      opened.opener = null;
-    }
-    return !!opened;
-  }
-
-  /** Only an https link, or one of this application's own origin (development). */
-  private safeUrl(raw: string): string | null {
-    try {
-      const origin = this.window?.location.origin ?? '';
-      const url = new URL(raw, origin);
-      return url.protocol === 'https:' || url.origin === origin ? url.href : null;
-    } catch {
-      return null;
     }
   }
 

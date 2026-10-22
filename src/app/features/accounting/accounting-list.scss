@@ -17,6 +17,14 @@
   flex: 1 1 420px;
 }
 
+// The state tabs: their own row, on top of the toolbar.
+.status-tabs {
+  flex-basis: 100%;
+  margin: calc(-1 * var(--space-1)) 0 0;
+  padding-bottom: var(--space-3);
+  border-bottom: var(--border-width) solid var(--color-border);
+}
+
 .controls {
   display: flex;
   flex: 1 1 auto;

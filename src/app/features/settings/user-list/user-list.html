@@ -1,0 +1,76 @@
+<alco-page-header
+  title="Utilisateurs"
+  subtitle="Les comptes de la plateforme ; leurs droits se donnent société par société"
+/>
+
+@if (list.value(); as result) {
+  <div class="control-panel">
+    <div class="controls">
+      <p class="alco-caption">{{ result.count }} utilisateur{{ result.count > 1 ? 's' : '' }}</p>
+      <alco-pagination
+        class="pager"
+        [page]="result.count > 0 ? page() : 1"
+        [pageSize]="pageSize"
+        [total]="result.count"
+        (pageChange)="setPage($event)"
+      />
+    </div>
+  </div>
+}
+
+@switch (list.status()) {
+  @case ('forbidden') {
+    <alco-error-state
+      title="Vous n’avez pas accès à la liste des utilisateurs."
+      message="Elle est réservée aux administrateurs de la plateforme."
+    />
+  }
+  @case ('error') {
+    @if (failure(); as error) {
+      <alco-error-state
+        [title]="error.title"
+        [message]="error.message"
+        [code]="error.code"
+        [correlationId]="error.correlationId ?? ''"
+        retryLabel="Réessayer"
+        (retry)="list.reload()"
+      />
+    }
+  }
+  @default {
+    @if (list.value() === null) {
+      <alco-loading variant="table" [rows]="5" [columns]="3" label="Chargement des utilisateurs…" />
+    } @else if (rows().length === 0) {
+      <div class="empty-frame">
+        <alco-empty-state icon="user" title="Aucun utilisateur." />
+      </div>
+    } @else {
+      <alco-table
+        [class.reloading]="list.loading()"
+        caption="Utilisateurs de la plateforme"
+        [columns]="columns"
+        [rows]="rows()"
+        [rowId]="rowId"
+        [rowLabel]="rowLabel"
+      >
+        <ng-template alcoCell="person" let-user>
+          <span class="person">
+            <span class="avatar" aria-hidden="true">{{ initials(user) }}</span>
+            <span class="person-text">
+              <span class="person-name">{{ name(user) }}</span>
+              <span class="person-email">{{ user.email }}</span>
+            </span>
+          </span>
+        </ng-template>
+        <ng-template alcoCell="email" let-user>{{ user.email }}</ng-template>
+        <ng-template alcoCell="status" let-user>
+          @if (user.is_active) {
+            <alco-badge tone="success" icon="check">Actif</alco-badge>
+          } @else {
+            <alco-badge tone="neutral" icon="close">Désactivé</alco-badge>
+          }
+        </ng-template>
+      </alco-table>
+    }
+  }
+}

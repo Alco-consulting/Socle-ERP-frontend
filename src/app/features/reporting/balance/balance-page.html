@@ -1,0 +1,217 @@
+<alco-page-header title="Balance générale">
+  @if (canExport()) {
+    <div alcoPageActions>
+      <button
+        alcoButton
+        type="button"
+        icon="download"
+        [loading]="exporting()"
+        loadingLabel="Export…"
+        aria-label="Exporter la balance au format Excel (XLSX)"
+        (click)="exportWorkbook()"
+      >
+        XLSX
+      </button>
+    </div>
+  }
+</alco-page-header>
+
+<!-- As Odoo's report: the filters in a row above the figures. -->
+<div class="filters" role="group" aria-label="Filtres de la balance">
+  <alco-dropdown
+    mode="single"
+    icon="calendar"
+    [items]="periodItems()"
+    ariaLabel="Période"
+    (selected)="choosePeriod($event)"
+  >
+    {{ period().label }}
+  </alco-dropdown>
+  @if (periodKind() === 'perso') {
+    <span class="dates">
+      <label class="date">
+        <span>Du</span>
+        <input alcoDatePicker type="date" [formControl]="fromControl" (change)="setDates()" />
+      </label>
+      <label class="date">
+        <span>Au</span>
+        <input alcoDatePicker type="date" [formControl]="toControl" (change)="setDates()" />
+      </label>
+    </span>
+  }
+  <alco-dropdown
+    mode="multiple"
+    icon="book"
+    [items]="journalItems()"
+    ariaLabel="Journaux"
+    (selected)="toggleJournal($event)"
+  >
+    {{ journalsLabel() }}
+  </alco-dropdown>
+  <alco-dropdown
+    mode="multiple"
+    icon="filter"
+    [items]="optionItems()"
+    (selected)="toggleOption($event)"
+  >
+    Options
+  </alco-dropdown>
+  <label class="search">
+    <alco-icon name="search" [size]="16" />
+    <span class="alco-sr-only">Rechercher un compte</span>
+    <input
+      alcoInput
+      type="search"
+      [formControl]="searchControl"
+      placeholder="Rechercher un compte…"
+      autocomplete="off"
+    />
+  </label>
+</div>
+
+@for (warning of warnings(); track warning.code) {
+  <p class="warning" role="note">
+    <alco-icon name="alert-triangle" [size]="16" />
+    <span>{{ warning.text }}</span>
+    @if (warning.code === 'unposted_entries') {
+      <button alcoButton type="button" size="sm" variant="ghost" (click)="includeUnposted(true)">
+        Les inclure
+      </button>
+    }
+  </p>
+}
+
+@if (failure(); as error) {
+  <alco-error-state
+    [title]="error.title"
+    [message]="error.message"
+    [code]="error.code"
+    [correlationId]="error.correlationId ?? ''"
+    retryLabel="Réessayer"
+    (retry)="balance.reload()"
+  />
+} @else if (balance.value(); as found) {
+  @if (found.count === 0) {
+    <alco-empty-state
+      icon="reporting"
+      title="Aucune écriture sur cette période."
+      message="Changez la période, les journaux ou la recherche."
+    />
+  } @else {
+    <div class="table-wrap" [class.reloading]="balance.loading()">
+      <table class="balance" [class.balance--tree]="hierarchy()">
+        <caption class="alco-sr-only">
+          Balance générale,
+          {{
+            period().label
+          }}, en
+          {{
+            session.activeCompany()?.currency
+          }}
+        </caption>
+        <colgroup>
+          <col class="col-account" />
+          <col span="6" class="col-amount" />
+        </colgroup>
+        <thead>
+          <tr>
+            <th scope="col" rowspan="2" class="head-account">Compte</th>
+            <th scope="colgroup" colspan="2" class="head-group">Solde initial</th>
+            <th scope="colgroup" colspan="2" class="head-group">{{ period().label }}</th>
+            <th scope="colgroup" colspan="2" class="head-group">Solde final</th>
+          </tr>
+          <tr>
+            <th scope="col" class="num">Débit</th>
+            <th scope="col" class="num">Crédit</th>
+            <th scope="col" class="num">Débit</th>
+            <th scope="col" class="num">Crédit</th>
+            <th scope="col" class="num">Débit</th>
+            <th scope="col" class="num">Crédit</th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (line of lines(); track line.key) {
+            @if (line.kind === 'group') {
+              <tr class="group" [class.group--class]="line.level === 1">
+                <th scope="row" class="group-name">
+                  <button
+                    type="button"
+                    class="fold"
+                    [class.fold--group]="line.level === 2"
+                    [attr.aria-expanded]="!line.folded"
+                    (click)="toggleGroup(line.code)"
+                  >
+                    <alco-icon
+                      [name]="line.folded ? 'chevron-right' : 'chevron-down'"
+                      [size]="14"
+                    />
+                    <span class="code">{{ line.code }}</span>
+                    {{ line.name }}
+                  </button>
+                </th>
+                <ng-container *ngTemplateOutlet="amounts; context: { $implicit: line.columns }" />
+              </tr>
+            } @else {
+              <tr>
+                <th scope="row" class="account" [class.account--indent]="line.indent">
+                  <alco-dropdown
+                    trigger="ghost"
+                    size="sm"
+                    [showChevron]="false"
+                    [items]="line.menu"
+                    [ariaLabel]="'Compte ' + line.row.account.code + ' ' + line.row.account.name"
+                  >
+                    <span class="code">{{ line.row.account.code }}</span>
+                    <span class="name"> {{ line.row.account.name }}</span>
+                  </alco-dropdown>
+                </th>
+                <ng-container *ngTemplateOutlet="amounts; context: { $implicit: line.row }" />
+              </tr>
+            }
+          }
+        </tbody>
+        <tfoot>
+          <tr>
+            <th scope="row">Total</th>
+            @let total = found.columns;
+            <td class="num">{{ total.opening_debit | alcoAmount: decimals() }}</td>
+            <td class="num">{{ total.opening_credit | alcoAmount: decimals() }}</td>
+            <td class="num">{{ total.debit | alcoAmount: decimals() }}</td>
+            <td class="num">{{ total.credit | alcoAmount: decimals() }}</td>
+            <td class="num">{{ total.closing_debit | alcoAmount: decimals() }}</td>
+            <td class="num">{{ total.closing_credit | alcoAmount: decimals() }}</td>
+          </tr>
+        </tfoot>
+      </table>
+    </div>
+    @if (found.count > pageSize) {
+      <alco-pagination
+        [page]="page()"
+        [pageSize]="pageSize"
+        [total]="found.count"
+        (pageChange)="setPage($event)"
+      />
+    }
+    <p class="alco-caption">
+      Montants en {{ session.activeCompany()?.currency }}, calculés par le serveur.
+      {{
+        unposted()
+          ? 'Écritures non comptabilisées comprises.'
+          : 'Écritures comptabilisées seulement.'
+      }}
+    </p>
+  }
+} @else {
+  <alco-loading variant="table" [rows]="8" [columns]="7" label="Chargement de la balance…" />
+}
+
+<!-- The six amounts of a row: « 0 » stays empty, as Odoo's. -->
+<ng-template #amounts let-columns>
+  @for (key of amountKeys; track key) {
+    <td class="num">
+      @if (!isZero(columns[key])) {
+        {{ columns[key] | alcoAmount: decimals() }}
+      }
+    </td>
+  }
+</ng-template>

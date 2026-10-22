@@ -134,6 +134,21 @@
   color: var(--color-primary);
 }
 
+// A checkbox item (`mode="multiple"`): a box, filled once checked.
+.menu-check--box {
+  align-items: center;
+  justify-content: center;
+  height: var(--icon-size-sm);
+  border: var(--border-width) solid var(--color-border-strong);
+  border-radius: var(--radius-sm);
+}
+
+.menu-check--on {
+  border-color: var(--color-primary);
+  background: var(--color-primary);
+  color: var(--color-text-inverse);
+}
+
 .menu-text {
   display: flex;
   flex-direction: column;

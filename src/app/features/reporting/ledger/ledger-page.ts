@@ -62,7 +62,7 @@ const ACCOUNTING = `${APP_ROOT}/comptabilite`;
  * Comptabilité › Analyse › Grand livre (`?compte=<code>`) and Grand livre auxiliaire
  * (`?tiers=<code>`): ONE ledger experience on Reporting's paginated reports
  * (`reporting/ledger/<account>/`, `reporting/partners/<partner>/ledger/`). The state is in the
- * URL (object, fiscal year, sub-accounts, page), set by the record it is opened from.
+ * URL (object, fiscal year or dates, sub-accounts, page), set by the record it is opened from.
  * Requests: fiscal years and currencies once; then the object's code (once per object) and
  * one page of the ledger. Openings, totals and running balances are the server's.
  */
@@ -114,6 +114,12 @@ export class LedgerPage {
       '',
   );
   private readonly yearParam = computed(() => this.params().get(LEDGER_PARAM.fiscalYear));
+  /** The balance's dates (`?du=…&au=…`): its year is the one that holds them. */
+  protected readonly dates = computed(() => {
+    const from = this.params().get(LEDGER_PARAM.from);
+    const to = this.params().get(LEDGER_PARAM.to);
+    return from && to ? { from, to } : null;
+  });
   protected readonly descendants = computed(
     () => this.mode === 'account' && this.params().get(LEDGER_PARAM.descendants) === 'oui',
   );
@@ -136,17 +142,19 @@ export class LedgerPage {
   });
 
   /**
-   * The fiscal year read: the URL's; else the open one that holds today; else the first
-   * open one; else the most recent (the API lists them most recent first). A choice of the
-   * screen, never a date the API would imply.
+   * The fiscal year read: the URL's, or the one of its dates; else the open one that holds
+   * today; else the first open one; else the most recent (the API lists them most recent
+   * first). A choice of the screen, never a date the API would imply.
    */
   protected readonly fiscalYear = computed<FiscalYear | null>(() => {
     const years = this.years.value() ?? [];
     const wanted = this.yearParam();
+    const from = this.dates()?.from;
     const today = localToday();
     const open = years.filter((year) => year.status === 'open');
     return (
       years.find((year) => year.public_id === wanted) ??
+      (from ? years.find((year) => year.start_date <= from && from <= year.end_date) : undefined) ??
       open.find((year) => year.start_date <= today && today <= year.end_date) ??
       open[0] ??
       years[0] ??
@@ -200,9 +208,14 @@ export class LedgerPage {
   protected readonly exportParameters = computed<Readonly<Record<string, string>>>(() => {
     const loaded = this.loaded();
     const year = this.fiscalYear();
+    const dates = this.dates();
     const parameters: Record<string, string> =
       loaded?.kind === 'ledger' && year
-        ? { account: loaded.subject.publicId, fiscal_year: year.public_id }
+        ? {
+            account: loaded.subject.publicId,
+            fiscal_year: year.public_id,
+            ...(dates ? { date_from: dates.from, date_to: dates.to } : {}),
+          }
         : {};
     return parameters;
   });
@@ -240,6 +253,7 @@ export class LedgerPage {
       // Any change of the object, the year, the option or the page: one new read.
       this.code();
       this.fiscalYear();
+      this.dates();
       this.descendants();
       this.page();
       if (this.years.value() !== null || this.years.error()) {
@@ -263,7 +277,13 @@ export class LedgerPage {
       }
     });
     this.yearControl.valueChanges.subscribe((year) =>
-      this.navigate({ [LEDGER_PARAM.fiscalYear]: year || null, [LEDGER_PARAM.page]: null }),
+      // Another year: the whole year, the balance's dates left behind.
+      this.navigate({
+        [LEDGER_PARAM.fiscalYear]: year || null,
+        [LEDGER_PARAM.from]: null,
+        [LEDGER_PARAM.to]: null,
+        [LEDGER_PARAM.page]: null,
+      }),
     );
     this.descendantsControl.valueChanges.subscribe((all) =>
       this.navigate({ [LEDGER_PARAM.descendants]: all ? 'oui' : null, [LEDGER_PARAM.page]: null }),
@@ -300,8 +320,11 @@ export class LedgerPage {
     if (!code || !year) {
       return of({ kind: 'none' });
     }
+    const dates = untracked(this.dates);
     const query = {
       fiscalYear: year.public_id,
+      dateFrom: dates?.from ?? null,
+      dateTo: dates?.to ?? null,
       page: untracked(this.page),
       includeDescendants: untracked(this.descendants),
     };

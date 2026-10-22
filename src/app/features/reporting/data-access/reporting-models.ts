@@ -1,7 +1,7 @@
 /**
- * Contracts of Reporting's ledgers (`backend/docs/api/openapi.yaml`): amounts are exact
- * decimal strings (6 places) in the company's reference currency; running balances, totals
- * and openings are the server's.
+ * Contracts of Reporting's ledgers and trial balance (`backend/docs/api/openapi.yaml`):
+ * amounts are exact decimal strings (6 places) in the company's reference currency; running
+ * balances, totals, openings, columns and sub-totals are the server's.
  */
 
 export interface CodeReference {
@@ -47,6 +47,7 @@ export interface LedgerRow {
 export interface ReportWarning {
   readonly code: string;
   readonly message: string;
+  readonly details?: Readonly<Record<string, unknown>> | null;
 }
 
 interface LedgerHeader {
@@ -72,10 +73,61 @@ export interface PartnerLedger extends LedgerHeader {
   readonly partner: PartnerReference;
 }
 
-/** What a ledger is read over: a fiscal year (the API never implies one). */
+/** What a ledger is read over: a fiscal year (the API never implies one), dates within it. */
 export interface LedgerQuery {
   readonly fiscalYear: string;
+  readonly dateFrom?: string | null;
+  readonly dateTo?: string | null;
   readonly page?: number;
   /** Account ledger only: the account's sub-accounts too. */
   readonly includeDescendants?: boolean;
+}
+
+/** `ReportingColumns`: Odoo's six columns, the opening and closing balances net on their side. */
+export interface BalanceColumns {
+  readonly opening_debit: string;
+  readonly opening_credit: string;
+  readonly debit: string;
+  readonly credit: string;
+  readonly closing_debit: string;
+  readonly closing_credit: string;
+}
+
+/** `ReportingBalanceGroup`: a class (level 1) or a two-digit group (level 2), summed. */
+export interface BalanceGroup {
+  readonly code: string;
+  /** The chart standard's name (« Clients et comptes rattachés »); blank without one. */
+  readonly name: string;
+  readonly level: number;
+  readonly columns: BalanceColumns;
+}
+
+/** `ReportingBalanceRow`: one account of the balance. */
+export interface BalanceRow extends BalanceColumns {
+  readonly account: CodeReference & { readonly name: string; readonly account_type: string };
+}
+
+/** `ReportingBalanceHeaderPage` (`GET reporting/balance/`). */
+export interface TrialBalance {
+  readonly scope: ReportScope;
+  /** Each column summed over every row of the balance (every page). */
+  readonly columns: BalanceColumns;
+  /** The classes and groups of every row, by code. */
+  readonly groups: readonly BalanceGroup[];
+  readonly warnings: readonly ReportWarning[];
+  readonly count: number;
+  readonly next: string | null;
+  readonly previous: string | null;
+  readonly results: readonly BalanceRow[];
+}
+
+/** Odoo's filters of the balance: its dates, journals, pending entries, search. */
+export interface BalanceQuery {
+  readonly dateFrom: string;
+  readonly dateTo: string;
+  /** Public ids; none: every journal. */
+  readonly journals: readonly string[];
+  readonly includeUnposted: boolean;
+  readonly search: string;
+  readonly page: number;
 }

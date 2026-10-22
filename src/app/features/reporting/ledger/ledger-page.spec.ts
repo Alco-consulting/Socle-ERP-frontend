@@ -185,6 +185,23 @@ describe('LedgerPage (Analyse › Grand livre, Grand livre auxiliaire)', () => {
     expect(element.querySelector('alco-pagination')).not.toBeNull();
   });
 
+  it('the balance’s dates: the year that holds them, the dates asked within it', async () => {
+    const { stable, references } = await open(
+      '/grand-livre?compte=401&du=2025-03-01&au=2025-03-31',
+    );
+    await references();
+    httpMock()
+      .expectOne((req) => req.url === '/api/v1/accounting/accounts/')
+      .flush(page([ACCOUNT]));
+    await stable();
+    const report = httpMock().expectOne((req) => req.url === '/api/v1/reporting/ledger/a-401/');
+    expect(report.request.params.get('fiscal_year')).toBe('fy-2025');
+    expect(report.request.params.get('date_from')).toBe('2025-03-01');
+    expect(report.request.params.get('date_to')).toBe('2025-03-31');
+    report.flush(ledger([ROW]));
+    await stable();
+  });
+
   it('no account chosen: said, no ledger asked', async () => {
     const { element, references } = await open('/grand-livre');
     await references();

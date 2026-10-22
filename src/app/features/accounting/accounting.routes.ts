@@ -181,6 +181,12 @@ export const ACCOUNTING_ROUTES: Routes = [
     loadComponent: () =>
       import('../reporting/aging/aging-policy-page').then((m) => m.AgingPolicyPage),
   },
+  // Analyse › Balance générale, as Odoo's (note backend 0051).
+  {
+    path: 'analyse/balance',
+    data: { breadcrumb: 'Balance générale' },
+    loadComponent: () => import('../reporting/balance/balance-page').then((m) => m.BalancePage),
+  },
   // Analyse: one ledger experience on Reporting (account, or partner: route data `ledger`).
   {
     path: 'analyse/grand-livre',

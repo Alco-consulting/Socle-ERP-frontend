@@ -1,4 +1,10 @@
-import { CdkMenu, CdkMenuItem, CdkMenuItemRadio, CdkMenuTrigger } from '@angular/cdk/menu';
+import {
+  CdkMenu,
+  CdkMenuItem,
+  CdkMenuItemCheckbox,
+  CdkMenuItemRadio,
+  CdkMenuTrigger,
+} from '@angular/cdk/menu';
 import { ConnectedPosition } from '@angular/cdk/overlay';
 import { NgTemplateOutlet } from '@angular/common';
 import { ChangeDetectionStrategy, Component, computed, inject, input, output } from '@angular/core';
@@ -50,6 +56,7 @@ export type DropdownTrigger = 'secondary' | 'ghost' | 'primary' | 'topbar' | 'na
   imports: [
     CdkMenu,
     CdkMenuItem,
+    CdkMenuItemCheckbox,
     CdkMenuItemRadio,
     CdkMenuTrigger,
     NgTemplateOutlet,
@@ -69,7 +76,9 @@ export class AlcoDropdown {
   readonly icon = input<IconName | undefined>(undefined);
   readonly iconOnly = input(false);
   readonly showChevron = input(true);
-  readonly mode = input<'action' | 'single'>('action');
+  /** `single`: one choice (radio items); `multiple`: options each on or off (checkboxes, as
+   * Odoo's report filters). */
+  readonly mode = input<'action' | 'single' | 'multiple'>('action');
   /** Optional header shown at the top of the open menu (e.g. user name). */
   readonly heading = input('');
   readonly subheading = input('');

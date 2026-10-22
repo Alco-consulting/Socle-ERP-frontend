@@ -2,17 +2,25 @@ import { Injectable, inject } from '@angular/core';
 import { Observable } from 'rxjs';
 
 import { ApiClient } from '../../../core/http/api-client';
-import { AccountLedger, LedgerQuery, PartnerLedger } from './reporting-models';
+import {
+  AccountLedger,
+  BalanceQuery,
+  LedgerQuery,
+  PartnerLedger,
+  TrialBalance,
+} from './reporting-models';
 
 /** Lines per page of a ledger. */
 export const LEDGER_PAGE_SIZE = 50;
+/** Accounts per page of the balance: the server's most, a company's whole balance in practice. */
+export const BALANCE_PAGE_SIZE = 200;
 
 const id = (value: string) => encodeURIComponent(value);
 
 /**
- * Reporting's ledgers (`reporting/`), company scoped by the interceptor: one experience of
- * the ledger, on the paginated report of the server (never the accounting module's
- * consultation ledger).
+ * Reporting's ledgers and trial balance (`reporting/`), company scoped by the interceptor:
+ * one experience of the ledger, on the paginated report of the server (never the accounting
+ * module's consultation ledger).
  */
 @Injectable({ providedIn: 'root' })
 export class ReportingApi {
@@ -23,9 +31,26 @@ export class ReportingApi {
     return this.api.get<AccountLedger>(`reporting/ledger/${id(accountId)}/`, {
       params: {
         fiscal_year: query.fiscalYear,
+        date_from: query.dateFrom ?? null,
+        date_to: query.dateTo ?? null,
         include_descendants: query.includeDescendants ? true : null,
         page: query.page && query.page > 1 ? query.page : null,
         page_size: LEDGER_PAGE_SIZE,
+      },
+    });
+  }
+
+  /** `reporting.read`: Odoo's « Balance générale » (note backend 0051). */
+  balance(query: BalanceQuery): Observable<TrialBalance> {
+    return this.api.get<TrialBalance>('reporting/balance/', {
+      params: {
+        date_from: query.dateFrom,
+        date_to: query.dateTo,
+        journal: query.journals,
+        include_unposted: query.includeUnposted ? true : null,
+        search: query.search || null,
+        page: query.page > 1 ? query.page : null,
+        page_size: BALANCE_PAGE_SIZE,
       },
     });
   }

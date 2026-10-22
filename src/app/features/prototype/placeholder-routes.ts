@@ -23,7 +23,6 @@ const notInPrototype = () =>
 const TRANSFERS: Readonly<Record<string, TransferKindId>> = {
   'comptabilite/tresorerie/operations': 'treasury',
   'comptabilite/immobilisations/actifs': 'assets',
-  'comptabilite/analyse/balance': 'balance',
 };
 
 function placeholder(label: string, path: string, fullPath: string): Route {

@@ -346,7 +346,23 @@ export class FakePartners {
       return this.answer(route, 200, [{ import_type: 'partners', fields: IMPORT_FIELDS }]);
     }
     if (path === 'exports/') {
-      const body = request.postDataJSON() as { parameters: Record<string, string> };
+      const body = request.postDataJSON() as {
+        export_type: string;
+        file_format?: string;
+        parameters: Record<string, string>;
+      };
+      if (body.export_type === 'reporting.balance') {
+        // The balance's workbook (note backend 0051): its rows are the server's, not shown here.
+        return this.answer(route, 201, {
+          public_id: `export-balance-${company}`,
+          export_type: body.export_type,
+          file_format: body.file_format ?? 'csv',
+          status: 'completed',
+          filename: 'reporting-balance.xlsx',
+          row_count: 0,
+          error: {},
+        });
+      }
       const rows = this.list(company).filter(
         (item) =>
           (!body.parameters['status'] || item.status === body.parameters['status']) &&
@@ -360,6 +376,17 @@ export class FakePartners {
         filename: 'partners.csv',
         row_count: rows.length,
         error: {},
+      });
+    }
+    if (path.startsWith('exports/export-balance-')) {
+      this.context.calls.push(request);
+      return route.fulfill({
+        status: 200,
+        body: Buffer.from('PK'),
+        headers: {
+          'Content-Type': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+          'Content-Disposition': 'attachment; filename="reporting-balance.xlsx"',
+        },
       });
     }
     if (path.startsWith('exports/')) {

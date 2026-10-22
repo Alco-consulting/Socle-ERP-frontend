@@ -59,7 +59,32 @@
           @if (item.dividerBefore) {
             <div class="menu-divider" role="separator"></div>
           }
-          @if (mode() === 'single' || item.checked !== undefined) {
+          @if (mode() === 'multiple') {
+            <button
+              type="button"
+              class="menu-item"
+              cdkMenuItemCheckbox
+              [cdkMenuItemChecked]="!!item.checked"
+              [cdkMenuItemDisabled]="!!item.disabled"
+              (cdkMenuItemTriggered)="choose(item)"
+            >
+              <span
+                class="menu-check menu-check--box"
+                [class.menu-check--on]="!!item.checked"
+                aria-hidden="true"
+              >
+                @if (item.checked) {
+                  <alco-icon name="check" [size]="14" />
+                }
+              </span>
+              <span class="menu-text">
+                {{ item.label }}
+                @if (item.description) {
+                  <span class="menu-description">{{ item.description }}</span>
+                }
+              </span>
+            </button>
+          } @else if (mode() === 'single' || item.checked !== undefined) {
             <button
               type="button"
               class="menu-item"

@@ -213,10 +213,12 @@ export class TransfersApi {
   /** Synchronous export: the answer is the finished export (completed or failed). */
   createExport(
     exportType: string,
-    parameters: Readonly<Record<string, string>>,
+    parameters: Readonly<Record<string, unknown>>,
+    fileFormat: 'csv' | 'xlsx' = 'csv',
   ): Observable<ExportRunDto> {
     return this.api.post<ExportRunDto>('imports-exports/exports/', {
       export_type: exportType,
+      file_format: fileFormat,
       parameters,
       asynchronous: false,
     });

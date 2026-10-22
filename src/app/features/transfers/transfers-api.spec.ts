@@ -75,6 +75,7 @@ describe('TransfersApi (imports-exports/)', () => {
     const request = httpMock().expectOne('/api/v1/imports-exports/exports/');
     expect(request.request.body).toEqual({
       export_type: 'partners',
+      file_format: 'csv',
       parameters: { role: 'customer' },
       asynchronous: false,
     });

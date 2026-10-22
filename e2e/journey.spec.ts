@@ -62,9 +62,9 @@ test.describe('Parcours App Launcher → Comptabilité → Écritures → Formul
   test('a secondary screen of the menu opens and says it is not built yet', async ({ page }) => {
     await page.goto('/app/comptabilite/tableau-de-bord');
     await page.getByRole('button', { name: 'Analyse', exact: true }).click();
-    await page.getByRole('menuitemradio', { name: 'Balance générale' }).click();
-    await expect(page).toHaveURL(/\/app\/comptabilite\/analyse\/balance$/);
-    await expect(page.getByRole('heading', { level: 1 })).toHaveText('Balance générale');
+    await page.getByRole('menuitemradio', { name: 'États financiers' }).click();
+    await expect(page).toHaveURL(/\/app\/comptabilite\/analyse\/etats-financiers$/);
+    await expect(page.getByRole('heading', { level: 1 })).toHaveText('États financiers');
     await expect(page.getByText('Écran prévu, pas encore construit.')).toBeVisible();
   });
 

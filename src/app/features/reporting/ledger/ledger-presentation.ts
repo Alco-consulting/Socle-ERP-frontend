@@ -9,6 +9,9 @@ export const LEDGER_PARAM = {
   account: 'compte',
   partner: 'tiers',
   fiscalYear: 'exercice',
+  /** Dates within the year, as the balance it is opened from (note backend 0051). */
+  from: 'du',
+  to: 'au',
   descendants: 'sous-comptes',
   page: 'page',
 } as const;

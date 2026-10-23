@@ -127,6 +127,9 @@ export class FakeReporting {
     if (parts[0] === 'balance' && parts.length === 1) {
       return this.balance(route, url, permissions, company);
     }
+    if (parts[0] === 'general-ledger' && parts.length === 1) {
+      return this.generalLedger(route, url, permissions, company);
+    }
     const isPartner = parts[0] === 'partners' && parts[2] === 'ledger';
     const isAccount = parts[0] === 'ledger' && parts.length === 2;
     if (!isPartner && !isAccount) {
@@ -150,61 +153,79 @@ export class FakeReporting {
     }
     const matches = (line: LineJson) =>
       isPartner ? line.partner?.public_id === id : line.account.public_id === id;
-    const posted = this.entries
+    const from = url.searchParams.get('date_from') || year.start_date;
+    const to = url.searchParams.get('date_to') || year.end_date;
+    const journals = url.searchParams.getAll('journal');
+    const pending = url.searchParams.get('include_unposted') === 'true';
+    const counted = this.entries
       .entries(company)
       .filter(
         (entry) =>
-          (entry.status === 'validated' || entry.status === 'locked') &&
+          (pending || entry.status === 'validated' || entry.status === 'locked') &&
           entry.entry_date >= year.start_date &&
-          entry.entry_date <= year.end_date,
+          entry.entry_date <= to &&
+          (journals.length === 0 || journals.includes(entry.journal.public_id)),
       )
       .sort((a, b) => a.entry_date.localeCompare(b.entry_date));
-    let running = 0n;
+    // The « Solde initial »: the debits and the credits before the period (as the server's).
+    let openingDebit = 0n;
+    let openingCredit = 0n;
+    for (const entry of counted.filter((item) => item.entry_date < from)) {
+      for (const line of entry.lines.filter(matches)) {
+        openingDebit += units(line.reference_debit);
+        openingCredit += units(line.reference_credit);
+      }
+    }
+    let running = openingDebit - openingCredit;
     let debit = 0n;
     let credit = 0n;
-    const rows = posted.flatMap((entry: EntryJson) =>
-      entry.lines.filter(matches).map((line) => {
-        debit += units(line.reference_debit);
-        credit += units(line.reference_credit);
-        running += units(line.reference_debit) - units(line.reference_credit);
-        return {
-          line: line.public_id,
-          entry: entry.public_id,
-          entry_date: entry.entry_date,
-          entry_number: entry.entry_number,
-          journal: entry.journal.code,
-          account: line.account.public_id,
-          account_code: line.account.code,
-          label: line.label || entry.description,
-          document_reference: entry.document_reference,
-          partner: line.partner
-            ? {
-                public_id: line.partner.public_id,
-                code: line.partner.code,
-                name:
-                  this.partners
-                    .list(company)
-                    .find((item) => item.public_id === line.partner?.public_id)?.name ?? '',
-              }
-            : null,
-          debit: decimal(units(line.reference_debit)),
-          credit: decimal(units(line.reference_credit)),
-          balance: decimal(running),
-          drilldown: { level: 'entry', entry: entry.public_id, line: line.public_id },
-        };
-      }),
-    );
+    const rows = counted
+      .filter((entry) => entry.entry_date >= from)
+      .flatMap((entry: EntryJson) =>
+        entry.lines.filter(matches).map((line) => {
+          debit += units(line.reference_debit);
+          credit += units(line.reference_credit);
+          running += units(line.reference_debit) - units(line.reference_credit);
+          return {
+            line: line.public_id,
+            entry: entry.public_id,
+            entry_date: entry.entry_date,
+            entry_number: entry.entry_number,
+            journal: entry.journal.code,
+            account: line.account.public_id,
+            account_code: line.account.code,
+            label: line.label || entry.description,
+            document_reference: entry.document_reference,
+            partner: line.partner
+              ? {
+                  public_id: line.partner.public_id,
+                  code: line.partner.code,
+                  name:
+                    this.partners
+                      .list(company)
+                      .find((item) => item.public_id === line.partner?.public_id)?.name ?? '',
+                }
+              : null,
+            debit: decimal(units(line.reference_debit)),
+            credit: decimal(units(line.reference_credit)),
+            balance: decimal(running),
+            drilldown: { level: 'entry', entry: entry.public_id, line: line.public_id },
+          };
+        }),
+      );
     const size = Number(url.searchParams.get('page_size')) || 50;
     const number = Number(url.searchParams.get('page')) || 1;
     const header = {
       scope: {
         fiscal_year: { public_id: year.public_id, code: year.code },
         period: null,
-        date_from: year.start_date,
-        date_to: year.end_date,
+        date_from: from,
+        date_to: to,
       },
       comparative_scope: null,
-      opening_balance: '0.000000',
+      opening_balance: decimal(openingDebit - openingCredit),
+      opening_debit: decimal(openingDebit),
+      opening_credit: decimal(openingCredit),
       total_debit: decimal(debit),
       total_credit: decimal(credit),
       closing_balance: decimal(running),
@@ -384,6 +405,132 @@ export class FakeReporting {
         ...json(row.figures),
         comparison: null,
         drilldown: { level: 'ledger', account: row.account.public_id },
+      })),
+    });
+  }
+
+  /**
+   * The general ledger of the fake entries, as the server's (note backend 0053): per account,
+   * its debits and credits before the period, the period's, its balance at the end; the
+   * drafts before or within the period said.
+   */
+  private async generalLedger(
+    route: Route,
+    url: URL,
+    permissions: readonly string[],
+    company: string,
+  ): Promise<void> {
+    if (!permissions.includes('reporting.read')) {
+      return this.answer(route, 403, error('company_permission_denied'));
+    }
+    const from = url.searchParams.get('date_from') ?? '';
+    const to = url.searchParams.get('date_to') ?? '';
+    const books = this.accounting.books(company);
+    const year = books.years.find((item) => item.start_date <= from && to <= item.end_date);
+    if (!year || from > to) {
+      return this.answer(route, 400, error('reporting_scope_invalid'));
+    }
+    const only = url.searchParams.get('account');
+    const journals = url.searchParams.getAll('journal');
+    const pending = url.searchParams.get('include_unposted') === 'true';
+    const search = (url.searchParams.get('search') ?? '').toLowerCase();
+    const inYear = this.entries
+      .entries(company)
+      .filter(
+        (entry) =>
+          entry.entry_date >= year.start_date &&
+          entry.entry_date <= to &&
+          (journals.length === 0 || journals.includes(entry.journal.public_id)),
+      );
+    interface Sums {
+      od: bigint;
+      oc: bigint;
+      d: bigint;
+      c: bigint;
+    }
+    const found = new Map<string, Sums>();
+    for (const entry of inYear.filter(
+      (item) => pending || item.status === 'validated' || item.status === 'locked',
+    )) {
+      for (const line of entry.lines) {
+        const sum = found.get(line.account.public_id) ?? { od: 0n, oc: 0n, d: 0n, c: 0n };
+        const debit = units(line.reference_debit);
+        const credit = units(line.reference_credit);
+        if (entry.entry_date < from) {
+          sum.od += debit;
+          sum.oc += credit;
+        } else {
+          sum.d += debit;
+          sum.c += credit;
+        }
+        found.set(line.account.public_id, sum);
+      }
+    }
+    const figures = (sum: Sums) => ({
+      opening_debit: decimal(sum.od),
+      opening_credit: decimal(sum.oc),
+      opening: decimal(sum.od - sum.oc),
+      debit: decimal(sum.d),
+      credit: decimal(sum.c),
+      total_debit: decimal(sum.od + sum.d),
+      total_credit: decimal(sum.oc + sum.c),
+      closing: decimal(sum.od - sum.oc + sum.d - sum.c),
+    });
+    const rows = books.accounts
+      .filter(
+        (account) =>
+          found.has(account.public_id) &&
+          (!only || account.public_id === only) &&
+          (!search ||
+            account.code.toLowerCase().includes(search) ||
+            account.name.toLowerCase().includes(search)),
+      )
+      .sort((a, b) => a.code.localeCompare(b.code));
+    const total: Sums = { od: 0n, oc: 0n, d: 0n, c: 0n };
+    for (const account of rows) {
+      const sum = found.get(account.public_id)!;
+      total.od += sum.od;
+      total.oc += sum.oc;
+      total.d += sum.d;
+      total.c += sum.c;
+    }
+    const unposted = inYear.filter(
+      (entry) => entry.status === 'draft' || entry.status === 'submitted',
+    ).length;
+    const size = Number(url.searchParams.get('page_size')) || 50;
+    const number = Number(url.searchParams.get('page')) || 1;
+    return this.answer(route, 200, {
+      scope: {
+        fiscal_year: { public_id: year.public_id, code: year.code },
+        period: null,
+        date_from: from,
+        date_to: to,
+      },
+      comparative_scope: null,
+      period: label(from, to),
+      totals: figures(total),
+      warnings:
+        !pending && unposted > 0
+          ? [
+              {
+                code: 'unposted_entries',
+                message: 'Draft or submitted entries before or within the period are left out.',
+                details: { count: unposted },
+              },
+            ]
+          : [],
+      count: rows.length,
+      next: null,
+      previous: null,
+      results: rows.slice((number - 1) * size, number * size).map((account) => ({
+        account: {
+          public_id: account.public_id,
+          code: account.code,
+          name: account.name,
+          account_type: account.account_type,
+        },
+        ...figures(found.get(account.public_id)!),
+        drilldown: { level: 'ledger', account: account.public_id },
       })),
     });
   }

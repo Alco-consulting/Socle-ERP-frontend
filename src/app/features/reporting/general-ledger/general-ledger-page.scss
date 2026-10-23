@@ -1,0 +1,58 @@
+@use '../report';
+
+// As Odoo's general ledger: an account per line, unfolded into its « Solde initial » and lines.
+.account {
+  min-width: 24rem;
+  font-weight: var(--font-weight-regular);
+
+  .fold {
+    max-width: 28rem;
+  }
+
+  .name {
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+}
+
+.account-row.open th,
+.account-row.open td {
+  background: var(--color-surface-muted);
+  font-weight: var(--font-weight-semibold);
+}
+
+// « Écritures comptables » beside an unfolded account, as Odoo's small button.
+.lines-link {
+  padding: 0 var(--space-2);
+  border: var(--border-width) solid var(--color-border);
+  border-radius: var(--radius-sm);
+  color: var(--color-primary-text);
+  font-size: var(--font-size-caption);
+  font-weight: var(--font-weight-regular);
+  text-decoration: none;
+
+  &:hover {
+    border-color: var(--color-primary);
+  }
+}
+
+.initial .label,
+.line .label {
+  padding-left: calc(var(--space-3) + var(--space-6));
+  font-weight: var(--font-weight-regular);
+}
+
+.line .label .name {
+  max-width: 34rem;
+}
+
+.partner {
+  max-width: 12rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.more-row td {
+  padding-left: calc(var(--space-3) + var(--space-6));
+  color: var(--color-text-muted);
+}

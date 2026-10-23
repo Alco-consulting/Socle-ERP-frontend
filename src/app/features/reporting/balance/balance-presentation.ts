@@ -1,13 +1,19 @@
 import { ErrorCatalog } from '../../../core/errors/user-error';
 import { ReportWarning } from '../data-access/reporting-models';
+import {
+  PERIOD_PARAM,
+  Period,
+  PeriodKind,
+  iso,
+  lastDay,
+  parts,
+  periodOf,
+  shifted,
+} from '../report-period/report-period';
 
 /** URL of the balance, as Odoo's filters: readable and shareable. */
 export const BALANCE_PARAM = {
-  period: 'periode',
-  /** A day of the period shown, moved by ◀ ▶. */
-  day: 'date',
-  from: 'du',
-  to: 'au',
+  ...PERIOD_PARAM,
   comparison: 'comparaison',
   count: 'nombre',
   compareFrom: 'comparer_du',
@@ -19,106 +25,14 @@ export const BALANCE_PARAM = {
   page: 'page',
 } as const;
 
-export type PeriodKind = 'mois' | 'trimestre' | 'annee' | 'perso';
 export type ComparisonKind = 'precedente' | 'exercice' | 'perso';
 
-/** Odoo's date filter: a month, a quarter, a year, each moved by ◀ ▶; or dates. */
-export const STEPPED: readonly {
-  readonly id: Exclude<PeriodKind, 'perso'>;
-  readonly title: string;
-}[] = [
-  { id: 'mois', title: 'Mois' },
-  { id: 'trimestre', title: 'Trimestre' },
-  { id: 'annee', title: 'Année' },
-];
 export const COMPARISONS: readonly { readonly id: ComparisonKind; readonly title: string }[] = [
   { id: 'precedente', title: 'Période précédente' },
   { id: 'exercice', title: 'Même période que l’exercice passé' },
   { id: 'perso', title: 'Dates personnalisées' },
 ];
 export const MAX_COMPARED = 12;
-
-export interface Period {
-  readonly from: string;
-  readonly to: string;
-}
-
-const MONTHS = [
-  'janvier',
-  'février',
-  'mars',
-  'avril',
-  'mai',
-  'juin',
-  'juillet',
-  'août',
-  'septembre',
-  'octobre',
-  'novembre',
-  'décembre',
-];
-const SHORT = [
-  'janv.',
-  'févr.',
-  'mars',
-  'avr.',
-  'mai',
-  'juin',
-  'juil.',
-  'août',
-  'sept.',
-  'oct.',
-  'nov.',
-  'déc.',
-];
-const ISO = /^\d{4}-\d{2}-\d{2}$/;
-const pad = (value: number) => String(value).padStart(2, '0');
-const iso = (year: number, month: number, day: number) => `${year}-${pad(month)}-${pad(day)}`;
-const lastDay = (year: number, month: number) => new Date(year, month, 0).getDate();
-const parts = (value: string) => value.split('-').map(Number) as [number, number, number];
-
-/** « 28/09/2026 » from an ISO date. */
-export const day = (value: string) => value.split('-').reverse().join('/');
-export const isIsoDate = (value: string | null): value is string => !!value && ISO.test(value);
-
-/** The month, quarter or year that holds `anchor`. */
-export function periodOf(kind: Exclude<PeriodKind, 'perso'>, anchor: string): Period {
-  const [year, month] = parts(anchor);
-  if (kind === 'mois') {
-    return { from: iso(year, month, 1), to: iso(year, month, lastDay(year, month)) };
-  }
-  if (kind === 'trimestre') {
-    const first = Math.floor((month - 1) / 3) * 3 + 1;
-    return { from: iso(year, first, 1), to: iso(year, first + 2, lastDay(year, first + 2)) };
-  }
-  return { from: iso(year, 1, 1), to: iso(year, 12, 31) };
-}
-
-/** `anchor` moved by `steps` months, quarters or years (◀ ▶), on the first of its month. */
-export function shifted(kind: Exclude<PeriodKind, 'perso'>, anchor: string, steps: number): string {
-  const [year, month] = parts(anchor);
-  const months = steps * (kind === 'mois' ? 1 : kind === 'trimestre' ? 3 : 12);
-  const index = year * 12 + (month - 1) + months;
-  return iso(Math.floor(index / 12), (index % 12) + 1, 1);
-}
-
-/** As Odoo writes a period: « oct. 2026 », « oct. - déc. 2026 », « 2026 », else its dates. */
-export function periodLabel(period: Period, long = false): string {
-  const [year, month, first] = parts(period.from);
-  const [endYear, endMonth, end] = parts(period.to);
-  if (first === 1 && endYear === year && end === lastDay(endYear, endMonth)) {
-    if (endMonth === month) {
-      return `${(long ? MONTHS : SHORT)[month - 1]} ${year}`;
-    }
-    if (month === 1 && endMonth === 12) {
-      return String(year);
-    }
-    if ((month - 1) % 3 === 0 && endMonth === month + 2) {
-      return `${SHORT[month - 1]} - ${SHORT[endMonth - 1]} ${year}`;
-    }
-  }
-  return `Du ${day(period.from)} au ${day(period.to)}`;
-}
 
 /** The same dates `years` years before (29 February: the 28th). */
 function yearsBefore(value: string, years: number): string {

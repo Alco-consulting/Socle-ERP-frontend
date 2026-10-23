@@ -1,0 +1,289 @@
+<!-- As Odoo's report: PDF, XLSX, the title, the search, then the filters, in one bar. -->
+<div class="report-bar">
+  @if (canExport()) {
+    <button
+      alcoButton
+      type="button"
+      variant="primary"
+      [loading]="exporting() === 'pdf'"
+      loadingLabel="PDF…"
+      aria-label="Télécharger le grand livre en PDF"
+      (click)="exportFile('pdf')"
+    >
+      PDF
+    </button>
+    <button
+      alcoButton
+      type="button"
+      [loading]="exporting() === 'xlsx'"
+      loadingLabel="XLSX…"
+      aria-label="Télécharger le grand livre en Excel (XLSX)"
+      (click)="exportFile('xlsx')"
+    >
+      XLSX
+    </button>
+  }
+  <h1 class="report-title">Grand livre général</h1>
+  <label class="search">
+    <alco-icon name="search" [size]="16" />
+    <span class="alco-sr-only">Rechercher un compte</span>
+    <input
+      alcoInput
+      type="search"
+      [formControl]="searchControl"
+      placeholder="Rechercher…"
+      autocomplete="off"
+    />
+  </label>
+  <alco-report-period
+    [kind]="periodKind()"
+    [anchor]="anchor()"
+    [period]="period()"
+    (chosen)="choosePeriod($event)"
+  />
+  <alco-dropdown
+    mode="multiple"
+    icon="book"
+    [showChevron]="false"
+    [items]="journalItems()"
+    ariaLabel="Journaux"
+    (selected)="toggleJournal($event)"
+  >
+    {{ journalsLabel() }}
+  </alco-dropdown>
+  <alco-dropdown
+    mode="multiple"
+    icon="filter"
+    [showChevron]="false"
+    [items]="optionItems()"
+    ariaLabel="Pièces et options"
+    (selected)="toggleOption($event)"
+  >
+    {{ optionsLabel() }}
+  </alco-dropdown>
+  <span class="currency" title="Montants en devise de la société">En {{ currency() }}</span>
+</div>
+
+@if (unposted()) {
+  <p class="banner" role="note">
+    Il y a des
+    <a [routerLink]="draftsUrl" [queryParams]="draftsQuery()">pièces non comptabilisées</a>
+    avant ou au cours de cette période.
+  </p>
+}
+@for (note of notes(); track note) {
+  <p class="banner" role="note">{{ note }}</p>
+}
+
+@if (failure(); as error) {
+  <alco-error-state
+    [title]="error.title"
+    [message]="error.message"
+    [code]="error.code"
+    [correlationId]="error.correlationId ?? ''"
+    retryLabel="Réessayer"
+    (retry)="ledger.reload()"
+  />
+} @else if (unknownCode(); as code) {
+  <alco-empty-state
+    icon="search"
+    [title]="'Aucun compte de cette société n’a le code « ' + code + ' ».'"
+    message="Retirez-le de la recherche ou choisissez un autre compte."
+  />
+} @else if (report(); as found) {
+  @if (found.count === 0) {
+    <alco-empty-state
+      icon="book"
+      title="Aucune écriture sur cette période."
+      message="Changez la période, les journaux ou la recherche."
+    />
+  } @else {
+    <div class="sheet" [class.reloading]="ledger.loading()">
+      <div class="table-wrap">
+        <table class="report-table">
+          <caption class="alco-sr-only">
+            Grand livre général, en
+            {{
+              currency()
+            }}
+          </caption>
+          <thead>
+            <tr class="heads">
+              <td class="blank"></td>
+              <th scope="colgroup" colspan="5" class="box">{{ found.period }}</th>
+            </tr>
+            <tr class="subheads">
+              <th scope="col"><span class="alco-sr-only">Compte</span></th>
+              <th scope="col">Date</th>
+              <th scope="col">Partenaire</th>
+              <th scope="col" class="num">Débit</th>
+              <th scope="col" class="num">Crédit</th>
+              <th scope="col" class="num">Solde</th>
+            </tr>
+          </thead>
+          @for (row of found.results; track row.account.public_id) {
+            @let open = unfolded().has(row.account.public_id);
+            <tbody>
+              <tr class="account-row" [class.open]="open">
+                <th scope="row" class="account">
+                  <span class="account-line">
+                    <button
+                      type="button"
+                      class="fold"
+                      [attr.aria-expanded]="open"
+                      (click)="toggle(row)"
+                    >
+                      <alco-icon [name]="open ? 'chevron-down' : 'chevron-right'" [size]="14" />
+                      <span class="code">{{ row.account.code }}</span>
+                      <span class="name"> {{ row.account.name }}</span>
+                    </button>
+                    @if (open && canOpenLines()) {
+                      <a
+                        class="lines-link"
+                        [routerLink]="[accountingUrl, 'ecritures']"
+                        [queryParams]="linesQuery(row)"
+                        >Écritures comptables</a
+                      >
+                    }
+                  </span>
+                </th>
+                <td></td>
+                <td></td>
+                <td class="num" [class.zero]="isZero(row.total_debit)">
+                  {{ row.total_debit | alcoAmount: decimals() }} {{ currency() }}
+                </td>
+                <td class="num" [class.zero]="isZero(row.total_credit)">
+                  {{ row.total_credit | alcoAmount: decimals() }} {{ currency() }}
+                </td>
+                <td
+                  class="num"
+                  [class.zero]="isZero(row.closing)"
+                  [class.negative]="isNegative(row.closing)"
+                >
+                  {{ row.closing | alcoAmount: decimals() }} {{ currency() }}
+                </td>
+              </tr>
+              @if (open) {
+                <tr class="initial">
+                  <th scope="row" class="label">Solde initial</th>
+                  <td></td>
+                  <td></td>
+                  <td class="num" [class.zero]="isZero(row.opening_debit)">
+                    {{ row.opening_debit | alcoAmount: decimals() }} {{ currency() }}
+                  </td>
+                  <td class="num" [class.zero]="isZero(row.opening_credit)">
+                    {{ row.opening_credit | alcoAmount: decimals() }} {{ currency() }}
+                  </td>
+                  <td
+                    class="num"
+                    [class.zero]="isZero(row.opening)"
+                    [class.negative]="isNegative(row.opening)"
+                  >
+                    {{ row.opening | alcoAmount: decimals() }} {{ currency() }}
+                  </td>
+                </tr>
+                @let read = lines().get(row.account.public_id);
+                @for (line of read?.rows ?? []; track line.line) {
+                  <tr class="line">
+                    <th scope="row" class="label">
+                      <span class="account-line">
+                        <span class="name">{{ line.entry_number }} {{ line.label }}</span>
+                        <alco-dropdown
+                          class="more"
+                          trigger="ghost"
+                          size="sm"
+                          icon="more-vertical"
+                          [iconOnly]="true"
+                          [showChevron]="false"
+                          [items]="lineMenu(line)"
+                          [ariaLabel]="'Actions de la ligne ' + line.entry_number"
+                        >
+                          Actions de la ligne
+                        </alco-dropdown>
+                      </span>
+                    </th>
+                    <td>{{ date(line.entry_date) }}</td>
+                    <td class="partner">{{ line.partner?.name ?? '' }}</td>
+                    <td class="num" [class.zero]="isZero(line.debit)">
+                      {{ line.debit | alcoAmount: decimals() }} {{ currency() }}
+                    </td>
+                    <td class="num" [class.zero]="isZero(line.credit)">
+                      {{ line.credit | alcoAmount: decimals() }} {{ currency() }}
+                    </td>
+                    <td
+                      class="num"
+                      [class.zero]="isZero(line.balance)"
+                      [class.negative]="isNegative(line.balance)"
+                    >
+                      {{ line.balance | alcoAmount: decimals() }} {{ currency() }}
+                    </td>
+                  </tr>
+                }
+                @if (read?.loading) {
+                  <tr class="more-row">
+                    <td colspan="6">Chargement des lignes…</td>
+                  </tr>
+                } @else if (read?.failed) {
+                  <tr class="more-row">
+                    <td colspan="6">
+                      Les lignes n’ont pas pu être chargées.
+                      <button
+                        alcoButton
+                        type="button"
+                        size="sm"
+                        variant="ghost"
+                        (click)="loadMore(row)"
+                      >
+                        Réessayer
+                      </button>
+                    </td>
+                  </tr>
+                } @else if (read && read.rows.length < read.count) {
+                  <tr class="more-row">
+                    <td colspan="6">
+                      <button
+                        alcoButton
+                        type="button"
+                        size="sm"
+                        variant="ghost"
+                        (click)="loadMore(row)"
+                      >
+                        Charger plus…
+                      </button>
+                    </td>
+                  </tr>
+                }
+              }
+            </tbody>
+          }
+          <tfoot>
+            <tr>
+              <th scope="row">Total</th>
+              <td></td>
+              <td></td>
+              <td class="num">
+                {{ found.totals.total_debit | alcoAmount: decimals() }} {{ currency() }}
+              </td>
+              <td class="num">
+                {{ found.totals.total_credit | alcoAmount: decimals() }} {{ currency() }}
+              </td>
+              <td class="num" [class.negative]="isNegative(found.totals.closing)">
+                {{ found.totals.closing | alcoAmount: decimals() }} {{ currency() }}
+              </td>
+            </tr>
+          </tfoot>
+        </table>
+      </div>
+    </div>
+    @if (found.count > pageSize) {
+      <alco-pagination
+        [page]="page()"
+        [pageSize]="pageSize"
+        [total]="found.count"
+        (pageChange)="setPage($event)"
+      />
+    }
+  }
+} @else {
+  <alco-loading variant="table" [rows]="8" [columns]="6" label="Chargement du grand livre…" />
+}

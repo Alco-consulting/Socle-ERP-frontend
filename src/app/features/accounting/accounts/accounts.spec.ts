@@ -296,7 +296,7 @@ describe('Plan comptable (accounting/accounts/)', () => {
     ]);
     expect(buttons.map((button) => button.getAttribute('href'))).toEqual([
       '/app/comptabilite/ecritures/pieces?compte=40',
-      '/app/comptabilite/analyse/grand-livre?compte=40',
+      '/app/comptabilite/analyse/grand-livre?compte=40&periode=annee',
       '/plan-comptable/a-40#sous-comptes',
       '/plan-comptable/a-40#historique',
     ]);

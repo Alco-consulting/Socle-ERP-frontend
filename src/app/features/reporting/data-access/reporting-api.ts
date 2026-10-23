@@ -5,6 +5,8 @@ import { ApiClient } from '../../../core/http/api-client';
 import {
   AccountLedger,
   BalanceQuery,
+  GeneralLedger,
+  GeneralLedgerQuery,
   LedgerQuery,
   PartnerLedger,
   TrialBalance,
@@ -14,6 +16,8 @@ import {
 export const LEDGER_PAGE_SIZE = 50;
 /** Accounts per page of the balance: the server's most, a company's whole balance in practice. */
 export const BALANCE_PAGE_SIZE = 200;
+/** Lines of an unfolded account of the general ledger, then « Charger plus », as Odoo's. */
+export const GENERAL_LEDGER_LINES = 80;
 
 const id = (value: string) => encodeURIComponent(value);
 
@@ -34,8 +38,10 @@ export class ReportingApi {
         date_from: query.dateFrom ?? null,
         date_to: query.dateTo ?? null,
         include_descendants: query.includeDescendants ? true : null,
+        journal: query.journals ?? [],
+        include_unposted: query.includeUnposted ? true : null,
         page: query.page && query.page > 1 ? query.page : null,
-        page_size: LEDGER_PAGE_SIZE,
+        page_size: query.pageSize ?? LEDGER_PAGE_SIZE,
       },
     });
   }
@@ -48,6 +54,22 @@ export class ReportingApi {
         date_to: query.dateTo,
         column_from: query.earlier.map((period) => period.from),
         column_to: query.earlier.map((period) => period.to),
+        journal: query.journals,
+        include_unposted: query.includeUnposted ? true : null,
+        search: query.search || null,
+        page: query.page > 1 ? query.page : null,
+        page_size: BALANCE_PAGE_SIZE,
+      },
+    });
+  }
+
+  /** `reporting.read`: Odoo's « Grand livre général » (note backend 0053). */
+  generalLedger(query: GeneralLedgerQuery): Observable<GeneralLedger> {
+    return this.api.get<GeneralLedger>('reporting/general-ledger/', {
+      params: {
+        date_from: query.dateFrom,
+        date_to: query.dateTo,
+        account: query.account,
         journal: query.journals,
         include_unposted: query.includeUnposted ? true : null,
         search: query.search || null,

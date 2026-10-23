@@ -36,68 +36,12 @@
     />
   </label>
 
-  <alco-popover #dates icon="calendar" [label]="periodButton()" panelLabel="Période">
-    @for (item of steppedValues(); track item.id) {
-      <div class="choice-row">
-        <button
-          type="button"
-          class="choice"
-          [attr.aria-pressed]="periodKind() === item.id"
-          (click)="choosePeriod(item.id); dates.close(true)"
-        >
-          <span class="check">
-            @if (periodKind() === item.id) {
-              <alco-icon name="check" [size]="14" />
-            }
-          </span>
-          {{ item.title }}
-        </button>
-        <button
-          type="button"
-          class="step"
-          [attr.aria-label]="item.title + ' précédent'"
-          (click)="choosePeriod(item.id, -1)"
-        >
-          <alco-icon name="chevron-left" [size]="14" />
-        </button>
-        <span class="value">{{ item.value }}</span>
-        <button
-          type="button"
-          class="step"
-          [attr.aria-label]="item.title + ' suivant'"
-          (click)="choosePeriod(item.id, 1)"
-        >
-          <alco-icon name="chevron-right" [size]="14" />
-        </button>
-      </div>
-    }
-    <div class="divider" role="separator"></div>
-    <button
-      type="button"
-      class="choice"
-      [attr.aria-pressed]="periodKind() === 'perso'"
-      (click)="choosePeriod('perso')"
-    >
-      <span class="check">
-        @if (periodKind() === 'perso') {
-          <alco-icon name="check" [size]="14" />
-        }
-      </span>
-      Dates personnalisées
-    </button>
-    @if (periodKind() === 'perso') {
-      <div class="dates">
-        <label>
-          <span>Du</span>
-          <input alcoDatePicker type="date" [formControl]="fromControl" (change)="setDates()" />
-        </label>
-        <label>
-          <span>Au</span>
-          <input alcoDatePicker type="date" [formControl]="toControl" (change)="setDates()" />
-        </label>
-      </div>
-    }
-  </alco-popover>
+  <alco-report-period
+    [kind]="periodKind()"
+    [anchor]="anchor()"
+    [period]="period()"
+    (chosen)="choosePeriod($event)"
+  />
 
   <alco-popover
     #comparing
@@ -226,7 +170,7 @@
   } @else {
     <div class="sheet" [class.reloading]="balance.loading()">
       <div class="table-wrap">
-        <table class="balance">
+        <table class="report-table">
           <caption class="alco-sr-only">
             Balance comptable, en
             {{

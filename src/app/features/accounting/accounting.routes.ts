@@ -187,12 +187,14 @@ export const ACCOUNTING_ROUTES: Routes = [
     data: { breadcrumb: 'Balance comptable' },
     loadComponent: () => import('../reporting/balance/balance-page').then((m) => m.BalancePage),
   },
-  // Analyse: one ledger experience on Reporting (account, or partner: route data `ledger`).
+  // Analyse › Grand livre général, as Odoo's (note backend 0053).
   {
     path: 'analyse/grand-livre',
-    data: { breadcrumb: 'Grand livre', ledger: 'account' },
-    loadComponent: ledger,
+    data: { breadcrumb: 'Grand livre général' },
+    loadComponent: () =>
+      import('../reporting/general-ledger/general-ledger-page').then((m) => m.GeneralLedgerPage),
   },
+  // Analyse › Grand livre auxiliaire: the ledger of a partner (route data `ledger`).
   {
     path: 'analyse/grand-livre-auxiliaire',
     data: { breadcrumb: 'Grand livre auxiliaire', ledger: 'partner' },

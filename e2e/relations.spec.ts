@@ -71,15 +71,20 @@ test.describe('Compte → objets liés', () => {
   }) => {
     await page.goto(`${ACC}/plan-comptable/${accountId(api, '401')}`);
     await smart(page, 'Grand livre').click();
-    await expect(page).toHaveURL(/\/analyse\/grand-livre\?compte=401$/);
-    await expect(page.getByRole('heading', { level: 1 })).toHaveText('Grand livre');
-    await expect(page.getByText('401 — Fournisseurs', { exact: true })).toBeVisible();
-    await expect(page.getByText(/Du 01\/01\/2026 au 31\/12\/2026/)).toBeVisible();
-    await expect(rows(page).first()).toBeVisible();
+    await expect(page).toHaveURL(/\/analyse\/grand-livre\?compte=401&periode=annee$/);
+    await expect(page.getByRole('heading', { level: 1 })).toHaveText('Grand livre général');
+    // The account alone, unfolded on its year (note backend 0053).
+    const account = page.locator('tr.account-row');
+    await expect(account).toHaveCount(1);
+    await expect(account.locator('button.fold')).toHaveText(/401\s+Fournisseurs/);
+    await expect(account.locator('button.fold')).toHaveAttribute('aria-expanded', 'true');
+    const line = page.locator('tr.line').first();
+    await expect(line).toBeVisible();
     const ledgerCall = api.callsTo(`reporting/ledger/${accountId(api, '401')}/`).at(-1)!;
     expect(new URL(ledgerCall.url()).searchParams.get('fiscal_year')).toBeTruthy();
     // Drill-down: the entry, then back to the account by its link.
-    await rows(page).first().getByRole('link').first().click();
+    await line.getByRole('button', { name: /Actions de la ligne/ }).click();
+    await page.getByRole('menuitem', { name: 'Voir la pièce' }).click();
     await expect(page).toHaveURL(/\/ecritures\/[^/?#]+$/);
     await page.getByRole('link', { name: '401', exact: true }).first().click();
     await expect(page).toHaveURL(new RegExp(`/plan-comptable/${accountId(api, '401')}$`));

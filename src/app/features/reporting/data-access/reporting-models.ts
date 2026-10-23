@@ -53,6 +53,9 @@ export interface ReportWarning {
 interface LedgerHeader {
   readonly scope: ReportScope;
   readonly opening_balance: string;
+  /** Odoo's « Solde initial »: the debits and the credits before the scope. */
+  readonly opening_debit: string;
+  readonly opening_credit: string;
   readonly total_debit: string;
   readonly total_credit: string;
   readonly closing_balance: string;
@@ -79,8 +82,57 @@ export interface LedgerQuery {
   readonly dateFrom?: string | null;
   readonly dateTo?: string | null;
   readonly page?: number;
+  readonly pageSize?: number;
   /** Account ledger only: the account's sub-accounts too. */
   readonly includeDescendants?: boolean;
+  /** Public ids; none: every journal. */
+  readonly journals?: readonly string[];
+  readonly includeUnposted?: boolean;
+}
+
+/** An account of the general ledger (note backend 0053). */
+export interface GeneralLedgerFigures {
+  /** Odoo's « Solde initial » line. */
+  readonly opening_debit: string;
+  readonly opening_credit: string;
+  readonly opening: string;
+  /** The period's. */
+  readonly debit: string;
+  readonly credit: string;
+  /** Odoo's account line: before and within the period. */
+  readonly total_debit: string;
+  readonly total_credit: string;
+  readonly closing: string;
+}
+
+/** `ReportingGeneralLedgerRow`. */
+export interface GeneralLedgerRow extends GeneralLedgerFigures {
+  readonly account: CodeReference & { readonly name: string; readonly account_type: string };
+}
+
+/** `ReportingGeneralLedgerHeaderPage` (`GET reporting/general-ledger/`). */
+export interface GeneralLedger {
+  readonly scope: ReportScope;
+  /** « oct. 2026 », the heading of the columns. */
+  readonly period: string;
+  readonly totals: GeneralLedgerFigures;
+  readonly warnings: readonly ReportWarning[];
+  readonly count: number;
+  readonly next: string | null;
+  readonly previous: string | null;
+  readonly results: readonly GeneralLedgerRow[];
+}
+
+/** Odoo's filters of the general ledger. */
+export interface GeneralLedgerQuery {
+  readonly dateFrom: string;
+  readonly dateTo: string;
+  /** One account only (`?compte=`). */
+  readonly account: string | null;
+  readonly journals: readonly string[];
+  readonly includeUnposted: boolean;
+  readonly search: string;
+  readonly page: number;
 }
 
 /** `ReportingMovement`: a period's debit and credit. */

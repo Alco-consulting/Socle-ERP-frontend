@@ -1,0 +1,57 @@
+<alco-popover #dates icon="calendar" [label]="label()" panelLabel="Période">
+  @for (item of stepped(); track item.id) {
+    <div class="choice-row">
+      <button
+        type="button"
+        class="choice"
+        [attr.aria-pressed]="kind() === item.id"
+        (click)="step(item.id, 0); dates.close(true)"
+      >
+        <span class="check">
+          @if (kind() === item.id) {
+            <alco-icon name="check" [size]="14" />
+          }
+        </span>
+        {{ item.title }}
+      </button>
+      <button
+        type="button"
+        class="step"
+        [attr.aria-label]="item.title + ' précédent'"
+        (click)="step(item.id, -1)"
+      >
+        <alco-icon name="chevron-left" [size]="14" />
+      </button>
+      <span class="value">{{ item.value }}</span>
+      <button
+        type="button"
+        class="step"
+        [attr.aria-label]="item.title + ' suivant'"
+        (click)="step(item.id, 1)"
+      >
+        <alco-icon name="chevron-right" [size]="14" />
+      </button>
+    </div>
+  }
+  <div class="divider" role="separator"></div>
+  <button type="button" class="choice" [attr.aria-pressed]="kind() === 'perso'" (click)="custom()">
+    <span class="check">
+      @if (kind() === 'perso') {
+        <alco-icon name="check" [size]="14" />
+      }
+    </span>
+    Dates personnalisées
+  </button>
+  @if (kind() === 'perso') {
+    <div class="dates">
+      <label>
+        <span>Du</span>
+        <input alcoDatePicker type="date" [formControl]="fromControl" (change)="setDates()" />
+      </label>
+      <label>
+        <span>Au</span>
+        <input alcoDatePicker type="date" [formControl]="toControl" (change)="setDates()" />
+      </label>
+    </div>
+  }
+</alco-popover>

@@ -40,19 +40,20 @@ import { BALANCE_PAGE_SIZE, ReportingApi } from '../data-access/reporting-api';
 import { BalanceFigures, BalanceRow, TrialBalance } from '../data-access/reporting-models';
 import { LEDGER_PARAM, LEDGER_PATHS } from '../ledger/ledger-presentation';
 import {
+  AlcoReportPeriod,
+  Period,
+  PeriodChoice,
+  isIsoDate,
+  periodFromUrl,
+  periodParams,
+} from '../report-period/report-period';
+import {
   BALANCE_ERRORS,
   BALANCE_PARAM,
   COMPARISONS,
   ComparisonKind,
   MAX_COMPARED,
-  Period,
-  PeriodKind,
-  STEPPED,
   earlierPeriods,
-  isIsoDate,
-  periodLabel,
-  periodOf,
-  shifted,
   warningText,
 } from './balance-presentation';
 
@@ -103,6 +104,7 @@ type Line =
     AlcoLoading,
     AlcoPagination,
     AlcoPopover,
+    AlcoReportPeriod,
   ],
   templateUrl: './balance-page.html',
   styleUrl: './balance-page.scss',
@@ -120,7 +122,6 @@ export class BalancePage {
   protected readonly session = inject(SessionStore);
 
   protected readonly pageSize = BALANCE_PAGE_SIZE;
-  protected readonly stepped = STEPPED;
   protected readonly comparisons = COMPARISONS;
   protected readonly maxCompared = MAX_COMPARED;
 
@@ -129,25 +130,10 @@ export class BalancePage {
     initialValue: this.route.snapshot.queryParamMap,
   });
   /** Odoo opens the balance on this month. */
-  protected readonly periodKind = computed<PeriodKind>(() => {
-    const wanted = this.params().get(BALANCE_PARAM.period);
-    return wanted === 'trimestre' || wanted === 'annee' || wanted === 'perso' ? wanted : 'mois';
-  });
-  private readonly anchor = computed(() => {
-    const wanted = this.params().get(BALANCE_PARAM.day);
-    return isIsoDate(wanted) ? wanted : localToday();
-  });
-  protected readonly period = computed<Period>(() => {
-    const kind = this.periodKind();
-    if (kind !== 'perso') {
-      return periodOf(kind, this.anchor());
-    }
-    const year = periodOf('annee', this.anchor());
-    const from = this.params().get(BALANCE_PARAM.from);
-    const to = this.params().get(BALANCE_PARAM.to);
-    return { from: isIsoDate(from) ? from : year.from, to: isIsoDate(to) ? to : year.to };
-  });
-  protected readonly periodButton = computed(() => periodLabel(this.period()));
+  private readonly dates = computed(() => periodFromUrl(this.params(), localToday()));
+  protected readonly periodKind = computed(() => this.dates().kind);
+  protected readonly anchor = computed(() => this.dates().anchor);
+  protected readonly period = computed<Period>(() => this.dates().period);
   protected readonly comparison = computed<ComparisonKind | null>(() => {
     const wanted = this.params().get(BALANCE_PARAM.comparison);
     return COMPARISONS.find((item) => item.id === wanted)?.id ?? null;
@@ -285,13 +271,6 @@ export class BalancePage {
   });
 
   // ---- Filters (Odoo's buttons) --------------------------------------------------------
-  /** Each line of the date menu: its period around the day shown, « octobre 2026 ». */
-  protected readonly steppedValues = computed(() =>
-    STEPPED.map((item) => ({
-      ...item,
-      value: periodLabel(periodOf(item.id, this.anchor()), true),
-    })),
-  );
   protected readonly comparisonButton = computed(() => {
     const chosen = COMPARISONS.find((item) => item.id === this.comparison());
     return chosen ? `Comparaison: ${chosen.title}` : 'Comparaison';
@@ -324,8 +303,6 @@ export class BalancePage {
       : []),
   ]);
 
-  protected readonly fromControl = new FormControl('', { nonNullable: true });
-  protected readonly toControl = new FormControl('', { nonNullable: true });
   protected readonly compareFromControl = new FormControl('', { nonNullable: true });
   protected readonly compareToControl = new FormControl('', { nonNullable: true });
   protected readonly searchControl = new FormControl('', { nonNullable: true });
@@ -350,12 +327,9 @@ export class BalancePage {
       }
     });
     effect(() => {
-      const period = this.period();
       const custom = this.customCompared();
       const search = this.searchText();
       untracked(() => {
-        this.fromControl.setValue(period.from, { emitEvent: false });
-        this.toControl.setValue(period.to, { emitEvent: false });
         this.compareFromControl.setValue(custom?.from ?? '', { emitEvent: false });
         this.compareToControl.setValue(custom?.to ?? '', { emitEvent: false });
         if (this.searchControl.value !== search) {
@@ -371,29 +345,12 @@ export class BalancePage {
       );
   }
 
-  /** A line of the date menu: its month, quarter or year (`steps`: ◀ ▶ from the day shown). */
-  protected choosePeriod(kind: PeriodKind, steps = 0): void {
-    const period = this.period();
+  /** A choice of the date menu, into the URL. */
+  protected choosePeriod(choice: PeriodChoice): void {
     this.navigate({
-      [BALANCE_PARAM.period]: kind === 'mois' ? null : kind,
-      [BALANCE_PARAM.day]: kind === 'perso' ? null : shifted(kind, this.anchor(), steps),
-      // Personal dates start from the period on screen.
-      [BALANCE_PARAM.from]: kind === 'perso' ? period.from : null,
-      [BALANCE_PARAM.to]: kind === 'perso' ? period.to : null,
+      ...periodParams(choice, this.anchor(), this.period()),
       [BALANCE_PARAM.page]: null,
     });
-  }
-
-  protected setDates(): void {
-    const from = this.fromControl.value;
-    const to = this.toControl.value;
-    if (from && to) {
-      this.navigate({
-        [BALANCE_PARAM.from]: from,
-        [BALANCE_PARAM.to]: to,
-        [BALANCE_PARAM.page]: null,
-      });
-    }
   }
 
   protected compare(kind: ComparisonKind | null): void {

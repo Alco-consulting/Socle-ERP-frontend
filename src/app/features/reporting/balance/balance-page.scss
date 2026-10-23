@@ -1,6 +1,6 @@
 @use 'breakpoints' as bp;
 
-// As Odoo's report: the filters in one row, then the six columns under their three periods.
+// As Odoo's report: one bar (PDF, XLSX, title, search, filters), its banner, then the sheet.
 :host {
   display: flex;
   flex-direction: column;
@@ -8,38 +8,24 @@
   min-width: 0;
 }
 
-.filters {
+.report-bar {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   gap: var(--space-2);
 }
 
-.dates {
-  display: inline-flex;
-  flex-wrap: wrap;
-  gap: var(--space-2);
-}
-
-.date {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-2);
-  color: var(--color-text-muted);
-  font-size: var(--font-size-caption);
-
-  input {
-    width: auto;
-  }
+.report-title {
+  margin: 0 var(--space-3) 0 var(--space-1);
+  font-size: var(--font-size-page-title);
+  font-weight: var(--font-weight-regular);
 }
 
 .search {
   position: relative;
   display: inline-flex;
   align-items: center;
-  flex: 1 1 14rem;
-  max-width: 22rem;
-  margin-left: auto;
+  flex: 0 1 16rem;
   color: var(--color-text-muted);
 
   alco-icon {
@@ -53,106 +39,211 @@
   }
 
   @include bp.below-tablet {
-    max-width: none;
-    margin-left: 0;
+    flex-basis: 100%;
   }
 }
 
-.warning {
-  display: flex;
-  flex-wrap: wrap;
+.currency {
+  display: inline-flex;
   align-items: center;
-  gap: var(--space-2);
-  margin: 0;
-  padding: var(--space-2) var(--space-3);
+  min-height: var(--control-height);
+  padding: 0 var(--space-3);
   border-radius: var(--radius-md);
-  background: var(--color-warning-soft);
-  color: var(--color-warning-text);
+  background: var(--color-surface-muted);
+  font-weight: var(--font-weight-semibold);
 }
 
-.table-wrap {
-  overflow-x: auto;
+// The panels of the date and the comparison, as Odoo's menus.
+.choice-row {
+  display: grid;
+  grid-template-columns: minmax(9rem, 1fr) auto minmax(9rem, auto) auto;
+  align-items: center;
+  padding-right: var(--space-2);
+
+  &:has(.count) {
+    grid-template-columns: minmax(14rem, 1fr) 4rem auto;
+    gap: var(--space-2);
+  }
+}
+
+.choice {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: var(--control-height);
+  padding: 0 var(--space-4) 0 var(--space-2);
+  border: 0;
+  background: transparent;
+  color: var(--color-text);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+
+  &[aria-pressed='true'] {
+    font-weight: var(--font-weight-semibold);
+  }
+
+  &:hover {
+    background: var(--color-surface-muted);
+  }
+}
+
+.check {
+  display: inline-flex;
+  width: var(--icon-size-sm);
+  color: var(--color-primary);
+}
+
+.step {
+  display: inline-flex;
+  padding: var(--space-1);
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--color-text-muted);
+  cursor: pointer;
+
+  &:hover {
+    color: var(--color-text);
+    background: var(--color-surface-muted);
+  }
+}
+
+.value {
+  text-align: center;
+  white-space: nowrap;
+}
+
+.unit {
+  color: var(--color-text);
+}
+
+.divider {
+  height: var(--border-width);
+  margin: var(--space-1) 0;
+  background: var(--color-border);
+}
+
+.dates {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-4) var(--space-3);
+
+  label {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-2);
+    color: var(--color-text-muted);
+  }
+}
+
+// Odoo's blue banner: the drafts left out, a link to them.
+.banner {
+  margin: 0;
+  padding: var(--space-3) var(--space-4);
+  border-radius: var(--radius-md);
+  background: var(--color-info-soft);
+  color: var(--color-info-text);
+  text-align: center;
+
+  a {
+    color: inherit;
+    font-weight: var(--font-weight-semibold);
+  }
+}
+
+// The sheet: white, centred, as wide as its columns.
+.sheet {
+  align-self: center;
+  max-width: 100%;
+  padding: var(--space-5) var(--space-6);
   border: var(--border-width) solid var(--color-border);
-  border-radius: var(--radius-lg);
+  border-radius: var(--radius-md);
   background: var(--color-surface);
   transition: opacity var(--duration-fast) var(--easing-standard);
 
   &.reloading {
     opacity: 0.6;
   }
+
+  @include bp.below-tablet {
+    align-self: stretch;
+    padding: var(--space-3);
+  }
+}
+
+.table-wrap {
+  overflow-x: auto;
 }
 
 .balance {
-  width: 100%;
-  min-width: 56rem;
   border-collapse: collapse;
   font-variant-numeric: tabular-nums;
 
   th,
   td {
-    height: 40px;
+    height: 36px;
     padding: var(--space-1) var(--space-3);
-    border-bottom: var(--border-width) solid var(--color-border);
     text-align: left;
     white-space: nowrap;
   }
 
-  thead th {
-    height: 32px;
-    background: var(--color-surface-muted);
-    color: var(--color-text-muted);
-    font-size: var(--font-size-caption);
-    font-weight: var(--font-weight-semibold);
-    letter-spacing: 0.04em;
-    text-transform: uppercase;
-  }
-
-  .head-group {
-    text-align: center;
-    border-left: var(--border-width) solid var(--color-border);
+  tbody th,
+  tbody td {
+    border-bottom: var(--border-width) solid var(--color-border);
   }
 
   .num {
+    min-width: 7.5rem;
     text-align: right;
   }
 
-  tbody tr:hover {
-    background: var(--color-surface-muted);
+  .zero {
+    color: var(--color-text-subtle);
+  }
+
+  .negative {
+    color: var(--color-danger-text);
   }
 
   tfoot th,
   tfoot td {
-    border-bottom: 0;
-    background: var(--color-surface-muted);
     font-weight: var(--font-weight-semibold);
   }
 }
 
-.col-account {
-  width: 30%;
+// Odoo's headings: each period in its box, then Solde, Débit, Crédit, Solde.
+.heads .box {
+  border: var(--border-width) solid var(--color-border);
+  font-weight: var(--font-weight-semibold);
+  text-align: center;
 }
 
-.code {
-  font-family: var(--font-family-mono);
-  font-variant-numeric: tabular-nums;
+.subheads th {
+  font-weight: var(--font-weight-semibold);
 }
 
-// An account opens its menu (Grand livre, Écritures comptables), as Odoo's line.
+// An account and its ⋮ (Grand livre général, Écritures comptables), as Odoo's line.
 .account {
+  min-width: 18rem;
   font-weight: var(--font-weight-regular);
 
+  .account-line {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-1);
+    max-width: 32rem;
+  }
+
   .name {
-    display: inline-block;
     overflow: hidden;
-    max-width: 22rem;
-    margin-left: var(--space-2);
-    vertical-align: bottom;
-    color: var(--color-text);
     text-overflow: ellipsis;
   }
 
-  .code {
-    color: var(--color-text);
+  .more {
+    flex: none;
+    color: var(--color-text-subtle);
   }
 }
 
@@ -160,7 +251,7 @@
   padding-left: calc(var(--space-3) + var(--space-6));
 }
 
-// Odoo's « Hiérarchie et sous-totaux »: the class, then its groups, each with its sums.
+// « Hiérarchie et sous-totaux »: the class, then its groups, each with its sums.
 .group th,
 .group td {
   font-weight: var(--font-weight-semibold);

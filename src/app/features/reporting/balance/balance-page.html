@@ -1,47 +1,182 @@
-<alco-page-header title="Balance générale">
+<!-- As Odoo's report: PDF, XLSX, the title, the search, then the filters, in one bar. -->
+<div class="report-bar">
   @if (canExport()) {
-    <div alcoPageActions>
-      <button
-        alcoButton
-        type="button"
-        icon="download"
-        [loading]="exporting()"
-        loadingLabel="Export…"
-        aria-label="Exporter la balance au format Excel (XLSX)"
-        (click)="exportWorkbook()"
-      >
-        XLSX
-      </button>
-    </div>
+    <button
+      alcoButton
+      type="button"
+      variant="primary"
+      [loading]="exporting() === 'pdf'"
+      loadingLabel="PDF…"
+      aria-label="Télécharger la balance en PDF"
+      (click)="exportFile('pdf')"
+    >
+      PDF
+    </button>
+    <button
+      alcoButton
+      type="button"
+      [loading]="exporting() === 'xlsx'"
+      loadingLabel="XLSX…"
+      aria-label="Télécharger la balance en Excel (XLSX)"
+      (click)="exportFile('xlsx')"
+    >
+      XLSX
+    </button>
   }
-</alco-page-header>
+  <h1 class="report-title">Balance comptable</h1>
+  <label class="search">
+    <alco-icon name="search" [size]="16" />
+    <span class="alco-sr-only">Rechercher un compte</span>
+    <input
+      alcoInput
+      type="search"
+      [formControl]="searchControl"
+      placeholder="Rechercher…"
+      autocomplete="off"
+    />
+  </label>
 
-<!-- As Odoo's report: the filters in a row above the figures. -->
-<div class="filters" role="group" aria-label="Filtres de la balance">
-  <alco-dropdown
-    mode="single"
-    icon="calendar"
-    [items]="periodItems()"
-    ariaLabel="Période"
-    (selected)="choosePeriod($event)"
+  <alco-popover #dates icon="calendar" [label]="periodButton()" panelLabel="Période">
+    @for (item of steppedValues(); track item.id) {
+      <div class="choice-row">
+        <button
+          type="button"
+          class="choice"
+          [attr.aria-pressed]="periodKind() === item.id"
+          (click)="choosePeriod(item.id); dates.close(true)"
+        >
+          <span class="check">
+            @if (periodKind() === item.id) {
+              <alco-icon name="check" [size]="14" />
+            }
+          </span>
+          {{ item.title }}
+        </button>
+        <button
+          type="button"
+          class="step"
+          [attr.aria-label]="item.title + ' précédent'"
+          (click)="choosePeriod(item.id, -1)"
+        >
+          <alco-icon name="chevron-left" [size]="14" />
+        </button>
+        <span class="value">{{ item.value }}</span>
+        <button
+          type="button"
+          class="step"
+          [attr.aria-label]="item.title + ' suivant'"
+          (click)="choosePeriod(item.id, 1)"
+        >
+          <alco-icon name="chevron-right" [size]="14" />
+        </button>
+      </div>
+    }
+    <div class="divider" role="separator"></div>
+    <button
+      type="button"
+      class="choice"
+      [attr.aria-pressed]="periodKind() === 'perso'"
+      (click)="choosePeriod('perso')"
+    >
+      <span class="check">
+        @if (periodKind() === 'perso') {
+          <alco-icon name="check" [size]="14" />
+        }
+      </span>
+      Dates personnalisées
+    </button>
+    @if (periodKind() === 'perso') {
+      <div class="dates">
+        <label>
+          <span>Du</span>
+          <input alcoDatePicker type="date" [formControl]="fromControl" (change)="setDates()" />
+        </label>
+        <label>
+          <span>Au</span>
+          <input alcoDatePicker type="date" [formControl]="toControl" (change)="setDates()" />
+        </label>
+      </div>
+    }
+  </alco-popover>
+
+  <alco-popover
+    #comparing
+    icon="percent"
+    [label]="comparisonButton()"
+    [active]="comparison() !== null"
+    panelLabel="Comparaison"
   >
-    {{ period().label }}
-  </alco-dropdown>
-  @if (periodKind() === 'perso') {
-    <span class="dates">
-      <label class="date">
-        <span>Du</span>
-        <input alcoDatePicker type="date" [formControl]="fromControl" (change)="setDates()" />
-      </label>
-      <label class="date">
-        <span>Au</span>
-        <input alcoDatePicker type="date" [formControl]="toControl" (change)="setDates()" />
-      </label>
-    </span>
-  }
+    <button
+      type="button"
+      class="choice"
+      [attr.aria-pressed]="comparison() === null"
+      (click)="compare(null); comparing.close(true)"
+    >
+      <span class="check">
+        @if (comparison() === null) {
+          <alco-icon name="check" [size]="14" />
+        }
+      </span>
+      Aucune comparaison
+    </button>
+    @for (item of comparisons; track item.id) {
+      <div class="choice-row">
+        <button
+          type="button"
+          class="choice"
+          [attr.aria-pressed]="comparison() === item.id"
+          (click)="compare(item.id)"
+        >
+          <span class="check">
+            @if (comparison() === item.id) {
+              <alco-icon name="check" [size]="14" />
+            }
+          </span>
+          {{ item.title }}
+        </button>
+        @if (comparison() === item.id && item.id !== 'perso') {
+          <input
+            alcoInput
+            class="count"
+            type="number"
+            min="1"
+            [max]="maxCompared"
+            [value]="compared()"
+            aria-label="Nombre de périodes comparées"
+            (change)="setCompared($event)"
+          />
+          <span class="unit">{{ compared() > 1 ? 'Périodes' : 'Période' }}</span>
+        }
+      </div>
+      @if (comparison() === 'perso' && item.id === 'perso') {
+        <div class="dates">
+          <label>
+            <span>Du</span>
+            <input
+              alcoDatePicker
+              type="date"
+              [formControl]="compareFromControl"
+              (change)="setComparedDates()"
+            />
+          </label>
+          <label>
+            <span>Au</span>
+            <input
+              alcoDatePicker
+              type="date"
+              [formControl]="compareToControl"
+              (change)="setComparedDates()"
+            />
+          </label>
+        </div>
+      }
+    }
+  </alco-popover>
+
   <alco-dropdown
     mode="multiple"
     icon="book"
+    [showChevron]="false"
     [items]="journalItems()"
     ariaLabel="Journaux"
     (selected)="toggleJournal($event)"
@@ -51,34 +186,25 @@
   <alco-dropdown
     mode="multiple"
     icon="filter"
+    [showChevron]="false"
     [items]="optionItems()"
+    ariaLabel="Pièces et options"
     (selected)="toggleOption($event)"
   >
-    Options
+    {{ optionsLabel() }}
   </alco-dropdown>
-  <label class="search">
-    <alco-icon name="search" [size]="16" />
-    <span class="alco-sr-only">Rechercher un compte</span>
-    <input
-      alcoInput
-      type="search"
-      [formControl]="searchControl"
-      placeholder="Rechercher un compte…"
-      autocomplete="off"
-    />
-  </label>
+  <span class="currency" title="Montants en devise de la société">En {{ currency() }}</span>
 </div>
 
-@for (warning of warnings(); track warning.code) {
-  <p class="warning" role="note">
-    <alco-icon name="alert-triangle" [size]="16" />
-    <span>{{ warning.text }}</span>
-    @if (warning.code === 'unposted_entries') {
-      <button alcoButton type="button" size="sm" variant="ghost" (click)="includeUnposted(true)">
-        Les inclure
-      </button>
-    }
+@if (unposted()) {
+  <p class="banner" role="note">
+    Il y a des
+    <a [routerLink]="draftsUrl" [queryParams]="draftsQuery()">pièces non comptabilisées</a>
+    avant ou au cours de cette période.
   </p>
+}
+@for (note of notes(); track note) {
+  <p class="banner" role="note">{{ note }}</p>
 }
 
 @if (failure(); as error) {
@@ -98,91 +224,89 @@
       message="Changez la période, les journaux ou la recherche."
     />
   } @else {
-    <div class="table-wrap" [class.reloading]="balance.loading()">
-      <table class="balance" [class.balance--tree]="hierarchy()">
-        <caption class="alco-sr-only">
-          Balance générale,
-          {{
-            period().label
-          }}, en
-          {{
-            session.activeCompany()?.currency
-          }}
-        </caption>
-        <colgroup>
-          <col class="col-account" />
-          <col span="6" class="col-amount" />
-        </colgroup>
-        <thead>
-          <tr>
-            <th scope="col" rowspan="2" class="head-account">Compte</th>
-            <th scope="colgroup" colspan="2" class="head-group">Solde initial</th>
-            <th scope="colgroup" colspan="2" class="head-group">{{ period().label }}</th>
-            <th scope="colgroup" colspan="2" class="head-group">Solde final</th>
-          </tr>
-          <tr>
-            <th scope="col" class="num">Débit</th>
-            <th scope="col" class="num">Crédit</th>
-            <th scope="col" class="num">Débit</th>
-            <th scope="col" class="num">Crédit</th>
-            <th scope="col" class="num">Débit</th>
-            <th scope="col" class="num">Crédit</th>
-          </tr>
-        </thead>
-        <tbody>
-          @for (line of lines(); track line.key) {
-            @if (line.kind === 'group') {
-              <tr class="group" [class.group--class]="line.level === 1">
-                <th scope="row" class="group-name">
-                  <button
-                    type="button"
-                    class="fold"
-                    [class.fold--group]="line.level === 2"
-                    [attr.aria-expanded]="!line.folded"
-                    (click)="toggleGroup(line.code)"
-                  >
-                    <alco-icon
-                      [name]="line.folded ? 'chevron-right' : 'chevron-down'"
-                      [size]="14"
-                    />
-                    <span class="code">{{ line.code }}</span>
-                    {{ line.name }}
-                  </button>
-                </th>
-                <ng-container *ngTemplateOutlet="amounts; context: { $implicit: line.columns }" />
-              </tr>
-            } @else {
-              <tr>
-                <th scope="row" class="account" [class.account--indent]="line.indent">
-                  <alco-dropdown
-                    trigger="ghost"
-                    size="sm"
-                    [showChevron]="false"
-                    [items]="line.menu"
-                    [ariaLabel]="'Compte ' + line.row.account.code + ' ' + line.row.account.name"
-                  >
-                    <span class="code">{{ line.row.account.code }}</span>
-                    <span class="name"> {{ line.row.account.name }}</span>
-                  </alco-dropdown>
-                </th>
-                <ng-container *ngTemplateOutlet="amounts; context: { $implicit: line.row }" />
-              </tr>
+    <div class="sheet" [class.reloading]="balance.loading()">
+      <div class="table-wrap">
+        <table class="balance">
+          <caption class="alco-sr-only">
+            Balance comptable, en
+            {{
+              currency()
+            }}
+          </caption>
+          <thead>
+            <tr class="heads">
+              <td class="blank"></td>
+              <th scope="col" class="box">Solde initial</th>
+              @for (period of found.periods; track period.date_from) {
+                <th scope="colgroup" colspan="2" class="box">{{ period.label }}</th>
+              }
+              <th scope="col" class="box">Solde final</th>
+            </tr>
+            <tr class="subheads">
+              <th scope="col"><span class="alco-sr-only">Compte</span></th>
+              <th scope="col" class="num">Solde</th>
+              @for (period of found.periods; track period.date_from) {
+                <th scope="col" class="num">Débit</th>
+                <th scope="col" class="num">Crédit</th>
+              }
+              <th scope="col" class="num">Solde</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (line of lines(); track line.key) {
+              @if (line.kind === 'group') {
+                <tr class="group" [class.group--class]="line.level === 1">
+                  <th scope="row">
+                    <button
+                      type="button"
+                      class="fold"
+                      [class.fold--group]="line.level === 2"
+                      [attr.aria-expanded]="!line.folded"
+                      (click)="toggleGroup(line.code)"
+                    >
+                      <alco-icon
+                        [name]="line.folded ? 'chevron-right' : 'chevron-down'"
+                        [size]="14"
+                      />
+                      <span class="code">{{ line.code }}</span>
+                      {{ line.name }}
+                    </button>
+                  </th>
+                  <ng-container *ngTemplateOutlet="figures; context: { $implicit: line.figures }" />
+                </tr>
+              } @else {
+                <tr>
+                  <th scope="row" class="account" [class.account--indent]="line.indent">
+                    <span class="account-line">
+                      <span class="code">{{ line.row.account.code }}</span>
+                      <span class="name"> {{ line.row.account.name }}</span>
+                      <alco-dropdown
+                        class="more"
+                        trigger="ghost"
+                        size="sm"
+                        icon="more-vertical"
+                        [iconOnly]="true"
+                        [showChevron]="false"
+                        [items]="line.menu"
+                        [ariaLabel]="'Actions du compte ' + line.row.account.code"
+                      >
+                        Actions du compte
+                      </alco-dropdown>
+                    </span>
+                  </th>
+                  <ng-container *ngTemplateOutlet="figures; context: { $implicit: line.row }" />
+                </tr>
+              }
             }
-          }
-        </tbody>
-        <tfoot>
-          <tr>
-            <th scope="row">Total</th>
-            @let total = found.columns;
-            <td class="num">{{ total.opening_debit | alcoAmount: decimals() }}</td>
-            <td class="num">{{ total.opening_credit | alcoAmount: decimals() }}</td>
-            <td class="num">{{ total.debit | alcoAmount: decimals() }}</td>
-            <td class="num">{{ total.credit | alcoAmount: decimals() }}</td>
-            <td class="num">{{ total.closing_debit | alcoAmount: decimals() }}</td>
-            <td class="num">{{ total.closing_credit | alcoAmount: decimals() }}</td>
-          </tr>
-        </tfoot>
-      </table>
+          </tbody>
+          <tfoot>
+            <tr>
+              <th scope="row">Total</th>
+              <ng-container *ngTemplateOutlet="figures; context: { $implicit: total() }" />
+            </tr>
+          </tfoot>
+        </table>
+      </div>
     </div>
     @if (found.count > pageSize) {
       <alco-pagination
@@ -192,26 +316,33 @@
         (pageChange)="setPage($event)"
       />
     }
-    <p class="alco-caption">
-      Montants en {{ session.activeCompany()?.currency }}, calculés par le serveur.
-      {{
-        unposted()
-          ? 'Écritures non comptabilisées comprises.'
-          : 'Écritures comptabilisées seulement.'
-      }}
-    </p>
   }
 } @else {
-  <alco-loading variant="table" [rows]="8" [columns]="7" label="Chargement de la balance…" />
+  <alco-loading variant="table" [rows]="8" [columns]="4" label="Chargement de la balance…" />
 }
 
-<!-- The six amounts of a row: « 0 » stays empty, as Odoo's. -->
-<ng-template #amounts let-columns>
-  @for (key of amountKeys; track key) {
-    <td class="num">
-      @if (!isZero(columns[key])) {
-        {{ columns[key] | alcoAmount: decimals() }}
-      }
+<!-- The amounts of a row, as Odoo's: zeros in grey, negatives in red. -->
+<ng-template #figures let-figures>
+  <td
+    class="num"
+    [class.zero]="isZero(figures.opening)"
+    [class.negative]="isNegative(figures.opening)"
+  >
+    {{ figures.opening | alcoAmount: decimals() }}
+  </td>
+  @for (move of figures.movements; track $index) {
+    <td class="num" [class.zero]="isZero(move.debit)">
+      {{ move.debit | alcoAmount: decimals() }}
+    </td>
+    <td class="num" [class.zero]="isZero(move.credit)">
+      {{ move.credit | alcoAmount: decimals() }}
     </td>
   }
+  <td
+    class="num"
+    [class.zero]="isZero(figures.closing)"
+    [class.negative]="isNegative(figures.closing)"
+  >
+    {{ figures.closing | alcoAmount: decimals() }}
+  </td>
 </ng-template>

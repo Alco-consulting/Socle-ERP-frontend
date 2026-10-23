@@ -83,35 +83,53 @@ export interface LedgerQuery {
   readonly includeDescendants?: boolean;
 }
 
-/** `ReportingColumns`: Odoo's six columns, the opening and closing balances net on their side. */
-export interface BalanceColumns {
-  readonly opening_debit: string;
-  readonly opening_credit: string;
+/** `ReportingMovement`: a period's debit and credit. */
+export interface BalanceMovement {
   readonly debit: string;
   readonly credit: string;
-  readonly closing_debit: string;
-  readonly closing_credit: string;
+}
+
+/** `ReportingBalancePeriod`: the dates of a pair of columns, headed as Odoo's (« oct. 2026 »). */
+export interface BalancePeriod {
+  readonly date_from: string;
+  readonly date_to: string;
+  readonly label: string;
+}
+
+/** The figures of a row: the balance at the start, each period's movements, at the end. */
+export interface BalanceFigures {
+  readonly opening: string;
+  readonly closing: string;
+  /** One per period, oldest first. */
+  readonly movements: readonly BalanceMovement[];
 }
 
 /** `ReportingBalanceGroup`: a class (level 1) or a two-digit group (level 2), summed. */
-export interface BalanceGroup {
+export interface BalanceGroup extends BalanceFigures {
   readonly code: string;
   /** The chart standard's name (« Clients et comptes rattachés »); blank without one. */
   readonly name: string;
   readonly level: number;
-  readonly columns: BalanceColumns;
 }
 
 /** `ReportingBalanceRow`: one account of the balance. */
-export interface BalanceRow extends BalanceColumns {
+export interface BalanceRow extends BalanceFigures {
   readonly account: CodeReference & { readonly name: string; readonly account_type: string };
 }
 
-/** `ReportingBalanceHeaderPage` (`GET reporting/balance/`). */
+/** `ReportingBalanceHeaderPage` (`GET reporting/balance/`, notes backend 0051 and 0052). */
 export interface TrialBalance {
   readonly scope: ReportScope;
-  /** Each column summed over every row of the balance (every page). */
-  readonly columns: BalanceColumns;
+  /** The periods' columns, oldest first; the last is the scope. */
+  readonly periods: readonly BalancePeriod[];
+  readonly totals: {
+    readonly opening: string;
+    readonly debit: string;
+    readonly credit: string;
+    readonly closing: string;
+  };
+  /** Each period's movements over every row (every page). */
+  readonly movements: readonly BalanceMovement[];
   /** The classes and groups of every row, by code. */
   readonly groups: readonly BalanceGroup[];
   readonly warnings: readonly ReportWarning[];
@@ -121,10 +139,12 @@ export interface TrialBalance {
   readonly results: readonly BalanceRow[];
 }
 
-/** Odoo's filters of the balance: its dates, journals, pending entries, search. */
+/** Odoo's filters of the balance: its dates, the earlier periods, journals, drafts, search. */
 export interface BalanceQuery {
   readonly dateFrom: string;
   readonly dateTo: string;
+  /** Odoo's comparison: earlier periods, oldest first. */
+  readonly earlier: readonly { readonly from: string; readonly to: string }[];
   /** Public ids; none: every journal. */
   readonly journals: readonly string[];
   readonly includeUnposted: boolean;

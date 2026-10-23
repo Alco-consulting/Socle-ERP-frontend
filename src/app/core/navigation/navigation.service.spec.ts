@@ -231,7 +231,7 @@ describe('NavigationService', () => {
       'Analytique',
       'Audit',
       'Clôture',
-      'Balance générale',
+      'Balance comptable',
     ]) {
       expect(visible).not.toContain(hidden);
     }

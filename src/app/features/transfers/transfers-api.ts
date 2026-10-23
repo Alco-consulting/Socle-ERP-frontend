@@ -214,7 +214,7 @@ export class TransfersApi {
   createExport(
     exportType: string,
     parameters: Readonly<Record<string, unknown>>,
-    fileFormat: 'csv' | 'xlsx' = 'csv',
+    fileFormat: 'csv' | 'xlsx' | 'pdf' = 'csv',
   ): Observable<ExportRunDto> {
     return this.api.post<ExportRunDto>('imports-exports/exports/', {
       export_type: exportType,

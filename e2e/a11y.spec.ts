@@ -10,7 +10,7 @@ const SCREENS = [
   { name: 'Échéances', url: '/app/comptabilite/echeances' },
   { name: 'Balance âgée', url: '/app/comptabilite/analyse/balance-clients?au=2026-04-15' },
   { name: 'Clients (liste de Comptabilité)', url: '/app/comptabilite/clients' },
-  { name: 'Analyse › Balance générale', url: '/app/comptabilite/analyse/balance' },
+  { name: 'Analyse › Balance comptable', url: '/app/comptabilite/analyse/balance' },
   { name: 'Liste regroupée', url: '/app/comptabilite/plan-comptable?groupe=classe' },
   { name: 'Formulaire', url: '/app/comptabilite/ecritures/nouvelle' },
   { name: 'Écran non construit', url: '/app/comptabilite/immobilisations/actifs' },
@@ -87,7 +87,7 @@ test.describe('Accessibilité (axe-core, WCAG 2.1 A/AA)', () => {
     // Arrows move through the groups; Enter opens the screen.
     await page.keyboard.press('ArrowDown');
     await page.keyboard.press('ArrowDown');
-    await expect(menu.getByRole('menuitemradio', { name: 'Balance générale' })).toBeFocused();
+    await expect(menu.getByRole('menuitemradio', { name: 'Balance comptable' })).toBeFocused();
     await page.keyboard.press('Enter');
     await expect(page).toHaveURL(/\/app\/comptabilite\/analyse\/balance$/);
   });

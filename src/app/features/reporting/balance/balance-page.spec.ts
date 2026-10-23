@@ -13,18 +13,6 @@ const page = (results: unknown[] = [], count = results.length) => ({
   previous: null,
   results,
 });
-const YEARS = [
-  {
-    public_id: 'fy-2026',
-    code: '2026',
-    label: 'Exercice 2026',
-    start_date: '2026-01-01',
-    end_date: '2026-12-31',
-    status: 'open',
-    created_at: '',
-    updated_at: '',
-  },
-];
 const journal = (code: string, name: string) => ({
   public_id: `j-${code}`,
   code,
@@ -40,65 +28,58 @@ const journal = (code: string, name: string) => ({
 });
 const JOURNALS = [journal('VT', 'Ventes'), journal('AC', 'Achats')];
 const ZERO = '0.000000';
-const columns = (values: Partial<Record<string, string>> = {}) => ({
-  opening_debit: ZERO,
-  opening_credit: ZERO,
+const amount = (value: number) => `${value}.000000`;
+const move = (debit = 0, credit = 0) => ({ debit: amount(debit), credit: amount(credit) });
+const row = (code: string, name: string, opening: number, moves: object[], closing: number) => ({
+  account: { public_id: `a-${code}`, code, name, account_type: 'other' },
+  opening: amount(opening),
   debit: ZERO,
   credit: ZERO,
-  closing_debit: ZERO,
-  closing_credit: ZERO,
-  ...values,
+  closing: amount(closing),
+  movements: moves,
+  comparison: null,
 });
-const row = (code: string, name: string, values: Partial<Record<string, string>>) => ({
-  account: { public_id: `a-${code}`, code, name, account_type: 'other' },
+const OCTOBER = { date_from: '2026-10-01', date_to: '2026-10-31', label: 'oct. 2026' };
+const SEPTEMBER = { date_from: '2026-09-01', date_to: '2026-09-30', label: 'sept. 2026' };
+/** The figures of the user's Odoo capture (Mattco, October 2026). */
+const ROWS = [
+  row('101300', 'Capital souscrit, appelé, versé, non amorti', -5000000, [move()], -5000000),
+  row('401100', 'Fournisseurs', 0, [move(12803500, 12803500)], 0),
+  row('411100', 'Clients', 8000000, [move(72914000)], 80914000),
+  row('701100', 'Vente de marchandises dans la région', 0, [move(0, 22914000)], -22914000),
+];
+const groupOf = (code: string, name: string, level: number) => ({
+  code,
+  name,
+  level,
   opening: ZERO,
   closing: ZERO,
-  comparison: null,
-  ...columns(values),
+  movements: [move()],
 });
-const ROWS = [
-  row('401100', 'Fournisseurs', { credit: '300000.000000', closing_credit: '300000.000000' }),
-  row('411100', 'Clients', {
-    debit: '1200000.000000',
-    credit: '500000.000000',
-    closing_debit: '700000.000000',
-  }),
-  row('701100', 'Ventes de marchandises', {
-    credit: '700000.000000',
-    closing_credit: '700000.000000',
-  }),
-];
 const GROUPS = [
-  {
-    code: '4',
-    name: 'Comptes de tiers',
-    level: 1,
-    columns: columns({ closing_debit: '700000.000000' }),
-  },
-  { code: '40', name: 'Fournisseurs et comptes rattachés', level: 2, columns: columns() },
-  { code: '41', name: 'Clients et comptes rattachés', level: 2, columns: columns() },
-  { code: '7', name: 'Comptes de produits des activités ordinaires', level: 1, columns: columns() },
-  { code: '70', name: 'Ventes', level: 2, columns: columns() },
+  groupOf('1', 'Comptes de ressources durables', 1),
+  groupOf('10', 'Capital', 2),
+  groupOf('4', 'Comptes de tiers', 1),
+  groupOf('40', 'Fournisseurs et comptes rattachés', 2),
+  groupOf('41', 'Clients et comptes rattachés', 2),
+  groupOf('7', 'Comptes de produits des activités ordinaires', 1),
+  groupOf('70', 'Ventes', 2),
 ];
-const balance = (warnings: unknown[] = []) => ({
+const balance = (options: { periods?: object[]; rows?: unknown[]; warnings?: unknown[] } = {}) => ({
   scope: {
     fiscal_year: { public_id: 'fy-2026', code: '2026' },
     period: null,
-    date_from: '2026-01-01',
-    date_to: '2026-12-31',
+    date_from: '2026-10-01',
+    date_to: '2026-10-31',
   },
   comparative_scope: null,
-  totals: { opening: ZERO, debit: '1200000.000000', credit: '1500000.000000', closing: ZERO },
-  columns: columns({
-    debit: '1200000.000000',
-    credit: '1500000.000000',
-    closing_debit: '700000.000000',
-    closing_credit: '1000000.000000',
-  }),
+  periods: options.periods ?? [OCTOBER],
+  totals: { opening: ZERO, debit: amount(99294000), credit: amount(99294000), closing: ZERO },
+  movements: (options.periods ?? [OCTOBER]).map(() => move(99294000, 99294000)),
   groups: GROUPS,
   comparison: null,
-  warnings,
-  ...page(ROWS),
+  warnings: options.warnings ?? [],
+  ...page(options.rows ?? ROWS),
 });
 const ACCOUNTANT = [
   'accounting.read',
@@ -109,8 +90,10 @@ const ACCOUNTANT = [
 const settle = () => new Promise((resolve) => setTimeout(resolve, 0));
 const text = (element: Element | null | undefined) =>
   (element?.textContent ?? '').replace(/\s+/g, ' ').trim();
+const cells = (element: Element | null | undefined, selector = 'td') =>
+  [...(element?.querySelectorAll(selector) ?? [])].map((cell) => text(cell));
 
-describe('BalancePage (Analyse › Balance générale, as Odoo’s)', () => {
+describe('BalancePage (Analyse › Balance comptable, as Odoo’s)', () => {
   beforeEach(() => {
     setCookie('XSRF-TOKEN', 'tok');
     vi.useFakeTimers({ toFake: ['Date'] });
@@ -143,11 +126,8 @@ describe('BalancePage (Analyse › Balance générale, as Odoo’s)', () => {
       await settle();
       await harness.fixture.whenStable();
     };
-    /** Fiscal years, journals and currencies, read once; then the balance asked. */
+    /** Journals and currencies, read once; then the balance asked. */
     const references = async () => {
-      httpMock()
-        .expectOne((req) => req.url === '/api/v1/accounting/fiscal-years/')
-        .flush(page(YEARS));
       httpMock()
         .expectOne((req) => req.url === '/api/v1/accounting/journals/')
         .flush(page(JOURNALS));
@@ -157,183 +137,234 @@ describe('BalancePage (Analyse › Balance générale, as Odoo’s)', () => {
       await stable();
       return httpMock().expectOne((req) => req.url === '/api/v1/reporting/balance/');
     };
-    return { element, stable, references, harness };
+    const asked = () => httpMock().expectOne((req) => req.url === '/api/v1/reporting/balance/');
+    return { element, stable, references, asked, harness };
   }
 
-  it('this year by default, in six columns under Odoo’s three headings, zeros left empty', async () => {
+  it('this month by default, Odoo’s bar and columns: zeros in grey, negatives in red', async () => {
     const { element, stable, references } = await open('/balance');
     const request = await references();
-    expect(request.request.params.get('date_from')).toBe('2026-01-01');
-    expect(request.request.params.get('date_to')).toBe('2026-12-31');
+    expect(request.request.params.get('date_from')).toBe('2026-10-01');
+    expect(request.request.params.get('date_to')).toBe('2026-10-31');
+    expect(request.request.params.has('column_from')).toBe(false);
     expect(request.request.params.get('page_size')).toBe('200');
-    expect(request.request.params.has('journal')).toBe(false);
-    expect(request.request.params.has('include_unposted')).toBe(false);
     request.flush(balance());
     await stable();
 
-    expect(element.querySelector('h1')?.textContent).toContain('Balance générale');
-    const heads = [...element.querySelectorAll('thead th')].map((cell) => text(cell));
-    expect(heads).toEqual([
-      'Compte',
+    const bar = element.querySelector('.report-bar');
+    expect(cells(bar, 'button').slice(0, 2)).toEqual(['PDF', 'XLSX']);
+    expect(text(bar?.querySelector('h1'))).toBe('Balance comptable');
+    expect(text(bar)).toContain('oct. 2026');
+    expect(text(bar)).toContain('Comparaison');
+    expect(text(bar)).toContain('Tous les journaux');
+    expect(text(bar)).toContain('Pièces comptabilisées, Comptabilité d’engagement');
+    expect(text(bar)).toContain('En GNF');
+    expect(cells(element.querySelector('.heads'), 'th')).toEqual([
       'Solde initial',
-      'Exercice 2026',
+      'oct. 2026',
       'Solde final',
-      ...Array.from({ length: 3 }, () => ['Débit', 'Crédit']).flat(),
     ]);
-    const clients = [...element.querySelectorAll('tbody tr')][1];
-    expect([...clients.querySelectorAll('td')].map((cell) => text(cell))).toEqual([
-      '',
-      '',
-      '1 200 000',
-      '500 000',
-      '700 000',
-      '',
+    expect(cells(element.querySelector('.subheads'), 'th')).toEqual([
+      'Compte',
+      'Solde',
+      'Débit',
+      'Crédit',
+      'Solde',
     ]);
-    expect(text(clients.querySelector('th'))).toBe('411100 Clients');
-    const total = [...element.querySelectorAll('tfoot td')].map((cell) => text(cell));
-    expect(total).toEqual(['0', '0', '1 200 000', '1 500 000', '700 000', '1 000 000']);
-    expect(
-      text(element.querySelector('[aria-label="Exporter la balance au format Excel (XLSX)"]')),
-    ).toBe('XLSX');
+    const [capital, , clients] = [...element.querySelectorAll('tbody tr')];
+    expect(cells(clients)).toEqual(['8 000 000', '72 914 000', '0', '80 914 000']);
+    expect(text(capital.querySelector('th'))).toContain('101300 Capital souscrit');
+    expect(capital.querySelector('td')?.classList).toContain('negative');
+    expect(clients.querySelectorAll('td')[2].classList).toContain('zero');
+    expect(cells(element.querySelector('tfoot'))).toEqual(['0', '99 294 000', '99 294 000', '0']);
   });
 
-  it('the URL’s filters: this month, a journal, the unposted entries, a search, a page', async () => {
-    const { element, stable, references } = await open(
-      '/balance?periode=mois&journal=VT&brouillons=oui&q=41&page=2',
-    );
-    const request = await references();
-    const params = request.request.params;
-    expect([params.get('date_from'), params.get('date_to')]).toEqual(['2026-10-01', '2026-10-31']);
-    expect(params.getAll('journal')).toEqual(['j-VT']);
-    expect(params.get('include_unposted')).toBe('true');
-    expect(params.get('search')).toBe('41');
-    expect(params.get('page')).toBe('2');
-    request.flush(balance());
+  it('the date menu, as Odoo’s: a month moved by ◀, then a quarter', async () => {
+    const { element, stable, references, asked } = await open('/balance');
+    (await references()).flush(balance());
     await stable();
 
-    expect(text(element.querySelector('.filters'))).toContain('octobre 2026');
-    expect(text(element.querySelector('.filters'))).toContain('Journaux : VT');
-    expect(text(element)).toContain('Écritures non comptabilisées comprises.');
+    element.querySelector<HTMLButtonElement>('[aria-haspopup="dialog"]')?.click();
+    await stable();
+    const panel = document.querySelector('[role="dialog"][aria-label="Période"]');
+    expect(cells(panel, '.value')).toEqual(['octobre 2026', 'oct. - déc. 2026', '2026']);
+    panel?.querySelector<HTMLButtonElement>('[aria-label="Mois précédent"]')?.click();
+    await stable();
+    const september = asked();
+    expect(september.request.params.get('date_from')).toBe('2026-09-01');
+    expect(september.request.params.get('date_to')).toBe('2026-09-30');
+    september.flush(balance({ periods: [SEPTEMBER] }));
+    await stable();
+    expect(TestBed.inject(Router).url).toContain('date=2026-09-01');
+    expect(text(element.querySelector('.report-bar'))).toContain('sept. 2026');
+
+    const quarter = [...document.querySelectorAll<HTMLButtonElement>('.choice')].find(
+      (button) => text(button) === 'Trimestre',
+    );
+    quarter?.click();
+    await stable();
+    const third = asked();
+    expect([third.request.params.get('date_from'), third.request.params.get('date_to')]).toEqual([
+      '2026-07-01',
+      '2026-09-30',
+    ]);
+    third.flush(balance());
+    await stable();
   });
 
-  it('« Hiérarchie et sous-totaux »: each class and group with its sums, folded on a click', async () => {
+  it('Comparaison: Période précédente, the earlier month in columns before this one', async () => {
+    const { element, stable, references } = await open('/balance?comparaison=precedente&nombre=2');
+    const request = await references();
+    expect(request.request.params.getAll('column_from')).toEqual(['2026-08-01', '2026-09-01']);
+    expect(request.request.params.getAll('column_to')).toEqual(['2026-08-31', '2026-09-30']);
+    request.flush(
+      balance({
+        periods: [SEPTEMBER, OCTOBER],
+        rows: [row('411100', 'Clients', 0, [move(8000000), move(72914000)], 80914000)],
+      }),
+    );
+    await stable();
+
+    expect(text(element.querySelector('.report-bar'))).toContain('Comparaison: Période précédente');
+    expect(cells(element.querySelector('.heads'), 'th')).toEqual([
+      'Solde initial',
+      'sept. 2026',
+      'oct. 2026',
+      'Solde final',
+    ]);
+    expect(cells(element.querySelector('tbody tr'))).toEqual([
+      '0',
+      '8 000 000',
+      '0',
+      '72 914 000',
+      '0',
+      '80 914 000',
+    ]);
+  });
+
+  it('drafts left out: Odoo’s banner and its link; included by « Écritures brouillon »', async () => {
+    const { element, stable, references } = await open('/balance');
+    (await references()).flush(
+      balance({ warnings: [{ code: 'unposted_entries', message: '', details: { count: 2 } }] }),
+    );
+    await stable();
+
+    const banner = element.querySelector('.banner');
+    expect(text(banner)).toBe(
+      'Il y a des pièces non comptabilisées avant ou au cours de cette période.',
+    );
+    expect(banner?.querySelector('a')?.getAttribute('href')).toBe(
+      '/app/comptabilite/ecritures?etat=draft&au=2026-10-31',
+    );
+  });
+
+  it('« Toutes les pièces » from the URL: the drafts asked too', async () => {
+    const { element, stable, references } = await open('/balance?brouillons=oui&journal=VT&q=41');
+    const request = await references();
+    expect(request.request.params.get('include_unposted')).toBe('true');
+    expect(request.request.params.getAll('journal')).toEqual(['j-VT']);
+    expect(request.request.params.get('search')).toBe('41');
+    request.flush(balance());
+    await stable();
+    expect(text(element.querySelector('.report-bar'))).toContain(
+      'Toutes les pièces, Comptabilité d’engagement',
+    );
+  });
+
+  it('« Hiérarchie et sous-totaux »: classes and groups with their sums, folded on a click', async () => {
     const { element, stable, references } = await open('/balance?hierarchie=oui');
     (await references()).flush(balance());
     await stable();
 
-    const names = () => [...element.querySelectorAll('tbody th')].map((cell) => text(cell));
+    const names = () =>
+      cells(element.querySelector('tbody'), 'th').map((name) => name.split(' ')[0]);
     expect(names()).toEqual([
-      '4 Comptes de tiers',
-      '40 Fournisseurs et comptes rattachés',
-      '401100 Fournisseurs',
-      '41 Clients et comptes rattachés',
-      '411100 Clients',
-      '7 Comptes de produits des activités ordinaires',
-      '70 Ventes',
-      '701100 Ventes de marchandises',
+      '1',
+      '10',
+      '101300',
+      '4',
+      '40',
+      '401100',
+      '41',
+      '411100',
+      '7',
+      '70',
+      '701100',
     ]);
-    const tiers = element.querySelector('tbody tr');
-    expect([...(tiers?.querySelectorAll('td') ?? [])].map((cell) => text(cell))).toEqual([
-      '',
-      '',
-      '',
-      '',
-      '700 000',
-      '',
-    ]);
-    const fold = tiers?.querySelector<HTMLButtonElement>('button.fold');
-    expect(fold?.getAttribute('aria-expanded')).toBe('true');
-    fold?.click();
-    await stable();
-    expect(names()).toEqual([
-      '4 Comptes de tiers',
-      '7 Comptes de produits des activités ordinaires',
-      '70 Ventes',
-      '701100 Ventes de marchandises',
-    ]);
-  });
-
-  it('unposted entries left out: said, as Odoo’s, and included in one click', async () => {
-    const { element, stable, references } = await open('/balance');
-    (await references()).flush(
-      balance([{ code: 'unposted_entries', message: '', details: { count: 2 } }]),
+    const tiers = [...element.querySelectorAll<HTMLButtonElement>('button.fold')].find((button) =>
+      text(button).startsWith('4 '),
     );
+    tiers?.click();
     await stable();
-
-    const warning = element.querySelector('.warning');
-    expect(text(warning)).toContain('Il y a 2 écritures non comptabilisées dans cette période.');
-    warning?.querySelector<HTMLButtonElement>('button')?.click();
-    await stable();
-    const again = httpMock().expectOne((req) => req.url === '/api/v1/reporting/balance/');
-    expect(again.request.params.get('include_unposted')).toBe('true');
-    again.flush(balance());
-    await stable();
-    expect(TestBed.inject(Router).url).toContain('brouillons=oui');
+    expect(names()).toEqual(['1', '10', '101300', '4', '7', '70', '701100']);
   });
 
-  it('an account opens its ledger on the same dates, as Odoo’s menu of a line', async () => {
-    const { stable, references } = await open('/balance?periode=trimestre');
-    const request = await references();
-    expect(request.request.params.get('date_from')).toBe('2026-10-01');
-    request.flush(balance());
-    await stable();
-
-    const trigger = document.querySelector<HTMLButtonElement>('tbody th button');
-    trigger?.click();
-    await stable();
-    const items = [...document.querySelectorAll('[role="menuitem"]')];
-    expect(items.map((item) => text(item))).toEqual(['Grand livre', 'Écritures comptables']);
-    (items[0] as HTMLElement).click();
-    await stable();
-    expect(TestBed.inject(Router).url).toBe(
-      '/app/comptabilite/analyse/grand-livre?compte=401100&du=2026-10-01&au=2026-12-31',
-    );
-  });
-
-  it('the workbook: the same balance asked as an XLSX export, then saved', async () => {
-    const createUrl = vi.fn(() => 'blob:balance');
-    Object.assign(URL, { createObjectURL: createUrl, revokeObjectURL: vi.fn() });
-    const { element, stable, references } = await open('/balance?journal=AC');
+  it('the ⋮ of an account opens its general ledger on the same dates', async () => {
+    const { stable, references } = await open('/balance');
     (await references()).flush(balance());
     await stable();
 
+    document.querySelector<HTMLButtonElement>('[aria-label="Actions du compte 411100"]')?.click();
+    await stable();
+    const items = [...document.querySelectorAll('[role="menuitem"]')];
+    expect(items.map((item) => text(item))).toEqual([
+      'Grand livre général',
+      'Écritures comptables',
+    ]);
+    (items[0] as HTMLElement).click();
+    await stable();
+    expect(TestBed.inject(Router).url).toBe(
+      '/app/comptabilite/analyse/grand-livre?compte=411100&du=2026-10-01&au=2026-10-31',
+    );
+  });
+
+  it('PDF: the same balance asked as a PDF export, then saved', async () => {
+    const createUrl = vi.fn(() => 'blob:balance');
+    Object.assign(URL, { createObjectURL: createUrl, revokeObjectURL: vi.fn() });
+    const { element, stable, references } = await open(
+      '/balance?comparaison=precedente&journal=AC',
+    );
+    (await references()).flush(balance({ periods: [SEPTEMBER, OCTOBER] }));
+    await stable();
+
     element
-      .querySelector<HTMLButtonElement>('[aria-label="Exporter la balance au format Excel (XLSX)"]')
+      .querySelector<HTMLButtonElement>('[aria-label="Télécharger la balance en PDF"]')
       ?.click();
     await stable();
     const created = httpMock().expectOne('/api/v1/imports-exports/exports/');
     expect(created.request.body).toEqual({
       export_type: 'reporting.balance',
-      file_format: 'xlsx',
+      file_format: 'pdf',
       parameters: {
-        date_from: '2026-01-01',
-        date_to: '2026-12-31',
+        date_from: '2026-10-01',
+        date_to: '2026-10-31',
+        column_from: ['2026-09-01'],
+        column_to: ['2026-09-30'],
         journal: ['j-AC'],
         include_unposted: false,
         search: '',
       },
       asynchronous: false,
     });
-    created.flush({ public_id: 'x1', status: 'completed', filename: 'balance.xlsx' });
+    created.flush({ public_id: 'x1', status: 'completed', filename: 'balance.pdf' });
     await stable();
     httpMock()
       .expectOne('/api/v1/imports-exports/exports/x1/download/')
-      .flush(new Blob(['PK']), {
-        headers: { 'Content-Disposition': 'attachment; filename="balance.xlsx"' },
+      .flush(new Blob(['%PDF']), {
+        headers: { 'Content-Disposition': 'attachment; filename="balance.pdf"' },
       });
     await stable();
     expect(createUrl).toHaveBeenCalled();
   });
 
-  it('without the export permission, no XLSX button', async () => {
+  it('without the export permission, neither PDF nor XLSX', async () => {
     const { element, stable, references } = await open('/balance', [
       'accounting.read',
       'reporting.read',
     ]);
     (await references()).flush(balance());
     await stable();
-    expect(
-      element.querySelector('[aria-label="Exporter la balance au format Excel (XLSX)"]'),
-    ).toBeNull();
+    expect(text(element.querySelector('.report-bar'))).not.toContain('PDF');
+    expect(text(element.querySelector('.report-bar'))).not.toContain('XLSX');
   });
 });

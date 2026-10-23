@@ -40,12 +40,14 @@ export class ReportingApi {
     });
   }
 
-  /** `reporting.read`: Odoo's « Balance générale » (note backend 0051). */
+  /** `reporting.read`: Odoo's « Balance comptable » (notes backend 0051, 0052). */
   balance(query: BalanceQuery): Observable<TrialBalance> {
     return this.api.get<TrialBalance>('reporting/balance/', {
       params: {
         date_from: query.dateFrom,
         date_to: query.dateTo,
+        column_from: query.earlier.map((period) => period.from),
+        column_to: query.earlier.map((period) => period.to),
         journal: query.journals,
         include_unposted: query.includeUnposted ? true : null,
         search: query.search || null,

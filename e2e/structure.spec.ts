@@ -51,7 +51,7 @@ test.describe('Lanceur : Reporting n’est plus une application', () => {
   test('former Reporting URLs lead to Comptabilité › Analyse', async ({ page }) => {
     await page.goto('/app/reporting/balance');
     await expect(page).toHaveURL(/\/app\/comptabilite\/analyse\/balance$/);
-    await expect(breadcrumb(page)).toHaveText(/Comptabilité\s*Balance générale/);
+    await expect(breadcrumb(page)).toHaveText(/Comptabilité\s*Balance comptable/);
     await page.goto('/app/reporting');
     await expect(page).toHaveURL(/\/app\/comptabilite\/analyse\/balance$/);
     await page.goto('/app/comptabilite/rapports/grand-livre');
@@ -119,7 +119,7 @@ test.describe('Comptabilité : un lien et cinq menus groupés', () => {
     const menu = await openMenu(page, 'Analyse');
     for (const [title, items] of [
       ['Rapports financiers', ['États financiers', 'Résultat']],
-      ['Rapports comptables', ['Balance générale', 'Grand livre']],
+      ['Rapports comptables', ['Balance comptable', 'Grand livre']],
       ['Rapports de tiers', ['Balance clients', 'Balance fournisseurs', 'Grand livre auxiliaire']],
       ['Analyses', ['Analytique', 'Immobilisations', 'Emprunts', 'Journal d’audit']],
     ] as const) {
@@ -127,9 +127,9 @@ test.describe('Comptabilité : un lien et cinq menus groupés', () => {
         ...items,
       ]);
     }
-    await menu.getByRole('menuitemradio', { name: 'Balance générale' }).click();
+    await menu.getByRole('menuitemradio', { name: 'Balance comptable' }).click();
     await expect(page).toHaveURL(/\/app\/comptabilite\/analyse\/balance$/);
-    await expect(page.getByRole('heading', { level: 1 })).toHaveText('Balance générale');
+    await expect(page.getByRole('heading', { level: 1 })).toHaveText('Balance comptable');
     // The contextual export of the balance is offered there.
     await page.getByRole('button', { name: 'Actions' }).click();
     await expect(page.getByRole('menuitem', { name: /Exporter la balance/ })).toBeVisible();

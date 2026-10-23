@@ -40,30 +40,63 @@ const GROUP_NAMES: Readonly<Record<string, string>> = {
   '6': 'Comptes de charges des activités ordinaires',
   '60': 'Achats et variations de stocks',
 };
-const COLUMNS = [
-  'opening_debit',
-  'opening_credit',
-  'debit',
-  'credit',
-  'closing_debit',
-  'closing_credit',
-] as const;
-type Columns = Record<(typeof COLUMNS)[number], bigint>;
-const empty = (): Columns => ({
-  opening_debit: 0n,
-  opening_credit: 0n,
-  debit: 0n,
-  credit: 0n,
-  closing_debit: 0n,
-  closing_credit: 0n,
-});
-const add = (sum: Columns, value: Columns) => {
-  for (const key of COLUMNS) {
-    sum[key] += value[key];
+const SHORT = [
+  'janv.',
+  'févr.',
+  'mars',
+  'avr.',
+  'mai',
+  'juin',
+  'juil.',
+  'août',
+  'sept.',
+  'oct.',
+  'nov.',
+  'déc.',
+];
+/** The server's heading of a period (« oct. 2026 », « 2026 »…). */
+const label = (from: string, to: string) => {
+  const [year, month, first] = from.split('-').map(Number);
+  const [endYear, endMonth, end] = to.split('-').map(Number);
+  const full = first === 1 && endYear === year && end === new Date(endYear, endMonth, 0).getDate();
+  if (full && endMonth === month) {
+    return `${SHORT[month - 1]} ${year}`;
   }
+  if (full && month === 1 && endMonth === 12) {
+    return String(year);
+  }
+  if (full && (month - 1) % 3 === 0 && endMonth === month + 2) {
+    return `${SHORT[month - 1]} - ${SHORT[endMonth - 1]} ${year}`;
+  }
+  const day = (value: string) => value.split('-').reverse().join('/');
+  return `Du ${day(from)} au ${day(to)}`;
 };
-const json = (value: Columns) =>
-  Object.fromEntries(COLUMNS.map((key) => [key, decimal(value[key])])) as Record<string, string>;
+interface Figures {
+  opening: bigint;
+  closing: bigint;
+  debits: bigint[];
+  credits: bigint[];
+}
+const empty = (periods: number): Figures => ({
+  opening: 0n,
+  closing: 0n,
+  debits: Array<bigint>(periods).fill(0n),
+  credits: Array<bigint>(periods).fill(0n),
+});
+const add = (sum: Figures, value: Figures) => {
+  sum.opening += value.opening;
+  sum.closing += value.closing;
+  value.debits.forEach((amount, index) => (sum.debits[index] += amount));
+  value.credits.forEach((amount, index) => (sum.credits[index] += amount));
+};
+const json = (value: Figures) => ({
+  opening: decimal(value.opening),
+  closing: decimal(value.closing),
+  movements: value.debits.map((debit, index) => ({
+    debit: decimal(debit),
+    credit: decimal(value.credits[index]),
+  })),
+});
 
 export class FakeReporting {
   constructor(
@@ -199,9 +232,10 @@ export class FakeReporting {
   }
 
   /**
-   * The trial balance of the fake entries, as the server's: six columns (opening and closing
-   * net on their side), the classes and groups, the journals and pending entries asked, the
-   * unposted entries of the period said.
+   * The trial balance of the fake entries, as the server's (notes backend 0051, 0052): the
+   * opening at the start of the first period, each period's movements (the comparison's
+   * earlier ones first), the closing at the end; the classes and groups; the journals and
+   * drafts asked; the drafts before or within the period said.
    */
   private async balance(
     route: Route,
@@ -215,77 +249,87 @@ export class FakeReporting {
     const from = url.searchParams.get('date_from') ?? '';
     const to = url.searchParams.get('date_to') ?? '';
     const books = this.accounting.books(company);
-    const year = books.years.find((item) => item.start_date <= from && to <= item.end_date);
-    if (!year || from > to) {
+    const holds = (day: string) =>
+      books.years.find((item) => item.start_date <= day && day <= item.end_date);
+    const year = holds(from);
+    const starts = url.searchParams.getAll('column_from');
+    const ends = url.searchParams.getAll('column_to');
+    const periods = [
+      ...starts.map((start, index) => ({ from: start, to: ends[index] })),
+      { from, to },
+    ];
+    const ordered = periods.every(
+      (period, index) =>
+        period.from <= period.to && (index === 0 || periods[index - 1].to < period.from),
+    );
+    if (!year || to > year.end_date || starts.length !== ends.length || !ordered) {
       return this.answer(route, 400, error('reporting_scope_invalid'));
     }
+    const first = periods[0];
+    const openingYear = holds(first.from);
+    const start = openingYear?.start_date ?? first.from;
     const journals = url.searchParams.getAll('journal');
     const pending = url.searchParams.get('include_unposted') === 'true';
     const search = (url.searchParams.get('search') ?? '').toLowerCase();
-    const counted = (entry: EntryJson) =>
-      pending || entry.status === 'validated' || entry.status === 'locked';
     const inScope = this.entries
       .entries(company)
       .filter(
         (entry) =>
-          entry.entry_date >= year.start_date &&
+          entry.entry_date >= start &&
           entry.entry_date <= to &&
           (journals.length === 0 || journals.includes(entry.journal.public_id)),
       );
-    const totals = new Map<string, { opening: bigint; debit: bigint; credit: bigint }>();
-    for (const entry of inScope.filter(counted)) {
+    const counted = inScope.filter(
+      (entry) => pending || entry.status === 'validated' || entry.status === 'locked',
+    );
+    const found = new Map<string, Figures>();
+    for (const entry of counted) {
       for (const line of entry.lines) {
-        const sum = totals.get(line.account.public_id) ?? { opening: 0n, debit: 0n, credit: 0n };
+        const sum = found.get(line.account.public_id) ?? empty(periods.length);
         const debit = units(line.reference_debit);
         const credit = units(line.reference_credit);
-        if (entry.entry_date < from) {
+        const day = entry.entry_date;
+        if (openingYear && day >= openingYear.start_date && day < first.from) {
           sum.opening += debit - credit;
-        } else {
-          sum.debit += debit;
-          sum.credit += credit;
         }
-        totals.set(line.account.public_id, sum);
+        if (day >= year.start_date) {
+          sum.closing += debit - credit;
+        }
+        const index = periods.findIndex((period) => period.from <= day && day <= period.to);
+        if (index >= 0) {
+          sum.debits[index] += debit;
+          sum.credits[index] += credit;
+        }
+        found.set(line.account.public_id, sum);
       }
     }
     const rows = books.accounts
       .filter(
         (account) =>
-          totals.has(account.public_id) &&
+          found.has(account.public_id) &&
           (!search ||
             account.code.toLowerCase().includes(search) ||
             account.name.toLowerCase().includes(search)),
       )
       .sort((a, b) => a.code.localeCompare(b.code))
-      .map((account) => {
-        const sum = totals.get(account.public_id)!;
-        const closing = sum.opening + sum.debit - sum.credit;
-        const columns: Columns = {
-          opening_debit: sum.opening > 0n ? sum.opening : 0n,
-          opening_credit: sum.opening < 0n ? -sum.opening : 0n,
-          debit: sum.debit,
-          credit: sum.credit,
-          closing_debit: closing > 0n ? closing : 0n,
-          closing_credit: closing < 0n ? -closing : 0n,
-        };
-        return { account, opening: sum.opening, closing, columns };
-      });
-    const all = empty();
-    const groups = new Map<string, Columns>();
+      .map((account) => ({ account, figures: found.get(account.public_id)! }));
+    const all = empty(periods.length);
+    const groups = new Map<string, Figures>();
     for (const row of rows) {
-      add(all, row.columns);
+      add(all, row.figures);
       for (const width of [1, 2]) {
         const code = row.account.code.slice(0, width);
-        const group = groups.get(code) ?? empty();
-        add(group, row.columns);
+        const group = groups.get(code) ?? empty(periods.length);
+        add(group, row.figures);
         groups.set(code, group);
       }
     }
     const unposted = inScope.filter(
-      (entry) =>
-        (entry.status === 'draft' || entry.status === 'submitted') && entry.entry_date >= from,
+      (entry) => entry.status === 'draft' || entry.status === 'submitted',
     ).length;
     const size = Number(url.searchParams.get('page_size')) || 50;
     const number = Number(url.searchParams.get('page')) || 1;
+    const last = periods.length - 1;
     return this.answer(route, 200, {
       scope: {
         fiscal_year: { public_id: year.public_id, code: year.code },
@@ -294,20 +338,25 @@ export class FakeReporting {
         date_to: to,
       },
       comparative_scope: null,
+      periods: periods.map((period) => ({
+        date_from: period.from,
+        date_to: period.to,
+        label: label(period.from, period.to),
+      })),
       totals: {
-        opening: '0.000000',
-        debit: decimal(all.debit),
-        credit: decimal(all.credit),
-        closing: '0.000000',
+        opening: decimal(all.opening),
+        debit: decimal(all.debits[last]),
+        credit: decimal(all.credits[last]),
+        closing: decimal(all.closing),
       },
-      columns: json(all),
+      movements: json(all).movements,
       groups: [...groups.entries()]
         .sort(([a], [b]) => a.localeCompare(b))
-        .map(([code, columns]) => ({
+        .map(([code, figures]) => ({
           code,
           name: GROUP_NAMES[code] ?? '',
           level: code.length,
-          columns: json(columns),
+          ...json(figures),
         })),
       comparison: null,
       warnings:
@@ -315,7 +364,7 @@ export class FakeReporting {
           ? [
               {
                 code: 'unposted_entries',
-                message: 'Draft or submitted entries of the period are left out.',
+                message: 'Draft or submitted entries before or within the period are left out.',
                 details: { count: unposted },
               },
             ]
@@ -330,11 +379,9 @@ export class FakeReporting {
           name: row.account.name,
           account_type: row.account.account_type,
         },
-        opening: decimal(row.opening),
-        debit: decimal(row.columns.debit),
-        credit: decimal(row.columns.credit),
-        closing: decimal(row.closing),
-        ...json(row.columns),
+        debit: decimal(row.figures.debits[last]),
+        credit: decimal(row.figures.credits[last]),
+        ...json(row.figures),
         comparison: null,
         drilldown: { level: 'ledger', account: row.account.public_id },
       })),

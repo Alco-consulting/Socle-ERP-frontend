@@ -353,12 +353,13 @@ export class FakePartners {
       };
       if (body.export_type === 'reporting.balance') {
         // The balance's workbook (note backend 0051): its rows are the server's, not shown here.
+        const format = body.file_format ?? 'csv';
         return this.answer(route, 201, {
-          public_id: `export-balance-${company}`,
+          public_id: `export-balance-${company}-${format}`,
           export_type: body.export_type,
-          file_format: body.file_format ?? 'csv',
+          file_format: format,
           status: 'completed',
-          filename: 'reporting-balance.xlsx',
+          filename: `reporting-balance.${format}`,
           row_count: 0,
           error: {},
         });
@@ -380,12 +381,15 @@ export class FakePartners {
     }
     if (path.startsWith('exports/export-balance-')) {
       this.context.calls.push(request);
+      const pdf = path.includes('-pdf/');
       return route.fulfill({
         status: 200,
-        body: Buffer.from('PK'),
+        body: Buffer.from(pdf ? '%PDF' : 'PK'),
         headers: {
-          'Content-Type': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-          'Content-Disposition': 'attachment; filename="reporting-balance.xlsx"',
+          'Content-Type': pdf
+            ? 'application/pdf'
+            : 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+          'Content-Disposition': `attachment; filename="reporting-balance.${pdf ? 'pdf' : 'xlsx'}"`,
         },
       });
     }

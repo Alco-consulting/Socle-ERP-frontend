@@ -11,7 +11,7 @@ import {
 } from '@angular/core';
 import { takeUntilDestroyed, toSignal } from '@angular/core/rxjs-interop';
 import { FormControl, ReactiveFormsModule } from '@angular/forms';
-import { ActivatedRoute, Params, Router } from '@angular/router';
+import { ActivatedRoute, Params, Router, RouterLink } from '@angular/router';
 import { Observable, catchError, debounceTime, firstValueFrom, map, of } from 'rxjs';
 
 import { toUserError } from '../../../core/errors/user-error';
@@ -27,8 +27,8 @@ import { AlcoEmptyState } from '../../../shared/ui/empty-state/empty-state';
 import { AlcoErrorState } from '../../../shared/ui/error-state/error-state';
 import { AlcoIcon } from '../../../shared/ui/icon/icon';
 import { AlcoLoading } from '../../../shared/ui/loading/loading';
-import { AlcoPageHeader } from '../../../shared/ui/page-header/page-header';
 import { AlcoPagination } from '../../../shared/ui/pagination/pagination';
+import { AlcoPopover } from '../../../shared/ui/popover/popover';
 import { AlcoToastService } from '../../../shared/ui/toast/toast.service';
 import { localToday } from '../../../shared/utils/dates';
 import { saveFile } from '../../../shared/utils/save-file';
@@ -37,26 +37,30 @@ import { Journal } from '../../accounting/data-access/accounting-models';
 import { PartnersApi } from '../../partners/data-access/partners-api';
 import { TransfersApi } from '../../transfers/transfers-api';
 import { BALANCE_PAGE_SIZE, ReportingApi } from '../data-access/reporting-api';
-import {
-  BalanceColumns,
-  BalanceRow,
-  ReportWarning,
-  TrialBalance,
-} from '../data-access/reporting-models';
+import { BalanceFigures, BalanceRow, TrialBalance } from '../data-access/reporting-models';
 import { LEDGER_PARAM, LEDGER_PATHS } from '../ledger/ledger-presentation';
 import {
   BALANCE_ERRORS,
   BALANCE_PARAM,
-  PERIODS,
+  COMPARISONS,
+  ComparisonKind,
+  MAX_COMPARED,
+  Period,
   PeriodKind,
+  STEPPED,
+  earlierPeriods,
+  isIsoDate,
+  periodLabel,
   periodOf,
+  shifted,
   warningText,
 } from './balance-presentation';
 
 const ACCOUNTING = `${APP_ROOT}/comptabilite`;
 const ALL_JOURNALS = '*';
-const OPTION_UNPOSTED = 'brouillons';
+const OPTION_DRAFTS = 'brouillons';
 const OPTION_HIERARCHY = 'hierarchie';
+const OPTION_UNFOLD = 'deplier';
 
 /** A row of the table: a class or a group of the hierarchy, or an account. */
 type Line =
@@ -66,7 +70,7 @@ type Line =
       readonly code: string;
       readonly name: string;
       readonly level: number;
-      readonly columns: BalanceColumns;
+      readonly figures: BalanceFigures;
       readonly folded: boolean;
     }
   | {
@@ -78,17 +82,17 @@ type Line =
     };
 
 /**
- * Comptabilité › Analyse › Balance générale, as Odoo's (note backend 0051): the period, the
- * journals and the options of the URL; six columns (opening and closing net, each on its
- * side); the classes and groups with their sub-totals on request; a menu on each account
- * toward its ledger or its lines; the workbook (XLSX) of the same balance. Every figure is
- * the server's.
+ * Comptabilité › Analyse › Balance comptable, as Odoo's (notes backend 0051, 0052): PDF and
+ * XLSX, the search, the period (◀ ▶), the comparison, the journals, the entries, all in the
+ * URL; Solde initial, each period's Débit and Crédit, Solde final; the ⋮ of an account toward
+ * its ledger or its lines. Every figure is the server's.
  */
 @Component({
   selector: 'alco-balance-page',
   imports: [
     NgTemplateOutlet,
     ReactiveFormsModule,
+    RouterLink,
     AlcoAmountPipe,
     AlcoButton,
     AlcoDropdown,
@@ -97,8 +101,8 @@ type Line =
     AlcoIcon,
     AlcoInput,
     AlcoLoading,
-    AlcoPageHeader,
     AlcoPagination,
+    AlcoPopover,
   ],
   templateUrl: './balance-page.html',
   styleUrl: './balance-page.scss',
@@ -116,36 +120,66 @@ export class BalancePage {
   protected readonly session = inject(SessionStore);
 
   protected readonly pageSize = BALANCE_PAGE_SIZE;
-  protected readonly amountKeys: readonly (keyof BalanceColumns)[] = [
-    'opening_debit',
-    'opening_credit',
-    'debit',
-    'credit',
-    'closing_debit',
-    'closing_credit',
-  ];
+  protected readonly stepped = STEPPED;
+  protected readonly comparisons = COMPARISONS;
+  protected readonly maxCompared = MAX_COMPARED;
 
   // ---- State of the URL ---------------------------------------------------------------
   private readonly params = toSignal(this.route.queryParamMap, {
     initialValue: this.route.snapshot.queryParamMap,
   });
+  /** Odoo opens the balance on this month. */
   protected readonly periodKind = computed<PeriodKind>(() => {
     const wanted = this.params().get(BALANCE_PARAM.period);
-    return PERIODS.find((item) => item.id === wanted)?.id ?? 'annee';
+    return wanted === 'trimestre' || wanted === 'annee' || wanted === 'perso' ? wanted : 'mois';
   });
+  private readonly anchor = computed(() => {
+    const wanted = this.params().get(BALANCE_PARAM.day);
+    return isIsoDate(wanted) ? wanted : localToday();
+  });
+  protected readonly period = computed<Period>(() => {
+    const kind = this.periodKind();
+    if (kind !== 'perso') {
+      return periodOf(kind, this.anchor());
+    }
+    const year = periodOf('annee', this.anchor());
+    const from = this.params().get(BALANCE_PARAM.from);
+    const to = this.params().get(BALANCE_PARAM.to);
+    return { from: isIsoDate(from) ? from : year.from, to: isIsoDate(to) ? to : year.to };
+  });
+  protected readonly periodButton = computed(() => periodLabel(this.period()));
+  protected readonly comparison = computed<ComparisonKind | null>(() => {
+    const wanted = this.params().get(BALANCE_PARAM.comparison);
+    return COMPARISONS.find((item) => item.id === wanted)?.id ?? null;
+  });
+  protected readonly compared = computed(() => {
+    const count = Number(this.params().get(BALANCE_PARAM.count));
+    return Number.isInteger(count) && count >= 1 && count <= MAX_COMPARED ? count : 1;
+  });
+  private readonly customCompared = computed<Period | null>(() => {
+    const from = this.params().get(BALANCE_PARAM.compareFrom);
+    const to = this.params().get(BALANCE_PARAM.compareTo);
+    return isIsoDate(from) && isIsoDate(to) ? { from, to } : null;
+  });
+  protected readonly earlier = computed(() =>
+    earlierPeriods(
+      this.comparison(),
+      this.compared(),
+      this.periodKind(),
+      this.period(),
+      this.customCompared(),
+    ),
+  );
   /** Journal codes; none: every journal. */
   private readonly journalCodes = computed(() => this.params().getAll(BALANCE_PARAM.journal));
-  protected readonly unposted = computed(() => this.params().get(BALANCE_PARAM.unposted) === 'oui');
+  protected readonly drafts = computed(() => this.params().get(BALANCE_PARAM.unposted) === 'oui');
   protected readonly hierarchy = computed(
     () => this.params().get(BALANCE_PARAM.hierarchy) === 'oui',
   );
   private readonly searchText = computed(() => this.params().get(BALANCE_PARAM.search) ?? '');
   protected readonly page = computed(() => Number(this.params().get(BALANCE_PARAM.page)) || 1);
 
-  // ---- References: fiscal years, journals, currency precision --------------------------
-  private readonly years = requestState(() =>
-    this.accounting.fiscalYears().pipe(map((page) => page.results)),
-  );
+  // ---- References: journals, currency precision ----------------------------------------
   private readonly journals = requestState(() =>
     this.accounting.journals().pipe(map((page) => page.results)),
   );
@@ -156,16 +190,9 @@ export class BalancePage {
     ),
     { initialValue: [] },
   );
-  protected readonly decimals = computed(() => {
-    const code = this.session.activeCompany()?.currency;
-    return this.currencies().find((item) => item.code === code)?.decimal_places ?? 0;
-  });
-
-  protected readonly period = computed(() =>
-    periodOf(this.periodKind(), localToday(), this.years.value() ?? [], {
-      from: this.params().get(BALANCE_PARAM.from),
-      to: this.params().get(BALANCE_PARAM.to),
-    }),
+  protected readonly currency = computed(() => this.session.activeCompany()?.currency ?? '');
+  protected readonly decimals = computed(
+    () => this.currencies().find((item) => item.code === this.currency())?.decimal_places ?? 0,
   );
   /** The journals chosen, as the server knows them (an unknown code is left out). */
   private readonly chosenJournals = computed<readonly Journal[]>(() => {
@@ -179,11 +206,29 @@ export class BalancePage {
     const error = this.balance.error();
     return error ? toUserError(error, BALANCE_ERRORS) : null;
   });
-  protected readonly warnings = computed(() =>
-    (this.balance.value()?.warnings ?? [])
-      .map((warning: ReportWarning) => ({ code: warning.code, text: warningText(warning) }))
-      .filter((warning): warning is { code: string; text: string } => warning.text !== null),
+  /** Odoo's banner: drafts before or within the period, left out. */
+  protected readonly unposted = computed(() =>
+    (this.balance.value()?.warnings ?? []).some((warning) => warning.code === 'unposted_entries'),
   );
+  protected readonly notes = computed(() =>
+    (this.balance.value()?.warnings ?? [])
+      .map((warning) => warningText(warning))
+      .filter((text): text is string => text !== null),
+  );
+  /** The drafts up to the period's end, in Écritures comptables. */
+  protected readonly draftsUrl = `${ACCOUNTING}/ecritures`;
+  protected readonly draftsQuery = computed(() => ({ etat: 'draft', au: this.period().to }));
+  /** The Total row: the server's totals over every row. */
+  protected readonly total = computed<BalanceFigures | null>(() => {
+    const balance = this.balance.value();
+    return balance
+      ? {
+          opening: balance.totals.opening,
+          movements: balance.movements,
+          closing: balance.totals.closing,
+        }
+      : null;
+  });
   private readonly folded = signal<ReadonlySet<string>>(new Set());
 
   /** The table's rows: the accounts, under their classes and groups with « Hiérarchie ». */
@@ -227,7 +272,7 @@ export class BalancePage {
           code: prefix,
           name: group.name,
           level: group.level,
-          columns: group.columns,
+          figures: group,
           folded: folded.has(prefix),
         });
       }
@@ -240,13 +285,17 @@ export class BalancePage {
   });
 
   // ---- Filters (Odoo's buttons) --------------------------------------------------------
-  protected readonly periodItems = computed<readonly DropdownItem[]>(() =>
-    PERIODS.map((item) => ({
-      id: item.id,
-      label: item.label,
-      checked: item.id === this.periodKind(),
+  /** Each line of the date menu: its period around the day shown, « octobre 2026 ». */
+  protected readonly steppedValues = computed(() =>
+    STEPPED.map((item) => ({
+      ...item,
+      value: periodLabel(periodOf(item.id, this.anchor()), true),
     })),
   );
+  protected readonly comparisonButton = computed(() => {
+    const chosen = COMPARISONS.find((item) => item.id === this.comparison());
+    return chosen ? `Comparaison: ${chosen.title}` : 'Comparaison';
+  });
   protected readonly journalItems = computed<readonly DropdownItem[]>(() => {
     const codes = this.journalCodes();
     return [
@@ -261,50 +310,54 @@ export class BalancePage {
   });
   protected readonly journalsLabel = computed(() => {
     const chosen = this.chosenJournals();
-    return chosen.length === 0
-      ? 'Tous les journaux'
-      : `Journaux : ${chosen.map((item) => item.code).join(', ')}`;
+    return chosen.length === 0 ? 'Tous les journaux' : chosen.map((item) => item.code).join(', ');
   });
+  protected readonly optionsLabel = computed(
+    () =>
+      `${this.drafts() ? 'Toutes les pièces' : 'Pièces comptabilisées'}, Comptabilité d’engagement`,
+  );
   protected readonly optionItems = computed<readonly DropdownItem[]>(() => [
-    {
-      id: OPTION_UNPOSTED,
-      label: 'Inclure les écritures non comptabilisées',
-      checked: this.unposted(),
-    },
+    { id: OPTION_DRAFTS, label: 'Écritures brouillon', checked: this.drafts() },
     { id: OPTION_HIERARCHY, label: 'Hiérarchie et sous-totaux', checked: this.hierarchy() },
+    ...(this.hierarchy()
+      ? [{ id: OPTION_UNFOLD, label: 'Tout déplier', checked: this.folded().size === 0 }]
+      : []),
   ]);
 
   protected readonly fromControl = new FormControl('', { nonNullable: true });
   protected readonly toControl = new FormControl('', { nonNullable: true });
+  protected readonly compareFromControl = new FormControl('', { nonNullable: true });
+  protected readonly compareToControl = new FormControl('', { nonNullable: true });
   protected readonly searchControl = new FormControl('', { nonNullable: true });
 
-  // ---- Export (XLSX, as Odoo's) --------------------------------------------------------
+  // ---- Export (PDF, XLSX, as Odoo's) ---------------------------------------------------
   protected readonly canExport = computed(
     () => this.session.can('imports_exports.export') && this.session.can('reporting.read'),
   );
-  protected readonly exporting = signal(false);
+  protected readonly exporting = signal<'pdf' | 'xlsx' | null>(null);
 
   constructor() {
     effect(() => {
-      // Any change of a filter or of the page: one new read, once the references are known.
+      // Any change of a filter or of the page: one new read, once the journals are known.
       this.period();
+      this.earlier();
       this.chosenJournals();
-      this.unposted();
+      this.drafts();
       this.searchText();
       this.page();
-      const ready =
-        (this.years.value() !== null || this.years.error()) &&
-        (this.journals.value() !== null || this.journals.error());
-      if (ready) {
+      if (this.journals.value() !== null || this.journals.error()) {
         untracked(() => this.balance.reload());
       }
     });
     effect(() => {
       const period = this.period();
+      const custom = this.customCompared();
       const search = this.searchText();
       untracked(() => {
         this.fromControl.setValue(period.from, { emitEvent: false });
         this.toControl.setValue(period.to, { emitEvent: false });
+        this.compareFromControl.setValue(custom?.from ?? '', { emitEvent: false });
+        this.compareToControl.setValue(custom?.to ?? '', { emitEvent: false });
         if (this.searchControl.value !== search) {
           this.searchControl.setValue(search, { emitEvent: false });
         }
@@ -318,12 +371,13 @@ export class BalancePage {
       );
   }
 
-  protected choosePeriod(item: DropdownItem): void {
-    const kind = item.id as PeriodKind;
+  /** A line of the date menu: its month, quarter or year (`steps`: ◀ ▶ from the day shown). */
+  protected choosePeriod(kind: PeriodKind, steps = 0): void {
     const period = this.period();
     this.navigate({
-      [BALANCE_PARAM.period]: kind === 'annee' ? null : kind,
-      // A personal period starts from the dates on screen.
+      [BALANCE_PARAM.period]: kind === 'mois' ? null : kind,
+      [BALANCE_PARAM.day]: kind === 'perso' ? null : shifted(kind, this.anchor(), steps),
+      // Personal dates start from the period on screen.
       [BALANCE_PARAM.from]: kind === 'perso' ? period.from : null,
       [BALANCE_PARAM.to]: kind === 'perso' ? period.to : null,
       [BALANCE_PARAM.page]: null,
@@ -342,6 +396,33 @@ export class BalancePage {
     }
   }
 
+  protected compare(kind: ComparisonKind | null): void {
+    const before = earlierPeriods('precedente', 1, this.periodKind(), this.period(), null)[0];
+    this.navigate({
+      [BALANCE_PARAM.comparison]: kind,
+      [BALANCE_PARAM.count]: kind === 'precedente' || kind === 'exercice' ? this.compared() : null,
+      // Personal dates start from the period before the one on screen.
+      [BALANCE_PARAM.compareFrom]: kind === 'perso' ? before.from : null,
+      [BALANCE_PARAM.compareTo]: kind === 'perso' ? before.to : null,
+      [BALANCE_PARAM.page]: null,
+    });
+  }
+
+  protected setCompared(event: Event): void {
+    const count = Number((event.target as HTMLInputElement).value);
+    if (Number.isInteger(count) && count >= 1 && count <= MAX_COMPARED) {
+      this.navigate({ [BALANCE_PARAM.count]: count, [BALANCE_PARAM.page]: null });
+    }
+  }
+
+  protected setComparedDates(): void {
+    const from = this.compareFromControl.value;
+    const to = this.compareToControl.value;
+    if (from && to) {
+      this.navigate({ [BALANCE_PARAM.compareFrom]: from, [BALANCE_PARAM.compareTo]: to });
+    }
+  }
+
   protected toggleJournal(item: DropdownItem): void {
     const codes = this.journalCodes();
     const next =
@@ -357,15 +438,19 @@ export class BalancePage {
   }
 
   protected toggleOption(item: DropdownItem): void {
-    if (item.id === OPTION_UNPOSTED) {
-      this.includeUnposted(!this.unposted());
+    if (item.id === OPTION_DRAFTS) {
+      this.navigate({
+        [BALANCE_PARAM.unposted]: this.drafts() ? null : 'oui',
+        [BALANCE_PARAM.page]: null,
+      });
     } else if (item.id === OPTION_HIERARCHY) {
       this.navigate({ [BALANCE_PARAM.hierarchy]: this.hierarchy() ? null : 'oui' });
+    } else if (item.id === OPTION_UNFOLD) {
+      const groups = this.balance.value()?.groups ?? [];
+      this.folded.set(
+        this.folded().size === 0 ? new Set(groups.map((group) => group.code)) : new Set(),
+      );
     }
-  }
-
-  protected includeUnposted(include: boolean): void {
-    this.navigate({ [BALANCE_PARAM.unposted]: include ? 'oui' : null, [BALANCE_PARAM.page]: null });
   }
 
   /** A class or a group folded or unfolded, as Odoo's hierarchy. */
@@ -385,45 +470,48 @@ export class BalancePage {
     this.navigate({ [BALANCE_PARAM.page]: page > 1 ? page : null });
   }
 
-  /** « 0 » stays empty, as Odoo's and the entries' lines: a side without amount. */
   protected isZero(amount: string): boolean {
     return Number(amount) === 0;
   }
 
-  protected async exportWorkbook(): Promise<void> {
+  protected isNegative(amount: string): boolean {
+    return amount.startsWith('-') && !this.isZero(amount);
+  }
+
+  protected async exportFile(format: 'pdf' | 'xlsx'): Promise<void> {
     if (this.exporting()) {
       return;
     }
-    this.exporting.set(true);
+    this.exporting.set(format);
+    const failed = 'L’export a échoué. Réessayez ; si le problème continue, contactez le support.';
     try {
       const run = await firstValueFrom(
-        this.transfers.createExport('reporting.balance', this.exportParameters(), 'xlsx'),
+        this.transfers.createExport('reporting.balance', this.exportParameters(), format),
       );
       if (run.status !== 'completed') {
-        this.toast.error(
-          'L’export a échoué. Réessayez ; si le problème continue, contactez le support.',
-        );
+        this.toast.error(failed);
         return;
       }
       const file = await firstValueFrom(this.transfers.download(run.public_id));
-      saveFile(file.blob, file.filename ?? run.filename ?? 'balance-generale.xlsx');
+      saveFile(file.blob, file.filename ?? run.filename ?? `balance-comptable.${format}`);
     } catch {
-      this.toast.error(
-        'L’export a échoué. Réessayez ; si le problème continue, contactez le support.',
-      );
+      this.toast.error(failed);
     } finally {
-      this.exporting.set(false);
+      this.exporting.set(null);
     }
   }
 
-  /** The export follows the balance on screen: its dates, journals, option and search. */
+  /** The export follows the balance on screen: its periods, journals, entries and search. */
   private exportParameters(): Readonly<Record<string, unknown>> {
     const period = this.period();
+    const earlier = this.earlier();
     return {
       date_from: period.from,
       date_to: period.to,
+      column_from: earlier.map((item) => item.from),
+      column_to: earlier.map((item) => item.to),
       journal: this.chosenJournals().map((item) => item.public_id),
-      include_unposted: this.unposted(),
+      include_unposted: this.drafts(),
       search: this.searchText(),
     };
   }
@@ -435,8 +523,7 @@ export class BalancePage {
     const menu: DropdownItem[] = [
       {
         id: 'ledger',
-        label: 'Grand livre',
-        icon: 'book',
+        label: 'Grand livre général',
         route: `${ACCOUNTING}/${LEDGER_PATHS.account}?${LEDGER_PARAM.account}=${code}&${dates}`,
       },
     ];
@@ -444,8 +531,7 @@ export class BalancePage {
       menu.push({
         id: 'lines',
         label: 'Écritures comptables',
-        icon: 'accounting',
-        route: `${ACCOUNTING}/ecritures?classe=${code}&${dates}${this.unposted() ? '&etat=all' : ''}`,
+        route: `${ACCOUNTING}/ecritures?classe=${code}&${dates}${this.drafts() ? '&etat=all' : ''}`,
       });
     }
     return { kind: 'account', key: row.account.public_id, row, indent: false, menu };
@@ -464,8 +550,9 @@ export class BalancePage {
     return this.reporting.balance({
       dateFrom: period.from,
       dateTo: period.to,
+      earlier: untracked(this.earlier),
       journals: untracked(this.chosenJournals).map((item) => item.public_id),
-      includeUnposted: untracked(this.unposted),
+      includeUnposted: untracked(this.drafts),
       search: untracked(this.searchText),
       page: untracked(this.page),
     });

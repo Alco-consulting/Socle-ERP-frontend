@@ -84,7 +84,7 @@ test.describe('Affichage selon les permissions (confort d’interface ; l’API 
     // reporting.read only: the accounting reports, not the others.
     await moduleNav(page).getByRole('button', { name: 'Analyse', exact: true }).click();
     await expect(page.getByRole('menu').getByRole('menuitemradio')).toHaveText([
-      'Balance générale',
+      'Balance comptable',
       'Grand livre',
     ]);
     await page.keyboard.press('Escape');

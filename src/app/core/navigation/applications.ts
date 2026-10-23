@@ -180,7 +180,7 @@ export const APPLICATIONS: readonly AlcoApplication[] = [
             },
           ]),
           ...group('Rapports comptables', [
-            { label: 'Balance générale', path: 'analyse/balance', permission: 'reporting.read' },
+            { label: 'Balance comptable', path: 'analyse/balance', permission: 'reporting.read' },
             { label: 'Grand livre', path: 'analyse/grand-livre', permission: 'reporting.read' },
           ]),
           ...group('Rapports de tiers', [

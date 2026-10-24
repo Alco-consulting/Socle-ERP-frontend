@@ -24,8 +24,9 @@ test.describe('Analyse › Grand livre général (comme Odoo)', () => {
     await expect(page.locator('.heads th')).toHaveText(['2026']);
     const call = new URL(api.callsTo('reporting/general-ledger/').at(-1)!.url()).searchParams;
     expect([call.get('date_from'), call.get('date_to')]).toEqual(['2026-01-01', '2026-12-31']);
+    // The blank cells first (one, spanning Date and Partenaire), then Débit and Crédit.
     const total = await page.locator('tfoot td').allInnerTexts();
-    expect(total[2]).toBe(total[3]);
+    expect(total[1]).toBe(total[2]);
   });
 
   test('un compte déplié : son solde initial, ses lignes ; le ⋮ d’une ligne ouvre sa pièce', async ({

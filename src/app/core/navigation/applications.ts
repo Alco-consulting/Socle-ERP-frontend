@@ -195,7 +195,7 @@ export const APPLICATIONS: readonly AlcoApplication[] = [
               permission: 'reporting.read_auxiliary',
             },
             {
-              label: 'Grand livre auxiliaire',
+              label: 'Grand livre des partenaires',
               path: 'analyse/grand-livre-auxiliaire',
               permission: 'reporting.read_auxiliary',
             },

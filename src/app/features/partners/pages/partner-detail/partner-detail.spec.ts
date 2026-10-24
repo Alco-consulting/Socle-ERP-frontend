@@ -177,7 +177,7 @@ describe('PartnerDetailPage (the record)', () => {
     const links = Array.from(element.querySelectorAll<HTMLAnchorElement>('a.smart'));
     expect(links.map((link) => link.getAttribute('aria-label'))).toEqual([
       'Écritures : 12',
-      'Grand livre auxiliaire',
+      'Grand livre',
       'Comptes collectifs : 1',
       'Échéances : 5',
       'Lettrage : 3',
@@ -185,7 +185,7 @@ describe('PartnerDetailPage (the record)', () => {
     ]);
     expect(links.map((link) => link.getAttribute('href'))).toEqual([
       '/app/comptabilite/ecritures/pieces?tiers=FOU-007',
-      '/app/comptabilite/analyse/grand-livre-auxiliaire?tiers=FOU-007',
+      '/app/comptabilite/analyse/grand-livre-auxiliaire?tiers=FOU-007&periode=annee',
       '/liste/p-1#comptes-collectifs',
       '/app/comptabilite/echeances?tiers=FOU-007',
       '/app/comptabilite/lettrage?tiers=FOU-007',

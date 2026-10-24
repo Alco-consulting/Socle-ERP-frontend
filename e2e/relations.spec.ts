@@ -120,11 +120,15 @@ test.describe('Tiers → objets liés', () => {
     await expect(smart(page, 'Échéances')).toHaveAccessibleName(/^Échéances : \d+$/);
     // Lettrage (V2.1 A4): a link, with the server's count of open lines (all lettered here).
     await expect(smart(page, 'Lettrage')).toHaveAccessibleName('Lettrage : 0');
-    await smart(page, 'Grand livre auxiliaire').click();
-    await expect(page).toHaveURL(/\/analyse\/grand-livre-auxiliaire\?tiers=FOU-001$/);
-    await expect(page.getByRole('heading', { level: 1 })).toHaveText('Grand livre auxiliaire');
-    await expect(page.getByText('FOU-001 — Diallo et Cie', { exact: true })).toBeVisible();
-    await expect(rows(page).first()).toBeVisible();
+    await smart(page, 'Grand livre').click();
+    await expect(page).toHaveURL(/\/analyse\/grand-livre-auxiliaire\?tiers=FOU-001&periode=annee$/);
+    await expect(page.getByRole('heading', { level: 1 })).toHaveText('Grand livre des partenaires');
+    // The partner alone, unfolded on its year (note backend 0054).
+    const partner = page.locator('tr.account-row');
+    await expect(partner).toHaveCount(1);
+    await expect(partner.locator('button.fold')).toHaveText('Diallo et Cie');
+    await expect(partner.locator('button.fold')).toHaveAttribute('aria-expanded', 'true');
+    await expect(page.locator('tr.line').first()).toBeVisible();
   });
 
   test('8. Tiers → Historique', async ({ page, api }) => {

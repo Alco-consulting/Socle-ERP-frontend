@@ -122,9 +122,9 @@ test.describe('Analyse › Balance comptable (comme Odoo)', () => {
     await expect(page.getByRole('menuitem', { name: 'Écritures comptables' })).toBeVisible();
     await page.getByRole('menuitem', { name: 'Grand livre général' }).click();
     await expect(page).toHaveURL(
-      new RegExp(`/analyse/grand-livre\\?compte=${code}&du=2026-10-01&au=2026-10-31$`),
+      new RegExp(`/analyse/grand-livre\\?compte=${code}&date=2026-10-04$`),
     );
-    await expect(page.getByRole('heading', { level: 1 })).toHaveText('Grand livre');
+    await expect(page.getByRole('heading', { level: 1 })).toHaveText('Grand livre général');
   });
 
   test('PDF et XLSX : la même balance, téléchargée', async ({ page, api }) => {

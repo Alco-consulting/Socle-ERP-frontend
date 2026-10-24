@@ -120,7 +120,10 @@ test.describe('Comptabilité : un lien et cinq menus groupés', () => {
     for (const [title, items] of [
       ['Rapports financiers', ['États financiers', 'Résultat']],
       ['Rapports comptables', ['Balance comptable', 'Grand livre']],
-      ['Rapports de tiers', ['Balance clients', 'Balance fournisseurs', 'Grand livre auxiliaire']],
+      [
+        'Rapports de tiers',
+        ['Balance clients', 'Balance fournisseurs', 'Grand livre des partenaires'],
+      ],
       ['Analyses', ['Analytique', 'Immobilisations', 'Emprunts', 'Journal d’audit']],
     ] as const) {
       await expect(menu.getByRole('group', { name: title }).getByRole('menuitemradio')).toHaveText([
@@ -130,9 +133,8 @@ test.describe('Comptabilité : un lien et cinq menus groupés', () => {
     await menu.getByRole('menuitemradio', { name: 'Balance comptable' }).click();
     await expect(page).toHaveURL(/\/app\/comptabilite\/analyse\/balance$/);
     await expect(page.getByRole('heading', { level: 1 })).toHaveText('Balance comptable');
-    // The contextual export of the balance is offered there.
-    await page.getByRole('button', { name: 'Actions' }).click();
-    await expect(page.getByRole('menuitem', { name: /Exporter la balance/ })).toBeVisible();
+    // Its exports are in its bar, as Odoo's (note backend 0052).
+    await expect(page.getByRole('button', { name: 'Télécharger la balance en PDF' })).toBeVisible();
   });
 
   test('Configuration ▾: the configuration of every domain, grouped', async ({ page }) => {

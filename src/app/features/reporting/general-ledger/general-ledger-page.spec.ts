@@ -111,6 +111,7 @@ describe('GeneralLedgerPage (Analyse › Grand livre général, as Odoo’s)', (
         ...provideHttpTesting(),
         provideRouter([
           { path: 'grand-livre', component: GeneralLedgerPage },
+          { path: 'partenaires', component: GeneralLedgerPage, data: { ledger: 'partner' } },
           { path: '**', children: [] },
         ]),
       ],
@@ -170,10 +171,9 @@ describe('GeneralLedgerPage (Analyse › Grand livre général, as Odoo’s)', (
     ]);
     const [capital, cash] = [...element.querySelectorAll('tr.account-row')];
     expect(text(cash.querySelector('th'))).toBe('571001 Caisse Principale');
-    expect(cells(cash)).toEqual(['', '', '19 534 000 GNF', '13 576 500 GNF', '5 957 500 GNF']);
-    expect(capital.querySelectorAll('td')[4].classList).toContain('negative');
+    expect(cells(cash)).toEqual(['', '19 534 000 GNF', '13 576 500 GNF', '5 957 500 GNF']);
+    expect(capital.querySelectorAll('td')[3].classList).toContain('negative');
     expect(cells(element.querySelector('tfoot'))).toEqual([
-      '',
       '',
       '19 534 000 GNF',
       '18 576 500 GNF',
@@ -211,7 +211,7 @@ describe('GeneralLedgerPage (Analyse › Grand livre général, as Odoo’s)', (
     );
     const initial = element.querySelector('tr.initial');
     expect(text(initial?.querySelector('th'))).toBe('Solde initial');
-    expect(cells(initial)).toEqual(['', '', '19 534 000 GNF', '0 GNF', '19 534 000 GNF']);
+    expect(cells(initial)).toEqual(['', '19 534 000 GNF', '0 GNF', '19 534 000 GNF']);
     const [loyer] = [...element.querySelectorAll('tr.line')];
     expect(text(loyer.querySelector('.name'))).toBe(
       'CAISS/2026/00002 REGLEMENT FACTURE LOYER DU SIEGE ALCO',
@@ -334,5 +334,105 @@ describe('GeneralLedgerPage (Analyse › Grand livre général, as Odoo’s)', (
       });
     await stable();
     expect(createUrl).toHaveBeenCalled();
+  });
+
+  describe('Grand livre des partenaires, as Odoo’s', () => {
+    const SUPPLIER = { public_id: 'p-1', code: 'FRN-1', name: 'BANKITY BTP' };
+    const partnerRow = {
+      ...row('401100', '', [0, 0, 12000000, 12000000]),
+      account: undefined,
+      partner: SUPPLIER,
+      drilldown: { level: 'partner_ledger', partner: 'p-1' },
+    };
+    const partners = (rows: unknown[] = [partnerRow]) => ({ ...ledgerOf(rows), results: rows });
+    const partnerLines = (rows: unknown[]) => ({
+      ...linesOf(rows, rows.length),
+      account: undefined,
+      partner: SUPPLIER,
+    });
+
+    it('every partner of the tiers accounts; unfolded: journal, account, ref, due date, lettering', async () => {
+      const { element, stable, references } = await open('/partenaires');
+      await references();
+      const request = httpMock().expectOne(
+        (req) => req.url === '/api/v1/reporting/partner-ledger/',
+      );
+      expect(request.request.params.has('tiers')).toBe(false);
+      request.flush(partners());
+      await stable();
+
+      const bar = element.querySelector('.report-bar');
+      expect(text(bar?.querySelector('h1'))).toBe('Grand livre des partenaires');
+      expect(text(bar)).toContain('Comptes à recevoir et à payer');
+      expect(cells(element.querySelector('.subheads'), 'th')).toEqual([
+        'Partenaire',
+        'Date',
+        'Journal',
+        'Compte',
+        'Réf.',
+        'Échéance',
+        'Lettrage',
+        'Débit',
+        'Crédit',
+        'Solde',
+      ]);
+      const supplier = element.querySelector('tr.account-row');
+      expect(text(supplier?.querySelector('th'))).toBe('BANKITY BTP');
+
+      supplier?.querySelector<HTMLButtonElement>('button.fold')?.click();
+      await stable();
+      const read = httpMock().expectOne(
+        (req) => req.url === '/api/v1/reporting/partners/p-1/ledger/',
+      );
+      expect(read.request.params.getAll('tiers')).toEqual(['receivable', 'payable']);
+      read.flush(
+        partnerLines([
+          {
+            ...line(2, 'FACTURE LOYER', 12000000, -12000000),
+            account_code: '401100',
+            document_reference: 'FAF-12',
+            due_date: '2026-11-15',
+            lettering: 'A12',
+          },
+        ]),
+      );
+      await stable();
+      expect(cells(element.querySelector('tr.line'))).toEqual([
+        '02/10/2026',
+        'CAISS',
+        '401100',
+        'FAF-12',
+        '15/11/2026',
+        'A12',
+        '0 GNF',
+        '12 000 000 GNF',
+        '-12 000 000 GNF',
+      ]);
+      expect(supplier?.querySelector('a.lines-link')?.getAttribute('href')).toBe(
+        '/app/comptabilite/ecritures/pieces?tiers=FRN-1&du=2026-10-01&au=2026-10-31',
+      );
+    });
+
+    it('one partner from the URL, the payable accounts only', async () => {
+      const { stable, references } = await open('/partenaires?tiers=FRN-1&comptes=payer');
+      await references();
+      const byCode = httpMock().expectOne((req) => req.url === '/api/v1/partners/');
+      expect(byCode.request.params.get('code')).toBe('FRN-1');
+      byCode.flush(page([SUPPLIER]));
+      await stable();
+      const request = httpMock().expectOne(
+        (req) => req.url === '/api/v1/reporting/partner-ledger/',
+      );
+      expect(request.request.params.get('partner')).toBe('p-1');
+      expect(request.request.params.getAll('tiers')).toEqual(['payable']);
+      request.flush(partners());
+      await stable();
+      const read = httpMock().expectOne(
+        (req) => req.url === '/api/v1/reporting/partners/p-1/ledger/',
+      );
+      expect(read.request.params.getAll('tiers')).toEqual(['payable']);
+      read.flush(partnerLines([]));
+      await stable();
+    });
   });
 });

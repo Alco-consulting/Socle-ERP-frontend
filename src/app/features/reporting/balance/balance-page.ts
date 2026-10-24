@@ -38,7 +38,7 @@ import { PartnersApi } from '../../partners/data-access/partners-api';
 import { TransfersApi } from '../../transfers/transfers-api';
 import { BALANCE_PAGE_SIZE, ReportingApi } from '../data-access/reporting-api';
 import { BalanceFigures, BalanceRow, TrialBalance } from '../data-access/reporting-models';
-import { LEDGER_PARAM, LEDGER_PATHS } from '../ledger/ledger-presentation';
+import { GENERAL_LEDGER_PARAM, LEDGER_PATHS } from '../general-ledger/general-ledger-presentation';
 import {
   AlcoReportPeriod,
   Period,
@@ -46,6 +46,7 @@ import {
   isIsoDate,
   periodFromUrl,
   periodParams,
+  periodQuery,
 } from '../report-period/report-period';
 import {
   BALANCE_ERRORS,
@@ -476,12 +477,13 @@ export class BalancePage {
   private accountLine(row: BalanceRow): Line {
     const period = this.period();
     const code = encodeURIComponent(row.account.code);
-    const dates = `${LEDGER_PARAM.from}=${period.from}&${LEDGER_PARAM.to}=${period.to}`;
+    const dates = `du=${period.from}&au=${period.to}`;
+    const same = periodQuery(this.periodKind(), this.anchor(), period);
     const menu: DropdownItem[] = [
       {
         id: 'ledger',
         label: 'Grand livre général',
-        route: `${ACCOUNTING}/${LEDGER_PATHS.account}?${LEDGER_PARAM.account}=${code}&${dates}`,
+        route: `${ACCOUNTING}/${LEDGER_PATHS.account}?${GENERAL_LEDGER_PARAM.account}=${code}&${same}`,
       },
     ];
     if (this.navigation.canOpenUrl(`${ACCOUNTING}/ecritures`)) {

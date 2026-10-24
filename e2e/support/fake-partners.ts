@@ -353,7 +353,8 @@ export class FakePartners {
       };
       if (
         body.export_type === 'reporting.balance' ||
-        body.export_type === 'reporting.general_ledger'
+        body.export_type === 'reporting.general_ledger' ||
+        body.export_type === 'reporting.partner_ledger'
       ) {
         // The balance's workbook (note backend 0051): its rows are the server's, not shown here.
         const format = body.file_format ?? 'csv';

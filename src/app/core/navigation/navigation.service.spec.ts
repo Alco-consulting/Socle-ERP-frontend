@@ -203,7 +203,7 @@ describe('NavigationService', () => {
         url: '/app/comptabilite/analyse/balance-fournisseurs',
       },
       {
-        label: 'Grand livre auxiliaire',
+        label: 'Grand livre des partenaires',
         group: 'Rapports de tiers',
         url: '/app/comptabilite/analyse/grand-livre-auxiliaire',
       },

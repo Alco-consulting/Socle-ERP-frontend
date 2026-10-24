@@ -42,10 +42,10 @@
       }
       @if (canOpenLedger()) {
         <alco-smart-button
-          label="Grand livre auxiliaire"
+          label="Grand livre"
           icon="book"
           [link]="accounting + '/analyse/grand-livre-auxiliaire'"
-          [queryParams]="{ tiers: partner.code }"
+          [queryParams]="{ tiers: partner.code, periode: 'annee' }"
         />
       }
       @if (canReadAccounting()) {

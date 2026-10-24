@@ -40,6 +40,14 @@ const GROUP_NAMES: Readonly<Record<string, string>> = {
   '6': 'Comptes de charges des activités ordinaires',
   '60': 'Achats et variations de stocks',
 };
+/** Odoo's « Comptes à recevoir », « Comptes à payer », as the accounts' detailed types. */
+const tiersTypes = (asked: readonly string[], both = true) => {
+  const types = asked.map((item) =>
+    item === 'receivable' ? 'asset_receivable' : 'liability_payable',
+  );
+  return types.length || !both ? types : ['asset_receivable', 'liability_payable'];
+};
+
 const SHORT = [
   'janv.',
   'févr.',
@@ -130,6 +138,9 @@ export class FakeReporting {
     if (parts[0] === 'general-ledger' && parts.length === 1) {
       return this.generalLedger(route, url, permissions, company);
     }
+    if (parts[0] === 'partner-ledger' && parts.length === 1) {
+      return this.partnersLedger(route, url, permissions, company);
+    }
     const isPartner = parts[0] === 'partners' && parts[2] === 'ledger';
     const isAccount = parts[0] === 'ledger' && parts.length === 2;
     if (!isPartner && !isAccount) {
@@ -151,8 +162,15 @@ export class FakeReporting {
     if (!subject) {
       return this.answer(route, 404, error('not_found'));
     }
+    // Partner ledger: the lines of the tiers accounts asked (Odoo's receivable, payable).
+    const tiers = tiersTypes(url.searchParams.getAll('tiers'), false);
+    const typeOf = (accountId: string) =>
+      books.accounts.find((item) => item.public_id === accountId)?.detailed_type ?? '';
     const matches = (line: LineJson) =>
-      isPartner ? line.partner?.public_id === id : line.account.public_id === id;
+      isPartner
+        ? line.partner?.public_id === id &&
+          (tiers.length === 0 || tiers.includes(typeOf(line.account.public_id)))
+        : line.account.public_id === id;
     const from = url.searchParams.get('date_from') || year.start_date;
     const to = url.searchParams.get('date_to') || year.end_date;
     const journals = url.searchParams.getAll('journal');
@@ -209,6 +227,8 @@ export class FakeReporting {
             debit: decimal(units(line.reference_debit)),
             credit: decimal(units(line.reference_credit)),
             balance: decimal(running),
+            lettering: '',
+            due_date: null,
             drilldown: { level: 'entry', entry: entry.public_id, line: line.public_id },
           };
         }),
@@ -531,6 +551,113 @@ export class FakeReporting {
         },
         ...figures(found.get(account.public_id)!),
         drilldown: { level: 'ledger', account: account.public_id },
+      })),
+    });
+  }
+
+  /**
+   * The partner ledger of the fake entries, as the server's (note backend 0054): per partner
+   * of the tiers accounts asked, its debits and credits before the period, the period's, its
+   * balance at the end.
+   */
+  private async partnersLedger(
+    route: Route,
+    url: URL,
+    permissions: readonly string[],
+    company: string,
+  ): Promise<void> {
+    if (!permissions.includes('reporting.read_auxiliary')) {
+      return this.answer(route, 403, error('company_permission_denied'));
+    }
+    const from = url.searchParams.get('date_from') ?? '';
+    const to = url.searchParams.get('date_to') ?? '';
+    const books = this.accounting.books(company);
+    const year = books.years.find((item) => item.start_date <= from && to <= item.end_date);
+    if (!year || from > to) {
+      return this.answer(route, 400, error('reporting_scope_invalid'));
+    }
+    const only = url.searchParams.get('partner');
+    const types = tiersTypes(url.searchParams.getAll('tiers'));
+    const journals = url.searchParams.getAll('journal');
+    const pending = url.searchParams.get('include_unposted') === 'true';
+    const search = (url.searchParams.get('search') ?? '').toLowerCase();
+    const typeOf = (accountId: string) =>
+      books.accounts.find((item) => item.public_id === accountId)?.detailed_type ?? '';
+    const found = new Map<string, { od: bigint; oc: bigint; d: bigint; c: bigint }>();
+    for (const entry of this.entries
+      .entries(company)
+      .filter(
+        (item) =>
+          item.entry_date >= year.start_date &&
+          item.entry_date <= to &&
+          (pending || item.status === 'validated' || item.status === 'locked') &&
+          (journals.length === 0 || journals.includes(item.journal.public_id)),
+      )) {
+      for (const line of entry.lines) {
+        const partner = line.partner?.public_id;
+        if (!partner || !types.includes(typeOf(line.account.public_id))) {
+          continue;
+        }
+        const sum = found.get(partner) ?? { od: 0n, oc: 0n, d: 0n, c: 0n };
+        const debit = units(line.reference_debit);
+        const credit = units(line.reference_credit);
+        if (entry.entry_date < from) {
+          sum.od += debit;
+          sum.oc += credit;
+        } else {
+          sum.d += debit;
+          sum.c += credit;
+        }
+        found.set(partner, sum);
+      }
+    }
+    const figures = (sum: { od: bigint; oc: bigint; d: bigint; c: bigint }) => ({
+      opening_debit: decimal(sum.od),
+      opening_credit: decimal(sum.oc),
+      opening: decimal(sum.od - sum.oc),
+      debit: decimal(sum.d),
+      credit: decimal(sum.c),
+      total_debit: decimal(sum.od + sum.d),
+      total_credit: decimal(sum.oc + sum.c),
+      closing: decimal(sum.od - sum.oc + sum.d - sum.c),
+    });
+    const rows = this.partners
+      .list(company)
+      .filter(
+        (partner) =>
+          found.has(partner.public_id) &&
+          (!only || partner.public_id === only) &&
+          (!search ||
+            partner.code.toLowerCase().includes(search) ||
+            partner.name.toLowerCase().includes(search)),
+      )
+      .sort((a, b) => a.name.localeCompare(b.name));
+    const total = { od: 0n, oc: 0n, d: 0n, c: 0n };
+    for (const partner of rows) {
+      const sum = found.get(partner.public_id)!;
+      total.od += sum.od;
+      total.oc += sum.oc;
+      total.d += sum.d;
+      total.c += sum.c;
+    }
+    return this.answer(route, 200, {
+      scope: {
+        fiscal_year: { public_id: year.public_id, code: year.code },
+        period: null,
+        date_from: from,
+        date_to: to,
+      },
+      comparative_scope: null,
+      period: label(from, to),
+      totals: figures(total),
+      warnings: [],
+      count: rows.length,
+      next: null,
+      previous: null,
+      results: rows.map((partner) => ({
+        partner: { public_id: partner.public_id, code: partner.code, name: partner.name },
+        ...figures(found.get(partner.public_id)!),
+        drilldown: { level: 'partner_ledger', partner: partner.public_id },
       })),
     });
   }

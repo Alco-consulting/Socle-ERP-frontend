@@ -168,6 +168,24 @@ export function periodParams(
   };
 }
 
+/** The URL of the same period in another report (the balance's ledger of an account). */
+export function periodQuery(kind: PeriodKind, anchor: string, period: Period): string {
+  const params =
+    kind === 'perso'
+      ? {
+          [PERIOD_PARAM.period]: kind,
+          [PERIOD_PARAM.from]: period.from,
+          [PERIOD_PARAM.to]: period.to,
+        }
+      : {
+          ...(kind === 'mois' ? {} : { [PERIOD_PARAM.period]: kind }),
+          [PERIOD_PARAM.day]: anchor,
+        };
+  return Object.entries(params)
+    .map(([key, value]) => `${key}=${encodeURIComponent(value)}`)
+    .join('&');
+}
+
 /**
  * Odoo's date filter of a report: Mois, Trimestre, Année, each with ◀ ▶ around the day
  * shown, then « Dates personnalisées »; the page turns each choice into its URL.

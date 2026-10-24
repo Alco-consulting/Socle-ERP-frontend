@@ -7,6 +7,8 @@ import {
   BalanceQuery,
   GeneralLedger,
   GeneralLedgerQuery,
+  PartnersLedger,
+  PartnersLedgerQuery,
   LedgerQuery,
   PartnerLedger,
   TrialBalance,
@@ -84,8 +86,30 @@ export class ReportingApi {
     return this.api.get<PartnerLedger>(`reporting/partners/${id(partnerId)}/ledger/`, {
       params: {
         fiscal_year: query.fiscalYear,
+        date_from: query.dateFrom ?? null,
+        date_to: query.dateTo ?? null,
+        journal: query.journals ?? [],
+        include_unposted: query.includeUnposted ? true : null,
+        tiers: query.tiers ?? [],
         page: query.page && query.page > 1 ? query.page : null,
-        page_size: LEDGER_PAGE_SIZE,
+        page_size: query.pageSize ?? LEDGER_PAGE_SIZE,
+      },
+    });
+  }
+
+  /** `reporting.read_auxiliary`: Odoo's « Grand livre des partenaires » (note backend 0054). */
+  partnersLedger(query: PartnersLedgerQuery): Observable<PartnersLedger> {
+    return this.api.get<PartnersLedger>('reporting/partner-ledger/', {
+      params: {
+        date_from: query.dateFrom,
+        date_to: query.dateTo,
+        partner: query.partner,
+        tiers: query.tiers,
+        journal: query.journals,
+        include_unposted: query.includeUnposted ? true : null,
+        search: query.search || null,
+        page: query.page > 1 ? query.page : null,
+        page_size: BALANCE_PAGE_SIZE,
       },
     });
   }

@@ -41,6 +41,10 @@ export interface LedgerRow {
   readonly debit: string;
   readonly credit: string;
   readonly balance: string;
+  /** Odoo's « Correspondance »: the reference of the line's lettering; blank if none. */
+  readonly lettering?: string;
+  /** Its first due date (an invoice's line). */
+  readonly due_date?: string | null;
 }
 
 /** `ReportingWarning`: said by its code. */
@@ -88,7 +92,12 @@ export interface LedgerQuery {
   /** Public ids; none: every journal. */
   readonly journals?: readonly string[];
   readonly includeUnposted?: boolean;
+  /** Partner ledger only: Odoo's « Comptes à recevoir », « Comptes à payer ». */
+  readonly tiers?: readonly TiersAccount[];
 }
+
+/** Odoo's tiers accounts of the partner ledger. */
+export type TiersAccount = 'receivable' | 'payable';
 
 /** An account of the general ledger (note backend 0053). */
 export interface GeneralLedgerFigures {
@@ -121,6 +130,23 @@ export interface GeneralLedger {
   readonly next: string | null;
   readonly previous: string | null;
   readonly results: readonly GeneralLedgerRow[];
+}
+
+/** `ReportingPartnersLedgerRow`: a partner of the partner ledger (note backend 0054). */
+export interface PartnersLedgerRow extends GeneralLedgerFigures {
+  readonly partner: PartnerReference;
+}
+
+/** `GET reporting/partner-ledger/`: the same header as the general ledger's. */
+export interface PartnersLedger extends Omit<GeneralLedger, 'results'> {
+  readonly results: readonly PartnersLedgerRow[];
+}
+
+/** Odoo's filters of the partner ledger. */
+export interface PartnersLedgerQuery extends Omit<GeneralLedgerQuery, 'account'> {
+  /** One partner only (`?tiers=`). */
+  readonly partner: string | null;
+  readonly tiers: readonly TiersAccount[];
 }
 
 /** Odoo's filters of the general ledger. */

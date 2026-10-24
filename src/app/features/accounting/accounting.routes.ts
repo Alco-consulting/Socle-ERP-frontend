@@ -11,7 +11,8 @@ import { ACCOUNT_TRANSFER } from './accounts/account-transfer';
 
 const dashboard = () =>
   import('./dashboard/accounting-dashboard').then((m) => m.AccountingDashboardPage);
-const ledger = () => import('../reporting/ledger/ledger-page').then((m) => m.LedgerPage);
+const ledger = () =>
+  import('../reporting/general-ledger/general-ledger-page').then((m) => m.GeneralLedgerPage);
 
 /** An aged balance (`data.aging`: the role) and one partner of it. */
 function agedBalance(path: string, label: string, role: 'customer' | 'supplier'): Route {
@@ -191,13 +192,12 @@ export const ACCOUNTING_ROUTES: Routes = [
   {
     path: 'analyse/grand-livre',
     data: { breadcrumb: 'Grand livre général' },
-    loadComponent: () =>
-      import('../reporting/general-ledger/general-ledger-page').then((m) => m.GeneralLedgerPage),
+    loadComponent: ledger,
   },
-  // Analyse › Grand livre auxiliaire: the ledger of a partner (route data `ledger`).
+  // Analyse › Grand livre des partenaires, as Odoo's (note backend 0054): route data `ledger`.
   {
     path: 'analyse/grand-livre-auxiliaire',
-    data: { breadcrumb: 'Grand livre auxiliaire', ledger: 'partner' },
+    data: { breadcrumb: 'Grand livre des partenaires', ledger: 'partner' },
     loadComponent: ledger,
   },
 ];

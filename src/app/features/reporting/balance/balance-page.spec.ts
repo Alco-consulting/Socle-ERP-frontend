@@ -314,7 +314,7 @@ describe('BalancePage (Analyse › Balance comptable, as Odoo’s)', () => {
     (items[0] as HTMLElement).click();
     await stable();
     expect(TestBed.inject(Router).url).toBe(
-      '/app/comptabilite/analyse/grand-livre?compte=411100&du=2026-10-01&au=2026-10-31',
+      '/app/comptabilite/analyse/grand-livre?compte=411100&date=2026-10-22',
     );
   });
 

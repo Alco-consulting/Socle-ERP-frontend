@@ -120,7 +120,7 @@
   />
 }
 
-<!-- A block: its title with its total, then its lines (a click unfolds their accounts). -->
+<!-- A block: its title with its total, then its accounts, each toward its general ledger. -->
 <ng-template #block let-block let-side="side">
   @if (block) {
     <table
@@ -142,52 +142,17 @@
         </tr>
       </thead>
       <tbody>
-        @for (line of block.lines; track line.code) {
-          <tr class="line">
+        @for (account of block.accounts; track account.public_id) {
+          <tr class="account">
             <th scope="row">
-              @if (line.accounts.length > 0) {
-                <button
-                  type="button"
-                  class="fold"
-                  [attr.aria-expanded]="isOpen(side, line.code)"
-                  (click)="toggle(side, line.code)"
-                >
-                  <alco-icon
-                    [name]="isOpen(side, line.code) ? 'chevron-down' : 'chevron-right'"
-                    [size]="14"
-                  />
-                  <span class="code">{{ line.code }}</span>
-                  {{ line.name }}
-                </button>
-              } @else {
-                <span class="fold fold--empty">
-                  <span class="code">{{ line.code }}</span>
-                  {{ line.name }}
-                </span>
-              }
+              <a [routerLink]="ledgerUrl" [queryParams]="ledgerQuery(account)">
+                <span class="code">{{ account.code }}</span> {{ account.name }}
+              </a>
             </th>
-            <td
-              class="num"
-              [class.zero]="isZero(line.amount)"
-              [class.negative]="isNegative(line.amount)"
-            >
-              {{ line.amount | alcoAmount: decimals() }}
+            <td class="num" [class.negative]="isNegative(account.amount)">
+              {{ account.amount | alcoAmount: decimals() }}
             </td>
           </tr>
-          @if (isOpen(side, line.code)) {
-            @for (account of line.accounts; track account.public_id) {
-              <tr class="account">
-                <th scope="row">
-                  <a [routerLink]="ledgerUrl" [queryParams]="ledgerQuery(account)">
-                    <span class="code">{{ account.code }}</span> {{ account.name }}
-                  </a>
-                </th>
-                <td class="num" [class.negative]="isNegative(account.amount)">
-                  {{ account.amount | alcoAmount: decimals() }}
-                </td>
-              </tr>
-            }
-          }
         }
       </tbody>
     </table>

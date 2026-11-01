@@ -19,7 +19,6 @@ import { SessionStore } from '../../../core/session/session.store';
 import { AlcoAmountPipe } from '../../../shared/pipes/amount.pipe';
 import { AlcoButton } from '../../../shared/ui/button/button';
 import { AlcoErrorState } from '../../../shared/ui/error-state/error-state';
-import { AlcoIcon } from '../../../shared/ui/icon/icon';
 import { AlcoLoading } from '../../../shared/ui/loading/loading';
 import { AlcoToastService } from '../../../shared/ui/toast/toast.service';
 import { localToday } from '../../../shared/utils/dates';
@@ -43,9 +42,9 @@ const ACCOUNTING = `${APP_ROOT}/comptabilite`;
 
 /**
  * Comptabilité › Analyse › Compte de résultat (note backend 0055): charges on the left,
- * products on the right, block facing block, each with its total on its title; the profit
- * with the charges, the loss with the products; the year by default. Every figure is the
- * server's.
+ * products on the right, block facing block, each with its total on its title and its
+ * accounts under it; the profit with the charges, the loss with the products; the year by
+ * default. Every figure is the server's.
  */
 @Component({
   selector: 'alco-income-statement-page',
@@ -55,7 +54,6 @@ const ACCOUNTING = `${APP_ROOT}/comptabilite`;
     AlcoAmountPipe,
     AlcoButton,
     AlcoErrorState,
-    AlcoIcon,
     AlcoLoading,
     AlcoReportPeriod,
   ],
@@ -117,9 +115,6 @@ export class IncomeStatementPage {
   protected readonly draftsUrl = `${ACCOUNTING}/ecritures`;
   protected readonly draftsQuery = computed(() => ({ etat: 'draft', au: this.period().to }));
 
-  /** The lines unfolded to their accounts, by side and code. */
-  private readonly open = signal<ReadonlySet<string>>(new Set());
-
   protected readonly canExport = computed(
     () =>
       this.session.can('imports_exports.export') &&
@@ -139,23 +134,6 @@ export class IncomeStatementPage {
       relativeTo: this.route,
       queryParams: periodParams(choice, this.anchor(), this.period(), 'annee'),
       queryParamsHandling: 'merge',
-    });
-  }
-
-  protected isOpen(side: string, code: string): boolean {
-    return this.open().has(`${side}-${code}`);
-  }
-
-  protected toggle(side: string, code: string): void {
-    const key = `${side}-${code}`;
-    this.open.update((open) => {
-      const next = new Set(open);
-      if (next.has(key)) {
-        next.delete(key);
-      } else {
-        next.add(key);
-      }
-      return next;
     });
   }
 

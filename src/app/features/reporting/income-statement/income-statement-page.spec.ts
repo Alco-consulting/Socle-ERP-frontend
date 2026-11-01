@@ -138,9 +138,9 @@ describe('IncomeStatementPage (Analyse › Compte de résultat, en tableau)', ()
     expect(texts(element.querySelector('table.block'), '.block-head')).toEqual([
       'Charges d’exploitation 400 000',
     ]);
-    // A line at zero is not shown (61 Transports).
+    // The accounts themselves, not their two-digit lines; those at zero are not shown.
     expect(texts(element.querySelector('table.block'), 'tbody tr')).toEqual([
-      '60 Achats et variations de stocks 400 000',
+      '601100 Achats 400 000',
     ]);
     expect(element.querySelector('table.block tfoot')).toBeNull();
     expect(text(element.querySelector('.result--charges'))).toBe('Bénéfice 600 000');
@@ -159,19 +159,14 @@ describe('IncomeStatementPage (Analyse › Compte de résultat, en tableau)', ()
     expect(text(element.querySelector('.result--products'))).toBe('Perte 250 000');
   });
 
-  it('a line unfolds to its accounts, each toward its ledger on the same dates', async () => {
+  it('each account leads to its general ledger on the same dates', async () => {
     const { element, stable, asked } = await open();
     asked().flush(statement());
     await stable();
 
-    const fold = element.querySelector<HTMLButtonElement>('button.fold');
-    expect(fold?.getAttribute('aria-expanded')).toBe('false');
-    fold?.click();
-    await stable();
-
-    expect(fold?.getAttribute('aria-expanded')).toBe('true');
+    expect(element.querySelector('button.fold')).toBeNull();
     // An account at zero is not shown (603100).
-    expect(element.querySelectorAll('tr.account')).toHaveLength(1);
+    expect(element.querySelectorAll('tr.account')).toHaveLength(2);
     const link = element.querySelector<HTMLAnchorElement>('tr.account a');
     expect(text(link)).toBe('601100 Achats');
     expect(link?.getAttribute('href')).toBe(

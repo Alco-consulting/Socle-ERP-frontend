@@ -1,22 +1,30 @@
 import { ErrorCatalog } from '../../../core/errors/user-error';
-import { IncomeStatement, StatementBlock } from '../data-access/reporting-models';
+import { IncomeStatement, StatementAccount, StatementBlock } from '../data-access/reporting-models';
+
+/** A block as shown: its title, its total, then its accounts themselves. */
+export interface ShownBlock {
+  readonly code: string;
+  readonly name: string;
+  readonly total: string;
+  readonly accounts: readonly StatementAccount[];
+}
 
 /** A row of the sheet: a block of charges facing the block of products of the same code. */
 export interface BlockPair {
   readonly code: string;
-  readonly charges: StatementBlock | null;
-  readonly products: StatementBlock | null;
+  readonly charges: ShownBlock | null;
+  readonly products: ShownBlock | null;
 }
 
 const nonZero = (item: { readonly amount: string }) => Number(item.amount) !== 0;
 
-/** A block as shown: its lines and their accounts at zero left out, its title kept. */
-function shown(block: StatementBlock): StatementBlock {
+/** The accounts of a block, without their two-digit lines; those at zero left out. */
+function shown(block: StatementBlock): ShownBlock {
   return {
-    ...block,
-    lines: block.lines
-      .filter(nonZero)
-      .map((line) => ({ ...line, accounts: line.accounts.filter(nonZero) })),
+    code: block.code,
+    name: block.name,
+    total: block.total,
+    accounts: block.lines.flatMap((line) => line.accounts).filter(nonZero),
   };
 }
 

@@ -3,8 +3,8 @@ import { fixToday } from './support/navigation';
 
 /**
  * Comptabilité › Analyse › Compte de résultat (note backend 0055): charges on the left,
- * products on the right, the profit with the charges, both totals equal; a line unfolded to
- * its accounts, toward their ledger; PDF and XLSX. Fake API only; today is 4 October 2026.
+ * products on the right, the profit with the charges, both totals equal; the accounts under
+ * their block, each toward its ledger; PDF and XLSX. Fake API only; today is 4 October 2026.
  */
 
 const STATEMENT = '/app/comptabilite/analyse/resultat';
@@ -50,9 +50,12 @@ test.describe('Analyse › Compte de résultat', () => {
     expect([asked.get('date_from'), asked.get('date_to')]).toEqual(['2026-01-01', '2026-12-31']);
   });
 
-  test('une ligne dépliée montre ses comptes, chacun vers son grand livre', async ({ page }) => {
+  test('les comptes eux-mêmes sous leur bloc, chacun vers son grand livre', async ({ page }) => {
     await page.goto(STATEMENT);
-    await page.getByRole('button', { name: /60\s+Achats et variations de stocks/ }).click();
+    await expect(page.locator('table.block').first().locator('tbody tr')).toHaveText([
+      /601100\s+Achats de marchandises\s+400\s000/,
+      /622000\s+Locations\s+100\s000/,
+    ]);
     await page.getByRole('link', { name: /601100\s+Achats de marchandises/ }).click();
 
     await expect(page).toHaveURL(

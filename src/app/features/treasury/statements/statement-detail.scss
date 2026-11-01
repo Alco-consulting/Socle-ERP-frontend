@@ -19,6 +19,11 @@
   margin-top: var(--space-3);
 }
 
+// The foot (global .list-foot) closes the lines: the section's own gap is taken back.
+.section > .list-foot {
+  margin-top: calc(-1 * var(--space-3));
+}
+
 .lines-head {
   display: flex;
   flex-wrap: wrap;

@@ -191,14 +191,6 @@
           </select>
         </label>
       </div>
-      @if (lines.value(); as result) {
-        <alco-pagination
-          [page]="result.count > 0 ? page() : 1"
-          [pageSize]="pageSize"
-          [total]="result.count"
-          (pageChange)="setPage($event)"
-        />
-      }
       @switch (lines.status()) {
         @case ('error') {
           <alco-error-state
@@ -295,6 +287,19 @@
               </ng-template>
             </alco-table>
           }
+        }
+      }
+      <!-- The foot of the lines: which page. -->
+      @if (lines.value(); as result) {
+        @if (result.count > 0) {
+          <div class="list-foot">
+            <alco-pagination
+              [page]="page()"
+              [pageSize]="pageSize"
+              [total]="result.count"
+              (pageChange)="setPage($event)"
+            />
+          </div>
         }
       }
     </section>

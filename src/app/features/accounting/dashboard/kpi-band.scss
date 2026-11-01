@@ -1,10 +1,14 @@
 @use 'breakpoints' as bp;
 
-// Six figures in a row on a wide screen, three on a laptop, two on a tablet or a phone.
+// Six figures on the plate (global .alco-plate): six in a row on a wide screen, three on a
+// laptop, two on a tablet or a phone.
 .band {
   display: flex;
   flex-direction: column;
   gap: var(--space-3);
+  --color-surface: var(--color-plate-band);
+  --color-success-text: var(--color-plate-accent);
+  --color-danger-text: var(--color-plate-negative);
 }
 
 .band-head {
@@ -56,22 +60,21 @@
   gap: var(--space-1);
   min-width: 0;
   padding: var(--space-4);
-  border: var(--border-width) solid var(--color-border);
-  border-radius: var(--radius-lg);
-  background: var(--color-surface);
-  box-shadow: var(--shadow-sm);
+  background: var(--color-plate-band);
   color: var(--color-text);
   text-decoration: none;
 }
 
+// A figure that opens its report: an amber rule under it on hover.
 .kpi--link {
-  transition:
-    border-color var(--duration-fast) var(--easing-standard),
-    box-shadow var(--duration-fast) var(--easing-standard);
+  transition: box-shadow var(--duration-fast) var(--easing-standard);
 
   &:hover {
-    border-color: var(--color-primary);
-    box-shadow: var(--shadow-md);
+    box-shadow: inset 0 -3px 0 var(--color-action);
+  }
+
+  &:focus-visible {
+    outline-offset: calc(-1 * var(--focus-ring-width));
   }
 }
 
@@ -86,10 +89,12 @@
 .kpi-label {
   color: var(--color-text-muted);
   font-size: var(--font-size-caption);
-  font-weight: var(--font-weight-semibold);
+  font-weight: var(--font-weight-bold);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
 }
 
-// The figure's mark: an icon on a soft disc, one tone per kind of figure.
+// The figure's mark: its icon in amber, on the plate.
 .kpi-mark {
   display: inline-flex;
   flex: none;
@@ -97,38 +102,13 @@
   justify-content: center;
   width: 2rem;
   height: 2rem;
-  border-radius: var(--radius-pill);
-}
-
-.kpi-mark--primary {
-  background: var(--color-primary-soft);
-  color: var(--color-primary-text);
-}
-
-.kpi-mark--success {
-  background: var(--color-success-soft);
-  color: var(--color-success-text);
-}
-
-.kpi-mark--warning {
-  background: var(--color-warning-soft);
-  color: var(--color-warning-text);
-}
-
-.kpi-mark--info {
-  background: var(--color-info-soft);
-  color: var(--color-info-text);
-}
-
-.kpi-mark--neutral {
-  background: var(--color-neutral-soft);
-  color: var(--color-neutral-text);
+  color: var(--color-action);
 }
 
 .kpi-value {
   overflow-wrap: anywhere;
   font-size: var(--font-size-figure);
-  font-weight: var(--font-weight-semibold);
+  font-weight: var(--font-weight-heavy);
   font-variant-numeric: tabular-nums;
   line-height: var(--line-height-tight);
 

@@ -39,10 +39,9 @@
   gap: var(--space-3);
   min-width: 0;
   padding: var(--space-5);
-  border: var(--border-width) solid var(--color-border);
+  border-top: 3px solid var(--color-rule-strong);
   border-radius: var(--radius-lg);
   background: var(--color-surface);
-  box-shadow: var(--shadow-sm);
 }
 
 .card-head {

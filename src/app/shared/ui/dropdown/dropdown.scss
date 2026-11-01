@@ -30,10 +30,10 @@
   height: var(--control-height-sm);
   padding: 0 var(--space-2) 0 var(--space-3);
   border: 0;
-  border-radius: var(--radius-pill);
+  border-radius: var(--radius-md);
   background: transparent;
   color: inherit;
-  font-weight: var(--font-weight-medium);
+  font-weight: var(--font-weight-semibold);
   white-space: nowrap;
   cursor: pointer;
   transition:
@@ -52,7 +52,9 @@
 
 // A menu holding the current screen (« Comptabilité ▾ » on Écritures): the active pill.
 :host(.group-active) .nav-trigger {
-  background: var(--color-primary-soft);
+  background: var(--color-primary);
+  color: var(--color-text-inverse);
+  font-weight: var(--font-weight-bold);
 
   .trigger-icon {
     color: inherit;

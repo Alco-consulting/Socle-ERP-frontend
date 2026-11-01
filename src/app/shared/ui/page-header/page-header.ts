@@ -1,14 +1,13 @@
 import { ChangeDetectionStrategy, Component, input } from '@angular/core';
 
 /**
- * Page heading, on the page's ground: the title (the page's only h1), optional status,
- * subtitle and actions. Actions are on the right of the title (below it on narrow screens),
- * the primary action last. Slots: `[alcoPageStatus]`, `[alcoPageActions]`. A form's heading
- * stays in view (`sticky`) and says its changes not saved yet (`dirty`).
+ * Page heading as the plate: the title (the page's only h1), status, subtitle and actions on
+ * the logo's navy, the whole width. Slots: `[alcoPageStatus]`, `[alcoPageActions]`. A form's
+ * heading stays in view (`sticky`) and says its changes not saved yet (`dirty`).
  */
 @Component({
   selector: 'alco-page-header',
-  host: { '[class.sticky]': 'sticky()' },
+  host: { class: 'alco-plate', '[class.sticky]': 'sticky()' },
   template: `
     <div class="heading">
       <h1 class="alco-page-title">{{ title() }}</h1>
@@ -26,26 +25,30 @@ import { ChangeDetectionStrategy, Component, input } from '@angular/core';
     <div class="actions"><ng-content select="[alcoPageActions]" /></div>
   `,
   styles: `
+    /* On the plate (global .alco-plate). */
     :host {
       display: flex;
       flex-wrap: wrap;
       align-items: center;
       gap: var(--space-3) var(--space-4);
     }
-    /* Kept under the menu while the form scrolls, on the page's own ground. */
+    /* Kept under the menu while the form scrolls. */
     :host(.sticky) {
       position: sticky;
       top: calc(var(--topbar-height) + var(--module-nav-height) + 2 * var(--border-width));
       z-index: var(--z-sticky);
-      padding: var(--space-3) 0;
-      background: var(--color-bg);
+      padding: var(--space-4) 0;
+    }
+    h1 {
+      font-size: var(--font-size-plate-title);
+      font-weight: var(--font-weight-heavy);
     }
     .dirty {
       display: inline-flex;
       align-items: center;
       gap: var(--space-2);
       padding: var(--space-1) var(--space-3);
-      border-radius: var(--radius-pill);
+      border-radius: var(--radius-sm);
       background: var(--color-warning-soft);
       color: var(--color-warning-text);
       font-size: var(--font-size-caption);

@@ -67,67 +67,59 @@
   }
 }
 
-// Small tiles, as Odoo's home: the picture in a rounded square, the name under it.
+// The applications as wide doors: the picture, then the name, a navy rule on top; the
+// door fills with the navy under the pointer or the keyboard.
 .grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, 8.5rem);
-  justify-content: center;
-  gap: var(--space-6) var(--space-4);
+  grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr));
+  gap: var(--space-4);
   margin: 0;
   padding: 0;
-
-  @include bp.below-tablet {
-    grid-template-columns: repeat(auto-fill, 6.5rem);
-    gap: var(--space-5) var(--space-2);
-  }
 }
 
 .tile {
   display: flex;
-  flex-direction: column;
   align-items: center;
-  gap: var(--space-2);
-  padding: var(--space-1);
-  border-radius: var(--radius-md);
+  gap: var(--space-4);
+  min-height: 6rem;
+  padding: var(--space-4) var(--space-5);
+  border-top: 3px solid var(--color-rule-strong);
+  background: var(--color-surface);
   color: var(--color-text);
-  text-align: center;
   text-decoration: none;
+  transition:
+    background-color var(--duration-base) var(--easing-standard),
+    color var(--duration-base) var(--easing-standard);
 
-  &:hover .tile-box,
-  &:focus-visible .tile-box {
-    border-color: var(--color-primary);
-    box-shadow: var(--shadow-md);
-    transform: translateY(-2px);
+  &:hover,
+  &:focus-visible {
+    background: var(--color-plate);
+    color: var(--color-plate-text);
   }
 
-  &:active .tile-box {
-    transform: translateY(0);
+  &:focus-visible {
+    outline-offset: var(--focus-ring-offset);
   }
 }
 
 .tile-box {
   display: inline-flex;
+  flex: none;
   align-items: center;
   justify-content: center;
-  width: var(--app-icon-size);
-  height: var(--app-icon-size);
-  border: var(--border-width) solid var(--color-border);
-  border-radius: var(--radius-md);
-  background: var(--color-surface);
-  box-shadow: var(--shadow-sm);
-  transition:
-    border-color var(--duration-base) var(--easing-standard),
-    box-shadow var(--duration-base) var(--easing-standard),
-    transform var(--duration-base) var(--easing-standard);
+  width: 3.5rem;
+  height: 3.5rem;
+  background: var(--color-surface-muted);
 }
 
 .tile-icon {
-  width: 60%;
-  height: 60%;
+  width: 70%;
+  height: 70%;
 }
 
 .tile-label {
-  font-size: var(--font-size-section-title);
-  font-weight: var(--font-weight-medium);
+  font-size: var(--font-size-lead);
+  font-weight: var(--font-weight-bold);
+  font-stretch: var(--font-stretch-wide);
   line-height: var(--line-height-tight);
 }

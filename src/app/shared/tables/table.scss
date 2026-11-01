@@ -9,8 +9,7 @@
   // Containing block for the screen-reader-only labels, so they are clipped with the table.
   position: relative;
   overflow-x: auto;
-  border: var(--border-width) solid var(--color-border);
-  border-radius: var(--radius-lg);
+  border-top: 3px solid var(--color-rule-strong);
   background: var(--color-surface);
 
   &:focus-visible {
@@ -26,7 +25,7 @@
   thead th {
     top: calc(var(--topbar-height) + var(--module-nav-height) + 2 * var(--border-width));
     border-bottom: 0;
-    box-shadow: inset 0 calc(-1 * var(--border-width)) 0 var(--color-border);
+    box-shadow: inset 0 calc(-1 * var(--border-width)) 0 var(--color-rule-strong);
   }
 }
 
@@ -46,17 +45,19 @@ td {
   white-space: nowrap;
 }
 
-// Column titles in small capitals, as Stripe's: they name, the figures speak.
+// Column titles narrow and in capitals over a navy rule: they name, the figures speak.
 thead th {
   position: sticky;
   top: 0;
   z-index: var(--z-sticky);
   height: 40px;
-  background: var(--color-surface-muted);
+  border-bottom-color: var(--color-rule-strong);
+  background: var(--color-surface);
   color: var(--color-text-muted);
   font-size: var(--font-size-caption);
-  font-weight: var(--font-weight-semibold);
-  letter-spacing: 0.04em;
+  font-weight: var(--font-weight-bold);
+  font-stretch: var(--font-stretch-narrow);
+  letter-spacing: 0.1em;
   text-transform: uppercase;
 }
 

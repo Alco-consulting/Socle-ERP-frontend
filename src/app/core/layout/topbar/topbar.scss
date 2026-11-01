@@ -30,7 +30,6 @@
   flex: none;
 }
 
-.icon-link,
 .brand {
   display: inline-flex;
   align-items: center;
@@ -42,21 +41,6 @@
 
   &:hover {
     background: var(--color-surface-sunken);
-  }
-}
-
-.icon-link {
-  color: var(--color-text-muted);
-
-  &:hover {
-    color: var(--color-text);
-  }
-}
-
-.brand--in-app {
-  // On phones, inside an application, the apps button already leads to the launcher.
-  @include bp.below-tablet {
-    display: none;
   }
 }
 
@@ -77,16 +61,27 @@
   align-items: center;
   gap: var(--space-2);
   font-size: var(--font-size-section-title);
-  font-weight: var(--font-weight-semibold);
+  font-weight: var(--font-weight-heavy);
+  font-stretch: var(--font-stretch-wide);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 
-.app-mark {
+// The application's picture in a square of the plate's navy.
+.app-mark-box {
+  display: inline-flex;
   flex: none;
-  width: 26px;
-  height: 26px;
+  align-items: center;
+  justify-content: center;
+  width: var(--control-height);
+  height: var(--control-height);
+  background: var(--color-plate);
+}
+
+.app-mark {
+  width: 22px;
+  height: 22px;
 }
 
 // The global search, as a field: the whole bar finds a screen or a record (Ctrl+K).

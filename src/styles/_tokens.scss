@@ -33,17 +33,24 @@
 
   --slate-600: #4a5468;
 
-  // Neutrals of the light theme: background #EEF2F8, surfaces white, borders #DFE4EC.
+  // The logo's navy and mist: the plates and the rules (direction « Architecture »).
+  --navy-600: #1c4c80;
+  --navy-700: #16375b;
+  --navy-900: #0f2740;
+  --mist-300: #a8c0d6;
+  --amber-500: #e08f22;
+
+  // Neutrals of the light theme: background #EEF2F7, surfaces white, borders #D3DCE7.
   --gray-0: #ffffff;
   --gray-25: #f6f8fb;
-  --gray-50: #eef2f8;
-  --gray-100: #e6ebf3;
-  --gray-150: #dfe4ec;
-  --gray-400: #838ea0;
-  --gray-500: #5b6474;
-  --gray-600: #4b5563;
-  --gray-700: #3b4656;
-  --gray-900: #111827;
+  --gray-50: #eef2f7;
+  --gray-100: #e3eaf2;
+  --gray-150: #d3dce7;
+  --gray-400: #7d8fa6;
+  --gray-500: #5b6a80;
+  --gray-600: #47566b;
+  --gray-700: #36445a;
+  --gray-900: #0e1a2b;
 
   // Neutrals of the dark theme.
   --night-950: #0f1620;
@@ -73,12 +80,17 @@
   --color-text-inverse: #ffffff;
 
   // ---- Colors: identity ------------------------------------------------------------
-  --color-primary: var(--blue-700);
-  --color-primary-hover: var(--blue-800);
-  --color-primary-active: var(--blue-900);
-  --color-primary-soft: var(--blue-50);
-  --color-primary-text: #12527a;
+  --color-primary: var(--navy-600);
+  --color-primary-hover: var(--navy-700);
+  --color-primary-active: var(--navy-900);
+  --color-primary-soft: #e3ecf6;
+  --color-primary-text: var(--navy-600);
   --color-accent: var(--blue-400);
+
+  // The main action of a screen: the logo's amber, navy text on it (6:1).
+  --color-action: var(--amber-400);
+  --color-action-hover: var(--amber-500);
+  --color-text-on-action: var(--navy-900);
 
   // The top bar: white, as the surfaces (the user's choice of 2026-10-17).
   --color-topbar: var(--color-surface);
@@ -86,8 +98,20 @@
   // Text on the amber accent (notification count): dark in both themes.
   --color-text-on-accent: var(--gray-900);
 
-  --color-focus-ring: var(--blue-600);
+  --color-focus-ring: var(--navy-600);
   --color-overlay: rgba(17, 24, 39, 0.45);
+
+  // The plate: a page's title, state and key figures on the logo's navy, the whole width.
+  --color-plate: var(--navy-700);
+  --color-plate-band: var(--navy-600);
+  --color-plate-text: #ffffff;
+  --color-plate-muted: var(--mist-300);
+  --color-plate-rule: rgba(168, 192, 214, 0.35);
+  --color-plate-hover: rgba(255, 255, 255, 0.08);
+  --color-plate-accent: var(--amber-300);
+  --color-plate-negative: #f6a49c;
+  // The navy rule on top of a block.
+  --color-rule-strong: var(--navy-700);
 
   // ---- Colors: feedback (strong = icons/borders, soft = backgrounds, text = on soft) --
   --color-success: #1b7a4b;
@@ -128,10 +152,15 @@
 
   // ---- Typography --------------------------------------------------------------------
   --font-family-base:
-    'Inter Variable', 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue',
-    Arial, sans-serif;
+    'Archivo Variable', 'Archivo', system-ui, -apple-system, 'Segoe UI', 'Helvetica Neue', Arial,
+    sans-serif;
+  // Archivo's width axis: wide for titles and plates, narrow for column headers.
+  --font-stretch-wide: 112%;
+  --font-stretch-narrow: 88%;
   --font-family-mono: ui-monospace, 'Cascadia Mono', 'Segoe UI Mono', Consolas, monospace;
 
+  --font-size-plate-figure: 2.5rem; // 40px, the plate's key amount
+  --font-size-plate-title: 2.25rem; // 36px, a plate's title (page, document number)
   --font-size-display: 1.75rem; // 28px, a document's name (invoice number)
   --font-size-figure: 1.5rem; // 24px, dashboard figures only
   --font-size-page-title: 1.375rem; // 22px
@@ -145,6 +174,8 @@
   --font-weight-regular: 400;
   --font-weight-medium: 500;
   --font-weight-semibold: 600;
+  --font-weight-bold: 700;
+  --font-weight-heavy: 800;
 
   --line-height-tight: 1.25;
   --line-height-base: 1.5;
@@ -160,11 +191,11 @@
   --space-7: 3rem; // 48
   --space-8: 4rem; // 64
 
-  // ---- Radius: 4px small elements, 10px buttons and fields, 16px cards and tiles --------
-  --radius-sm: 4px;
-  --radius-md: 10px;
-  --radius-lg: 16px;
-  --radius-xl: 16px;
+  // ---- Radius: square geometry (« Architecture »): 2px at most; circles keep 50 % --------
+  --radius-sm: 0;
+  --radius-md: 2px;
+  --radius-lg: 2px;
+  --radius-xl: 2px;
   --radius-pill: 999px;
 
   // ---- Borders -------------------------------------------------------------------------
@@ -172,8 +203,8 @@
   --focus-ring-width: 2px;
   --focus-ring-offset: 2px;
 
-  // ---- Shadows: very soft ----------------------------------------------------------------
-  --shadow-sm: 0 1px 2px rgba(17, 24, 39, 0.05);
+  // ---- Shadows: flat surfaces; only what floats (menus, dialogs) casts one ---------------
+  --shadow-sm: none;
   --shadow-md: 0 2px 8px rgba(17, 24, 39, 0.06), 0 1px 2px rgba(17, 24, 39, 0.04);
   --shadow-lg: 0 8px 24px rgba(17, 24, 39, 0.1), 0 2px 6px rgba(17, 24, 39, 0.05);
 
@@ -208,8 +239,9 @@
   --app-icon-size: 80px;
   --page-gutter: var(--space-5);
   --content-max-width: 1440px;
-  --form-max-width: 1080px;
-  --launcher-max-width: 920px;
+  // Records and forms take the content's width, under their plate.
+  --form-max-width: 100%;
+  --launcher-max-width: 1120px;
 
   color-scheme: light;
 }
@@ -235,6 +267,10 @@
   --color-accent: var(--blue-300);
 
   --color-topbar: var(--night-900);
+  --color-plate: var(--navy-900);
+  --color-plate-band: #163659;
+  --color-rule-strong: var(--navy-600);
+  --color-action-hover: var(--amber-300);
 
   --color-focus-ring: var(--blue-300);
   --color-overlay: rgba(0, 0, 0, 0.6);
@@ -267,7 +303,7 @@
   --chart-area: var(--blue-950);
   --chart-grid: var(--night-700);
 
-  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.3);
+  --shadow-sm: none;
   --shadow-md: 0 2px 8px rgba(0, 0, 0, 0.35), 0 1px 2px rgba(0, 0, 0, 0.25);
   --shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.45), 0 2px 6px rgba(0, 0, 0, 0.3);
 
@@ -286,6 +322,8 @@
 
 @media (max-width: 767.98px) {
   :root {
+    --font-size-plate-figure: 1.75rem;
+    --font-size-plate-title: 1.625rem;
     --page-gutter: var(--space-4);
     --app-icon-size: 68px;
     --font-size-control: 1rem;

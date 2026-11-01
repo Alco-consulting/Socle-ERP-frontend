@@ -1,20 +1,16 @@
 import { ChangeDetectionStrategy, Component, computed, input } from '@angular/core';
 
-import { AlcoIcon } from '../icon/icon';
-
 export interface WorkflowStep {
   readonly id: string;
   readonly label: string;
 }
 
 /**
- * Read-only workflow indicator « Brouillon › Soumise › Validée › Verrouillée ».
- * It shows the state returned by the API; it never offers the transitions (the page shows
- * the action buttons the API allows).
+ * Read-only lifecycle « Brouillon — Soumise — Validée — Verrouillée »: a track of square
+ * marks, the current one in amber. The API's state; its transitions are the page's buttons.
  */
 @Component({
   selector: 'alco-workflow-steps',
-  imports: [AlcoIcon],
   template: `
     <ol role="list" [attr.aria-label]="label()">
       @for (step of steps(); track step.id; let i = $index) {
@@ -23,9 +19,7 @@ export interface WorkflowStep {
           [class.current]="i === currentIndex()"
           [attr.aria-current]="i === currentIndex() ? 'step' : null"
         >
-          @if (i < currentIndex()) {
-            <alco-icon name="check" [size]="14" />
-          }
+          <span class="mark" aria-hidden="true"></span>
           {{ step.label }}
         </li>
       }
@@ -35,30 +29,43 @@ export interface WorkflowStep {
     ol {
       display: flex;
       flex-wrap: wrap;
-      border: var(--border-width) solid var(--color-border);
-      border-radius: var(--radius-pill);
-      background: var(--color-surface);
-      overflow: hidden;
+      align-items: center;
+      row-gap: var(--space-1);
     }
     li {
       display: inline-flex;
       align-items: center;
-      gap: var(--space-1);
-      padding: var(--space-1) var(--space-3);
-      color: var(--color-text-subtle);
-      font-size: var(--font-size-caption);
-      font-weight: var(--font-weight-medium);
-    }
-    li + li {
-      border-left: var(--border-width) solid var(--color-border);
-    }
-    .done {
+      gap: var(--space-2);
       color: var(--color-text-muted);
+      font-size: var(--font-size-caption);
+      font-weight: var(--font-weight-semibold);
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+    }
+    li + li::before {
+      content: '';
+      width: var(--space-5);
+      height: 2px;
+      margin-right: var(--space-1);
+      background: var(--color-border-strong);
+    }
+    .mark {
+      width: 10px;
+      height: 10px;
+      border: 2px solid currentColor;
+    }
+    .done .mark {
+      background: currentColor;
     }
     .current {
-      background: var(--color-primary);
-      color: var(--color-text-inverse);
-      font-weight: var(--font-weight-semibold);
+      color: var(--color-text);
+      font-weight: var(--font-weight-heavy);
+    }
+    .current .mark {
+      width: 12px;
+      height: 12px;
+      border-color: var(--color-action);
+      background: var(--color-action);
     }
   `,
   changeDetection: ChangeDetectionStrategy.OnPush,

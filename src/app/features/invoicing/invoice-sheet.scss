@@ -1,72 +1,146 @@
 @use 'breakpoints' as bp;
 
-// The document laid out as Odoo's, edited in place as a draft (notes backend 0040, 0041).
+// The document: its plate (what it is, its state, what is due, what to do) on the logo's
+// navy, then its modules; edited in place as a draft (notes backend 0040, 0041).
 :host {
-  max-width: 72rem;
-}
-
-.bar {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--space-3);
-}
-
-.actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-2);
-}
-
-.paper {
-  position: relative;
-  overflow: hidden;
-}
-
-.ribbon {
-  position: absolute;
-  top: 1.75rem;
-  right: -3.25rem;
-  width: 13rem;
-  padding: var(--space-1) 0;
-  transform: rotate(45deg);
-  background: var(--color-neutral-soft);
-  color: var(--color-neutral-text);
-  font-weight: var(--font-weight-semibold);
-  letter-spacing: 0.08em;
-  text-align: center;
-  text-transform: uppercase;
-  pointer-events: none;
-
-  &.paid {
-    background: var(--color-success-soft);
-    color: var(--color-success-text);
-  }
-
-  &.reversed {
-    background: var(--color-info-soft);
-    color: var(--color-info-text);
-  }
-}
-
-.heading {
   display: flex;
   flex-direction: column;
-  gap: var(--space-1);
+  gap: var(--space-5);
+}
+
+// On the plate (global .alco-plate).
+.plate {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: var(--space-4) var(--space-6);
+  padding-top: var(--space-6);
+}
+
+.plate-main {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  min-width: 0;
 }
 
 .kind {
   margin: 0;
-  font-weight: var(--font-weight-semibold);
+  color: var(--color-plate-muted);
+  font-size: var(--font-size-caption);
+  font-weight: var(--font-weight-bold);
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.title {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-3);
 }
 
 .number {
   margin: 0;
-  font-size: var(--font-size-display);
-  font-weight: var(--font-weight-semibold);
+  font-size: var(--font-size-plate-title);
+  font-weight: var(--font-weight-heavy);
+  font-stretch: var(--font-stretch-wide);
   line-height: var(--line-height-tight);
   overflow-wrap: anywhere;
+}
+
+// Paid, in part or reversed: a square label beside the number (Odoo's ribbon, redrawn).
+.ribbon {
+  padding: var(--space-1) var(--space-3);
+  background: var(--color-plate-muted);
+  color: var(--color-plate);
+  font-size: var(--font-size-caption);
+  font-weight: var(--font-weight-heavy);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+
+  &.paid {
+    background: var(--color-action);
+    color: var(--color-text-on-action);
+  }
+}
+
+.plate-side {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: var(--space-3);
+  text-align: right;
+
+  @include bp.below-tablet {
+    align-items: flex-start;
+    text-align: left;
+  }
+}
+
+.figure {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  margin: 0;
+}
+
+.figure-label {
+  color: var(--color-plate-muted);
+  font-size: var(--font-size-caption);
+  font-weight: var(--font-weight-bold);
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.figure-value {
+  font-size: var(--font-size-plate-figure);
+  font-weight: var(--font-weight-heavy);
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.figure-currency {
+  color: var(--color-plate-muted);
+  font-size: var(--font-size-lead);
+  font-weight: var(--font-weight-semibold);
+}
+
+.plate-buttons,
+.control,
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.plate-buttons {
+  justify-content: flex-end;
+
+  @include bp.below-tablet {
+    justify-content: flex-start;
+  }
+}
+
+// The document's modules: square, under a navy rule, on the page's ground (no sheet).
+.sheet {
+  padding: 0;
+  border-top: 0;
+  background: transparent;
+}
+
+.module {
+  display: block;
+  padding: var(--space-5);
+  border-top: 3px solid var(--color-rule-strong);
+  background: var(--color-surface);
+
+  @include bp.below-tablet {
+    padding: var(--space-4);
+  }
 }
 
 .head {
@@ -156,15 +230,16 @@
   }
 
   .total {
-    border-top: var(--border-width) solid var(--color-border);
+    border-top: var(--border-width) solid var(--color-rule-strong);
 
     dt {
       color: var(--color-text);
+      font-weight: var(--font-weight-bold);
     }
 
     dd {
       font-size: var(--font-size-section-title);
-      font-weight: var(--font-weight-semibold);
+      font-weight: var(--font-weight-heavy);
     }
   }
 
@@ -176,25 +251,26 @@
     font-style: italic;
   }
 
+  // What is due: on the navy, as the plate.
   .due {
-    border-top: var(--border-width) solid var(--color-border);
+    margin-top: var(--space-2);
+    padding: var(--space-3) var(--space-4);
+    background: var(--color-plate);
 
     dt,
     dd {
-      color: var(--color-text);
-      font-weight: var(--font-weight-semibold);
+      color: var(--color-plate-text);
+      font-weight: var(--font-weight-heavy);
+    }
+
+    dd {
+      font-size: var(--font-size-section-title);
     }
   }
 }
 
 .entry-link {
   margin: var(--space-3) 0 0;
-}
-
-.control {
-  display: flex;
-  gap: var(--space-2);
-  align-items: center;
 }
 
 .field-label {
@@ -218,8 +294,6 @@
 
 .lines-frame {
   overflow-x: auto;
-  border: var(--border-width) solid var(--color-border);
-  border-radius: var(--radius-lg);
   background: var(--color-surface);
 
   &:focus-visible {
@@ -241,10 +315,13 @@
 
   thead th {
     height: 38px;
-    background: var(--color-surface-muted);
+    border-bottom-color: var(--color-rule-strong);
     color: var(--color-text-muted);
     font-size: var(--font-size-caption);
-    font-weight: var(--font-weight-semibold);
+    font-weight: var(--font-weight-bold);
+    font-stretch: var(--font-stretch-narrow);
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
     white-space: nowrap;
   }
 

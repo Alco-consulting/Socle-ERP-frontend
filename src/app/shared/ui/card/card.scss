@@ -1,11 +1,11 @@
+// A module: square, the navy rule on top.
 :host {
   display: flex;
   flex-direction: column;
   min-width: 0;
-  border: var(--border-width) solid var(--color-border);
+  border-top: 3px solid var(--color-rule-strong);
   border-radius: var(--radius-lg);
   background: var(--color-surface);
-  box-shadow: var(--shadow-sm);
 }
 
 .card-header {

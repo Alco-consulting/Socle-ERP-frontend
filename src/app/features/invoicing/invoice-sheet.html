@@ -11,69 +11,90 @@
 } @else if (!ready()) {
   <alco-loading [rows]="8" label="Chargement du document…" />
 } @else {
-  <div class="control">
-    @if (newUrl(); as url) {
-      <a alcoButton [routerLink]="url">Nouveau</a>
-    }
-    @if (gear().length > 0) {
-      <alco-dropdown
-        [items]="gear()"
-        icon="settings"
-        [iconOnly]="true"
-        [showChevron]="false"
-        trigger="ghost"
-        ariaLabel="Actions du document"
-        (selected)="onGear($event)"
-      >
-        Actions
-      </alco-dropdown>
-    }
-    @if (editable() && (isNew || form.dirty)) {
-      <button
-        alcoButton
-        type="button"
-        variant="ghost"
-        icon="upload"
-        [iconOnly]="true"
-        title="Enregistrer"
-        [disabled]="busy()"
-        (click)="save()"
-      >
-        Enregistrer
-      </button>
-      <button
-        alcoButton
-        type="button"
-        variant="ghost"
-        icon="reverse"
-        [iconOnly]="true"
-        title="Ignorer les modifications"
-        [disabled]="busy()"
-        (click)="discard()"
-      >
-        Ignorer les modifications
-      </button>
-    }
-  </div>
-
-  <div class="bar">
-    <div class="actions" role="group" aria-label="Actions du document">
-      @for (action of actions(); track action.id) {
-        <button
-          alcoButton
-          type="button"
-          [variant]="action.variant"
-          [loading]="busy() && action.variant === 'primary'"
-          loadingLabel="En cours…"
-          [disabled]="busy()"
-          (click)="act(action.id)"
-        >
-          {{ action.label }}
-        </button>
-      }
+  @let sums = totals();
+  <!-- The plate: what the document is, its number, its state, what is due, what to do. -->
+  <header class="plate alco-plate">
+    <div class="plate-main">
+      <p class="kind">{{ kindLabel() }}</p>
+      <div class="title">
+        <h1 id="document-number" class="number">{{ invoice()?.number || 'Brouillon' }}</h1>
+        @if (ribbon(); as mark) {
+          <span [class]="'ribbon ' + mark.tone">{{ mark.label }}</span>
+        }
+      </div>
+      <alco-workflow-steps [steps]="steps()" [current]="status()" label="État du document" />
     </div>
-    <alco-workflow-steps [steps]="steps()" [current]="status()" label="État du document" />
-  </div>
+    <div class="plate-side">
+      <p class="figure">
+        <span class="figure-label">{{ sums.due !== null ? 'Montant dû' : 'Total' }}</span>
+        <span class="figure-value"
+          >{{ sums.due ?? sums.total | alcoAmount: 0 }}
+          <span class="figure-currency">{{ invoice()?.currency ?? 'GNF' }}</span></span
+        >
+      </p>
+      <div class="plate-buttons">
+        <div class="control">
+          @if (newUrl(); as url) {
+            <a alcoButton [routerLink]="url">Nouveau</a>
+          }
+          @if (gear().length > 0) {
+            <alco-dropdown
+              [items]="gear()"
+              icon="settings"
+              [iconOnly]="true"
+              [showChevron]="false"
+              trigger="ghost"
+              ariaLabel="Actions du document"
+              (selected)="onGear($event)"
+            >
+              Actions
+            </alco-dropdown>
+          }
+          @if (editable() && (isNew || form.dirty)) {
+            <button
+              alcoButton
+              type="button"
+              variant="ghost"
+              icon="upload"
+              [iconOnly]="true"
+              title="Enregistrer"
+              [disabled]="busy()"
+              (click)="save()"
+            >
+              Enregistrer
+            </button>
+            <button
+              alcoButton
+              type="button"
+              variant="ghost"
+              icon="reverse"
+              [iconOnly]="true"
+              title="Ignorer les modifications"
+              [disabled]="busy()"
+              (click)="discard()"
+            >
+              Ignorer les modifications
+            </button>
+          }
+        </div>
+        <div class="actions" role="group" aria-label="Actions du document">
+          @for (action of actions(); track action.id) {
+            <button
+              alcoButton
+              type="button"
+              [variant]="action.variant"
+              [loading]="busy() && action.variant === 'primary'"
+              loadingLabel="En cours…"
+              [disabled]="busy()"
+              (click)="act(action.id)"
+            >
+              {{ action.label }}
+            </button>
+          }
+        </div>
+      </div>
+    </div>
+  </header>
 
   @if (actionError(); as failure) {
     <alco-error-state
@@ -100,22 +121,14 @@
   }
 
   <form
-    class="sheet paper"
+    class="sheet"
     [class.alco-controls-underlined]="editable()"
     aria-labelledby="document-number"
     [formGroup]="form"
     (ngSubmit)="save()"
     novalidate
   >
-    @if (ribbon(); as mark) {
-      <div [class]="'ribbon ' + mark.tone">{{ mark.label }}</div>
-    }
-    <div class="heading">
-      <p class="kind">{{ kindLabel() }}</p>
-      <h1 id="document-number" class="number">{{ invoice()?.number || 'Brouillon' }}</h1>
-    </div>
-
-    <div class="head">
+    <div class="head module">
       <div class="party">
         <span class="field-label" id="partner-label">{{ spec().partnerLabel }}</span>
         <div class="party-value">
@@ -191,7 +204,7 @@
       </dl>
     </div>
 
-    <alco-tabs [tabs]="tabs()" [(selected)]="tab" label="Contenu du document">
+    <alco-tabs class="module" [tabs]="tabs()" [(selected)]="tab" label="Contenu du document">
       <ng-template alcoTabPanel="lines">
         @if (editable() && products().length === 0) {
           <p class="note">Aucun produit actif : créez-en dans Clients ▾ › Produits.</p>
@@ -417,7 +430,6 @@
           </div>
         }
 
-        @let sums = totals();
         <dl class="totals">
           <div>
             <dt>Montant hors taxes :</dt>
@@ -599,7 +611,7 @@
   </form>
 
   @if (canSeeHistory() && invoice(); as document) {
-    <section id="historique" class="section" aria-label="Historique">
+    <section id="historique" class="section module" aria-label="Historique">
       <alco-object-history [objectType]="auditType" [objectId]="document.public_id" />
     </section>
   }

@@ -32,27 +32,30 @@ export interface StatusTab {
       display: block;
       min-width: 0;
     }
+    /* Square segments side by side; the chosen one filled with the navy. */
     .tabs {
       display: flex;
-      gap: var(--space-1);
       overflow-x: auto;
       scrollbar-width: none;
     }
     .tab {
       flex: none;
       height: var(--control-height-sm);
-      padding: 0 var(--space-3);
-      border: 0;
-      border-radius: var(--radius-pill);
-      background: transparent;
+      padding: 0 var(--space-4);
+      border: var(--border-width) solid var(--color-border-strong);
+      border-radius: var(--radius-sm);
+      background: var(--color-surface);
       color: var(--color-text-muted);
       font: inherit;
-      font-weight: var(--font-weight-medium);
+      font-weight: var(--font-weight-semibold);
       white-space: nowrap;
       cursor: pointer;
       transition:
         background-color var(--duration-fast) var(--easing-standard),
         color var(--duration-fast) var(--easing-standard);
+    }
+    .tab + .tab {
+      margin-left: calc(-1 * var(--border-width));
     }
     .tab:hover {
       background: var(--color-surface-sunken);
@@ -60,9 +63,10 @@ export interface StatusTab {
     }
     .tab--active,
     .tab--active:hover {
-      background: var(--color-primary-soft);
-      color: var(--color-primary-text);
-      font-weight: var(--font-weight-semibold);
+      border-color: var(--color-primary);
+      background: var(--color-primary);
+      color: var(--color-text-inverse);
+      font-weight: var(--font-weight-bold);
     }
   `,
   changeDetection: ChangeDetectionStrategy.OnPush,

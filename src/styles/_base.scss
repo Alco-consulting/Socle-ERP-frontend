@@ -28,7 +28,6 @@ body {
   font-family: var(--font-family-base);
   font-size: var(--font-size-body);
   line-height: var(--line-height-base);
-  font-feature-settings: 'cv11', 'ss01';
   -webkit-font-smoothing: antialiased;
 }
 
@@ -81,13 +80,15 @@ a {
 // ---- Typography scale (5 levels + dashboard figure) ---------------------------------
 .alco-page-title {
   font-size: var(--font-size-page-title);
-  font-weight: var(--font-weight-semibold);
+  font-weight: var(--font-weight-bold);
+  font-stretch: var(--font-stretch-wide);
   line-height: var(--line-height-tight);
 }
 
 .alco-section-title {
   font-size: var(--font-size-section-title);
-  font-weight: var(--font-weight-semibold);
+  font-weight: var(--font-weight-bold);
+  font-stretch: var(--font-stretch-wide);
   line-height: var(--line-height-tight);
 }
 
@@ -107,6 +108,25 @@ a {
   font-weight: var(--font-weight-semibold);
   line-height: var(--line-height-tight);
   font-variant-numeric: tabular-nums;
+}
+
+// ---- The plate: a screen's title, state and key figures on the logo's navy -----------
+// The whole width, to the window's edges (no scroll added); what sits on it takes its tones.
+.alco-plate {
+  padding: var(--space-5) 0;
+  background: var(--color-plate);
+  box-shadow: 0 0 0 100vmax var(--color-plate);
+  clip-path: inset(0 -100vmax);
+  color: var(--color-plate-text);
+  --color-text: var(--color-plate-text);
+  --color-text-muted: var(--color-plate-muted);
+  --color-surface: transparent;
+  --color-surface-muted: var(--color-plate-hover);
+  --color-surface-sunken: var(--color-plate-hover);
+  --color-border: var(--color-plate-rule);
+  --color-border-strong: var(--color-plate-muted);
+  --color-primary-text: var(--color-plate-text);
+  --color-focus-ring: var(--color-plate-accent);
 }
 
 // ---- Numbers: tabular figures, right aligned ----------------------------------------

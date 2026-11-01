@@ -1,27 +1,15 @@
 <header class="bar">
   <div class="start">
-    @if (app(); as current) {
-      <a
-        class="icon-link"
-        [routerLink]="home"
-        aria-label="Toutes les applications"
-        title="Applications"
-      >
-        <alco-icon name="apps" [size]="20" />
-      </a>
-    }
-    <a
-      class="brand"
-      [class.brand--in-app]="!!app()"
-      [routerLink]="home"
-      aria-label="Alco Consulting — accueil des applications"
-    >
+    <!-- The logo leads to the applications (no grid of dots). -->
+    <a class="brand" [routerLink]="home" aria-label="Toutes les applications — Alco Consulting">
       <alco-logo />
     </a>
     @if (app(); as current) {
       <span class="divider" aria-hidden="true"></span>
       <span class="app-name">
-        <img class="app-mark" [src]="current.image" width="26" height="26" alt="" />
+        <span class="app-mark-box" aria-hidden="true">
+          <img class="app-mark" [src]="current.image" width="22" height="22" alt="" />
+        </span>
         {{ current.label }}
       </span>
     }

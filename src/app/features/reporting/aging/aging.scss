@@ -7,10 +7,11 @@
   min-width: 0;
 }
 
+// The date on the bench (global .alco-bench), its button level with the field.
 .as-of {
   display: flex;
   flex-wrap: wrap;
-  align-items: flex-end;
+  align-items: flex-start;
   gap: var(--space-3);
 
   alco-form-field {
@@ -18,26 +19,14 @@
   }
 }
 
-.toolbar {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--space-2) var(--space-4);
-}
-
-.count {
-  margin: 0;
-}
-
 .center {
   display: flex;
   justify-content: center;
 }
 
+// An empty state in the register's place, under the navy rule.
 .empty-frame {
-  border: var(--border-width) solid var(--color-border);
-  border-radius: var(--radius-lg);
+  border-top: 3px solid var(--color-rule-strong);
   background: var(--color-surface);
 }
 
@@ -164,8 +153,7 @@
   flex-direction: column;
   gap: var(--space-3);
   padding: var(--space-4);
-  border: var(--border-width) solid var(--color-border);
-  border-radius: var(--radius-lg);
+  border-top: 3px solid var(--color-rule-strong);
   background: var(--color-surface);
 
   h2 {

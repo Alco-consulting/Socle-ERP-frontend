@@ -31,23 +31,6 @@
   />
 }
 
-@if (list.value(); as result) {
-  <div class="toolbar">
-    <p class="alco-caption count">
-      {{ result.count }} {{ result.count > 1 ? 'factures' : 'facture' }} à échéancer
-      @if (!canGenerate()) {
-        · consultation seule
-      }
-    </p>
-    <alco-pagination
-      [page]="result.count > 0 ? scope().page : 1"
-      [pageSize]="pageSize"
-      [total]="result.count"
-      (pageChange)="setPage($event)"
-    />
-  </div>
-}
-
 @switch (list.status()) {
   @case ('forbidden') {
     <alco-error-state
@@ -142,6 +125,26 @@
         }
       </ul>
     }
+  }
+}
+
+<!-- The foot of the register: how many, which page. -->
+@if (list.value(); as result) {
+  @if (result.count > 0) {
+    <div class="list-foot">
+      <p class="alco-caption count">
+        {{ result.count }} {{ result.count > 1 ? 'factures' : 'facture' }} à échéancer
+        @if (!canGenerate()) {
+          · consultation seule
+        }
+      </p>
+      <alco-pagination
+        [page]="scope().page"
+        [pageSize]="pageSize"
+        [total]="result.count"
+        (pageChange)="setPage($event)"
+      />
+    </div>
   }
 }
 

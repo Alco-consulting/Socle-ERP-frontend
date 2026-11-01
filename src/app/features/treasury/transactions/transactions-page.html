@@ -198,22 +198,10 @@
                   @default {
                     <td colspan="2">
                       <span class="choices">
-                        <button
-                          alcoButton
-                          type="button"
-                          size="sm"
-                          variant="primary"
-                          (click)="choose('partner')"
-                        >
+                        <button alcoButton type="button" size="sm" (click)="choose('partner')">
                           Partenaire
                         </button>
-                        <button
-                          alcoButton
-                          type="button"
-                          size="sm"
-                          variant="primary"
-                          (click)="choose('account')"
-                        >
+                        <button alcoButton type="button" size="sm" (click)="choose('account')">
                           Compte
                         </button>
                         <alco-dropdown
@@ -269,7 +257,6 @@
                         alcoButton
                         type="button"
                         size="sm"
-                        variant="primary"
                         (click)="completeRow(row.transaction, 'partner')"
                       >
                         Partenaire
@@ -278,7 +265,6 @@
                         alcoButton
                         type="button"
                         size="sm"
-                        variant="primary"
                         (click)="completeRow(row.transaction, 'account')"
                       >
                         Compte

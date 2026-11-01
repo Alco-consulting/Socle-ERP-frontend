@@ -1,12 +1,7 @@
 // A list: its bench (`.control-panel.alco-bench`: states, search, filters) on its plate, its
 // register (`alco-table`, under the navy rule), then its foot (`.list-foot`: how many, which
-// page) closing the register. Global because the plate, the bench, the table and the foot
-// belong to different components.
-
-alco-page-header + .control-panel {
-  // The page's own gap is taken back: the bench sits on the plate.
-  margin-top: calc(-1 * var(--space-4));
-}
+// page) closing the register. Global because the table and the foot belong to different
+// components.
 
 .list-foot {
   display: flex;

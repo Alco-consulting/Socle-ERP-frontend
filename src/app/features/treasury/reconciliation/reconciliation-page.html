@@ -31,7 +31,7 @@
   </div>
 } @else {
   <form
-    class="context-form"
+    class="context-form alco-bench"
     [formGroup]="form"
     (ngSubmit)="show()"
     novalidate
@@ -58,7 +58,9 @@
         }
       </select>
     </alco-form-field>
-    <button alcoButton type="submit" variant="primary" icon="search">Afficher</button>
+    <button alcoButton class="alco-bench-button" type="submit" variant="primary" icon="search">
+      Afficher
+    </button>
   </form>
 
   @if (unknownAccount()) {

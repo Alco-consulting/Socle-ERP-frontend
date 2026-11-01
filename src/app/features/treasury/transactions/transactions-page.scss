@@ -19,7 +19,7 @@
 // One row whatever the width: the table scrolls inside itself on a small screen.
 .table-wrap {
   overflow-x: auto;
-  border: var(--border-width) solid var(--color-border);
+  border-top: 3px solid var(--color-rule-strong);
   background: var(--color-surface);
 }
 
@@ -37,8 +37,15 @@
     vertical-align: middle;
   }
 
+  // Column titles as every register's: narrow capitals over the navy rule.
   th {
-    font-weight: var(--font-weight-semibold);
+    border-bottom-color: var(--color-rule-strong);
+    color: var(--color-text-muted);
+    font-size: var(--font-size-caption);
+    font-weight: var(--font-weight-bold);
+    font-stretch: var(--font-stretch-narrow);
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
     white-space: nowrap;
   }
 

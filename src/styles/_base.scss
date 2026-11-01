@@ -138,6 +138,16 @@ a {
   clip-path: inset(0 -100vmax);
 }
 
+// Under a page header, it sits on the plate: the page's own gap is taken back.
+alco-page-header + .alco-bench {
+  margin-top: calc(-1 * var(--space-4));
+}
+
+// A query's button on the bench, level with its fields' controls (under their labels).
+.alco-bench-button {
+  margin-top: calc(var(--font-size-body) * var(--line-height-base) + var(--space-1));
+}
+
 // ---- Numbers: tabular figures, right aligned ----------------------------------------
 .alco-num {
   font-variant-numeric: tabular-nums;

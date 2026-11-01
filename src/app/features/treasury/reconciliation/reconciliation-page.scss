@@ -1,13 +1,18 @@
 @use 'breakpoints' as bp;
 
+// The account and the statement on the bench (global .alco-bench), the button level with them.
 .context-form {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto;
-  align-items: end;
+  align-items: start;
   gap: var(--space-3);
 
   @include bp.below-tablet {
     grid-template-columns: 1fr;
     align-items: stretch;
+
+    .alco-bench-button {
+      margin-top: 0;
+    }
   }
 }

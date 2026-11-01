@@ -29,8 +29,8 @@
   margin-left: auto;
 }
 
+// An empty state in the register's place, under the navy rule.
 .empty-frame {
-  border: var(--border-width) solid var(--color-border);
-  border-radius: var(--radius-lg);
+  border-top: 3px solid var(--color-rule-strong);
   background: var(--color-surface);
 }

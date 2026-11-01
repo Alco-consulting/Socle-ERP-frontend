@@ -87,23 +87,6 @@
           }
         </nav>
 
-        <div class="toolbar">
-          <p class="alco-caption count" role="status">
-            @if (bucketName(); as name) {
-              Tranche {{ name }} : {{ result.count }}
-              {{ result.count > 1 ? 'échéances' : 'échéance' }}
-            } @else {
-              {{ result.count }} {{ result.count > 1 ? 'documents ouverts' : 'document ouvert' }}
-            }
-          </p>
-          <alco-pagination
-            [page]="result.count > 0 ? page() : 1"
-            [pageSize]="pageSize"
-            [total]="result.count"
-            (pageChange)="setPage($event)"
-          />
-        </div>
-
         @if (documents().length === 0) {
           <div class="empty-frame">
             <alco-empty-state
@@ -201,6 +184,26 @@
               </li>
             }
           </ul>
+        }
+
+        <!-- The foot of the register: how many, which page. -->
+        @if (result.count > 0) {
+          <div class="list-foot">
+            <p class="alco-caption count" role="status">
+              @if (bucketName(); as name) {
+                Tranche {{ name }} : {{ result.count }}
+                {{ result.count > 1 ? 'échéances' : 'échéance' }}
+              } @else {
+                {{ result.count }} {{ result.count > 1 ? 'documents ouverts' : 'document ouvert' }}
+              }
+            </p>
+            <alco-pagination
+              [page]="page()"
+              [pageSize]="pageSize"
+              [total]="result.count"
+              (pageChange)="setPage($event)"
+            />
+          </div>
         }
       } @else {
         <alco-page-header [title]="title" />

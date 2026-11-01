@@ -3,7 +3,7 @@
   subtitle="Montants ouverts à la date de référence, par tranche de retard, calculés par le serveur"
 />
 
-<form class="as-of" [formGroup]="form" (ngSubmit)="show()" novalidate>
+<form class="as-of alco-bench" [formGroup]="form" (ngSubmit)="show()" novalidate>
   <alco-form-field
     label="Date de référence"
     [required]="true"
@@ -11,7 +11,9 @@
   >
     <input alcoDatePicker type="date" formControlName="asOf" />
   </alco-form-field>
-  <button alcoButton type="submit" variant="primary" icon="search">Afficher la balance</button>
+  <button alcoButton class="alco-bench-button" type="submit" variant="primary" icon="search">
+    Afficher la balance
+  </button>
 </form>
 
 @if (!asOf()) {
@@ -53,18 +55,6 @@
           [decimals]="places"
           [class.reloading]="report.loading()"
         />
-
-        <div class="toolbar">
-          <p class="alco-caption count">
-            {{ result.count }} {{ result.count > 1 ? 'tiers' : 'tiers' }}
-          </p>
-          <alco-pagination
-            [page]="result.count > 0 ? page() : 1"
-            [pageSize]="pageSize"
-            [total]="result.count"
-            (pageChange)="setPage($event)"
-          />
-        </div>
 
         @if (result.results.length === 0) {
           <div class="empty-frame">
@@ -144,6 +134,21 @@
               </li>
             }
           </ul>
+        }
+
+        <!-- The foot of the register: how many, which page. -->
+        @if (result.count > 0) {
+          <div class="list-foot">
+            <p class="alco-caption count">
+              {{ result.count }} {{ result.count > 1 ? 'tiers' : 'tiers' }}
+            </p>
+            <alco-pagination
+              [page]="page()"
+              [pageSize]="pageSize"
+              [total]="result.count"
+              (pageChange)="setPage($event)"
+            />
+          </div>
         }
       } @else {
         <alco-loading variant="table" [rows]="6" [columns]="6" label="Calcul de la balance âgée…" />

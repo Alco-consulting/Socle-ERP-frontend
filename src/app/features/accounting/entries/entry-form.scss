@@ -11,12 +11,12 @@
   gap: var(--space-2);
 }
 
+// The grid under the navy rule, as every register.
 .grid-wrap {
   // Containing block of the screen-reader-only labels: clipped with the grid, never past it.
   position: relative;
   overflow-x: auto;
-  border: var(--border-width) solid var(--color-border);
-  border-radius: var(--radius-md);
+  border-top: 3px solid var(--color-rule-strong);
 }
 
 // One row per line, as Odoo's: the amounts narrow and right aligned, debit and credit split.
@@ -39,13 +39,17 @@
     padding-inline: calc(var(--space-2) + var(--border-width) + var(--space-3));
   }
 
+  // Column titles narrow and in capitals over a navy rule.
   thead th {
     height: 36px;
     padding-block: var(--space-2);
-    background: var(--color-surface-muted);
+    border-bottom-color: var(--color-rule-strong);
     color: var(--color-text-muted);
     font-size: var(--font-size-caption);
-    font-weight: var(--font-weight-semibold);
+    font-weight: var(--font-weight-bold);
+    font-stretch: var(--font-stretch-narrow);
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
     white-space: nowrap;
     vertical-align: middle;
   }
@@ -72,12 +76,13 @@
     font-variant-numeric: tabular-nums;
   }
 
+  // The totals close the grid under a navy rule.
   tfoot th,
   tfoot td {
     padding-block: var(--space-3);
+    border-top: 2px solid var(--color-rule-strong);
     border-bottom: 0;
-    background: var(--color-surface-muted);
-    font-weight: var(--font-weight-semibold);
+    font-weight: var(--font-weight-bold);
     font-variant-numeric: tabular-nums;
     white-space: nowrap;
   }

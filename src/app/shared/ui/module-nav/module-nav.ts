@@ -74,8 +74,15 @@ export class AlcoModuleNav {
     return current === url || current.startsWith(`${url}/`);
   }
 
+  /** The menu of the current screen: the first holding it (Plan comptable is in two). */
+  private readonly activeGroup = computed(() =>
+    this.entries().find((entry) =>
+      (entry.children ?? []).some((child) => !!child.url && this.isActive(child.url)),
+    ),
+  );
+
   protected groupActive(entry: NavEntry): boolean {
-    return (entry.children ?? []).some((child) => !!child.url && this.isActive(child.url));
+    return this.activeGroup() === entry;
   }
 
   protected groupItems(entry: NavEntry): readonly DropdownItem[] {

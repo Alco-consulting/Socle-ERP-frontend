@@ -26,10 +26,9 @@
   flex-direction: column;
   gap: var(--space-5);
   padding: var(--space-5);
-  border: var(--border-width) solid var(--color-border);
+  border-top: 3px solid var(--color-rule-strong);
   border-radius: var(--radius-lg);
   background: var(--color-surface);
-  box-shadow: var(--shadow-sm);
 
   @include bp.below-tablet {
     padding: var(--space-4);
@@ -80,10 +79,26 @@
   color: var(--color-text-muted);
 }
 
+// The record's linked objects: the plate's lower band, attached under it (the page's gap
+// taken back), the counts in white, the icons in amber.
 .smart-buttons {
   display: flex;
   flex-wrap: wrap;
   gap: var(--space-2);
+  margin-top: calc(-1 * var(--space-4));
+  padding: var(--space-3) 0;
+  background: var(--color-plate-band);
+  box-shadow: 0 0 0 100vmax var(--color-plate-band);
+  clip-path: inset(0 -100vmax);
+  --color-text: var(--color-plate-text);
+  --color-text-muted: var(--color-plate-muted);
+  --color-text-subtle: var(--color-plate-muted);
+  --color-surface: transparent;
+  --color-surface-sunken: var(--color-plate-hover);
+  --color-border: var(--color-plate-rule);
+  --color-primary: var(--color-plate-accent);
+  --color-primary-text: var(--color-plate-text);
+  --color-focus-ring: var(--color-plate-accent);
 }
 
 // Odoo's « Étiquettes » (note backend 0045).

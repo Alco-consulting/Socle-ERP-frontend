@@ -323,6 +323,10 @@ test.describe('Lettrage — accessibilité', () => {
     await page.keyboard.press('Enter');
     const dialog = page.getByRole('dialog', { name: 'Délettrer LET-000001 ?' });
     await expect(dialog.getByLabel('Motif')).toBeFocused();
+    // Its colors are measured once it has finished appearing.
+    await dialog.evaluate((element) =>
+      Promise.all(element.getAnimations({ subtree: true }).map((animation) => animation.finished)),
+    );
     expect(await axe()).toEqual([]);
     await page.keyboard.type('Erreur');
     await page.keyboard.press('Tab');

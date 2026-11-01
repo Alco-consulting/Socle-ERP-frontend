@@ -239,6 +239,7 @@ test.describe('Tiers — import et export contextuels', () => {
     const [create] = api.callsTo('imports-exports/exports/');
     expect(create.postDataJSON()).toEqual({
       export_type: 'partners',
+      file_format: 'csv',
       parameters: { status: 'active' },
       asynchronous: false,
     });

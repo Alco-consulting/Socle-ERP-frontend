@@ -49,7 +49,7 @@
         icon="check"
         [count]="openLines.value() ?? null"
         [link]="letteringUrl"
-        [queryParams]="{ compte: account.code, periode: 'annee' }"
+        [queryParams]="{ compte: account.code }"
       />
     }
     @if (account.has_children) {

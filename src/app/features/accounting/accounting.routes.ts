@@ -188,6 +188,15 @@ export const ACCOUNTING_ROUTES: Routes = [
     data: { breadcrumb: 'Balance comptable' },
     loadComponent: () => import('../reporting/balance/balance-page').then((m) => m.BalancePage),
   },
+  // Analyse › Compte de résultat, charges facing products (note backend 0055).
+  {
+    path: 'analyse/resultat',
+    data: { breadcrumb: 'Compte de résultat' },
+    loadComponent: () =>
+      import('../reporting/income-statement/income-statement-page').then(
+        (m) => m.IncomeStatementPage,
+      ),
+  },
   // Analyse › Grand livre général, as Odoo's (note backend 0053).
   {
     path: 'analyse/grand-livre',

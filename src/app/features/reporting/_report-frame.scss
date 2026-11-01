@@ -1,0 +1,100 @@
+@use 'breakpoints' as bp;
+
+// A report's frame: its plate (title, exports) over its bench (global .alco-bench: search,
+// period, filters), its banners, then its sheet.
+:host {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  min-width: 0;
+}
+
+.report-bar {
+  display: flex;
+  flex-direction: column;
+}
+
+.report-plate {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3) var(--space-4);
+}
+
+.report-title {
+  margin: 0;
+  font-size: var(--font-size-plate-title);
+  font-weight: var(--font-weight-heavy);
+  font-stretch: var(--font-stretch-wide);
+  line-height: var(--line-height-tight);
+}
+
+.report-exports,
+.report-bench {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.currency {
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--control-height);
+  padding: 0 var(--space-3);
+  border-radius: var(--radius-md);
+  background: var(--color-surface-muted);
+  font-weight: var(--font-weight-semibold);
+}
+
+// Odoo's blue banner: the drafts left out, a link to them.
+.banner {
+  margin: 0;
+  padding: var(--space-3) var(--space-4);
+  border-radius: var(--radius-md);
+  background: var(--color-info-soft);
+  color: var(--color-info-text);
+  text-align: center;
+
+  a {
+    color: inherit;
+    font-weight: var(--font-weight-semibold);
+  }
+}
+
+// The sheet: a module, centred, as wide as its columns, under the navy rule.
+.sheet {
+  align-self: center;
+  max-width: 100%;
+  padding: var(--space-5) var(--space-6);
+  border-top: 3px solid var(--color-rule-strong);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+  transition: opacity var(--duration-fast) var(--easing-standard);
+
+  &.reloading {
+    opacity: 0.6;
+  }
+
+  @include bp.below-tablet {
+    align-self: stretch;
+    padding: var(--space-3);
+  }
+}
+
+.fold {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--color-text);
+  font: inherit;
+  cursor: pointer;
+
+  &:hover {
+    color: var(--color-primary);
+  }
+}

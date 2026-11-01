@@ -7,6 +7,7 @@ import {
   BalanceQuery,
   GeneralLedger,
   GeneralLedgerQuery,
+  IncomeStatement,
   PartnersLedger,
   PartnersLedgerQuery,
   LedgerQuery,
@@ -78,6 +79,13 @@ export class ReportingApi {
         page: query.page > 1 ? query.page : null,
         page_size: BALANCE_PAGE_SIZE,
       },
+    });
+  }
+
+  /** `reporting.read_financial_statements`: the compte de résultat (note backend 0055). */
+  incomeStatement(dateFrom: string, dateTo: string): Observable<IncomeStatement> {
+    return this.api.get<IncomeStatement>('reporting/income-statement/', {
+      params: { date_from: dateFrom, date_to: dateTo },
     });
   }
 

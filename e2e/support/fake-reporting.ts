@@ -106,6 +106,110 @@ const json = (value: Figures) => ({
   })),
 });
 
+const statementLine = (code: string, name: string, amount = '0', account?: [string, string]) => ({
+  code,
+  name,
+  amount: `${amount}.000000`,
+  accounts: account
+    ? [
+        {
+          public_id: `acc-${account[0]}`,
+          code: account[0],
+          name: account[1],
+          amount: `${amount}.000000`,
+        },
+      ]
+    : [],
+});
+const statementBlock = (code: string, name: string, total: string, lines: unknown[]) => ({
+  code,
+  name,
+  total: `${total}.000000`,
+  lines,
+});
+
+/**
+ * The compte de résultat (`reporting/income-statement/`, note backend 0055): a fixture in the
+ * server's shape — charges 590 000, products 1 000 000, a profit of 410 000 — never computed.
+ */
+const incomeStatement = (from: string, to: string) => ({
+  scope: {
+    fiscal_year: { public_id: 'fy-2026', code: '2026' },
+    period: null,
+    date_from: from,
+    date_to: to,
+  },
+  charges: {
+    blocks: [
+      statementBlock('operating', 'Charges d’exploitation', '500000', [
+        statementLine('60', 'Achats et variations de stocks', '400000', [
+          '601100',
+          'Achats de marchandises',
+        ]),
+        statementLine('61', 'Transports'),
+        statementLine('62', 'Services extérieurs A', '100000', ['622000', 'Locations']),
+        statementLine('63', 'Services extérieurs B'),
+        statementLine('64', 'Impôts et taxes'),
+        statementLine('65', 'Autres charges'),
+        statementLine('66', 'Charges de personnel'),
+        statementLine('68', 'Dotations aux amortissements'),
+        statementLine('69', 'Dotations aux provisions et aux dépréciations'),
+      ]),
+      statementBlock('financial', 'Charges financières', '30000', [
+        statementLine('67', 'Frais financiers et charges assimilées', '30000', [
+          '671000',
+          'Intérêts',
+        ]),
+        statementLine('697', 'Dotations aux provisions et aux dépréciations financières'),
+      ]),
+      statementBlock('hao', 'Charges HAO', '0', [
+        statementLine('81', 'Valeurs comptables des cessions d’immobilisations'),
+        statementLine('83', 'Charges hors activités ordinaires'),
+        statementLine('85', 'Dotations hors activités ordinaires'),
+      ]),
+      statementBlock('tax', 'Participation et impôt sur le résultat', '60000', [
+        statementLine('87', 'Participation des travailleurs'),
+        statementLine('89', 'Impôts sur le résultat', '60000', [
+          '891000',
+          'Impôt sur les bénéfices',
+        ]),
+      ]),
+    ],
+    total: '590000.000000',
+  },
+  products: {
+    blocks: [
+      statementBlock('operating', 'Produits d’exploitation', '1000000', [
+        statementLine('70', 'Ventes', '1000000', ['701100', 'Ventes de marchandises']),
+        statementLine('71', 'Subventions d’exploitation'),
+        statementLine('72', 'Production immobilisée'),
+        statementLine('73', 'Variations des stocks de biens et de services produits'),
+        statementLine('75', 'Autres produits'),
+        statementLine('78', 'Transferts de charges'),
+        statementLine('79', 'Reprises de provisions, de dépréciations et autres'),
+      ]),
+      statementBlock('financial', 'Produits financiers', '0', [
+        statementLine('77', 'Revenus financiers et produits assimilés'),
+        statementLine('787', 'Transferts de charges financières'),
+        statementLine('797', 'Reprises de provisions et dépréciations financières'),
+      ]),
+      statementBlock('hao', 'Produits HAO', '0', [
+        statementLine('82', 'Produits des cessions d’immobilisations'),
+        statementLine('84', 'Produits hors activités ordinaires'),
+        statementLine('86', 'Reprises de charges, provisions et dépréciations HAO'),
+        statementLine('88', 'Subventions d’équilibre'),
+      ]),
+    ],
+    total: '1000000.000000',
+  },
+  result: '410000.000000',
+  profit: '410000.000000',
+  loss: '0.000000',
+  total: '1000000.000000',
+  unclassified: [],
+  warnings: [],
+});
+
 export class FakeReporting {
   constructor(
     private readonly context: PartnersContext,
@@ -140,6 +244,17 @@ export class FakeReporting {
     }
     if (parts[0] === 'partner-ledger' && parts.length === 1) {
       return this.partnersLedger(route, url, permissions, company);
+    }
+    if (parts[0] === 'income-statement' && parts.length === 1) {
+      if (!permissions.includes('reporting.read_financial_statements')) {
+        return this.answer(route, 403, error('company_permission_denied'));
+      }
+      const from = url.searchParams.get('date_from');
+      const to = url.searchParams.get('date_to');
+      if (!from || !to) {
+        return this.answer(route, 400, error('reporting_scope_required'));
+      }
+      return this.answer(route, 200, incomeStatement(from, to));
     }
     const isPartner = parts[0] === 'partners' && parts[2] === 'ledger';
     const isAccount = parts[0] === 'ledger' && parts.length === 2;

@@ -47,6 +47,52 @@ export interface LedgerRow {
   readonly due_date?: string | null;
 }
 
+/** `ReportingStatementAccount`: an account of a line, its amount as its side shows it. */
+export interface StatementAccount {
+  readonly public_id: string;
+  readonly code: string;
+  readonly name: string;
+  readonly amount: string;
+}
+
+/** `ReportingStatementLine`: a line of the compte de résultat, its code the accounts' prefix. */
+export interface StatementLine {
+  readonly code: string;
+  readonly name: string;
+  readonly amount: string;
+  readonly accounts: readonly StatementAccount[];
+}
+
+/** `ReportingStatementBlock`: Charges d'exploitation, Produits financiers… */
+export interface StatementBlock {
+  readonly code: string;
+  readonly name: string;
+  readonly total: string;
+  readonly lines: readonly StatementLine[];
+}
+
+export interface StatementSide {
+  readonly blocks: readonly StatementBlock[];
+  readonly total: string;
+}
+
+/**
+ * `ReportingIncomeStatement` (`GET reporting/income-statement/`, note backend 0055): charges
+ * and products, the result, a profit written with the charges or a loss with the products, and
+ * both sides' total.
+ */
+export interface IncomeStatement {
+  readonly scope: ReportScope;
+  readonly charges: StatementSide;
+  readonly products: StatementSide;
+  readonly result: string;
+  readonly profit: string;
+  readonly loss: string;
+  readonly total: string;
+  readonly unclassified: readonly StatementAccount[];
+  readonly warnings: readonly ReportWarning[];
+}
+
 /** `ReportingWarning`: said by its code. */
 export interface ReportWarning {
   readonly code: string;

@@ -10,6 +10,7 @@ const SCREENS = [
   { name: 'Échéances', url: '/app/comptabilite/echeances' },
   { name: 'Balance âgée', url: '/app/comptabilite/analyse/balance-clients?au=2026-04-15' },
   { name: 'Analyse', url: '/app/comptabilite/analyse/balance' },
+  { name: 'Compte de résultat', url: '/app/comptabilite/analyse/resultat' },
   { name: 'Nouvelle écriture', url: '/app/comptabilite/ecritures/nouvelle' },
   { name: 'Trésorerie (domaine de Comptabilité)', url: '/app/comptabilite/tresorerie/operations' },
   { name: 'Import d’écritures', url: '/app/comptabilite/ecritures/import' },

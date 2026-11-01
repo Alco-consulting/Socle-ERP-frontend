@@ -125,10 +125,13 @@ export function periodLabel(period: Period, long = false): string {
 export function periodFromUrl(
   params: ParamMap,
   today: string,
+  fallback: SteppedKind = 'mois',
 ): { readonly kind: PeriodKind; readonly anchor: string; readonly period: Period } {
   const wanted = params.get(PERIOD_PARAM.period);
   const kind: PeriodKind =
-    wanted === 'trimestre' || wanted === 'annee' || wanted === 'perso' ? wanted : 'mois';
+    wanted === 'mois' || wanted === 'trimestre' || wanted === 'annee' || wanted === 'perso'
+      ? wanted
+      : fallback;
   const given = params.get(PERIOD_PARAM.day);
   const anchor = isIsoDate(given) ? given : today;
   if (kind !== 'perso') {
@@ -149,6 +152,7 @@ export function periodParams(
   choice: PeriodChoice,
   anchor: string,
   period: Period,
+  fallback: SteppedKind = 'mois',
 ): Record<string, string | null> {
   if (choice.kind === 'perso') {
     // Personal dates start from the period on screen.
@@ -161,14 +165,15 @@ export function periodParams(
     };
   }
   return {
-    [PERIOD_PARAM.period]: choice.kind === 'mois' ? null : choice.kind,
+    [PERIOD_PARAM.period]: choice.kind === fallback ? null : choice.kind,
     [PERIOD_PARAM.day]: shifted(choice.kind, anchor, choice.steps),
     [PERIOD_PARAM.from]: null,
     [PERIOD_PARAM.to]: null,
   };
 }
 
-/** The URL of the same period in another report (the balance's ledger of an account). */
+/** The URL of the same period in another report (the balance's ledger of an account), whose
+ * period is this month by default. */
 export function periodQuery(kind: PeriodKind, anchor: string, period: Period): string {
   const params =
     kind === 'perso'

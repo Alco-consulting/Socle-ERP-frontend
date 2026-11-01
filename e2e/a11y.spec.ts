@@ -11,6 +11,7 @@ const SCREENS = [
   { name: 'Balance âgée', url: '/app/comptabilite/analyse/balance-clients?au=2026-04-15' },
   { name: 'Clients (liste de Comptabilité)', url: '/app/comptabilite/clients' },
   { name: 'Analyse › Balance comptable', url: '/app/comptabilite/analyse/balance' },
+  { name: 'Analyse › Compte de résultat', url: '/app/comptabilite/analyse/resultat' },
   { name: 'Liste regroupée', url: '/app/comptabilite/plan-comptable?groupe=classe' },
   { name: 'Formulaire', url: '/app/comptabilite/ecritures/nouvelle' },
   { name: 'Écran non construit', url: '/app/comptabilite/immobilisations/actifs' },

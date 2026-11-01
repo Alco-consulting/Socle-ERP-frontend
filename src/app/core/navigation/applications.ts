@@ -174,7 +174,7 @@ export const APPLICATIONS: readonly AlcoApplication[] = [
               permission: 'reporting.read_financial_statements',
             },
             {
-              label: 'Résultat',
+              label: 'Compte de résultat',
               path: 'analyse/resultat',
               permission: 'reporting.read_financial_statements',
             },

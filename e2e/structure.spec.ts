@@ -118,7 +118,7 @@ test.describe('Comptabilité : un lien et cinq menus groupés', () => {
     await page.goto('/app/comptabilite/tableau-de-bord');
     const menu = await openMenu(page, 'Analyse');
     for (const [title, items] of [
-      ['Rapports financiers', ['États financiers', 'Résultat']],
+      ['Rapports financiers', ['États financiers', 'Compte de résultat']],
       ['Rapports comptables', ['Balance comptable', 'Grand livre']],
       [
         'Rapports de tiers',

@@ -1,0 +1,207 @@
+<!-- The report: its plate (title, exports), then its bench (the period). -->
+<div class="report-bar">
+  <div class="report-plate alco-plate">
+    <h1 class="report-title">Compte de résultat</h1>
+    <div class="report-exports">
+      @if (canExport()) {
+        <button
+          alcoButton
+          type="button"
+          variant="primary"
+          [loading]="exporting() === 'pdf'"
+          loadingLabel="PDF…"
+          aria-label="Télécharger le compte de résultat en PDF"
+          (click)="exportFile('pdf')"
+        >
+          PDF
+        </button>
+        <button
+          alcoButton
+          type="button"
+          [loading]="exporting() === 'xlsx'"
+          loadingLabel="XLSX…"
+          aria-label="Télécharger le compte de résultat en Excel (XLSX)"
+          (click)="exportFile('xlsx')"
+        >
+          XLSX
+        </button>
+      }
+    </div>
+  </div>
+  <div class="report-bench alco-bench">
+    <alco-report-period
+      [kind]="periodKind()"
+      [anchor]="anchor()"
+      [period]="period()"
+      (chosen)="choosePeriod($event)"
+    />
+    <span class="currency" title="Montants en devise de la société">En {{ currency() }}</span>
+  </div>
+</div>
+
+@if (unposted()) {
+  <p class="banner" role="note">
+    Il y a des
+    <a [routerLink]="draftsUrl" [queryParams]="draftsQuery()">pièces non comptabilisées</a>
+    avant ou au cours de cette période : elles ne sont pas comptées.
+  </p>
+}
+@if (statement.value()?.unclassified; as unclassified) {
+  @if (unclassified.length > 0) {
+    <p class="banner banner--warning" role="note">
+      Hors du compte de résultat, non comptés :
+      @for (account of unclassified; track account.public_id; let last = $last) {
+        {{ account.code }} {{ account.name }} ({{ account.amount | alcoAmount: decimals() }}){{
+          last ? '.' : ','
+        }}
+      }
+    </p>
+  }
+}
+@if (mismatch(); as figures) {
+  <p class="banner banner--warning" role="note">
+    Le résultat de l’état ({{ figures.statement | alcoAmount: decimals() }}) diffère du résultat des
+    livres ({{ figures.books | alcoAmount: decimals() }}) : un compte de charges ou de produits a un
+    type qui ne correspond pas à sa classe.
+  </p>
+}
+
+@if (failure(); as error) {
+  <alco-error-state
+    [title]="error.title"
+    [message]="error.message"
+    [code]="error.code"
+    [correlationId]="error.correlationId ?? ''"
+    retryLabel="Réessayer"
+    (retry)="statement.reload()"
+  />
+} @else if (statement.value(); as found) {
+  <!-- Charges on the left, products on the right, block facing block. -->
+  <div class="sheet statement" [class.reloading]="statement.loading()">
+    <h2 class="side-head charges"><span>Charges</span><span aria-hidden="true">Montant</span></h2>
+    <h2 class="side-head products"><span>Produits</span><span aria-hidden="true">Montant</span></h2>
+    @for (pair of pairs(); track pair.code) {
+      <ng-container
+        *ngTemplateOutlet="block; context: { $implicit: pair.charges, side: 'charges' }"
+      />
+      <ng-container
+        *ngTemplateOutlet="block; context: { $implicit: pair.products, side: 'products' }"
+      />
+    }
+    <p class="result result--charges charges">
+      <span>Bénéfice</span>
+      <span class="num">
+        @if (!isZero(found.profit)) {
+          {{ found.profit | alcoAmount: decimals() }}
+        }
+      </span>
+    </p>
+    <p class="result result--products products">
+      <span>Perte</span>
+      <span class="num">
+        @if (!isZero(found.loss)) {
+          {{ found.loss | alcoAmount: decimals() }}
+        }
+      </span>
+    </p>
+    <p class="grand-total charges">
+      <span>Total</span>&ngsp;<span class="num">{{ found.total | alcoAmount: decimals() }}</span>
+    </p>
+    <p class="grand-total products">
+      <span>Total</span>&ngsp;<span class="num">{{ found.total | alcoAmount: decimals() }}</span>
+    </p>
+  </div>
+} @else {
+  <alco-loading
+    variant="table"
+    [rows]="8"
+    [columns]="4"
+    label="Chargement du compte de résultat…"
+  />
+}
+
+<!-- A block: its lines (a click unfolds their accounts), then its total. -->
+<ng-template #block let-block let-side="side">
+  @if (block) {
+    <table
+      class="block"
+      [class.charges]="side === 'charges'"
+      [class.products]="side === 'products'"
+    >
+      <caption>
+        {{
+          block.name
+        }}
+      </caption>
+      <thead class="alco-sr-only">
+        <tr>
+          <th scope="col">Ligne</th>
+          <th scope="col">Montant</th>
+        </tr>
+      </thead>
+      <tbody>
+        @for (line of block.lines; track line.code) {
+          <tr class="line">
+            <th scope="row">
+              @if (line.accounts.length > 0) {
+                <button
+                  type="button"
+                  class="fold"
+                  [attr.aria-expanded]="isOpen(side, line.code)"
+                  (click)="toggle(side, line.code)"
+                >
+                  <alco-icon
+                    [name]="isOpen(side, line.code) ? 'chevron-down' : 'chevron-right'"
+                    [size]="14"
+                  />
+                  <span class="code">{{ line.code }}</span>
+                  {{ line.name }}
+                </button>
+              } @else {
+                <span class="fold fold--empty">
+                  <span class="code">{{ line.code }}</span>
+                  {{ line.name }}
+                </span>
+              }
+            </th>
+            <td
+              class="num"
+              [class.zero]="isZero(line.amount)"
+              [class.negative]="isNegative(line.amount)"
+            >
+              {{ line.amount | alcoAmount: decimals() }}
+            </td>
+          </tr>
+          @if (isOpen(side, line.code)) {
+            @for (account of line.accounts; track account.public_id) {
+              <tr class="account">
+                <th scope="row">
+                  <a [routerLink]="ledgerUrl" [queryParams]="ledgerQuery(account)">
+                    <span class="code">{{ account.code }}</span> {{ account.name }}
+                  </a>
+                </th>
+                <td class="num" [class.negative]="isNegative(account.amount)">
+                  {{ account.amount | alcoAmount: decimals() }}
+                </td>
+              </tr>
+            }
+          }
+        }
+      </tbody>
+      <tfoot>
+        <tr>
+          <th scope="row">{{ totalLabel(block) }}</th>
+          <td class="num" [class.negative]="isNegative(block.total)">
+            {{ block.total | alcoAmount: decimals() }}
+          </td>
+        </tr>
+      </tfoot>
+    </table>
+  } @else {
+    <div
+      class="block block--empty"
+      [class.charges]="side === 'charges'"
+      [class.products]="side === 'products'"
+    ></div>
+  }
+</ng-template>

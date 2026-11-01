@@ -131,13 +131,15 @@ describe('IncomeStatementPage (Analyse › Compte de résultat, en tableau)', ()
       'Produits d’exploitation',
       'Participation et impôt sur le résultat',
     ]);
+    // The block's total on its title's line, no Total line under it.
+    expect(texts(element.querySelector('table.block'), '.block-head')).toEqual([
+      'Charges d’exploitation 400 000',
+    ]);
     expect(texts(element.querySelector('table.block'), 'tbody tr')).toEqual([
       '60 Achats et variations de stocks 400 000',
       '61 Transports 0',
     ]);
-    expect(texts(element.querySelector('table.block'), 'tfoot tr')).toEqual([
-      'Total charges d’exploitation 400 000',
-    ]);
+    expect(element.querySelector('table.block tfoot')).toBeNull();
     expect(text(element.querySelector('.result--charges'))).toBe('Bénéfice 600 000');
     expect(text(element.querySelector('.result--products'))).toBe('Perte');
     expect(texts(element, '.grand-total')).toEqual(['Total 1 000 000', 'Total 1 000 000']);

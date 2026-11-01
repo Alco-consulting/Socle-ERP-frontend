@@ -36,12 +36,6 @@
   margin-top: var(--space-4);
   border-collapse: collapse;
 
-  caption {
-    padding: 0 var(--space-3) var(--space-1);
-    font-weight: var(--font-weight-bold);
-    text-align: left;
-  }
-
   th,
   td {
     height: 32px;
@@ -64,8 +58,9 @@
     color: var(--color-danger-text);
   }
 
-  tfoot th,
-  tfoot td {
+  // The block's title, its total on the same line.
+  .block-head th,
+  .block-head td {
     border-bottom: 0;
     font-weight: var(--font-weight-bold);
   }

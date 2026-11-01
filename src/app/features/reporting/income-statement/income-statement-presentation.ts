@@ -22,11 +22,6 @@ export function blockPairs(statement: IncomeStatement): readonly BlockPair[] {
   return pairs;
 }
 
-/** « Total charges d'exploitation ». */
-export function totalLabel(block: StatementBlock): string {
-  return `Total ${block.name.charAt(0).toLowerCase()}${block.name.slice(1)}`;
-}
-
 /** Reporting's errors of the compte de résultat, by code. */
 export const INCOME_STATEMENT_ERRORS: ErrorCatalog = {
   reporting_scope_required: {

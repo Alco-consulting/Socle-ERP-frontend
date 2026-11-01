@@ -120,7 +120,7 @@
   />
 }
 
-<!-- A block: its lines (a click unfolds their accounts), then its total. -->
+<!-- A block: its title with its total, then its lines (a click unfolds their accounts). -->
 <ng-template #block let-block let-side="side">
   @if (block) {
     <table
@@ -128,15 +128,17 @@
       [class.charges]="side === 'charges'"
       [class.products]="side === 'products'"
     >
-      <caption>
+      <caption class="alco-sr-only">
         {{
           block.name
         }}
       </caption>
-      <thead class="alco-sr-only">
-        <tr>
-          <th scope="col">Ligne</th>
-          <th scope="col">Montant</th>
+      <thead>
+        <tr class="block-head">
+          <th scope="row">{{ block.name }}</th>
+          <td class="num" [class.negative]="isNegative(block.total)">
+            {{ block.total | alcoAmount: decimals() }}
+          </td>
         </tr>
       </thead>
       <tbody>
@@ -188,14 +190,6 @@
           }
         }
       </tbody>
-      <tfoot>
-        <tr>
-          <th scope="row">{{ totalLabel(block) }}</th>
-          <td class="num" [class.negative]="isNegative(block.total)">
-            {{ block.total | alcoAmount: decimals() }}
-          </td>
-        </tr>
-      </tfoot>
     </table>
   } @else {
     <div

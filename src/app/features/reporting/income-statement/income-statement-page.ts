@@ -37,14 +37,15 @@ import {
   periodFromUrl,
   periodParams,
 } from '../report-period/report-period';
-import { INCOME_STATEMENT_ERRORS, blockPairs, totalLabel } from './income-statement-presentation';
+import { INCOME_STATEMENT_ERRORS, blockPairs } from './income-statement-presentation';
 
 const ACCOUNTING = `${APP_ROOT}/comptabilite`;
 
 /**
  * Comptabilité › Analyse › Compte de résultat (note backend 0055): charges on the left,
- * products on the right, block facing block; the profit with the charges, the loss with the
- * products; the year by default. Every figure is the server's.
+ * products on the right, block facing block, each with its total on its title; the profit
+ * with the charges, the loss with the products; the year by default. Every figure is the
+ * server's.
  */
 @Component({
   selector: 'alco-income-statement-page',
@@ -70,8 +71,6 @@ export class IncomeStatementPage {
   private readonly transfers = inject(TransfersApi);
   private readonly toast = inject(AlcoToastService);
   protected readonly session = inject(SessionStore);
-
-  protected readonly totalLabel = totalLabel;
 
   private readonly params = toSignal(this.route.queryParamMap, {
     initialValue: this.route.snapshot.queryParamMap,

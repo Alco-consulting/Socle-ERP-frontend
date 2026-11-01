@@ -6,7 +6,7 @@
   </div>
 </alco-page-header>
 
-<div class="control-panel">
+<div class="control-panel alco-bench">
   <alco-status-tabs
     class="status-tabs"
     label="États des factures"
@@ -40,15 +40,6 @@
         </alco-form-field>
       </div>
     </alco-filter-bar>
-    @if (list.value(); as page) {
-      <alco-pagination
-        class="pager"
-        [page]="page.count > 0 ? this.page() : 1"
-        [pageSize]="pageSize"
-        [total]="page.count"
-        (pageChange)="setPage($event)"
-      />
-    }
   </div>
 </div>
 
@@ -144,5 +135,20 @@
         </ng-template>
       </alco-table>
     }
+  }
+}
+
+<!-- The foot of the register: how many, which page. -->
+@if (list.value(); as page) {
+  @if (page.count > 0) {
+    <div class="list-foot">
+      <alco-pagination
+        class="pager"
+        [page]="this.page()"
+        [pageSize]="pageSize"
+        [total]="page.count"
+        (pageChange)="setPage($event)"
+      />
+    </div>
   }
 }

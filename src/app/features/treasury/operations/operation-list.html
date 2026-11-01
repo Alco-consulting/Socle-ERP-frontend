@@ -9,7 +9,7 @@
   }
 </alco-page-header>
 
-<div class="control-panel">
+<div class="control-panel alco-bench">
   <div class="controls">
     <alco-filter-bar
       [activeFilterCount]="activeFilterCount()"
@@ -67,15 +67,6 @@
         </alco-form-field>
       </div>
     </alco-filter-bar>
-    @if (list.value(); as result) {
-      <alco-pagination
-        class="pager"
-        [page]="result.count > 0 ? page() : 1"
-        [pageSize]="pageSize"
-        [total]="result.count"
-        (pageChange)="setPage($event)"
-      />
-    }
   </div>
 </div>
 
@@ -181,6 +172,21 @@
           </ng-template>
         </alco-table>
       }
+    }
+  }
+
+  <!-- The foot of the register: how many, which page. -->
+  @if (list.value(); as result) {
+    @if (result.count > 0) {
+      <div class="list-foot">
+        <alco-pagination
+          class="pager"
+          [page]="page()"
+          [pageSize]="pageSize"
+          [total]="result.count"
+          (pageChange)="setPage($event)"
+        />
+      </div>
     }
   }
 }

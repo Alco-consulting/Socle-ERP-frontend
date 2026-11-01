@@ -3,21 +3,6 @@
   subtitle="Les comptes de la plateforme ; leurs droits se donnent société par société"
 />
 
-@if (list.value(); as result) {
-  <div class="control-panel">
-    <div class="controls">
-      <p class="alco-caption">{{ result.count }} utilisateur{{ result.count > 1 ? 's' : '' }}</p>
-      <alco-pagination
-        class="pager"
-        [page]="result.count > 0 ? page() : 1"
-        [pageSize]="pageSize"
-        [total]="result.count"
-        (pageChange)="setPage($event)"
-      />
-    </div>
-  </div>
-}
-
 @switch (list.status()) {
   @case ('forbidden') {
     <alco-error-state
@@ -72,5 +57,21 @@
         </ng-template>
       </alco-table>
     }
+  }
+}
+
+<!-- The foot of the register: how many, which page. -->
+@if (list.value(); as result) {
+  @if (result.count > 0) {
+    <div class="list-foot">
+      <p class="alco-caption">{{ result.count }} utilisateur{{ result.count > 1 ? 's' : '' }}</p>
+      <alco-pagination
+        class="pager"
+        [page]="page()"
+        [pageSize]="pageSize"
+        [total]="result.count"
+        (pageChange)="setPage($event)"
+      />
+    </div>
   }
 }

@@ -7,7 +7,7 @@
   </div>
 </alco-page-header>
 
-<div class="control-panel">
+<div class="control-panel alco-bench">
   <alco-status-tabs
     class="status-tabs"
     label="États des écritures"
@@ -92,15 +92,6 @@
         </div>
       </div>
     </alco-filter-bar>
-    @if (list.value(); as result) {
-      <alco-pagination
-        class="pager"
-        [page]="result.count > 0 ? page() : 1"
-        [pageSize]="pageSize"
-        [total]="result.count"
-        (pageChange)="setPage($event)"
-      />
-    }
   </div>
 </div>
 
@@ -203,5 +194,20 @@
         </ng-template>
       </alco-table>
     }
+  }
+}
+
+<!-- The foot of the register: how many, which page. -->
+@if (list.value(); as result) {
+  @if (result.count > 0) {
+    <div class="list-foot">
+      <alco-pagination
+        class="pager"
+        [page]="page()"
+        [pageSize]="pageSize"
+        [total]="result.count"
+        (pageChange)="setPage($event)"
+      />
+    </div>
   }
 }

@@ -1,8 +1,8 @@
 @use 'breakpoints' as bp;
 @use 'report-panel';
 
-// A report: its plate (title, exports) over its bench (search, period, filters), its banner,
-// then its sheet.
+// A report: its plate (title, exports) over its bench (global .alco-bench: search, period,
+// filters), its banner, then its sheet.
 :host {
   display: flex;
   flex-direction: column;
@@ -37,14 +37,6 @@
   flex-wrap: wrap;
   align-items: center;
   gap: var(--space-2);
-}
-
-// The bench: the report's settings on a white band under the plate, the whole width.
-.report-bench {
-  padding: var(--space-3) 0;
-  background: var(--color-surface);
-  box-shadow: 0 0 0 100vmax var(--color-surface);
-  clip-path: inset(0 -100vmax);
 }
 
 .search {

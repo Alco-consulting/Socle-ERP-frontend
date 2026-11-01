@@ -129,6 +129,15 @@ a {
   --color-focus-ring: var(--color-plate-accent);
 }
 
+// ---- The bench: a screen's settings (states, search, filters) under its plate ---------
+// A white band, the whole width like the plate.
+.alco-bench {
+  padding: var(--space-3) 0;
+  background: var(--color-surface);
+  box-shadow: 0 0 0 100vmax var(--color-surface);
+  clip-path: inset(0 -100vmax);
+}
+
 // ---- Numbers: tabular figures, right aligned ----------------------------------------
 .alco-num {
   font-variant-numeric: tabular-nums;

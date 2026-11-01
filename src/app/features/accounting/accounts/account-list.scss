@@ -14,7 +14,11 @@
   }
 }
 
+// The register and its foot, spaced as the page.
 .chart-main {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
   min-width: 0;
 }
 
@@ -33,8 +37,8 @@
   max-height: calc(100vh - 8rem);
   overflow-y: auto;
   padding: var(--space-2);
-  border: var(--border-width) solid var(--color-border);
-  border-radius: var(--radius-md);
+  // A module beside the register, under the same navy rule.
+  border-top: 3px solid var(--color-rule-strong);
   background: var(--color-surface);
 
   @include bp.below-tablet {
@@ -108,6 +112,7 @@
 
   &.current {
     background: var(--color-primary-soft);
+    box-shadow: inset 3px 0 0 var(--color-primary);
     color: var(--color-primary-text);
     font-weight: var(--font-weight-semibold);
   }

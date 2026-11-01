@@ -3,7 +3,7 @@
   subtitle="Pièces justificatives jointes aux écritures et aux opérations de trésorerie"
 />
 
-<div class="control-panel">
+<div class="control-panel alco-bench">
   <alco-status-tabs
     class="status-tabs"
     label="États des pièces"
@@ -37,16 +37,6 @@
         </alco-form-field>
       </div>
     </alco-filter-bar>
-    @if (list.value(); as result) {
-      <p class="alco-caption count">{{ result.count }} pièce{{ result.count > 1 ? 's' : '' }}</p>
-      <alco-pagination
-        class="pager"
-        [page]="result.count > 0 ? page() : 1"
-        [pageSize]="pageSize"
-        [total]="result.count"
-        (pageChange)="setPage($event)"
-      />
-    }
   </div>
 </div>
 
@@ -172,5 +162,21 @@
         </ng-template>
       </alco-table>
     }
+  }
+}
+
+<!-- The foot of the register: how many, which page. -->
+@if (list.value(); as result) {
+  @if (result.count > 0) {
+    <div class="list-foot">
+      <p class="alco-caption count">{{ result.count }} pièce{{ result.count > 1 ? 's' : '' }}</p>
+      <alco-pagination
+        class="pager"
+        [page]="page()"
+        [pageSize]="pageSize"
+        [total]="result.count"
+        (pageChange)="setPage($event)"
+      />
+    </div>
   }
 }

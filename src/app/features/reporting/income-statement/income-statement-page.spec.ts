@@ -12,11 +12,11 @@ const line = (code: string, name: string, value = 0, accounts: string[][] = []) 
   code,
   name,
   amount: amount(value),
-  accounts: accounts.map(([accountCode, accountName]) => ({
+  accounts: accounts.map(([accountCode, accountName, accountValue]) => ({
     public_id: `a-${accountCode}`,
     code: accountCode,
     name: accountName,
-    amount: amount(value),
+    amount: amount(accountValue === undefined ? value : Number(accountValue)),
   })),
 });
 const block = (code: string, name: string, total: number, lines: unknown[]) => ({
@@ -35,7 +35,10 @@ const statement = (options: { profit?: number; loss?: number; warnings?: unknown
   charges: {
     blocks: [
       block('operating', 'Charges d’exploitation', 400000, [
-        line('60', 'Achats et variations de stocks', 400000, [['601100', 'Achats']]),
+        line('60', 'Achats et variations de stocks', 400000, [
+          ['601100', 'Achats'],
+          ['603100', 'Variations des stocks', '0'],
+        ]),
         line('61', 'Transports'),
       ]),
       block('tax', 'Participation et impôt sur le résultat', 0, [line('89', 'Impôts')]),
@@ -135,9 +138,9 @@ describe('IncomeStatementPage (Analyse › Compte de résultat, en tableau)', ()
     expect(texts(element.querySelector('table.block'), '.block-head')).toEqual([
       'Charges d’exploitation 400 000',
     ]);
+    // A line at zero is not shown (61 Transports).
     expect(texts(element.querySelector('table.block'), 'tbody tr')).toEqual([
       '60 Achats et variations de stocks 400 000',
-      '61 Transports 0',
     ]);
     expect(element.querySelector('table.block tfoot')).toBeNull();
     expect(text(element.querySelector('.result--charges'))).toBe('Bénéfice 600 000');
@@ -167,13 +170,13 @@ describe('IncomeStatementPage (Analyse › Compte de résultat, en tableau)', ()
     await stable();
 
     expect(fold?.getAttribute('aria-expanded')).toBe('true');
+    // An account at zero is not shown (603100).
+    expect(element.querySelectorAll('tr.account')).toHaveLength(1);
     const link = element.querySelector<HTMLAnchorElement>('tr.account a');
     expect(text(link)).toBe('601100 Achats');
     expect(link?.getAttribute('href')).toBe(
       '/app/comptabilite/analyse/grand-livre?compte=601100&periode=perso&du=2026-01-01&au=2026-12-31',
     );
-    // A line without accounts does not unfold.
-    expect(text(element.querySelector('.fold--empty'))).toBe('61 Transports');
   });
 
   it('the month chosen in the date menu is read and kept in the URL', async () => {

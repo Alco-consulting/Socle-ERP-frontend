@@ -8,10 +8,22 @@ export interface BlockPair {
   readonly products: StatementBlock | null;
 }
 
+const nonZero = (item: { readonly amount: string }) => Number(item.amount) !== 0;
+
+/** A block as shown: its lines and their accounts at zero left out, its title kept. */
+function shown(block: StatementBlock): StatementBlock {
+  return {
+    ...block,
+    lines: block.lines
+      .filter(nonZero)
+      .map((line) => ({ ...line, accounts: line.accounts.filter(nonZero) })),
+  };
+}
+
 /** The blocks face to face (exploitation, financier, HAO), the others after them. */
 export function blockPairs(statement: IncomeStatement): readonly BlockPair[] {
-  const products = new Map(statement.products.blocks.map((block) => [block.code, block]));
-  const pairs: BlockPair[] = statement.charges.blocks.map((block) => {
+  const products = new Map(statement.products.blocks.map((block) => [block.code, shown(block)]));
+  const pairs: BlockPair[] = statement.charges.blocks.map(shown).map((block) => {
     const facing = products.get(block.code) ?? null;
     products.delete(block.code);
     return { code: block.code, charges: block, products: facing };

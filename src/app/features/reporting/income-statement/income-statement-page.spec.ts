@@ -143,11 +143,11 @@ describe('IncomeStatementPage (Analyse › Compte de résultat, en tableau)', ()
       '601100 Achats 400 000',
     ]);
     expect(element.querySelector('table.block tfoot')).toBeNull();
-    expect(text(element.querySelector('.result--charges'))).toBe('Bénéfice 600 000');
-    expect(text(element.querySelector('.result--products'))).toBe('Perte');
+    expect(text(element.querySelector('.result.left'))).toBe('Bénéfice 600 000');
+    expect(text(element.querySelector('.result.right'))).toBe('Perte');
     expect(texts(element, '.grand-total')).toEqual(['Total 1 000 000', 'Total 1 000 000']);
     // Products face charges: an empty place stands for the missing block.
-    expect(element.querySelectorAll('.block--empty.products')).toHaveLength(1);
+    expect(element.querySelectorAll('.block--empty.right')).toHaveLength(1);
   });
 
   it('a loss is written with the products', async () => {
@@ -155,8 +155,8 @@ describe('IncomeStatementPage (Analyse › Compte de résultat, en tableau)', ()
     asked().flush(statement({ profit: 0, loss: 250000 }));
     await stable();
 
-    expect(text(element.querySelector('.result--charges'))).toBe('Bénéfice');
-    expect(text(element.querySelector('.result--products'))).toBe('Perte 250 000');
+    expect(text(element.querySelector('.result.left'))).toBe('Bénéfice');
+    expect(text(element.querySelector('.result.right'))).toBe('Perte 250 000');
   });
 
   it('each account leads to its general ledger on the same dates', async () => {

@@ -188,6 +188,14 @@ export const ACCOUNTING_ROUTES: Routes = [
     data: { breadcrumb: 'Balance comptable' },
     loadComponent: () => import('../reporting/balance/balance-page').then((m) => m.BalancePage),
   },
+  // Analyse › Bilan, assets facing liabilities (note backend 0056); its former address.
+  {
+    path: 'analyse/bilan',
+    data: { breadcrumb: 'Bilan' },
+    loadComponent: () =>
+      import('../reporting/balance-sheet/balance-sheet-page').then((m) => m.BalanceSheetPage),
+  },
+  { path: 'analyse/etats-financiers', pathMatch: 'full', redirectTo: 'analyse/bilan' },
   // Analyse › Compte de résultat, charges facing products (note backend 0055).
   {
     path: 'analyse/resultat',

@@ -12,6 +12,7 @@ const SCREENS = [
   { name: 'Clients (liste de Comptabilité)', url: '/app/comptabilite/clients' },
   { name: 'Analyse › Balance comptable', url: '/app/comptabilite/analyse/balance' },
   { name: 'Analyse › Compte de résultat', url: '/app/comptabilite/analyse/resultat' },
+  { name: 'Analyse › Bilan', url: '/app/comptabilite/analyse/bilan' },
   { name: 'Liste regroupée', url: '/app/comptabilite/plan-comptable?groupe=classe' },
   { name: 'Formulaire', url: '/app/comptabilite/ecritures/nouvelle' },
   { name: 'Écran non construit', url: '/app/comptabilite/immobilisations/actifs' },

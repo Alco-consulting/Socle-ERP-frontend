@@ -40,8 +40,8 @@ test.describe('Analyse › Compte de résultat', () => {
       'Produits HAO',
       'Participation et impôt sur le résultat',
     ]);
-    await expect(page.locator('.result--charges')).toHaveText(/Bénéfice\s*410\s000/);
-    await expect(page.locator('.result--products')).toHaveText(/^\s*Perte\s*$/);
+    await expect(page.locator('.result.left')).toHaveText(/Bénéfice\s*410\s000/);
+    await expect(page.locator('.result.right')).toHaveText(/^\s*Perte\s*$/);
     await expect(page.locator('.grand-total')).toHaveText([
       /Total\s*1\s000\s000/,
       /Total\s*1\s000\s000/,

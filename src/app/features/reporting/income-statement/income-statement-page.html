@@ -75,42 +75,16 @@
     retryLabel="Réessayer"
     (retry)="statement.reload()"
   />
-} @else if (statement.value(); as found) {
+} @else if (statement.value()) {
   <!-- Charges on the left, products on the right, block facing block. -->
-  <div class="sheet statement" [class.reloading]="statement.loading()">
-    <h2 class="side-head charges"><span>Charges</span><span aria-hidden="true">Montant</span></h2>
-    <h2 class="side-head products"><span>Produits</span><span aria-hidden="true">Montant</span></h2>
-    @for (pair of pairs(); track pair.code) {
-      <ng-container
-        *ngTemplateOutlet="block; context: { $implicit: pair.charges, side: 'charges' }"
-      />
-      <ng-container
-        *ngTemplateOutlet="block; context: { $implicit: pair.products, side: 'products' }"
-      />
-    }
-    <p class="result result--charges charges">
-      <span>Bénéfice</span>
-      <span class="num">
-        @if (!isZero(found.profit)) {
-          {{ found.profit | alcoAmount: decimals() }}
-        }
-      </span>
-    </p>
-    <p class="result result--products products">
-      <span>Perte</span>
-      <span class="num">
-        @if (!isZero(found.loss)) {
-          {{ found.loss | alcoAmount: decimals() }}
-        }
-      </span>
-    </p>
-    <p class="grand-total charges">
-      <span>Total</span>&ngsp;<span class="num">{{ found.total | alcoAmount: decimals() }}</span>
-    </p>
-    <p class="grand-total products">
-      <span>Total</span>&ngsp;<span class="num">{{ found.total | alcoAmount: decimals() }}</span>
-    </p>
-  </div>
+  <alco-statement-sheet
+    left="Charges"
+    right="Produits"
+    [pairs]="pairs()"
+    [foot]="foot()"
+    [decimals]="decimals()"
+    [class.reloading]="statement.loading()"
+  />
 } @else {
   <alco-loading
     variant="table"
@@ -119,48 +93,3 @@
     label="Chargement du compte de résultat…"
   />
 }
-
-<!-- A block: its title with its total, then its accounts, each toward its general ledger. -->
-<ng-template #block let-block let-side="side">
-  @if (block) {
-    <table
-      class="block"
-      [class.charges]="side === 'charges'"
-      [class.products]="side === 'products'"
-    >
-      <caption class="alco-sr-only">
-        {{
-          block.name
-        }}
-      </caption>
-      <thead>
-        <tr class="block-head">
-          <th scope="row">{{ block.name }}</th>
-          <td class="num" [class.negative]="isNegative(block.total)">
-            {{ block.total | alcoAmount: decimals() }}
-          </td>
-        </tr>
-      </thead>
-      <tbody>
-        @for (account of block.accounts; track account.public_id) {
-          <tr class="account">
-            <th scope="row">
-              <a [routerLink]="ledgerUrl" [queryParams]="ledgerQuery(account)">
-                <span class="code">{{ account.code }}</span> {{ account.name }}
-              </a>
-            </th>
-            <td class="num" [class.negative]="isNegative(account.amount)">
-              {{ account.amount | alcoAmount: decimals() }}
-            </td>
-          </tr>
-        }
-      </tbody>
-    </table>
-  } @else {
-    <div
-      class="block block--empty"
-      [class.charges]="side === 'charges'"
-      [class.products]="side === 'products'"
-    ></div>
-  }
-</ng-template>

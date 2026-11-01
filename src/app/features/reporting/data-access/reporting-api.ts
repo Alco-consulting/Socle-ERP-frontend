@@ -5,6 +5,7 @@ import { ApiClient } from '../../../core/http/api-client';
 import {
   AccountLedger,
   BalanceQuery,
+  BalanceSheet,
   GeneralLedger,
   GeneralLedgerQuery,
   IncomeStatement,
@@ -85,6 +86,13 @@ export class ReportingApi {
   /** `reporting.read_financial_statements`: the compte de résultat (note backend 0055). */
   incomeStatement(dateFrom: string, dateTo: string): Observable<IncomeStatement> {
     return this.api.get<IncomeStatement>('reporting/income-statement/', {
+      params: { date_from: dateFrom, date_to: dateTo },
+    });
+  }
+
+  /** `reporting.read_financial_statements`: the bilan at `dateTo` (note backend 0056). */
+  balanceSheet(dateFrom: string, dateTo: string): Observable<BalanceSheet> {
+    return this.api.get<BalanceSheet>('reporting/balance-sheet/', {
       params: { date_from: dateFrom, date_to: dateTo },
     });
   }

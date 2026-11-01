@@ -1,4 +1,3 @@
-import { NgTemplateOutlet } from '@angular/common';
 import {
   ChangeDetectionStrategy,
   Component,
@@ -26,17 +25,16 @@ import { saveFile } from '../../../shared/utils/save-file';
 import { PartnersApi } from '../../partners/data-access/partners-api';
 import { TransfersApi } from '../../transfers/transfers-api';
 import { ReportingApi } from '../data-access/reporting-api';
-import { IncomeStatement, StatementAccount } from '../data-access/reporting-models';
-import { GENERAL_LEDGER_PARAM, LEDGER_PATHS } from '../general-ledger/general-ledger-presentation';
+import { IncomeStatement } from '../data-access/reporting-models';
 import {
   AlcoReportPeriod,
   Period,
   PeriodChoice,
-  PERIOD_PARAM,
   periodFromUrl,
   periodParams,
 } from '../report-period/report-period';
-import { INCOME_STATEMENT_ERRORS, blockPairs } from './income-statement-presentation';
+import { AlcoStatementSheet, ledgerLink } from '../statement-sheet/statement-sheet';
+import { INCOME_STATEMENT_ERRORS, incomeFoot, incomePairs } from './income-statement-presentation';
 
 const ACCOUNTING = `${APP_ROOT}/comptabilite`;
 
@@ -49,13 +47,13 @@ const ACCOUNTING = `${APP_ROOT}/comptabilite`;
 @Component({
   selector: 'alco-income-statement-page',
   imports: [
-    NgTemplateOutlet,
     RouterLink,
     AlcoAmountPipe,
     AlcoButton,
     AlcoErrorState,
     AlcoLoading,
     AlcoReportPeriod,
+    AlcoStatementSheet,
   ],
   templateUrl: './income-statement-page.html',
   styleUrl: './income-statement-page.scss',
@@ -97,7 +95,12 @@ export class IncomeStatementPage {
   });
   protected readonly pairs = computed(() => {
     const found = this.statement.value();
-    return found ? blockPairs(found) : [];
+    const dates = this.period();
+    return found ? incomePairs(found, (account) => ledgerLink(account.code, dates)) : [];
+  });
+  protected readonly foot = computed(() => {
+    const found = this.statement.value();
+    return found ? incomeFoot(found) : [];
   });
   private readonly warnings = computed(() => this.statement.value()?.warnings ?? []);
   protected readonly unposted = computed(() =>
@@ -135,27 +138,6 @@ export class IncomeStatementPage {
       queryParams: periodParams(choice, this.anchor(), this.period(), 'annee'),
       queryParamsHandling: 'merge',
     });
-  }
-
-  /** The general ledger of an account, on the same dates. */
-  protected ledgerQuery(account: StatementAccount): Record<string, string> {
-    const period = this.period();
-    return {
-      [GENERAL_LEDGER_PARAM.account]: account.code,
-      [PERIOD_PARAM.period]: 'perso',
-      [PERIOD_PARAM.from]: period.from,
-      [PERIOD_PARAM.to]: period.to,
-    };
-  }
-
-  protected readonly ledgerUrl = `${ACCOUNTING}/${LEDGER_PATHS.account}`;
-
-  protected isZero(amount: string): boolean {
-    return Number(amount) === 0;
-  }
-
-  protected isNegative(amount: string): boolean {
-    return amount.startsWith('-') && !this.isZero(amount);
   }
 
   protected async exportFile(format: 'pdf' | 'xlsx'): Promise<void> {

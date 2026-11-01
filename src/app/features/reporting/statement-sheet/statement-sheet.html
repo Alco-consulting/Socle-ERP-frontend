@@ -1,0 +1,78 @@
+<h2 class="side-head left">
+  <span>{{ left() }}</span
+  ><span aria-hidden="true">Montant</span>
+</h2>
+<h2 class="side-head right">
+  <span>{{ right() }}</span
+  ><span aria-hidden="true">Montant</span>
+</h2>
+@for (pair of pairs(); track pair.key) {
+  <ng-container *ngTemplateOutlet="block; context: { $implicit: pair.left, side: 'left' }" />
+  <ng-container *ngTemplateOutlet="block; context: { $implicit: pair.right, side: 'right' }" />
+}
+@for (line of foot(); track line.key) {
+  @for (side of ['left', 'right']; track side) {
+    @let cell = side === 'left' ? line.left : line.right;
+    <p
+      [class.result]="line.kind === 'result'"
+      [class.grand-total]="line.kind === 'total'"
+      [class.left]="side === 'left'"
+      [class.right]="side === 'right'"
+    >
+      <span>{{ cell.label }}</span
+      >&ngsp;<span class="num">
+        @if (cell.amount !== null) {
+          {{ cell.amount | alcoAmount: decimals() }}
+        }
+      </span>
+    </p>
+  }
+}
+
+<!-- A block: its title with its total, then its rows. -->
+<ng-template #block let-block let-side="side">
+  @if (block) {
+    <table class="block" [class.left]="side === 'left'" [class.right]="side === 'right'">
+      <caption class="alco-sr-only">
+        {{
+          block.name
+        }}
+      </caption>
+      <thead>
+        <tr class="block-head">
+          <th scope="row">{{ block.name }}</th>
+          <td class="num" [class.negative]="isNegative(block.total)">
+            {{ block.total | alcoAmount: decimals() }}
+          </td>
+        </tr>
+      </thead>
+      <tbody>
+        @for (row of block.rows; track row.key) {
+          <tr class="account">
+            <th scope="row">
+              @if (row.link; as link) {
+                <a [routerLink]="link.url" [queryParams]="link.query">
+                  @if (row.code) {
+                    <span class="code">{{ row.code }}</span>
+                  }
+                  {{ row.name }}
+                </a>
+              } @else {
+                {{ row.name }}
+              }
+            </th>
+            <td class="num" [class.negative]="isNegative(row.amount)">
+              {{ row.amount | alcoAmount: decimals() }}
+            </td>
+          </tr>
+        }
+      </tbody>
+    </table>
+  } @else {
+    <div
+      class="block block--empty"
+      [class.left]="side === 'left'"
+      [class.right]="side === 'right'"
+    ></div>
+  }
+</ng-template>

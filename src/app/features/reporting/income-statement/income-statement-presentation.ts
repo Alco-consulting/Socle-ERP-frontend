@@ -1,45 +1,67 @@
 import { ErrorCatalog } from '../../../core/errors/user-error';
 import { IncomeStatement, StatementAccount, StatementBlock } from '../data-access/reporting-models';
+import {
+  SheetBlock,
+  SheetFoot,
+  SheetLink,
+  SheetPair,
+  nonZero,
+} from '../statement-sheet/statement-sheet';
 
-/** A block as shown: its title, its total, then its accounts themselves. */
-export interface ShownBlock {
-  readonly code: string;
-  readonly name: string;
-  readonly total: string;
-  readonly accounts: readonly StatementAccount[];
-}
-
-/** A row of the sheet: a block of charges facing the block of products of the same code. */
-export interface BlockPair {
-  readonly code: string;
-  readonly charges: ShownBlock | null;
-  readonly products: ShownBlock | null;
-}
-
-const nonZero = (item: { readonly amount: string }) => Number(item.amount) !== 0;
-
-/** The accounts of a block, without their two-digit lines; those at zero left out. */
-function shown(block: StatementBlock): ShownBlock {
+/** A block as shown: its title, its total, then its accounts themselves, none at zero. */
+function shown(block: StatementBlock, link: (account: StatementAccount) => SheetLink): SheetBlock {
   return {
-    code: block.code,
+    key: block.code,
     name: block.name,
     total: block.total,
-    accounts: block.lines.flatMap((line) => line.accounts).filter(nonZero),
+    rows: block.lines
+      .flatMap((line) => line.accounts)
+      .filter((account) => nonZero(account.amount))
+      .map((account) => ({
+        key: account.public_id,
+        code: account.code,
+        name: account.name,
+        amount: account.amount,
+        link: link(account),
+      })),
   };
 }
 
 /** The blocks face to face (exploitation, financier, HAO), the others after them. */
-export function blockPairs(statement: IncomeStatement): readonly BlockPair[] {
-  const products = new Map(statement.products.blocks.map((block) => [block.code, shown(block)]));
-  const pairs: BlockPair[] = statement.charges.blocks.map(shown).map((block) => {
+export function incomePairs(
+  statement: IncomeStatement,
+  link: (account: StatementAccount) => SheetLink,
+): readonly SheetPair[] {
+  const products = new Map(
+    statement.products.blocks.map((block) => [block.code, shown(block, link)]),
+  );
+  const pairs: SheetPair[] = statement.charges.blocks.map((block) => {
     const facing = products.get(block.code) ?? null;
     products.delete(block.code);
-    return { code: block.code, charges: block, products: facing };
+    return { key: block.code, left: shown(block, link), right: facing };
   });
-  for (const block of products.values()) {
-    pairs.push({ code: block.code, charges: null, products: block });
+  for (const [code, block] of products) {
+    pairs.push({ key: code, left: null, right: block });
   }
   return pairs;
+}
+
+/** The profit with the charges, the loss with the products, then both totals. */
+export function incomeFoot(statement: IncomeStatement): readonly SheetFoot[] {
+  return [
+    {
+      key: 'result',
+      kind: 'result',
+      left: { label: 'Bénéfice', amount: nonZero(statement.profit) ? statement.profit : null },
+      right: { label: 'Perte', amount: nonZero(statement.loss) ? statement.loss : null },
+    },
+    {
+      key: 'total',
+      kind: 'total',
+      left: { label: 'Total', amount: statement.total },
+      right: { label: 'Total', amount: statement.total },
+    },
+  ];
 }
 
 /** Reporting's errors of the compte de résultat, by code. */

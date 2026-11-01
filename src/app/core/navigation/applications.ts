@@ -169,8 +169,8 @@ export const APPLICATIONS: readonly AlcoApplication[] = [
         children: [
           ...group('Rapports financiers', [
             {
-              label: 'États financiers',
-              path: 'analyse/etats-financiers',
+              label: 'Bilan',
+              path: 'analyse/bilan',
               permission: 'reporting.read_financial_statements',
             },
             {

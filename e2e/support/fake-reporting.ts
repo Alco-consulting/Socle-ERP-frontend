@@ -210,6 +210,73 @@ const incomeStatement = (from: string, to: string) => ({
   warnings: [],
 });
 
+const sheetAccount = (code: string, name: string, amount: string) => ({
+  public_id: `acc-${code}`,
+  code,
+  name,
+  amount: `${amount}.000000`,
+});
+const sheetBlock = (
+  code: string,
+  name: string,
+  row: number,
+  total: string,
+  accounts: unknown[],
+  result: string | null = null,
+) => ({ code, name, row, total: `${total}.000000`, accounts, result });
+
+/**
+ * The bilan (`reporting/balance-sheet/`, note backend 0056): a fixture in the server's shape —
+ * 16 500 000 on each side, a result of 2 500 000 — never computed.
+ */
+const balanceSheet = (to: string) => ({
+  scope: {
+    fiscal_year: { public_id: 'fy-2026', code: '2026' },
+    period: null,
+    date_from: `${to.slice(0, 4)}-01-01`,
+    date_to: to,
+  },
+  assets: {
+    blocks: [
+      sheetBlock('fixed', 'Actif immobilisé', 1, '2000000', [
+        sheetAccount('244100', 'Matériel de bureau', '3000000'),
+        sheetAccount('284100', 'Amortissements du matériel', '-1000000'),
+      ]),
+      sheetBlock('current', 'Actif circulant', 3, '5000000', [
+        sheetAccount('411100', 'Clients', '5000000'),
+      ]),
+      sheetBlock('cash', 'Trésorerie actif', 4, '9500000', [
+        sheetAccount('521000', 'Banque principale', '9500000'),
+      ]),
+    ],
+    total: '16500000.000000',
+  },
+  liabilities: {
+    blocks: [
+      sheetBlock(
+        'equity',
+        'Capitaux propres',
+        1,
+        '12500000',
+        [sheetAccount('101300', 'Capital souscrit, appelé, versé', '10000000')],
+        '2500000.000000',
+      ),
+      sheetBlock('financial', 'Dettes financières', 2, '2000000', [
+        sheetAccount('162000', 'Emprunts', '2000000'),
+      ]),
+      sheetBlock('current', 'Passif circulant', 3, '2000000', [
+        sheetAccount('401100', 'Fournisseurs', '2000000'),
+      ]),
+      sheetBlock('cash', 'Trésorerie passif', 4, '0', []),
+    ],
+    total: '16500000.000000',
+  },
+  result: '2500000.000000',
+  result_name: 'Résultat de l’exercice',
+  unclassified: [],
+  warnings: [],
+});
+
 export class FakeReporting {
   constructor(
     private readonly context: PartnersContext,
@@ -244,6 +311,16 @@ export class FakeReporting {
     }
     if (parts[0] === 'partner-ledger' && parts.length === 1) {
       return this.partnersLedger(route, url, permissions, company);
+    }
+    if (parts[0] === 'balance-sheet' && parts.length === 1) {
+      if (!permissions.includes('reporting.read_financial_statements')) {
+        return this.answer(route, 403, error('company_permission_denied'));
+      }
+      const to = url.searchParams.get('date_to');
+      if (!url.searchParams.get('date_from') || !to) {
+        return this.answer(route, 400, error('reporting_scope_required'));
+      }
+      return this.answer(route, 200, balanceSheet(to));
     }
     if (parts[0] === 'income-statement' && parts.length === 1) {
       if (!permissions.includes('reporting.read_financial_statements')) {

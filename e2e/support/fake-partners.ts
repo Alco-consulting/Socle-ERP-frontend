@@ -355,7 +355,8 @@ export class FakePartners {
         body.export_type === 'reporting.balance' ||
         body.export_type === 'reporting.general_ledger' ||
         body.export_type === 'reporting.partner_ledger' ||
-        body.export_type === 'reporting.income_statement'
+        body.export_type === 'reporting.income_statement' ||
+        body.export_type === 'reporting.balance_sheet'
       ) {
         // The balance's workbook (note backend 0051): its rows are the server's, not shown here.
         const format = body.file_format ?? 'csv';

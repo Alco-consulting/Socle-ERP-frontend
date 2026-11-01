@@ -93,6 +93,36 @@ export interface IncomeStatement {
   readonly warnings: readonly ReportWarning[];
 }
 
+/** `ReportingSheetBlock`: a block of the bilan; blocks of the same `row` face each other. */
+export interface BalanceSheetBlock {
+  readonly code: string;
+  readonly name: string;
+  readonly row: number;
+  readonly total: string;
+  readonly accounts: readonly StatementAccount[];
+  /** The year's result, in the block that holds it; `null` elsewhere. */
+  readonly result: string | null;
+}
+
+export interface BalanceSheetSide {
+  readonly blocks: readonly BalanceSheetBlock[];
+  readonly total: string;
+}
+
+/**
+ * `ReportingBalanceSheet` (`GET reporting/balance-sheet/`, note backend 0056): the balances at
+ * the end date, assets facing liabilities; the scope starts on the fiscal year's first day.
+ */
+export interface BalanceSheet {
+  readonly scope: ReportScope;
+  readonly assets: BalanceSheetSide;
+  readonly liabilities: BalanceSheetSide;
+  readonly result: string;
+  readonly result_name: string;
+  readonly unclassified: readonly StatementAccount[];
+  readonly warnings: readonly ReportWarning[];
+}
+
 /** `ReportingWarning`: said by its code. */
 export interface ReportWarning {
   readonly code: string;

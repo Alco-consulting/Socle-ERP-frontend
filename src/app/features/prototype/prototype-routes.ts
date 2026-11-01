@@ -41,7 +41,7 @@ export const LEGACY_REDIRECTS: Routes = [
     children: [
       { path: 'balance', redirectTo: `${ACCOUNTING}/analyse/balance` },
       { path: 'grand-livre', redirectTo: `${ACCOUNTING}/analyse/grand-livre` },
-      { path: 'etats-financiers', redirectTo: `${ACCOUNTING}/analyse/etats-financiers` },
+      { path: 'etats-financiers', redirectTo: `${ACCOUNTING}/analyse/bilan` },
       { path: '**', redirectTo: `${ACCOUNTING}/analyse/balance` },
     ],
   },

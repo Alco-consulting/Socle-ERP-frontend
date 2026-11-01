@@ -63,6 +63,12 @@
   }
 }
 
+// A limit of the figures to look at: an account left out, totals that differ.
+.banner--warning {
+  background: var(--color-warning-soft);
+  color: var(--color-warning-text);
+}
+
 // The sheet: a module, centred, as wide as its columns, under the navy rule.
 .sheet {
   align-self: center;

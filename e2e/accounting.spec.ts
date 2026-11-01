@@ -32,9 +32,12 @@ test.describe('Comptabilité — tableau de bord réel', () => {
     await page.getByRole('link', { name: /Comptabilité/ }).click();
     await expect(page).toHaveURL(/\/app\/comptabilite\/tableau-de-bord$/);
     await expect(page.getByRole('heading', { level: 1 })).toHaveText('Tableau de bord');
-    // The company only: the fiscal years are the server's business (note backend 0035).
-    await expect(page.locator('alco-page-header')).toContainText('ALCO GUINÉE (test)');
-    await expect(page.locator('alco-page-header')).not.toContainText('Exercice');
+    // The company only, in the top bar: the fiscal years are the server's business (note
+    // backend 0035) — no page heading carries them.
+    await expect(
+      page.getByRole('button', { name: /Société active : ALCO GUINÉE \(test\)/ }),
+    ).toBeVisible();
+    await expect(page.getByRole('heading', { level: 1 })).not.toContainText('Exercice');
     await expect(page.getByRole('note', { name: 'Démonstration' })).toHaveCount(0);
 
     // As Odoo's (note backend 0042): one card per active journal, bank and cash first.
@@ -49,12 +52,13 @@ test.describe('Comptabilité — tableau de bord réel', () => {
     await expect(page.locator('alco-card', { hasText: 'Exercice et périodes' })).toHaveCount(0);
     await expect(page.locator('alco-card', { hasText: 'Plan comptable' })).toHaveCount(0);
 
-    // A fixed number of requests: no request per journal, nothing read from Accounting;
-    // the journals: one dashboards call.
+    // A fixed number of requests: no request per journal, nothing read from Accounting but
+    // the fiscal years of the indicators' period; the journals: one dashboards call.
     await page.waitForLoadState('networkidle');
-    const accounting = api.calls.filter((call) =>
-      new URL(call.url()).pathname.startsWith('/api/v1/accounting/'),
-    );
+    const accounting = api.calls.filter((call) => {
+      const path = new URL(call.url()).pathname;
+      return path.startsWith('/api/v1/accounting/') && path !== '/api/v1/accounting/fiscal-years/';
+    });
     expect(accounting).toHaveLength(0);
     const journals = api.callsTo('dashboards/journals/');
     expect(journals).toHaveLength(1);
@@ -387,7 +391,9 @@ test.describe('Comptabilité — exercices, société, permissions, téléphone'
     await openMenuItem(page, 'Comptabilité', 'Journaux');
     await expect(codes(page)).toHaveText(['Ventes Dakar']);
     await moduleNav(page).getByRole('link', { name: 'Tableau de bord' }).click();
-    await expect(page.locator('alco-page-header')).toContainText('FILIALE SÉNÉGAL (test)');
+    await expect(
+      page.getByRole('button', { name: /Société active : FILIALE SÉNÉGAL \(test\)/ }),
+    ).toBeVisible();
     await expect(page.locator('.card-title')).toHaveText(['Ventes Dakar']);
     const last = api.callsTo('accounting/journals/').at(-1)!;
     expect(await last.headerValue('x-company-id')).toBe(COMPANY_B.public_id);

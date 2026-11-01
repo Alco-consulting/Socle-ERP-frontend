@@ -21,7 +21,7 @@ function amountText(value: string, decimals: number, currency: string): string {
 @Component({
   selector: 'alco-balance-curve',
   template: `
-    <div class="curve" role="img" [attr.aria-label]="label()">
+    <div class="curve" role="img" [attr.aria-label]="label()" [style.height.px]="height()">
       <svg viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
         <path class="area" [attr.d]="area()" />
         <path class="line" [attr.d]="line()" vector-effect="non-scaling-stroke" />
@@ -88,6 +88,8 @@ export class AlcoBalanceCurve {
   readonly points = input.required<readonly BalancePoint[]>();
   readonly decimals = input(0);
   readonly currency = input('');
+  /** Its height in pixels: a full card, or a line of the treasury. */
+  readonly height = input(120);
 
   private readonly placed = computed(() => {
     const points = this.points();

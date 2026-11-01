@@ -49,10 +49,9 @@ function shown(...figures: readonly (Figure & { readonly count: number })[]): Fi
 }
 
 /**
- * Comptabilité › Tableau de bord, as Odoo's (note backend 0042): one card per active journal,
- * from `GET dashboards/journals/?on=<today>`. Bank and cash: « Transactions », the balance and
- * its curve; sales and purchases: « Nouveau », drafts, unpaid and the due bars; miscellaneous
- * operations: « Nouveau » and the entries to validate. Every figure is the server's.
+ * Comptabilité › Tableau de bord, a steering board by function (not by journal card): the
+ * figures on the plate, then Trésorerie, Clients, Fournisseurs and Écritures à traiter from
+ * `GET dashboards/journals/?on=<today>` (note backend 0042). Every figure is the server's.
  */
 @Component({
   selector: 'alco-accounting-dashboard',
@@ -105,6 +104,19 @@ export class AccountingDashboardPage {
       .sort((a, b) => CARD_ORDER[a.journal_type] - CARD_ORDER[b.journal_type])
       .map((journal) => this.cardOf(journal)),
   );
+
+  /** The cards by function: treasury, customers, suppliers, entries to process. */
+  protected readonly sections = computed(() => {
+    const cards = this.cards();
+    const of = (...types: readonly JournalSummary['journal_type'][]) =>
+      cards.filter((card) => types.includes(card.journal.journal_type));
+    return [
+      { id: 'treasury', title: 'Trésorerie', cards: of('cash', 'bank') },
+      { id: 'sales', title: 'Clients', cards: of('sales') },
+      { id: 'purchase', title: 'Fournisseurs', cards: of('purchase') },
+      { id: 'general', title: 'Écritures à traiter', cards: of('general') },
+    ].filter((section) => section.cards.length > 0);
+  });
 
   /** The screen of reconciliation, when the user may open it. */
   protected readonly reconcileUrl = computed(() => this.screen('tresorerie/rapprochements'));

@@ -11,14 +11,13 @@
   color: var(--color-text-muted);
 }
 
-// Odoo's kanban: three cards a row, two on a tablet, one on a phone.
-.cards {
+// The board: Trésorerie the whole width, then Clients, Fournisseurs and Écritures à traiter;
+// two columns on a laptop, one on a phone. Each module square, under the navy rule.
+.pilot {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: var(--space-4);
-  margin: 0;
-  padding: 0;
-  list-style: none;
+  align-items: start;
+  gap: var(--space-5);
 
   @include bp.below-laptop {
     grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -29,19 +28,128 @@
   }
 }
 
-.journals-title {
-  margin-bottom: calc(-1 * var(--space-2));
+.module {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  min-width: 0;
+  padding: var(--space-5);
+  border-top: 3px solid var(--color-rule-strong);
+  background: var(--color-surface);
 }
 
+.module--treasury {
+  grid-column: 1 / -1;
+}
+
+.module-title {
+  margin: 0;
+  font-size: var(--font-size-caption);
+  font-weight: var(--font-weight-heavy);
+  font-stretch: var(--font-stretch-wide);
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.cards {
+  display: flex;
+  flex-direction: column;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+// A journal inside its module: no frame, ruled from the next one.
 .card {
   display: flex;
   flex-direction: column;
   gap: var(--space-3);
   min-width: 0;
-  padding: var(--space-5);
-  border-top: 3px solid var(--color-rule-strong);
-  border-radius: var(--radius-lg);
-  background: var(--color-surface);
+  padding: var(--space-4) 0;
+
+  & + & {
+    border-top: var(--border-width) solid var(--color-border);
+  }
+}
+
+// Trésorerie: a register, one line per account — its name, its balance, its 30 days, what to
+// do, its menu. The card's head and top give their children to the line's grid.
+.module--treasury .card {
+  display: grid;
+  // Fixed columns: the balances, curves and buttons of the accounts line up.
+  grid-template:
+    'title figures curve buttons menu' auto
+    / 11rem 13rem minmax(8rem, 1fr) 28rem auto;
+  align-items: center;
+  gap: var(--space-3) var(--space-5);
+
+  @include bp.below-laptop {
+    grid-template:
+      'title menu' auto
+      'figures figures' auto
+      'curve curve' auto
+      'buttons buttons' auto
+      / minmax(0, 1fr) auto;
+  }
+
+  .card-head,
+  .card-top {
+    display: contents;
+  }
+
+  .card-title {
+    grid-area: title;
+  }
+
+  alco-dropdown {
+    grid-area: menu;
+  }
+
+  .card-buttons {
+    grid-area: buttons;
+  }
+
+  .figures {
+    grid-area: figures;
+    margin: 0;
+  }
+
+  alco-balance-curve {
+    grid-area: curve;
+  }
+
+  // The balance: the line's figure.
+  .figure {
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 0;
+
+    dt {
+      font-size: var(--font-size-caption);
+      font-weight: var(--font-weight-bold);
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+    }
+
+    dd {
+      font-size: var(--font-size-figure);
+      font-weight: var(--font-weight-heavy);
+    }
+  }
+}
+
+// Clients, Fournisseurs, Écritures à traiter: the figures as the rows of a register.
+.module:not(.module--treasury) {
+  .figures {
+    width: 100%;
+    margin: 0;
+  }
+
+  .figure {
+    justify-content: space-between;
+    padding: var(--space-2) 0;
+    border-top: var(--border-width) solid var(--color-border);
+  }
 }
 
 .card-head {
@@ -56,7 +164,7 @@
   margin: 0;
   overflow-wrap: anywhere;
   font-size: var(--font-size-section-title);
-  font-weight: var(--font-weight-semibold);
+  font-weight: var(--font-weight-bold);
 
   a {
     color: var(--color-text);

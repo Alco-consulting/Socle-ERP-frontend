@@ -1,81 +1,87 @@
-<!-- As Odoo's report: PDF, XLSX, the title, the search, then the filters, in one bar. -->
+<!-- The report: its plate (title, exports), then its bench (search, period, filters). -->
 <div class="report-bar">
-  @if (canExport()) {
-    <button
-      alcoButton
-      type="button"
-      variant="primary"
-      [loading]="exporting() === 'pdf'"
-      loadingLabel="PDF…"
-      aria-label="Télécharger le grand livre en PDF"
-      (click)="exportFile('pdf')"
-    >
-      PDF
-    </button>
-    <button
-      alcoButton
-      type="button"
-      [loading]="exporting() === 'xlsx'"
-      loadingLabel="XLSX…"
-      aria-label="Télécharger le grand livre en Excel (XLSX)"
-      (click)="exportFile('xlsx')"
-    >
-      XLSX
-    </button>
-  }
-  <h1 class="report-title">{{ title }}</h1>
-  <label class="search">
-    <alco-icon name="search" [size]="16" />
-    <span class="alco-sr-only">{{
-      mode === 'account' ? 'Rechercher un compte' : 'Rechercher un partenaire'
-    }}</span>
-    <input
-      alcoInput
-      type="search"
-      [formControl]="searchControl"
-      placeholder="Rechercher…"
-      autocomplete="off"
+  <div class="report-plate alco-plate">
+    <h1 class="report-title">{{ title }}</h1>
+    <div class="report-exports">
+      @if (canExport()) {
+        <button
+          alcoButton
+          type="button"
+          variant="primary"
+          [loading]="exporting() === 'pdf'"
+          loadingLabel="PDF…"
+          aria-label="Télécharger le grand livre en PDF"
+          (click)="exportFile('pdf')"
+        >
+          PDF
+        </button>
+        <button
+          alcoButton
+          type="button"
+          [loading]="exporting() === 'xlsx'"
+          loadingLabel="XLSX…"
+          aria-label="Télécharger le grand livre en Excel (XLSX)"
+          (click)="exportFile('xlsx')"
+        >
+          XLSX
+        </button>
+      }
+    </div>
+  </div>
+  <div class="report-bench">
+    <label class="search">
+      <alco-icon name="search" [size]="16" />
+      <span class="alco-sr-only">{{
+        mode === 'account' ? 'Rechercher un compte' : 'Rechercher un partenaire'
+      }}</span>
+      <input
+        alcoInput
+        type="search"
+        [formControl]="searchControl"
+        placeholder="Rechercher…"
+        autocomplete="off"
+      />
+    </label>
+    <alco-report-period
+      [kind]="periodKind()"
+      [anchor]="anchor()"
+      [period]="period()"
+      (chosen)="choosePeriod($event)"
     />
-  </label>
-  <alco-report-period
-    [kind]="periodKind()"
-    [anchor]="anchor()"
-    [period]="period()"
-    (chosen)="choosePeriod($event)"
-  />
-  <alco-dropdown
-    mode="multiple"
-    icon="book"
-    [showChevron]="false"
-    [items]="journalItems()"
-    ariaLabel="Journaux"
-    (selected)="toggleJournal($event)"
-  >
-    {{ journalsLabel() }}
-  </alco-dropdown>
-  @if (mode === 'partner') {
     <alco-dropdown
       mode="multiple"
-      icon="accounting"
+      icon="book"
       [showChevron]="false"
-      [items]="tiersItems()"
-      ariaLabel="Comptes de tiers"
-      (selected)="toggleTiers($event)"
+      [items]="journalItems()"
+      ariaLabel="Journaux"
+      (selected)="toggleJournal($event)"
     >
-      {{ tiersLabel() }}
+      {{ journalsLabel() }}
     </alco-dropdown>
-  }
-  <alco-dropdown
-    mode="multiple"
-    icon="filter"
-    [showChevron]="false"
-    [items]="optionItems()"
-    ariaLabel="Pièces et options"
-    (selected)="toggleOption($event)"
-  >
-    {{ optionsLabel() }}
-  </alco-dropdown>
-  <span class="currency" title="Montants en devise de la société">En {{ currency() }}</span>
+    @if (mode === 'partner') {
+      <alco-dropdown
+        mode="multiple"
+        icon="accounting"
+        [showChevron]="false"
+        [items]="tiersItems()"
+        ariaLabel="Comptes de tiers"
+        (selected)="toggleTiers($event)"
+      >
+        {{ tiersLabel() }}
+      </alco-dropdown>
+    }
+    <alco-dropdown
+      mode="multiple"
+      icon="filter"
+      [showChevron]="false"
+      [items]="optionItems()"
+      ariaLabel="Pièces et options"
+      (selected)="toggleOption($event)"
+    >
+      {{ optionsLabel() }}
+    </alco-dropdown>
+    <span class="currency" title="Montants en devise de la société">En {{ currency() }}</span>
+  </div>
 </div>
 
 @if (unposted()) {

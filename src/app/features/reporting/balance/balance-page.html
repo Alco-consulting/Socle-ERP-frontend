@@ -1,143 +1,149 @@
-<!-- As Odoo's report: PDF, XLSX, the title, the search, then the filters, in one bar. -->
+<!-- The report: its plate (title, exports), then its bench (search, period, filters). -->
 <div class="report-bar">
-  @if (canExport()) {
-    <button
-      alcoButton
-      type="button"
-      variant="primary"
-      [loading]="exporting() === 'pdf'"
-      loadingLabel="PDF…"
-      aria-label="Télécharger la balance en PDF"
-      (click)="exportFile('pdf')"
-    >
-      PDF
-    </button>
-    <button
-      alcoButton
-      type="button"
-      [loading]="exporting() === 'xlsx'"
-      loadingLabel="XLSX…"
-      aria-label="Télécharger la balance en Excel (XLSX)"
-      (click)="exportFile('xlsx')"
-    >
-      XLSX
-    </button>
-  }
-  <h1 class="report-title">Balance comptable</h1>
-  <label class="search">
-    <alco-icon name="search" [size]="16" />
-    <span class="alco-sr-only">Rechercher un compte</span>
-    <input
-      alcoInput
-      type="search"
-      [formControl]="searchControl"
-      placeholder="Rechercher…"
-      autocomplete="off"
-    />
-  </label>
-
-  <alco-report-period
-    [kind]="periodKind()"
-    [anchor]="anchor()"
-    [period]="period()"
-    (chosen)="choosePeriod($event)"
-  />
-
-  <alco-popover
-    #comparing
-    icon="percent"
-    [label]="comparisonButton()"
-    [active]="comparison() !== null"
-    panelLabel="Comparaison"
-  >
-    <button
-      type="button"
-      class="choice"
-      [attr.aria-pressed]="comparison() === null"
-      (click)="compare(null); comparing.close(true)"
-    >
-      <span class="check">
-        @if (comparison() === null) {
-          <alco-icon name="check" [size]="14" />
-        }
-      </span>
-      Aucune comparaison
-    </button>
-    @for (item of comparisons; track item.id) {
-      <div class="choice-row">
+  <div class="report-plate alco-plate">
+    <h1 class="report-title">Balance comptable</h1>
+    <div class="report-exports">
+      @if (canExport()) {
         <button
+          alcoButton
           type="button"
-          class="choice"
-          [attr.aria-pressed]="comparison() === item.id"
-          (click)="compare(item.id)"
+          variant="primary"
+          [loading]="exporting() === 'pdf'"
+          loadingLabel="PDF…"
+          aria-label="Télécharger la balance en PDF"
+          (click)="exportFile('pdf')"
         >
-          <span class="check">
-            @if (comparison() === item.id) {
-              <alco-icon name="check" [size]="14" />
-            }
-          </span>
-          {{ item.title }}
+          PDF
         </button>
-        @if (comparison() === item.id && item.id !== 'perso') {
-          <input
-            alcoInput
-            class="count"
-            type="number"
-            min="1"
-            [max]="maxCompared"
-            [value]="compared()"
-            aria-label="Nombre de périodes comparées"
-            (change)="setCompared($event)"
-          />
-          <span class="unit">{{ compared() > 1 ? 'Périodes' : 'Période' }}</span>
-        }
-      </div>
-      @if (comparison() === 'perso' && item.id === 'perso') {
-        <div class="dates">
-          <label>
-            <span>Du</span>
-            <input
-              alcoDatePicker
-              type="date"
-              [formControl]="compareFromControl"
-              (change)="setComparedDates()"
-            />
-          </label>
-          <label>
-            <span>Au</span>
-            <input
-              alcoDatePicker
-              type="date"
-              [formControl]="compareToControl"
-              (change)="setComparedDates()"
-            />
-          </label>
-        </div>
+        <button
+          alcoButton
+          type="button"
+          [loading]="exporting() === 'xlsx'"
+          loadingLabel="XLSX…"
+          aria-label="Télécharger la balance en Excel (XLSX)"
+          (click)="exportFile('xlsx')"
+        >
+          XLSX
+        </button>
       }
-    }
-  </alco-popover>
+    </div>
+  </div>
+  <div class="report-bench">
+    <label class="search">
+      <alco-icon name="search" [size]="16" />
+      <span class="alco-sr-only">Rechercher un compte</span>
+      <input
+        alcoInput
+        type="search"
+        [formControl]="searchControl"
+        placeholder="Rechercher…"
+        autocomplete="off"
+      />
+    </label>
 
-  <alco-dropdown
-    mode="multiple"
-    icon="book"
-    [showChevron]="false"
-    [items]="journalItems()"
-    ariaLabel="Journaux"
-    (selected)="toggleJournal($event)"
-  >
-    {{ journalsLabel() }}
-  </alco-dropdown>
-  <alco-dropdown
-    mode="multiple"
-    icon="filter"
-    [showChevron]="false"
-    [items]="optionItems()"
-    ariaLabel="Pièces et options"
-    (selected)="toggleOption($event)"
-  >
-    {{ optionsLabel() }}
-  </alco-dropdown>
-  <span class="currency" title="Montants en devise de la société">En {{ currency() }}</span>
+    <alco-report-period
+      [kind]="periodKind()"
+      [anchor]="anchor()"
+      [period]="period()"
+      (chosen)="choosePeriod($event)"
+    />
+
+    <alco-popover
+      #comparing
+      icon="percent"
+      [label]="comparisonButton()"
+      [active]="comparison() !== null"
+      panelLabel="Comparaison"
+    >
+      <button
+        type="button"
+        class="choice"
+        [attr.aria-pressed]="comparison() === null"
+        (click)="compare(null); comparing.close(true)"
+      >
+        <span class="check">
+          @if (comparison() === null) {
+            <alco-icon name="check" [size]="14" />
+          }
+        </span>
+        Aucune comparaison
+      </button>
+      @for (item of comparisons; track item.id) {
+        <div class="choice-row">
+          <button
+            type="button"
+            class="choice"
+            [attr.aria-pressed]="comparison() === item.id"
+            (click)="compare(item.id)"
+          >
+            <span class="check">
+              @if (comparison() === item.id) {
+                <alco-icon name="check" [size]="14" />
+              }
+            </span>
+            {{ item.title }}
+          </button>
+          @if (comparison() === item.id && item.id !== 'perso') {
+            <input
+              alcoInput
+              class="count"
+              type="number"
+              min="1"
+              [max]="maxCompared"
+              [value]="compared()"
+              aria-label="Nombre de périodes comparées"
+              (change)="setCompared($event)"
+            />
+            <span class="unit">{{ compared() > 1 ? 'Périodes' : 'Période' }}</span>
+          }
+        </div>
+        @if (comparison() === 'perso' && item.id === 'perso') {
+          <div class="dates">
+            <label>
+              <span>Du</span>
+              <input
+                alcoDatePicker
+                type="date"
+                [formControl]="compareFromControl"
+                (change)="setComparedDates()"
+              />
+            </label>
+            <label>
+              <span>Au</span>
+              <input
+                alcoDatePicker
+                type="date"
+                [formControl]="compareToControl"
+                (change)="setComparedDates()"
+              />
+            </label>
+          </div>
+        }
+      }
+    </alco-popover>
+
+    <alco-dropdown
+      mode="multiple"
+      icon="book"
+      [showChevron]="false"
+      [items]="journalItems()"
+      ariaLabel="Journaux"
+      (selected)="toggleJournal($event)"
+    >
+      {{ journalsLabel() }}
+    </alco-dropdown>
+    <alco-dropdown
+      mode="multiple"
+      icon="filter"
+      [showChevron]="false"
+      [items]="optionItems()"
+      ariaLabel="Pièces et options"
+      (selected)="toggleOption($event)"
+    >
+      {{ optionsLabel() }}
+    </alco-dropdown>
+    <span class="currency" title="Montants en devise de la société">En {{ currency() }}</span>
+  </div>
 </div>
 
 @if (unposted()) {

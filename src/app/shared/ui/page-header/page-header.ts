@@ -82,9 +82,12 @@ import { ChangeDetectionStrategy, Component, input } from '@angular/core';
     .actions:empty {
       display: none;
     }
+    /* Sur un téléphone, l'en-tête ne colle pas : il resterait sur la moitié de l'écran. Relatif,
+       pour garder l'anneau du logo dans la carte, et sans le décalage « top » du mode collant. */
     @media (max-width: 767.98px) {
       :host(.sticky) {
         position: relative;
+        top: auto;
       }
     }
   `,

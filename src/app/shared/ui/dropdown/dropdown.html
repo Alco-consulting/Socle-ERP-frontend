@@ -23,6 +23,7 @@
     [icon]="icon()"
     [iconOnly]="iconOnly()"
     [trailingIcon]="showChevron() && !iconOnly() ? 'chevron-down' : undefined"
+    [truncate]="!iconOnly()"
     [cdkMenuTriggerFor]="menu"
     [cdkMenuPosition]="align() === 'end' ? positionsEnd : positionsStart"
     [attr.aria-label]="ariaLabel()"

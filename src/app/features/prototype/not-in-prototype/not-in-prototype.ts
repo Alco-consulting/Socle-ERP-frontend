@@ -33,6 +33,19 @@ import { TransferKindId } from '../transfers/transfer-kinds';
       <a alcoButton variant="ghost" routerLink="/app">Toutes les applications</a>
     </alco-empty-state>
   `,
+  styles: `
+    :host {
+      display: flex;
+      flex-direction: column;
+      gap: var(--space-5);
+    }
+    alco-empty-state {
+      border: var(--border-width) solid var(--color-border);
+      border-radius: var(--radius-lg);
+      background: var(--color-surface);
+      box-shadow: var(--shadow-sm);
+    }
+  `,
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class NotInPrototypePage {

@@ -153,6 +153,14 @@ a {
   --shadow-action: none;
   --shadow-sm: none;
 
+  // La liste qu'ouvre un menu déroulant natif (« Exercice 2026 ») : le navigateur la dessine
+  // sur fond blanc, où le texte blanc du bandeau disparaîtrait. Ses options prennent la marine.
+  option,
+  optgroup {
+    background-color: var(--color-plate);
+    color: var(--color-plate-text);
+  }
+
   // The logo's « C »: a wide ring, open on its right, faint in the top right corner.
   &::before {
     content: '';

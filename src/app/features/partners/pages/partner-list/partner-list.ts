@@ -27,6 +27,7 @@ import { AlcoEmptyState } from '../../../../shared/ui/empty-state/empty-state';
 import { AlcoErrorState } from '../../../../shared/ui/error-state/error-state';
 import { AlcoLoading } from '../../../../shared/ui/loading/loading';
 import { AlcoPageHeader } from '../../../../shared/ui/page-header/page-header';
+import { listPaging } from '../../../../shared/ui/pagination/page-size';
 import { AlcoPagination } from '../../../../shared/ui/pagination/pagination';
 import { AlcoDomainTransfers } from '../../../transfers/domain-transfers';
 import {
@@ -35,7 +36,7 @@ import {
   PartnerSummary,
   PartnerTag,
 } from '../../data-access/partner-models';
-import { PARTNER_PAGE_SIZE, PartnersApi } from '../../data-access/partners-api';
+import { PartnersApi } from '../../data-access/partners-api';
 import {
   PARTNER_ERRORS,
   PARTNER_ROLES,
@@ -111,7 +112,6 @@ export class PartnerListPage {
   protected readonly roles = PARTNER_ROLES;
   protected readonly statuses = STATUSES.map((id) => ({ id, label: PARTNER_STATUS[id].label }));
   protected readonly roleLabel = roleLabel;
-  protected readonly pageSize = PARTNER_PAGE_SIZE;
 
   protected readonly title = computed(() => this.trail().at(-1)?.label ?? 'Contacts');
   /** Clients / Fournisseurs screens: the role is the screen's, not a filter. */
@@ -154,6 +154,8 @@ export class PartnerListPage {
   protected readonly tag = computed(() => this.params().get(PARAM.tag) || null);
   protected readonly tags = signal<readonly PartnerTag[]>([]);
   protected readonly page = computed(() => Math.max(1, Number(this.params().get(PARAM.page)) || 1));
+  /** 20 par page par défaut ; 40, 50 ou 100 au choix, dans l'adresse et retenu. */
+  protected readonly paging = listPaging(this.params);
 
   protected readonly searchText = signal(this.route.snapshot.queryParamMap.get(PARAM.search) ?? '');
   private readonly searchTyped = new Subject<string>();
@@ -202,6 +204,7 @@ export class PartnerListPage {
     country: this.country(),
     tag: this.tag(),
     page: this.page(),
+    pageSize: this.paging.size(),
   }));
 
   protected readonly list = requestState(() => this.api.list(untracked(this.query)), {
@@ -331,6 +334,10 @@ export class PartnerListPage {
 
   protected setPage(page: number): void {
     this.navigate({ [PARAM.page]: page > 1 ? page : null });
+  }
+
+  protected setPageSize(size: number): void {
+    this.navigate(this.paging.choose(size, PARAM.page));
   }
 
   protected badgeOf(row: PartnerSummary): (typeof PARTNER_STATUS)[PartnerStatus] {

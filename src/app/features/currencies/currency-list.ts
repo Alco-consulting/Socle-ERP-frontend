@@ -25,10 +25,11 @@ import { AlcoEmptyState } from '../../shared/ui/empty-state/empty-state';
 import { AlcoErrorState } from '../../shared/ui/error-state/error-state';
 import { AlcoLoading } from '../../shared/ui/loading/loading';
 import { AlcoPageHeader } from '../../shared/ui/page-header/page-header';
+import { listPaging } from '../../shared/ui/pagination/page-size';
 import { AlcoPagination } from '../../shared/ui/pagination/pagination';
 import { AlcoToastService } from '../../shared/ui/toast/toast.service';
 import { CURRENCY_ERRORS, dayText, inverseRateText, rateText } from './currencies-presentation';
-import { CURRENCY_PAGE_SIZE, CurrenciesApi } from './data-access/currencies-api';
+import { CurrenciesApi } from './data-access/currencies-api';
 import { Currency, CurrencyRate, CurrencyStatus } from './data-access/currencies-models';
 
 const PARAM = { search: 'q', status: 'etat', page: 'page' } as const;
@@ -75,7 +76,6 @@ export class CurrencyListPage {
   private readonly session = inject(SessionStore);
 
   protected readonly statuses = STATUSES;
-  protected readonly pageSize = CURRENCY_PAGE_SIZE;
   protected readonly canCreate = computed(() => this.session.can('currencies.create'));
   protected readonly canUpdate = computed(() => this.session.can('currencies.update'));
   /** The company's currency (« GNF »): 1 by definition, no rate. */
@@ -115,6 +115,8 @@ export class CurrencyListPage {
     return STATUSES.some((status) => status.id === value) ? (value as CurrencyStatus) : null;
   });
   protected readonly page = computed(() => Math.max(1, Number(this.params().get(PARAM.page)) || 1));
+  /** 20 par page par défaut ; 40, 50 ou 100 au choix, dans l'adresse et retenu. */
+  protected readonly paging = listPaging(this.params);
 
   protected readonly searchText = signal(this.route.snapshot.queryParamMap.get(PARAM.search) ?? '');
   private readonly searchTyped = new Subject<string>();
@@ -131,6 +133,7 @@ export class CurrencyListPage {
     search: this.search(),
     status: this.status(),
     page: this.page(),
+    pageSize: this.paging.size(),
   }));
   protected readonly list = requestState(() => this.api.currencies(untracked(this.query)), {
     immediate: false,
@@ -251,6 +254,10 @@ export class CurrencyListPage {
 
   protected setPage(page: number): void {
     this.navigate({ [PARAM.page]: page > 1 ? page : null });
+  }
+
+  protected setPageSize(size: number): void {
+    this.navigate(this.paging.choose(size, PARAM.page));
   }
 
   protected open(currency: Currency): void {

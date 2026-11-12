@@ -43,7 +43,7 @@ export class InvoicingApi {
         search: query.search || null,
         status: query.status ?? null,
         page: query.page && query.page > 1 ? query.page : null,
-        page_size: PRODUCT_PAGE_SIZE,
+        page_size: query.pageSize ?? PRODUCT_PAGE_SIZE,
       },
     });
   }
@@ -104,7 +104,7 @@ export class InvoicingApi {
         status: query.status ?? null,
         search: query.search || null,
         page: query.page && query.page > 1 ? query.page : null,
-        page_size: INVOICE_PAGE_SIZE,
+        page_size: query.pageSize ?? INVOICE_PAGE_SIZE,
       },
     });
   }

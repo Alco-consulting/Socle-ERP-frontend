@@ -54,12 +54,13 @@ test.describe('Écritures — liste', () => {
     await openMenuItem(page, 'Comptabilité', 'Pièces comptables');
     await expect(page.getByRole('heading', { level: 1 })).toHaveText('Pièces comptables');
     await expect(page.getByRole('note', { name: 'Démonstration' })).toHaveCount(0);
-    await expect(rows(page)).toHaveCount(25);
-    await expect(page.getByText(/1–25\s*sur\s*48/)).toBeVisible();
+    // 20 par page par défaut.
+    await expect(rows(page)).toHaveCount(20);
+    await expect(page.getByText(/1–20\s*sur\s*48/)).toBeVisible();
 
     await page.getByRole('button', { name: 'Page suivante' }).click();
     await expect(page).toHaveURL(/page=2/);
-    await expect(page.getByText(/26–48\s*sur\s*48/)).toBeVisible();
+    await expect(page.getByText(/21–40\s*sur\s*48/)).toBeVisible();
     const last = api.callsTo('accounting/entries/').at(-1);
     expect(new URL(last!.url()).searchParams.get('page')).toBe('2');
     for (const call of api.callsTo('accounting/entries/')) {
@@ -96,7 +97,7 @@ test.describe('Écritures — liste', () => {
     ).toBeVisible();
     await page.getByRole('button', { name: 'Réinitialiser les filtres' }).click();
     await expect(page).not.toHaveURL(/compte=/);
-    await expect(rows(page)).toHaveCount(25);
+    await expect(rows(page)).toHaveCount(20); // 20 par page par défaut
   });
 
   test('Scénario 3 : filtres et favoris du serveur, gardés dans l’URL', async ({ page, api }) => {

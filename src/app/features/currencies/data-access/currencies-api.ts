@@ -36,7 +36,7 @@ export class CurrenciesApi {
         search: query.search || null,
         status: query.status ?? null,
         page: query.page && query.page > 1 ? query.page : null,
-        page_size: CURRENCY_PAGE_SIZE,
+        page_size: query.pageSize ?? CURRENCY_PAGE_SIZE,
       },
       skipCompany: true,
     });

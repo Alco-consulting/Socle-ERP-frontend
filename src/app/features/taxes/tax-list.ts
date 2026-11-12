@@ -25,9 +25,10 @@ import { AlcoEmptyState } from '../../shared/ui/empty-state/empty-state';
 import { AlcoErrorState } from '../../shared/ui/error-state/error-state';
 import { AlcoLoading } from '../../shared/ui/loading/loading';
 import { AlcoPageHeader } from '../../shared/ui/page-header/page-header';
+import { listPaging } from '../../shared/ui/pagination/page-size';
 import { AlcoPagination } from '../../shared/ui/pagination/pagination';
 import { AlcoToastService } from '../../shared/ui/toast/toast.service';
-import { TAX_PAGE_SIZE, TaxesApi } from './data-access/taxes-api';
+import { TaxesApi } from './data-access/taxes-api';
 import { RecordStatus, Tax, TaxUse } from './data-access/taxes-models';
 import { TAX_ERRORS, rateText, taxUseLabel } from './taxes-presentation';
 
@@ -79,7 +80,6 @@ export class TaxListPage {
 
   protected readonly usageFilters = Object.entries(USAGE_FILTERS).map(([id, f]) => ({ id, ...f }));
   protected readonly statuses = STATUSES;
-  protected readonly pageSize = TAX_PAGE_SIZE;
   protected readonly useLabel = taxUseLabel;
   protected readonly rateText = rateText;
   protected readonly canCreate = computed(() => this.session.can('taxes.create'));
@@ -117,6 +117,8 @@ export class TaxListPage {
     return STATUSES.some((status) => status.id === value) ? (value as RecordStatus) : null;
   });
   protected readonly page = computed(() => Math.max(1, Number(this.params().get(PARAM.page)) || 1));
+  /** 20 par page par défaut ; 40, 50 ou 100 au choix, dans l'adresse et retenu. */
+  protected readonly paging = listPaging(this.params);
 
   protected readonly searchText = signal(this.route.snapshot.queryParamMap.get(PARAM.search) ?? '');
   private readonly searchTyped = new Subject<string>();
@@ -146,6 +148,7 @@ export class TaxListPage {
     status: this.status(),
     uses: this.usage() ? USAGE_FILTERS[this.usage()].uses : [],
     page: this.page(),
+    pageSize: this.paging.size(),
   }));
   protected readonly list = requestState(() => this.api.taxes(untracked(this.query)), {
     immediate: false,
@@ -264,6 +267,10 @@ export class TaxListPage {
 
   protected setPage(page: number): void {
     this.navigate({ [PARAM.page]: page > 1 ? page : null });
+  }
+
+  protected setPageSize(size: number): void {
+    this.navigate(this.paging.choose(size, PARAM.page));
   }
 
   protected open(tax: Tax): void {

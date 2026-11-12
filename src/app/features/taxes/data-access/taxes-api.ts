@@ -26,7 +26,7 @@ export class TaxesApi {
         status: query.status ?? null,
         type_tax_use: query.uses?.length ? query.uses : null,
         page: query.page && query.page > 1 ? query.page : null,
-        page_size: TAX_PAGE_SIZE,
+        page_size: query.pageSize ?? TAX_PAGE_SIZE,
       },
     });
   }

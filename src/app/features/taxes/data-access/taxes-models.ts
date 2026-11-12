@@ -39,6 +39,7 @@ export interface TaxQuery {
   /** Several: the taxes usable on a sale are « sale » and « both ». */
   readonly uses?: readonly TaxUse[];
   readonly page?: number;
+  readonly pageSize?: number;
 }
 
 /** « Créer les taxes de Guinée »: the taxes created, the names already taken (kept). */

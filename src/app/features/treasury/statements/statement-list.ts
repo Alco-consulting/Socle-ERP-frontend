@@ -26,12 +26,13 @@ import { AlcoEmptyState } from '../../../shared/ui/empty-state/empty-state';
 import { AlcoErrorState } from '../../../shared/ui/error-state/error-state';
 import { AlcoLoading } from '../../../shared/ui/loading/loading';
 import { AlcoPageHeader } from '../../../shared/ui/page-header/page-header';
+import { listPaging } from '../../../shared/ui/pagination/page-size';
 import { AlcoPagination } from '../../../shared/ui/pagination/pagination';
 import { isoDay } from '../../accounting/entries/entry-presentation';
 import { PartnersApi } from '../../partners/data-access/partners-api';
 import { AlcoDomainTransfers } from '../../transfers/domain-transfers';
 import { Statement } from '../data-access/reconciliation-models';
-import { TREASURY_PAGE_SIZE, TreasuryApi } from '../data-access/treasury-api';
+import { TreasuryApi } from '../data-access/treasury-api';
 import { STATEMENT_STATUS, STATEMENT_TRANSFER, TREASURY_ERRORS } from '../treasury-presentation';
 
 const PARAM = { account: 'compte', status: 'etat', page: 'page' } as const;
@@ -75,7 +76,6 @@ export class TreasuryStatementListPage {
 
   protected readonly transfer = STATEMENT_TRANSFER;
   protected readonly statuses = STATUSES.map((id) => ({ id, label: STATEMENT_STATUS[id].label }));
-  protected readonly pageSize = TREASURY_PAGE_SIZE;
   protected readonly day = isoDay;
   protected readonly columns: readonly TableColumn[] = [
     { key: 'reference', label: 'Relevé' },
@@ -99,6 +99,8 @@ export class TreasuryStatementListPage {
     return STATUSES.includes(value as Statement['status']) ? (value as Statement['status']) : null;
   });
   protected readonly page = computed(() => Math.max(1, Number(this.params().get(PARAM.page)) || 1));
+  /** 20 par page par défaut ; 40, 50 ou 100 au choix, dans l'adresse et retenu. */
+  protected readonly paging = listPaging(this.params);
   protected readonly activeFilterCount = computed(
     () => [this.accountCode(), this.status()].filter(Boolean).length,
   );
@@ -122,6 +124,7 @@ export class TreasuryStatementListPage {
         : null,
       status: this.status(),
       page: this.page(),
+      pageSize: this.paging.size(),
     };
   });
   protected readonly list = requestState(
@@ -200,6 +203,10 @@ export class TreasuryStatementListPage {
 
   protected setPage(page: number): void {
     this.navigate({ [PARAM.page]: page > 1 ? page : null });
+  }
+
+  protected setPageSize(size: number): void {
+    this.navigate(this.paging.choose(size, PARAM.page));
   }
 
   protected open(statement: Statement): void {

@@ -29,6 +29,7 @@ import { AlcoEmptyState } from '../../../shared/ui/empty-state/empty-state';
 import { AlcoErrorState } from '../../../shared/ui/error-state/error-state';
 import { AlcoLoading } from '../../../shared/ui/loading/loading';
 import { AlcoPageHeader } from '../../../shared/ui/page-header/page-header';
+import { listPaging } from '../../../shared/ui/pagination/page-size';
 import { AlcoPagination } from '../../../shared/ui/pagination/pagination';
 import { sumDecimals } from '../../../shared/utils/decimal';
 import { PartnersApi } from '../../partners/data-access/partners-api';
@@ -36,7 +37,7 @@ import { AlcoDomainTransfers } from '../../transfers/domain-transfers';
 import { EntryStatus, FiscalYear, Journal } from '../data-access/accounting-models';
 import { AccountingApi } from '../data-access/accounting-api';
 import { accountCodeSearch, codeOption, partnerCodeSearch } from '../data-access/code-searches';
-import { ENTRY_PAGE_SIZE, EntriesApi } from '../data-access/entries-api';
+import { EntriesApi } from '../data-access/entries-api';
 import { Entry, EntryKind } from '../data-access/entry-models';
 import {
   ENTRY_ERRORS,
@@ -75,6 +76,7 @@ interface ListQuery {
   readonly accountCode: string | null;
   readonly partnerCode: string | null;
   readonly page: number;
+  readonly pageSize: number;
 }
 
 /**
@@ -119,7 +121,6 @@ export class EntryListPage {
   protected readonly session = inject(SessionStore);
 
   protected readonly transfer = ENTRY_TRANSFER;
-  protected readonly pageSize = ENTRY_PAGE_SIZE;
   protected readonly statuses = ENTRY_STATUSES.map((id) => ({ id, label: ENTRY_STATUS[id].label }));
   protected readonly kinds = KINDS.map((id) => ({ id, label: ENTRY_KINDS[id] }));
   /** The states in one click, on top of the list. */
@@ -171,6 +172,8 @@ export class EntryListPage {
   protected readonly accountCode = computed(() => this.param(PARAM.account));
   protected readonly partnerCode = computed(() => this.param(PARAM.partner));
   protected readonly page = computed(() => Math.max(1, Number(this.params().get(PARAM.page)) || 1));
+  /** 20 par page par défaut ; 40, 50 ou 100 au choix, dans l'adresse et retenu. */
+  protected readonly paging = listPaging(this.params);
 
   protected readonly activeFilterCount = computed(
     () =>
@@ -194,6 +197,7 @@ export class EntryListPage {
     accountCode: this.accountCode(),
     partnerCode: this.partnerCode(),
     page: this.page(),
+    pageSize: this.paging.size(),
   }));
 
   protected readonly unknownCodes = signal<readonly UnknownCode[]>([]);
@@ -314,6 +318,10 @@ export class EntryListPage {
     this.navigate({ [PARAM.page]: page > 1 ? page : null });
   }
 
+  protected setPageSize(size: number): void {
+    this.navigate(this.paging.choose(size, PARAM.page));
+  }
+
   /** A state tab: the other criteria kept, back to the first page. */
   protected chooseStatus(status: string | null): void {
     this.navigate({ [PARAM.status]: status, [PARAM.page]: null });
@@ -355,6 +363,7 @@ export class EntryListPage {
           account: accountFound?.public_id ?? null,
           partner: partnerFound?.public_id ?? null,
           page: query.page,
+          pageSize: query.pageSize,
         });
       }),
     );

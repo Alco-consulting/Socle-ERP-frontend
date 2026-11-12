@@ -244,9 +244,10 @@ test.describe('Comptabilité — plan comptable', () => {
       '601',
       '604',
     ]);
+    // 20 par page par défaut, comme toutes les listes.
     expect(
       new URL(api.callsTo('accounting/accounts/')[0].url()).searchParams.get('page_size'),
-    ).toBe('50');
+    ).toBe('20');
 
     await page.getByRole('link', { name: '40', exact: true }).click();
     await expect(page.getByRole('heading', { level: 1 })).toHaveText(

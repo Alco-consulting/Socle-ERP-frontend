@@ -31,14 +31,10 @@ import { AlcoErrorState } from '../../../shared/ui/error-state/error-state';
 import { AlcoIcon } from '../../../shared/ui/icon/icon';
 import { AlcoLoading } from '../../../shared/ui/loading/loading';
 import { AlcoPageHeader } from '../../../shared/ui/page-header/page-header';
+import { listPaging } from '../../../shared/ui/pagination/page-size';
 import { AlcoPagination } from '../../../shared/ui/pagination/pagination';
 import { DocumentOpener } from '../data-access/document-opener';
-import {
-  DOCUMENT_PAGE_SIZE,
-  DocumentQuery,
-  DocumentsApi,
-  StoredDocument,
-} from '../data-access/documents-api';
+import { DocumentQuery, DocumentsApi, StoredDocument } from '../data-access/documents-api';
 import {
   DOCUMENT_ERRORS,
   DOCUMENT_RESOURCES,
@@ -91,7 +87,6 @@ export class DocumentListPage {
   private readonly route = inject(ActivatedRoute);
   private readonly session = inject(SessionStore);
 
-  protected readonly pageSize = DOCUMENT_PAGE_SIZE;
   /** The states in one click (the active documents by default). */
   protected readonly statusTabs: readonly StatusTab[] = [
     { id: null, label: 'Actives' },
@@ -121,6 +116,8 @@ export class DocumentListPage {
     return value && value in DOCUMENT_RESOURCES ? value : null;
   });
   protected readonly page = computed(() => Math.max(1, Number(this.params().get(PARAM.page)) || 1));
+  /** 20 par page par défaut ; 40, 50 ou 100 au choix, dans l'adresse et retenu. */
+  protected readonly paging = listPaging(this.params);
 
   protected readonly searchText = signal(this.route.snapshot.queryParamMap.get(PARAM.search) ?? '');
   private readonly searchTyped = new Subject<string>();
@@ -170,6 +167,7 @@ export class DocumentListPage {
     status: this.status(),
     resourceType: this.resourceType(),
     page: this.page(),
+    pageSize: this.paging.size(),
   }));
   protected readonly list = requestState(() => this.api.list(untracked(this.query)), {
     immediate: false,
@@ -278,6 +276,10 @@ export class DocumentListPage {
 
   protected setPage(page: number): void {
     this.navigate({ [PARAM.page]: page > 1 ? page : null });
+  }
+
+  protected setPageSize(size: number): void {
+    this.navigate(this.paging.choose(size, PARAM.page));
   }
 
   private navigate(params: Params, replaceUrl = false): void {

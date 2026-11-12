@@ -19,8 +19,9 @@ import { AlcoEmptyState } from '../../../shared/ui/empty-state/empty-state';
 import { AlcoErrorState } from '../../../shared/ui/error-state/error-state';
 import { AlcoLoading } from '../../../shared/ui/loading/loading';
 import { AlcoPageHeader } from '../../../shared/ui/page-header/page-header';
+import { listPaging } from '../../../shared/ui/pagination/page-size';
 import { AlcoPagination } from '../../../shared/ui/pagination/pagination';
-import { Membership, SETTINGS_PAGE_SIZE, SettingsApi } from '../data-access/settings-api';
+import { Membership, SettingsApi } from '../data-access/settings-api';
 import { SETTINGS_ERRORS, initials, personName } from '../settings-presentation';
 
 /**
@@ -52,7 +53,6 @@ export class MemberListPage {
   private readonly route = inject(ActivatedRoute);
   private readonly session = inject(SessionStore);
 
-  protected readonly pageSize = SETTINGS_PAGE_SIZE;
   protected readonly name = personName;
   protected readonly initials = initials;
   protected readonly company = computed(() => this.session.activeCompany()?.name ?? '');
@@ -70,9 +70,14 @@ export class MemberListPage {
     initialValue: this.route.snapshot.queryParamMap,
   });
   protected readonly page = computed(() => Math.max(1, Number(this.params().get('page')) || 1));
-  protected readonly list = requestState(() => this.api.memberships(untracked(this.page)), {
-    immediate: false,
-  });
+  /** 20 par page par défaut ; 40, 50 ou 100 au choix, dans l'adresse et retenu. */
+  protected readonly paging = listPaging(this.params);
+  protected readonly list = requestState(
+    () => this.api.memberships(untracked(this.page), untracked(this.paging.size)),
+    {
+      immediate: false,
+    },
+  );
   protected readonly rows = computed(() => this.list.value()?.results ?? []);
   protected readonly failure = computed(() => {
     const error = this.list.error();
@@ -82,6 +87,7 @@ export class MemberListPage {
   constructor() {
     effect(() => {
       this.page();
+      this.paging.size();
       this.session.activeCompany();
       untracked(() => this.list.reload());
     });
@@ -95,6 +101,14 @@ export class MemberListPage {
     void this.router.navigate([], {
       relativeTo: this.route,
       queryParams: { page: page > 1 ? page : null },
+      queryParamsHandling: 'merge',
+    });
+  }
+
+  protected setPageSize(size: number): void {
+    void this.router.navigate([], {
+      relativeTo: this.route,
+      queryParams: this.paging.choose(size, 'page'),
       queryParamsHandling: 'merge',
     });
   }

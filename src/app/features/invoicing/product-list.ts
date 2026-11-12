@@ -26,10 +26,11 @@ import { AlcoEmptyState } from '../../shared/ui/empty-state/empty-state';
 import { AlcoErrorState } from '../../shared/ui/error-state/error-state';
 import { AlcoLoading } from '../../shared/ui/loading/loading';
 import { AlcoPageHeader } from '../../shared/ui/page-header/page-header';
+import { listPaging } from '../../shared/ui/pagination/page-size';
 import { AlcoPagination } from '../../shared/ui/pagination/pagination';
 import { AlcoToastService } from '../../shared/ui/toast/toast.service';
 import { rateText } from '../taxes/taxes-presentation';
-import { InvoicingApi, PRODUCT_PAGE_SIZE } from './data-access/invoicing-api';
+import { InvoicingApi } from './data-access/invoicing-api';
 import { Product, RecordStatus } from './data-access/invoicing-models';
 import { INVOICING_ERRORS } from './invoicing-presentation';
 
@@ -75,7 +76,6 @@ export class ProductListPage {
   private readonly session = inject(SessionStore);
 
   protected readonly statuses = STATUSES;
-  protected readonly pageSize = PRODUCT_PAGE_SIZE;
   protected readonly rateText = rateText;
   protected readonly canManage = computed(() => this.session.can('invoicing.manage_products'));
 
@@ -102,6 +102,8 @@ export class ProductListPage {
     return STATUSES.some((status) => status.id === value) ? (value as RecordStatus) : null;
   });
   protected readonly page = computed(() => Math.max(1, Number(this.params().get(PARAM.page)) || 1));
+  /** 20 par page par défaut ; 40, 50 ou 100 au choix, dans l'adresse et retenu. */
+  protected readonly paging = listPaging(this.params);
 
   protected readonly searchText = signal(this.route.snapshot.queryParamMap.get(PARAM.search) ?? '');
   private readonly searchTyped = new Subject<string>();
@@ -121,6 +123,7 @@ export class ProductListPage {
     search: this.search(),
     status: this.status(),
     page: this.page(),
+    pageSize: this.paging.size(),
   }));
   protected readonly list = requestState(() => this.api.products(untracked(this.query)), {
     immediate: false,
@@ -203,6 +206,10 @@ export class ProductListPage {
 
   protected setPage(page: number): void {
     this.navigate({ [PARAM.page]: page > 1 ? page : null });
+  }
+
+  protected setPageSize(size: number): void {
+    this.navigate(this.paging.choose(size, PARAM.page));
   }
 
   protected open(product: Product): void {

@@ -94,9 +94,11 @@
       <alco-pagination
         class="pager"
         [page]="page()"
-        [pageSize]="pageSize"
+        [pageSize]="paging.size()"
+        [sizes]="paging.sizes"
         [total]="result.count"
         (pageChange)="setPage($event)"
+        (pageSizeChange)="setPageSize($event)"
       />
     </div>
   }

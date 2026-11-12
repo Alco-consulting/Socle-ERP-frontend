@@ -29,8 +29,9 @@ import { AlcoEmptyState } from '../../shared/ui/empty-state/empty-state';
 import { AlcoErrorState } from '../../shared/ui/error-state/error-state';
 import { AlcoLoading } from '../../shared/ui/loading/loading';
 import { AlcoPageHeader } from '../../shared/ui/page-header/page-header';
+import { listPaging } from '../../shared/ui/pagination/page-size';
 import { AlcoPagination } from '../../shared/ui/pagination/pagination';
-import { INVOICE_PAGE_SIZE, InvoicingApi } from './data-access/invoicing-api';
+import { InvoicingApi } from './data-access/invoicing-api';
 import {
   InvoiceKind,
   InvoiceStatus,
@@ -80,7 +81,6 @@ export class InvoiceListPage {
   private readonly session = inject(SessionStore);
 
   protected readonly spec = KINDS[this.route.snapshot.data['kind'] as InvoiceKind];
-  protected readonly pageSize = INVOICE_PAGE_SIZE;
   protected readonly statuses = STATUSES.map((id) => ({ id, label: INVOICE_STATUS[id].label }));
   /** The states in one click, on top of the list. */
   protected readonly statusTabs: readonly StatusTab[] = [
@@ -115,6 +115,8 @@ export class InvoiceListPage {
     return value && STATUSES.includes(value) ? value : null;
   });
   protected readonly page = computed(() => Math.max(1, Number(this.params().get(PARAM.page)) || 1));
+  /** 20 par page par défaut ; 40, 50 ou 100 au choix, dans l'adresse et retenu. */
+  protected readonly paging = listPaging(this.params);
   protected readonly searchText = signal(this.route.snapshot.queryParamMap.get(PARAM.search) ?? '');
   private readonly searchTyped = new Subject<string>();
   protected readonly activeFilterCount = computed(() => (this.status() ? 1 : 0));
@@ -131,6 +133,7 @@ export class InvoiceListPage {
     search: this.search(),
     status: this.status(),
     page: this.page(),
+    pageSize: this.paging.size(),
   }));
   protected readonly list = requestState(() => this.api.invoices(untracked(this.query)), {
     immediate: false,
@@ -202,6 +205,10 @@ export class InvoiceListPage {
 
   protected setPage(page: number): void {
     this.navigate({ [PARAM.page]: page > 1 ? page : null });
+  }
+
+  protected setPageSize(size: number): void {
+    this.navigate(this.paging.choose(size, PARAM.page));
   }
 
   protected open(row: InvoiceSummary): void {

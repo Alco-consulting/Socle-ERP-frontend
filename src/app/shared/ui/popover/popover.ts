@@ -18,6 +18,7 @@ import { IconName } from '../icon/icons';
       alcoButton
       type="button"
       [icon]="icon()"
+      [truncate]="true"
       [class.active]="active()"
       cdkOverlayOrigin
       #origin="cdkOverlayOrigin"

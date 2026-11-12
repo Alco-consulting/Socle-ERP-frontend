@@ -11,7 +11,7 @@ import { IconName } from '../icon/icons';
   selector: 'alco-empty-state',
   imports: [AlcoIcon],
   template: `
-    <span class="empty-icon"><alco-icon [name]="icon()" [size]="28" /></span>
+    <span class="empty-icon"><alco-icon [name]="icon()" [size]="26" /></span>
     <h2 class="alco-section-title">{{ title() }}</h2>
     @if (message()) {
       <p class="empty-message">{{ message() }}</p>
@@ -27,16 +27,18 @@ import { IconName } from '../icon/icons';
       padding: var(--space-7) var(--space-4);
       text-align: center;
     }
+    /* Le pictogramme : la marine sur un rond pâle, cerclé d'un halo plus pâle encore. */
     .empty-icon {
       display: inline-flex;
       align-items: center;
       justify-content: center;
-      width: 56px;
-      height: 56px;
-      margin-bottom: var(--space-2);
+      width: 60px;
+      height: 60px;
+      margin-bottom: var(--space-3);
       border-radius: var(--radius-pill);
-      background: var(--color-surface-sunken);
-      color: var(--color-text-muted);
+      background: var(--color-primary-soft);
+      box-shadow: 0 0 0 8px var(--color-primary-softer);
+      color: var(--color-primary-text);
     }
     .empty-message {
       max-width: 42ch;

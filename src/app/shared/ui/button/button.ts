@@ -49,6 +49,11 @@ export class AlcoButton {
   /** Hides the text visually (kept for screen readers); requires an icon. */
   readonly iconOnly = input(false);
   readonly loading = input(false);
+  /**
+   * Un libellé long (le résumé d'un filtre) finit par « … » au lieu d'élargir la page : pour
+   * les déclencheurs de menu et de filtre, jamais pour un bouton d'action.
+   */
+  readonly truncate = input(false);
   readonly loadingLabel = input('');
   readonly disabled = input(false);
 
@@ -56,6 +61,7 @@ export class AlcoButton {
   protected readonly classes = computed(
     () =>
       `alco-button alco-button--${this.variant()} alco-button--${this.size()}` +
-      (this.iconOnly() ? ' alco-button--icon-only' : ''),
+      (this.iconOnly() ? ' alco-button--icon-only' : '') +
+      (this.truncate() ? ' alco-button--truncate' : ''),
   );
 }

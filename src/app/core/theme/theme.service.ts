@@ -1,55 +1,157 @@
-import { DOCUMENT, Injectable, computed, effect, inject, signal } from '@angular/core';
+import { ApplicationRef, DOCUMENT, Injectable, computed, inject, signal } from '@angular/core';
 
 /** The device's setting, or a theme chosen with the top bar's switch. */
-export type ThemeChoice = 'system' | 'light' | 'dark';
+export type ThemePreference = 'system' | 'light' | 'dark';
 
 /** The theme actually shown. */
 export type Theme = 'light' | 'dark';
 
-const KEY = 'alco.theme';
+/** A point of the window, in CSS pixels: where the reveal starts. */
+export interface RevealOrigin {
+  readonly x: number;
+  readonly y: number;
+}
+
+/** Same key as public/theme-init.js, which applies it before the first paint. */
+export const THEME_KEY = 'alco.theme';
+
+/** The circular reveal of the new theme (as Telegram's). */
+export const REVEAL_DURATION_MS = 600;
+export const REVEAL_EASING = 'cubic-bezier(0.65, 0, 0.35, 1)';
 
 /**
- * Light or dark theme: `data-theme` on `<html>` overrides `prefers-color-scheme`
- * (styles/_tokens.scss). The choice is a convenience of this browser only: kept in
- * localStorage, and the device's setting when storage is unavailable.
+ * The radius that covers the whole window from `origin`: the distance to its farthest corner.
+ */
+export function revealRadius(origin: RevealOrigin, width: number, height: number): number {
+  return Math.hypot(Math.max(origin.x, width - origin.x), Math.max(origin.y, height - origin.y));
+}
+
+/** A saved value, or `'system'` when there is none, it is not a theme, or storage fails. */
+export function readPreference(storage: Pick<Storage, 'getItem'> | null): ThemePreference {
+  try {
+    const saved = storage?.getItem(THEME_KEY);
+    return saved === 'light' || saved === 'dark' ? saved : 'system';
+  } catch {
+    return 'system';
+  }
+}
+
+/** `document.startViewTransition`, where the browser has it. */
+type TransitionStarter = (update: () => void) => { readonly ready: Promise<void> };
+
+/**
+ * Light or dark theme, one service started with the application:
+ * - the preference (`system` by default) is kept on this device (localStorage, `alco.theme`);
+ *   a storage that fails leaves `system`, without an error;
+ * - the effective theme follows the device while the preference is `system`, live;
+ * - `data-theme` on `<html>` when the user chose, none for `system` (styles/_tokens.scss).
+ *   public/theme-init.js already set it before the first paint: no flash of the other theme;
+ * - a change reveals the new theme in a circle growing from where it was asked
+ *   (View Transitions); at once when the user asks for less motion, when the browser has no
+ *   View Transitions, or when the look does not change.
  */
 @Injectable({ providedIn: 'root' })
 export class ThemeService {
   private readonly document = inject(DOCUMENT);
-  readonly choice = signal<ThemeChoice>(this.read());
+  private readonly appRef = inject(ApplicationRef);
+  private readonly window = this.document.defaultView;
+
+  private readonly preferenceState = signal<ThemePreference>(readPreference(this.storage()));
+  /** What the user chose: light, dark, or as the device. */
+  readonly preference = this.preferenceState.asReadonly();
 
   /** The device's own setting, followed while it changes. */
   private readonly deviceDark = signal(this.watchDevice());
 
-  /** The theme shown: the choice, or the device's while nothing is chosen. */
-  readonly current = computed<Theme>(() => {
-    const choice = this.choice();
-    if (choice !== 'system') {
-      return choice;
-    }
-    return this.deviceDark() ? 'dark' : 'light';
-  });
+  /** The theme shown: the preference, or the device's while it is `system`. */
+  readonly current = computed<Theme>(() => this.effectiveOf(this.preferenceState()));
+
+  readonly isDark = computed(() => this.current() === 'dark');
 
   constructor() {
-    effect(() => this.apply(this.choice()));
+    this.apply(this.preferenceState());
   }
 
-  /** The top bar's switch: the other theme than the one shown, kept as the choice. */
-  toggle(): void {
-    this.choose(this.current() === 'dark' ? 'light' : 'dark');
+  /** The top bar's switch: the other theme than the one shown, kept as the preference. */
+  toggle(origin?: RevealOrigin): void {
+    this.set(this.isDark() ? 'light' : 'dark', origin);
   }
 
-  choose(choice: ThemeChoice): void {
-    this.choice.set(choice);
+  /**
+   * Keeps and applies `preference`; the new look is revealed from `origin` (the window's
+   * centre without one).
+   */
+  set(preference: ThemePreference, origin?: RevealOrigin): void {
+    const before = this.current();
+    const update = () => this.commit(preference);
+    const start = this.transitionStarter();
+    if (!start || this.reducedMotion() || this.effectiveOf(preference) === before) {
+      update();
+      return;
+    }
+    const width = this.window?.innerWidth ?? 0;
+    const height = this.window?.innerHeight ?? 0;
+    const from = origin ?? { x: width / 2, y: height / 2 };
+    const transition = start(() => {
+      update();
+      // Drawn now, inside the capture: the switch's icon changes with the rest of the page.
+      this.appRef.tick();
+    });
+    transition.ready
+      .then(() => this.reveal(from, revealRadius(from, width, height)))
+      .catch(() => undefined);
+  }
+
+  private commit(preference: ThemePreference): void {
+    this.preferenceState.set(preference);
+    this.apply(preference);
     try {
-      localStorage.setItem(KEY, choice);
+      this.window?.localStorage.setItem(THEME_KEY, preference);
     } catch {
-      // Private window or blocked storage: the choice lasts until the page is closed.
+      // Private window or blocked storage: the preference lasts until the page is closed.
+    }
+  }
+
+  private reveal(origin: RevealOrigin, radius: number): void {
+    const at = `at ${origin.x}px ${origin.y}px`;
+    this.document.documentElement.animate(
+      { clipPath: [`circle(0px ${at})`, `circle(${radius}px ${at})`] },
+      {
+        duration: REVEAL_DURATION_MS,
+        easing: REVEAL_EASING,
+        pseudoElement: '::view-transition-new(root)',
+      },
+    );
+  }
+
+  private effectiveOf(preference: ThemePreference): Theme {
+    if (preference !== 'system') {
+      return preference;
+    }
+    return this.deviceDark() ? 'dark' : 'light';
+  }
+
+  private transitionStarter(): TransitionStarter | null {
+    const document = this.document as Document & { startViewTransition?: TransitionStarter };
+    return typeof document.startViewTransition === 'function'
+      ? document.startViewTransition.bind(document)
+      : null;
+  }
+
+  private reducedMotion(): boolean {
+    return this.window?.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false;
+  }
+
+  private storage(): Storage | null {
+    try {
+      return this.window?.localStorage ?? null;
+    } catch {
+      return null;
     }
   }
 
   private watchDevice(): boolean {
-    const query = this.document.defaultView?.matchMedia?.('(prefers-color-scheme: dark)');
+    const query = this.window?.matchMedia?.('(prefers-color-scheme: dark)');
     if (!query) {
       return false;
     }
@@ -57,21 +159,12 @@ export class ThemeService {
     return query.matches;
   }
 
-  private read(): ThemeChoice {
-    try {
-      const saved = localStorage.getItem(KEY);
-      return saved === 'light' || saved === 'dark' ? saved : 'system';
-    } catch {
-      return 'system';
-    }
-  }
-
-  private apply(choice: ThemeChoice): void {
+  private apply(preference: ThemePreference): void {
     const root = this.document.documentElement;
-    if (choice === 'system') {
-      delete root.dataset['theme'];
+    if (preference === 'system') {
+      root.removeAttribute('data-theme');
     } else {
-      root.dataset['theme'] = choice;
+      root.setAttribute('data-theme', preference);
     }
   }
 }

@@ -95,6 +95,19 @@ export class AlcoTopbar {
   ];
 
   /**
+   * The new theme is revealed from the pointer; from the keyboard (`detail` 0: no pointer),
+   * from the button's centre.
+   */
+  protected toggleTheme(event: MouseEvent): void {
+    if (event.detail === 0) {
+      const box = (event.currentTarget as HTMLElement).getBoundingClientRect();
+      this.theme.toggle({ x: box.left + box.width / 2, y: box.top + box.height / 2 });
+    } else {
+      this.theme.toggle({ x: event.clientX, y: event.clientY });
+    }
+  }
+
+  /**
    * The server gives the chosen company's permissions; the screens of the previous company
    * are rebuilt for the new one (`CompanyContextService.switchTo`, which says any failure).
    */

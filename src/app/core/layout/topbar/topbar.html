@@ -28,17 +28,15 @@
       <kbd class="search-kbd">Ctrl K</kbd>
     </button>
 
-    <!-- The theme in one click: the sun in light mode, the moon in dark mode. -->
+    <!-- The theme in one click, the icon says the action: the moon in light, the sun in dark. -->
     <button
       type="button"
       class="theme-switch"
-      [attr.aria-label]="
-        theme.current() === 'dark' ? 'Passer au thème clair' : 'Passer au thème sombre'
-      "
-      [attr.title]="theme.current() === 'dark' ? 'Thème clair' : 'Thème sombre'"
-      (click)="theme.toggle()"
+      [attr.aria-label]="theme.isDark() ? 'Passer en mode clair' : 'Passer en mode sombre'"
+      [attr.title]="theme.isDark() ? 'Mode clair' : 'Mode sombre'"
+      (click)="toggleTheme($event)"
     >
-      <alco-icon [name]="theme.current() === 'dark' ? 'moon' : 'sun'" [size]="20" />
+      <alco-icon [name]="theme.isDark() ? 'sun' : 'moon'" [size]="20" />
     </button>
 
     @if (session.activeCompany(); as company) {

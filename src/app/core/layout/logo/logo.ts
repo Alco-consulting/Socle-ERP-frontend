@@ -1,10 +1,15 @@
 import { ChangeDetectionStrategy, Component, input } from '@angular/core';
 
-/** Alco's mark (public/svg/logo-alco.svg, as provided) and its name. */
+/**
+ * Alco's mark and its name. Both versions of the mark are in the page: the light one
+ * (public/svg/logo-alco.svg, as provided) and the dark one (logo-alco-dark.svg); the global
+ * styles show the one of the theme shown (styles/_base.scss, `.logo-light` / `.logo-dark`).
+ */
 @Component({
   selector: 'alco-logo',
   template: `
-    <img class="mark" src="svg/logo-alco.svg" width="28" height="28" alt="" />
+    <img class="mark logo-light" src="svg/logo-alco.svg" width="28" height="28" alt="" />
+    <img class="mark logo-dark" src="svg/logo-alco-dark.svg" width="28" height="28" alt="" />
     <span class="wordmark">
       <span class="name">Alco</span>
       <span class="suffix">Consulting</span>

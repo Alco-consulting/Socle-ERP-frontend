@@ -46,7 +46,7 @@ test.describe('Accessibilité (axe-core, WCAG 2.1 A/AA)', () => {
     }
   }
 
-  test('le bouton de thème de la barre bascule clair / sombre et reste après un rechargement', async ({
+  test('le bouton de thème bascule clair / sombre (icône de l’action) et reste après un rechargement', async ({
     page,
   }) => {
     await page.emulateMedia({ colorScheme: 'light' });
@@ -56,12 +56,54 @@ test.describe('Accessibilité (axe-core, WCAG 2.1 A/AA)', () => {
     await expect(page.getByRole('menuitemradio', { name: 'Sombre' })).toHaveCount(0);
     await page.keyboard.press('Escape');
 
-    await page.getByRole('button', { name: 'Passer au thème sombre' }).click();
+    const toDark = page.getByRole('button', { name: 'Passer en mode sombre' });
+    await expect(toDark).toHaveAttribute('title', 'Mode sombre');
+    await toDark.click();
     await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark');
+    const toLight = page.getByRole('button', { name: 'Passer en mode clair' });
+    await expect(toLight).toHaveAttribute('title', 'Mode clair');
     await page.reload();
     await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark');
-    await page.getByRole('button', { name: 'Passer au thème clair' }).click();
+    await toLight.click();
     await expect(page.locator('html')).toHaveAttribute('data-theme', 'light');
+  });
+
+  test('au clavier, le bouton de thème bascule aussi', async ({ page }) => {
+    await page.emulateMedia({ colorScheme: 'light' });
+    await page.goto('/');
+    await page.getByRole('button', { name: 'Passer en mode sombre' }).focus();
+    await page.keyboard.press('Enter');
+    await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark');
+    await expect(page.getByRole('button', { name: 'Passer en mode clair' })).toBeFocused();
+  });
+
+  test('le thème enregistré s’applique avant Angular : pas de flash', async ({ page }) => {
+    await page.emulateMedia({ colorScheme: 'light' });
+    await page.addInitScript(() => localStorage.setItem('alco.theme', 'dark'));
+    // Angular never starts: only public/theme-init.js can set the theme.
+    await page.route(/\/(main|polyfills)[^/]*\.js(\?.*)?$/, (route) => route.abort());
+    await page.goto('/app/comptabilite/tableau-de-bord');
+    await expect(page.locator('alco-root')).toBeEmpty(); // Angular did not start
+    await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark');
+    const background = await page.evaluate(() => getComputedStyle(document.body).backgroundColor);
+    expect(background).toBe('rgb(13, 21, 32)'); // --night-950, the dark page
+  });
+
+  test('le logo du thème affiché : clair, puis sombre', async ({ page }) => {
+    await page.emulateMedia({ colorScheme: 'light' });
+    await page.goto('/');
+    const brand = page.getByRole('link', { name: /^Toutes les applications/ });
+    await expect(brand.locator('img.logo-light')).toBeVisible();
+    await expect(brand.locator('img.logo-dark')).toBeHidden();
+    await page.getByRole('button', { name: 'Passer en mode sombre' }).click();
+    await expect(brand.locator('img.logo-dark')).toBeVisible();
+    await expect(brand.locator('img.logo-light')).toBeHidden();
+    // As the device, in the dark: the dark logo too.
+    await page.evaluate(() => localStorage.removeItem('alco.theme'));
+    await page.emulateMedia({ colorScheme: 'dark' });
+    await page.reload();
+    await expect(page.locator('html')).not.toHaveAttribute('data-theme', /.+/);
+    await expect(brand.locator('img.logo-dark')).toBeVisible();
   });
 
   test('open menus and the filter panel stay accessible', async ({ page }) => {

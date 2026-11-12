@@ -62,7 +62,7 @@ test.describe('Compte → objets liés', () => {
     const total = await countOf(page, 'Écritures');
     await smart(page, 'Écritures').click();
     await expect(page).toHaveURL(/\/ecritures\/pieces\?compte=401$/);
-    await expect(rows(page)).toHaveCount(Math.min(total, 25));
+    await expect(rows(page)).toHaveCount(Math.min(total, 20)); // 20 par page par défaut
   });
 
   test('4. Compte → Grand livre → écriture → compte : une seule expérience', async ({
@@ -106,7 +106,7 @@ test.describe('Tiers → objets liés', () => {
     expect(total).toBeGreaterThan(0);
     await smart(page, 'Écritures').click();
     await expect(page).toHaveURL(/\/ecritures\/pieces\?tiers=FOU-001$/);
-    await expect(rows(page)).toHaveCount(Math.min(total, 25));
+    await expect(rows(page)).toHaveCount(Math.min(total, 20)); // 20 par page par défaut
   });
 
   test('7. Tiers → Grand livre auxiliaire ; comptes collectifs ; lettrage ; échéances', async ({

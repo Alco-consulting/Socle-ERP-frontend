@@ -113,6 +113,8 @@
 }
 
 .kpi-value {
+  // En pied de carte : les six chiffres restent alignés, même sous un libellé sur deux lignes.
+  margin-top: auto;
   overflow-wrap: anywhere;
   font-size: var(--font-size-figure);
   font-weight: var(--font-weight-bold);

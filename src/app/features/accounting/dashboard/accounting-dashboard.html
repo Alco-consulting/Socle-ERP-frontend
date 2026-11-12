@@ -24,12 +24,25 @@
         [class]="'module module--' + section.id"
         [attr.aria-labelledby]="'pilot-' + section.id"
       >
-        <h2 class="module-title" [id]="'pilot-' + section.id">{{ section.title }}</h2>
+        <h2 class="module-title" [id]="'pilot-' + section.id">
+          <span class="module-mark" aria-hidden="true">
+            <alco-icon [name]="sectionIcons[section.id] ?? 'dashboard'" [size]="16" />
+          </span>
+          {{ section.title }}
+        </h2>
         <ul class="cards" role="list" [attr.aria-label]="section.title">
           @for (card of section.cards; track card.journal.public_id) {
             @let journal = card.journal;
             <li class="card" [class]="'card--' + journal.journal_type">
               <div class="card-head">
+                @if (card.kind === 'treasury') {
+                  <span class="card-mark" aria-hidden="true">
+                    <alco-icon
+                      [name]="journal.journal_type === 'cash' ? 'inbox' : 'treasury'"
+                      [size]="18"
+                    />
+                  </span>
+                }
                 <h3 class="card-title">
                   <a
                     [routerLink]="accounting + '/ecritures/pieces'"
@@ -132,7 +145,7 @@
                 @if (account.history; as history) {
                   <alco-balance-curve
                     [points]="history"
-                    [height]="72"
+                    [height]="64"
                     [decimals]="decimals(account.currency)"
                     [currency]="account.currency"
                   />

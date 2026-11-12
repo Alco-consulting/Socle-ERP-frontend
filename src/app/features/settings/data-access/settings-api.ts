@@ -78,15 +78,15 @@ export class SettingsApi {
     return this.api.patch<Company>(`companies/${encodeURIComponent(id)}/`, changes);
   }
 
-  users(page: number): Observable<Paginated<AppUser>> {
+  users(page: number, pageSize = SETTINGS_PAGE_SIZE): Observable<Paginated<AppUser>> {
     return this.api.get<Paginated<AppUser>>('users/', {
-      params: { page, page_size: SETTINGS_PAGE_SIZE },
+      params: { page, page_size: pageSize },
     });
   }
 
-  memberships(page: number): Observable<Paginated<Membership>> {
+  memberships(page: number, pageSize = SETTINGS_PAGE_SIZE): Observable<Paginated<Membership>> {
     return this.api.get<Paginated<Membership>>('memberships/', {
-      params: { page, page_size: SETTINGS_PAGE_SIZE },
+      params: { page, page_size: pageSize },
     });
   }
 

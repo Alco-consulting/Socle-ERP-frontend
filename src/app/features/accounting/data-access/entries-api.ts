@@ -45,7 +45,7 @@ export class EntriesApi {
         date_from: query.dateFrom ?? null,
         date_to: query.dateTo ?? null,
         page: query.page && query.page > 1 ? query.page : null,
-        page_size: ENTRY_PAGE_SIZE,
+        page_size: query.pageSize ?? ENTRY_PAGE_SIZE,
       },
     });
   }

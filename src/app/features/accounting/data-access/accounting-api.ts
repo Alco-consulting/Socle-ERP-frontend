@@ -61,7 +61,7 @@ export class AccountingApi {
         status: query.status ?? null,
         journal_type: query.journalType ?? null,
         page: query.page && query.page > 1 ? query.page : null,
-        page_size: JOURNAL_PAGE_SIZE,
+        page_size: query.pageSize ?? JOURNAL_PAGE_SIZE,
       },
     });
   }
@@ -152,7 +152,7 @@ export class AccountingApi {
         postable: query.postable ?? null,
         code_prefix: query.codePrefix || null,
         page: query.page && query.page > 1 ? query.page : null,
-        page_size: ACCOUNT_PAGE_SIZE,
+        page_size: query.pageSize ?? ACCOUNT_PAGE_SIZE,
       },
     });
   }

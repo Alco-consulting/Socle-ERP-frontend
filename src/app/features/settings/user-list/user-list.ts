@@ -17,8 +17,9 @@ import { AlcoEmptyState } from '../../../shared/ui/empty-state/empty-state';
 import { AlcoErrorState } from '../../../shared/ui/error-state/error-state';
 import { AlcoLoading } from '../../../shared/ui/loading/loading';
 import { AlcoPageHeader } from '../../../shared/ui/page-header/page-header';
+import { listPaging } from '../../../shared/ui/pagination/page-size';
 import { AlcoPagination } from '../../../shared/ui/pagination/pagination';
-import { AppUser, SETTINGS_PAGE_SIZE, SettingsApi } from '../data-access/settings-api';
+import { AppUser, SettingsApi } from '../data-access/settings-api';
 import { SETTINGS_ERRORS, initials, personName } from '../settings-presentation';
 
 /**
@@ -46,7 +47,6 @@ export class UserListPage {
   private readonly router = inject(Router);
   private readonly route = inject(ActivatedRoute);
 
-  protected readonly pageSize = SETTINGS_PAGE_SIZE;
   protected readonly name = personName;
   protected readonly initials = initials;
   protected readonly columns: readonly TableColumn[] = [
@@ -61,9 +61,14 @@ export class UserListPage {
     initialValue: this.route.snapshot.queryParamMap,
   });
   protected readonly page = computed(() => Math.max(1, Number(this.params().get('page')) || 1));
-  protected readonly list = requestState(() => this.api.users(untracked(this.page)), {
-    immediate: false,
-  });
+  /** 20 par page par défaut ; 40, 50 ou 100 au choix, dans l'adresse et retenu. */
+  protected readonly paging = listPaging(this.params);
+  protected readonly list = requestState(
+    () => this.api.users(untracked(this.page), untracked(this.paging.size)),
+    {
+      immediate: false,
+    },
+  );
   protected readonly rows = computed(() => this.list.value()?.results ?? []);
   protected readonly failure = computed(() => {
     const error = this.list.error();
@@ -73,6 +78,7 @@ export class UserListPage {
   constructor() {
     effect(() => {
       this.page();
+      this.paging.size();
       untracked(() => this.list.reload());
     });
   }
@@ -81,6 +87,14 @@ export class UserListPage {
     void this.router.navigate([], {
       relativeTo: this.route,
       queryParams: { page: page > 1 ? page : null },
+      queryParamsHandling: 'merge',
+    });
+  }
+
+  protected setPageSize(size: number): void {
+    void this.router.navigate([], {
+      relativeTo: this.route,
+      queryParams: this.paging.choose(size, 'page'),
       queryParamsHandling: 'merge',
     });
   }

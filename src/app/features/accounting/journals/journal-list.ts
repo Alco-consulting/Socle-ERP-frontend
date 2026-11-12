@@ -24,6 +24,7 @@ import { AlcoEmptyState } from '../../../shared/ui/empty-state/empty-state';
 import { AlcoErrorState } from '../../../shared/ui/error-state/error-state';
 import { AlcoLoading } from '../../../shared/ui/loading/loading';
 import { AlcoPageHeader } from '../../../shared/ui/page-header/page-header';
+import { listPaging } from '../../../shared/ui/pagination/page-size';
 import { AlcoPagination } from '../../../shared/ui/pagination/pagination';
 import { AlcoToastService } from '../../../shared/ui/toast/toast.service';
 import {
@@ -33,7 +34,7 @@ import {
   journalTypeLabel,
 } from '../accounting-presentation';
 import { ActiveInactive, Journal, JournalType } from '../data-access/accounting-models';
-import { AccountingApi, JOURNAL_PAGE_SIZE } from '../data-access/accounting-api';
+import { AccountingApi } from '../data-access/accounting-api';
 
 const PARAM = { type: 'type', status: 'etat', code: 'code', page: 'page' } as const;
 const STATUSES: readonly ActiveInactive[] = ['active', 'inactive'];
@@ -75,7 +76,6 @@ export class JournalListPage {
 
   protected readonly types = JOURNAL_TYPES;
   protected readonly statuses = STATUSES.map((id) => ({ id, label: RECORD_STATUS[id].label }));
-  protected readonly pageSize = JOURNAL_PAGE_SIZE;
   protected readonly typeLabel = journalTypeLabel;
   protected readonly canManage = computed(() => this.session.can('accounting.manage_journals'));
 
@@ -107,6 +107,8 @@ export class JournalListPage {
   });
   protected readonly code = computed(() => this.params().get(PARAM.code)?.trim() || null);
   protected readonly page = computed(() => Math.max(1, Number(this.params().get(PARAM.page)) || 1));
+  /** 20 par page par défaut ; 40, 50 ou 100 au choix, dans l'adresse et retenu. */
+  protected readonly paging = listPaging(this.params);
 
   protected readonly activeFilterCount = computed(
     () => [this.type(), this.status(), this.code()].filter(Boolean).length,
@@ -116,6 +118,7 @@ export class JournalListPage {
     status: this.status(),
     code: this.code(),
     page: this.page(),
+    pageSize: this.paging.size(),
   }));
   protected readonly list = requestState(() => this.api.journals(untracked(this.query)), {
     immediate: false,
@@ -219,6 +222,10 @@ export class JournalListPage {
 
   protected setPage(page: number): void {
     this.navigate({ [PARAM.page]: page > 1 ? page : null });
+  }
+
+  protected setPageSize(size: number): void {
+    this.navigate(this.paging.choose(size, PARAM.page));
   }
 
   protected open(journal: Journal): void {

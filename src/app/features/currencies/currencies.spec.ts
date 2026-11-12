@@ -151,7 +151,8 @@ describe('Devises (currencies/): as Odoo shows them', () => {
     const list = catalogue();
     // The catalogue is shared: no company header.
     expect(list.request.headers.has('X-Company-ID')).toBe(false);
-    expect(list.request.params.get('page_size')).toBe('80');
+    // 20 par page par défaut, comme toutes les listes.
+    expect(list.request.params.get('page_size')).toBe('20');
     list.flush(page([GNF, EUR, USD, CHF], 170));
     current().flush([
       rate('EUR', '9400.000000000000', '2026-02-27'),

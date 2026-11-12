@@ -54,6 +54,7 @@ export interface OperationFilters {
   readonly reference?: string | null;
   readonly reconciled?: boolean | null;
   readonly page?: number;
+  readonly pageSize?: number;
 }
 
 /** Page size of the treasury lists (accounts, operations, transfers, statements, lines). */
@@ -178,7 +179,7 @@ export class TreasuryApi {
         reference: filters.reference ?? null,
         reconciled: flag(filters.reconciled),
         page: page(filters.page),
-        page_size: TREASURY_PAGE_SIZE,
+        page_size: filters.pageSize ?? TREASURY_PAGE_SIZE,
       },
     });
   }
@@ -247,9 +248,9 @@ export class TreasuryApi {
 
   // ---- Transfers -------------------------------------------------------------------------
 
-  transfers(pageNumber = 1): Observable<Paginated<Transfer>> {
+  transfers(pageNumber = 1, pageSize = TREASURY_PAGE_SIZE): Observable<Paginated<Transfer>> {
     return this.api.get<Paginated<Transfer>>('treasury/transfers/', {
-      params: { page: page(pageNumber), page_size: TREASURY_PAGE_SIZE },
+      params: { page: page(pageNumber), page_size: pageSize },
     });
   }
 
@@ -289,13 +290,14 @@ export class TreasuryApi {
     account?: string | null;
     status?: 'open' | 'closed' | null;
     page?: number;
+    pageSize?: number;
   }): Observable<Paginated<Statement>> {
     return this.api.get<Paginated<Statement>>('treasury/statements/', {
       params: {
         account: filters.account ?? null,
         status: filters.status ?? null,
         page: page(filters.page),
-        page_size: TREASURY_PAGE_SIZE,
+        page_size: filters.pageSize ?? TREASURY_PAGE_SIZE,
       },
     });
   }

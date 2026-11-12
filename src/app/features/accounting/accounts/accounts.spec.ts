@@ -176,7 +176,22 @@ describe('Plan comptable (accounting/accounts/)', () => {
     expect(params.get('account_type')).toBe('liability');
     expect(params.has('postable')).toBe(false);
     expect(params.get('page')).toBe('3');
-    expect(params.get('page_size')).toBe('50');
+    // 20 par page par défaut, comme toutes les listes.
+    expect(params.get('page_size')).toBe('20');
+    request.flush(page([], 0));
+  });
+
+  it('liste : la taille choisie dans l’adresse va au serveur ; une taille inventée vaut 20', async () => {
+    const chosen = await open('/plan-comptable?par_page=100');
+    const request = chosen.accounts();
+    expect(request.request.params.get('page_size')).toBe('100');
+    request.flush(page([], 0));
+  });
+
+  it('liste : une taille hors de 20, 40, 50, 100 revient à 20', async () => {
+    const invented = await open('/plan-comptable?par_page=25');
+    const request = invented.accounts();
+    expect(request.request.params.get('page_size')).toBe('20');
     request.flush(page([], 0));
   });
 

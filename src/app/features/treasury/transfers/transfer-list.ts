@@ -22,11 +22,12 @@ import { AlcoEmptyState } from '../../../shared/ui/empty-state/empty-state';
 import { AlcoErrorState } from '../../../shared/ui/error-state/error-state';
 import { AlcoLoading } from '../../../shared/ui/loading/loading';
 import { AlcoPageHeader } from '../../../shared/ui/page-header/page-header';
+import { listPaging } from '../../../shared/ui/pagination/page-size';
 import { AlcoPagination } from '../../../shared/ui/pagination/pagination';
 import { isoDay } from '../../accounting/entries/entry-presentation';
 import { PartnersApi } from '../../partners/data-access/partners-api';
 import { Transfer } from '../data-access/reconciliation-models';
-import { TREASURY_PAGE_SIZE, TreasuryApi } from '../data-access/treasury-api';
+import { TreasuryApi } from '../data-access/treasury-api';
 import { OPERATION_STATUS, TREASURY_ERRORS } from '../treasury-presentation';
 
 /**
@@ -60,7 +61,6 @@ export class TreasuryTransferListPage {
   private readonly route = inject(ActivatedRoute);
   protected readonly session = inject(SessionStore);
 
-  protected readonly pageSize = TREASURY_PAGE_SIZE;
   protected readonly day = isoDay;
   protected readonly canCreate = computed(() => this.session.can('treasury.create'));
   protected readonly columns: readonly TableColumn[] = [
@@ -77,9 +77,14 @@ export class TreasuryTransferListPage {
     initialValue: this.route.snapshot.queryParamMap,
   });
   protected readonly page = computed(() => Math.max(1, Number(this.params().get('page')) || 1));
-  protected readonly list = requestState(() => this.api.transfers(untracked(this.page)), {
-    immediate: false,
-  });
+  /** 20 par page par défaut ; 40, 50 ou 100 au choix, dans l'adresse et retenu. */
+  protected readonly paging = listPaging(this.params);
+  protected readonly list = requestState(
+    () => this.api.transfers(untracked(this.page), untracked(this.paging.size)),
+    {
+      immediate: false,
+    },
+  );
   protected readonly rows = computed(() => this.list.value()?.results ?? []);
   protected readonly failure = computed(() => {
     const error = this.list.error();
@@ -97,6 +102,7 @@ export class TreasuryTransferListPage {
       .subscribe((decimals) => this.decimals.set(decimals));
     effect(() => {
       this.page();
+      this.paging.size();
       untracked(() => this.list.reload());
     });
     effect(() => {
@@ -130,6 +136,10 @@ export class TreasuryTransferListPage {
 
   protected setPage(page: number): void {
     this.navigate({ page: page > 1 ? page : null });
+  }
+
+  protected setPageSize(size: number): void {
+    this.navigate(this.paging.choose(size, 'page'));
   }
 
   protected open(transfer: Transfer): void {

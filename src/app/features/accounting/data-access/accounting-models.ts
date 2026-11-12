@@ -149,6 +149,7 @@ export interface AccountQuery {
   /** The code starts with these characters (the chart browsed by its codes). */
   readonly codePrefix?: string | null;
   readonly page?: number;
+  readonly pageSize?: number;
 }
 
 /** Server-side filters of `GET accounting/journals/` (no text search in the API). */
@@ -157,6 +158,7 @@ export interface JournalQuery {
   readonly status?: ActiveInactive | null;
   readonly journalType?: JournalType | null;
   readonly page?: number;
+  readonly pageSize?: number;
 }
 
 /** `EntryStatus` of the API (for the counts of the dashboard only). */

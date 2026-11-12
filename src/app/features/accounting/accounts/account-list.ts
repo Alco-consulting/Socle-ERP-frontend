@@ -26,6 +26,7 @@ import { AlcoErrorState } from '../../../shared/ui/error-state/error-state';
 import { AlcoIcon } from '../../../shared/ui/icon/icon';
 import { AlcoLoading } from '../../../shared/ui/loading/loading';
 import { AlcoPageHeader } from '../../../shared/ui/page-header/page-header';
+import { listPaging } from '../../../shared/ui/pagination/page-size';
 import { AlcoPagination } from '../../../shared/ui/pagination/pagination';
 import { AlcoToastService } from '../../../shared/ui/toast/toast.service';
 import { AlcoDomainTransfers } from '../../transfers/domain-transfers';
@@ -37,7 +38,7 @@ import {
   accountTypeText,
 } from '../accounting-presentation';
 import { Account, AccountType, ActiveInactive } from '../data-access/accounting-models';
-import { ACCOUNT_PAGE_SIZE, AccountingApi } from '../data-access/accounting-api';
+import { AccountingApi } from '../data-access/accounting-api';
 import { ACCOUNT_TRANSFER } from './account-transfer';
 
 const PARAM = {
@@ -95,7 +96,6 @@ export class AccountListPage {
   protected readonly types = ACCOUNT_TYPES;
   protected readonly statuses = STATUSES.map((id) => ({ id, label: RECORD_STATUS[id].label }));
   protected readonly groupOptions = GROUP_OPTIONS;
-  protected readonly pageSize = ACCOUNT_PAGE_SIZE;
   protected readonly typeText = accountTypeText;
   protected readonly canManage = computed(() => this.session.can('accounting.manage_accounts'));
   /** « Actions ▾ › Importer des comptes » (`accounting.accounts`): flat, checked by the server. */
@@ -136,6 +136,8 @@ export class AccountListPage {
       : null,
   );
   protected readonly page = computed(() => Math.max(1, Number(this.params().get(PARAM.page)) || 1));
+  /** 20 par page par défaut ; 40, 50 ou 100 au choix, dans l'adresse et retenu. */
+  protected readonly paging = listPaging(this.params);
   /** The code prefix chosen in the panel (`?prefixe=16`): a filter, never a hierarchy. */
   protected readonly prefix = computed(() => {
     const value = this.params().get(PARAM.prefix)?.trim() ?? '';
@@ -181,6 +183,7 @@ export class AccountListPage {
     accountType: this.type(),
     codePrefix: this.prefix(),
     page: this.page(),
+    pageSize: this.paging.size(),
   }));
   protected readonly list = requestState(() => this.api.accounts(untracked(this.query)), {
     immediate: false,
@@ -345,6 +348,10 @@ export class AccountListPage {
 
   protected setPage(page: number): void {
     this.navigate({ [PARAM.page]: page > 1 ? page : null });
+  }
+
+  protected setPageSize(size: number): void {
+    this.navigate(this.paging.choose(size, PARAM.page));
   }
 
   protected open(account: Account): void {

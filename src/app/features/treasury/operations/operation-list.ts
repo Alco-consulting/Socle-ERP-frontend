@@ -26,6 +26,7 @@ import { AlcoEmptyState } from '../../../shared/ui/empty-state/empty-state';
 import { AlcoErrorState } from '../../../shared/ui/error-state/error-state';
 import { AlcoLoading } from '../../../shared/ui/loading/loading';
 import { AlcoPageHeader } from '../../../shared/ui/page-header/page-header';
+import { listPaging } from '../../../shared/ui/pagination/page-size';
 import { AlcoPagination } from '../../../shared/ui/pagination/pagination';
 import { isoDay } from '../../accounting/entries/entry-presentation';
 import { PartnersApi } from '../../partners/data-access/partners-api';
@@ -35,7 +36,7 @@ import {
   OperationType,
   TreasuryOperation,
 } from '../data-access/reconciliation-models';
-import { TREASURY_PAGE_SIZE, TreasuryApi } from '../data-access/treasury-api';
+import { TreasuryApi } from '../data-access/treasury-api';
 import {
   DIRECTIONS,
   OPERATION_STATUS,
@@ -98,7 +99,6 @@ export class TreasuryOperationListPage {
   protected readonly types = OPERATION_TYPES;
   protected readonly directions = DIRECTION_IDS.map((id) => ({ id, label: DIRECTIONS[id] }));
   protected readonly statuses = STATUSES.map((id) => ({ id, label: OPERATION_STATUS[id].label }));
-  protected readonly pageSize = TREASURY_PAGE_SIZE;
   protected readonly day = isoDay;
   protected readonly typeLabel = operationTypeLabel;
   protected readonly canCreate = computed(() => this.session.can('treasury.create'));
@@ -140,6 +140,8 @@ export class TreasuryOperationListPage {
     return value === 'oui' ? true : value === 'non' ? false : null;
   });
   protected readonly page = computed(() => Math.max(1, Number(this.params().get(PARAM.page)) || 1));
+  /** 20 par page par défaut ; 40, 50 ou 100 au choix, dans l'adresse et retenu. */
+  protected readonly paging = listPaging(this.params);
   protected readonly activeFilterCount = computed(
     () =>
       [
@@ -180,6 +182,7 @@ export class TreasuryOperationListPage {
       reference: this.reference(),
       reconciled: this.reconciled(),
       page: this.page(),
+      pageSize: this.paging.size(),
     };
   });
   protected readonly list = requestState(() => this.api.operations(untracked(this.query) ?? {}), {
@@ -270,6 +273,10 @@ export class TreasuryOperationListPage {
 
   protected setPage(page: number): void {
     this.navigate({ [PARAM.page]: page > 1 ? page : null });
+  }
+
+  protected setPageSize(size: number): void {
+    this.navigate(this.paging.choose(size, PARAM.page));
   }
 
   protected open(operation: TreasuryOperation): void {

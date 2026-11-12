@@ -51,13 +51,51 @@ test.describe('Vue liste : filtres, regroupement, recherche, état dans l’URL'
 
   test('pages come from the server; back keeps the page', async ({ page }) => {
     await page.goto('/app/comptabilite/ecritures/pieces');
-    await expect(page.getByText(/1–25\s*sur\s*48/)).toBeVisible();
+    await expect(page.getByText(/1–20\s*sur\s*48/)).toBeVisible();
     await page.getByRole('button', { name: 'Page suivante' }).click();
-    await expect(page.getByText(/26–48\s*sur\s*48/)).toBeVisible();
+    await expect(page.getByText(/21–40\s*sur\s*48/)).toBeVisible();
     await page.locator('tbody a').first().click();
     await expect(page).toHaveURL(/\/ecritures\/[\w-]+$/);
     await page.goBack();
     await expect(page).toHaveURL(/page=2/);
-    await expect(page.getByText(/26–48\s*sur\s*48/)).toBeVisible();
+    await expect(page.getByText(/21–40\s*sur\s*48/)).toBeVisible();
+  });
+
+  test('taille de page : 20 par défaut, 40, 50 ou 100 au choix, gardée et reprise ailleurs', async ({
+    page,
+    api,
+  }) => {
+    await page.goto('/app/comptabilite/ecritures/pieces?page=2');
+    const size = page.getByRole('combobox', { name: 'Lignes par page' });
+    await expect(size).toHaveValue('20');
+    await expect(page.getByText('Page 2 sur 3')).toBeVisible();
+
+    // Une autre taille : dans l'adresse, demandée au serveur, et la liste repart de la page 1.
+    await size.selectOption('50');
+    await expect(page).toHaveURL(/par_page=50/);
+    await expect(page).not.toHaveURL(/page=2/);
+    await expect(page.getByText(/1–48\s*sur\s*48/)).toBeVisible();
+    const last = api.callsTo('accounting/entries/').at(-1)!;
+    expect(new URL(last.url()).searchParams.get('page_size')).toBe('50');
+    // Une seule page : pas de navigation inutile.
+    await expect(page.getByRole('button', { name: 'Page suivante' })).toHaveCount(0);
+
+    // Gardée au rechargement, et reprise par une autre liste sur cet appareil.
+    await page.reload();
+    await expect(size).toHaveValue('50');
+    await page.goto('/app/contacts/liste');
+    await expect(page.getByRole('combobox', { name: 'Lignes par page' })).toHaveValue('50');
+    const contacts = api.callsTo('partners/').at(-1)!;
+    expect(new URL(contacts.url()).searchParams.get('page_size')).toBe('50');
+  });
+
+  test('pagination : première et dernière page', async ({ page }) => {
+    await page.goto('/app/comptabilite/ecritures/pieces');
+    await page.getByRole('button', { name: 'Dernière page' }).click();
+    await expect(page).toHaveURL(/page=3/);
+    await expect(page.getByText(/41–48\s*sur\s*48/)).toBeVisible();
+    await page.getByRole('button', { name: 'Première page' }).click();
+    await expect(page).not.toHaveURL(/page=/);
+    await expect(page.getByText(/1–20\s*sur\s*48/)).toBeVisible();
   });
 });

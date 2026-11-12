@@ -90,6 +90,7 @@ export interface ProductQuery {
   readonly search?: string;
   readonly status?: RecordStatus | null;
   readonly page?: number;
+  readonly pageSize?: number;
 }
 
 export type InvoiceKind =
@@ -222,6 +223,7 @@ export interface InvoiceQuery {
   readonly status?: InvoiceStatus | null;
   readonly search?: string;
   readonly page?: number;
+  readonly pageSize?: number;
 }
 
 /** `InvoicingPreviewRequest`: the draft as typed (note backend 0041). */

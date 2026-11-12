@@ -36,6 +36,7 @@ export interface CurrencyQuery {
   readonly search?: string;
   readonly status?: CurrencyStatus | null;
   readonly page?: number;
+  readonly pageSize?: number;
 }
 
 /**

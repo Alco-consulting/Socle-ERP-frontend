@@ -122,6 +122,7 @@ export interface EntryQuery {
   readonly dateFrom?: string | null;
   readonly dateTo?: string | null;
   readonly page?: number;
+  readonly pageSize?: number;
 }
 
 /** The commands of the workflow (`POST accounting/entries/{id}/<command>/`). */

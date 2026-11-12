@@ -37,6 +37,7 @@ const PAGE_SIZE = DOCUMENT_PAGE_SIZE;
 /** The documents list's criteria (`GET documents/`). */
 export interface DocumentQuery {
   readonly page: number;
+  readonly pageSize?: number;
   readonly search: string;
   readonly status: Exclude<DocumentStatus, 'pending' | 'failed'> | null;
   readonly resourceType: string | null;
@@ -55,7 +56,7 @@ export class DocumentsApi {
     return this.api.get<Paginated<StoredDocument>>('documents/', {
       params: {
         page: query.page,
-        page_size: PAGE_SIZE,
+        page_size: query.pageSize ?? PAGE_SIZE,
         ...(query.search ? { search: query.search } : {}),
         ...(query.status ? { status: query.status } : {}),
         ...(query.resourceType ? { resource_type: query.resourceType } : {}),

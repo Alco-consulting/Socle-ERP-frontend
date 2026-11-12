@@ -91,6 +91,9 @@ export const ICONS = {
   'chevron-up': ['M6 15l6-6 6 6'],
   'chevron-right': ['M9 6l6 6-6 6'],
   'chevron-left': ['M15 6l-6 6 6 6'],
+  // Première et dernière page d'une liste.
+  'chevrons-left': ['M12 6l-6 6 6 6', 'M18 6l-6 6 6 6'],
+  'chevrons-right': ['M6 6l6 6-6 6', 'M12 6l6 6-6 6'],
   'arrow-left': ['M19 12H5', 'M11 6l-6 6 6 6'],
   'arrow-up': ['M12 19V5', 'M6 11l6-6 6 6'],
   'arrow-down': ['M12 5v14', 'M6 13l6 6 6-6'],

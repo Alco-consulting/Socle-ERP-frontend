@@ -26,7 +26,7 @@ import { AlcoIcon } from '../icon/icon';
       display: flex;
       flex-direction: column;
       width: min(480px, 100%);
-      border-radius: var(--radius-lg);
+      border-radius: var(--radius-xl);
       background: var(--color-surface);
       box-shadow: var(--shadow-lg);
     }
@@ -61,7 +61,7 @@ import { AlcoIcon } from '../icon/icon';
       padding: var(--space-3) var(--space-5);
       border-top: var(--border-width) solid var(--color-border);
       background: var(--color-surface-muted);
-      border-radius: 0 0 var(--radius-lg) var(--radius-lg);
+      border-radius: 0 0 var(--radius-xl) var(--radius-xl);
     }
   `,
   changeDetection: ChangeDetectionStrategy.OnPush,

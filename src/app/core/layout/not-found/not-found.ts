@@ -21,6 +21,23 @@ import { AlcoTopbar } from '../topbar/topbar';
       </alco-empty-state>
     </main>
   `,
+  styles: `
+    main {
+      display: flex;
+      justify-content: center;
+      padding: max(var(--space-7), 12vh) var(--page-gutter) var(--space-8);
+    }
+    main:focus {
+      outline: none;
+    }
+    alco-empty-state {
+      width: min(32rem, 100%);
+      border: var(--border-width) solid var(--color-border);
+      border-radius: var(--radius-xl);
+      background: var(--color-surface);
+      box-shadow: var(--shadow-md);
+    }
+  `,
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class NotFoundPage {}

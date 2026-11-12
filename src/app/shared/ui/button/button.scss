@@ -113,8 +113,8 @@ alco-icon,
   flex: none;
 }
 
-// A long label (a filter's summary) ends with « … » rather than widen the page.
-.label {
+// Un libellé long (le résumé d'un filtre) finit par « … » : seulement sur demande (`truncate`).
+:host(.alco-button--truncate) .label {
   min-width: 0;
   overflow: hidden;
   line-height: var(--line-height-tight);

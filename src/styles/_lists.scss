@@ -1,6 +1,6 @@
-// A list: its bench (`.control-panel.alco-bench`: states, search, filters) on its plate, its
-// register (`alco-table`, under the navy rule), then its foot (`.list-foot`: how many, which
-// page) closing the register. Global because the table and the foot belong to different
+// A list: its bench (`.control-panel.alco-bench`: states, search, filters) under its plate,
+// its register (`alco-table`, a rounded card), then its foot (`.list-foot`: how many, which
+// page) right under the register. Global because the table and the foot belong to different
 // components.
 
 .list-foot {
@@ -8,11 +8,9 @@
   flex-wrap: wrap;
   align-items: center;
   gap: var(--space-2) var(--space-4);
-  // The page's own gap is taken back: the foot closes the register.
-  margin-top: calc(-1 * var(--space-4));
-  padding: var(--space-2) var(--space-4);
-  border-top: 2px solid var(--color-rule-strong);
-  background: var(--color-surface);
+  // Closer to the register it counts than the page's own gap.
+  margin-top: calc(-1 * var(--space-2));
+  padding: 0 var(--space-1);
 
   .alco-caption {
     margin: 0;

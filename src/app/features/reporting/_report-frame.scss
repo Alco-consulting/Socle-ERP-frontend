@@ -69,13 +69,14 @@
   color: var(--color-warning-text);
 }
 
-// The sheet: a module, centred, as wide as its columns, under the navy rule.
+// The sheet: a module, centred, as wide as its columns, a rounded card.
 .sheet {
   align-self: center;
   max-width: 100%;
   padding: var(--space-5) var(--space-6);
-  border-top: 3px solid var(--color-rule-strong);
-  border-radius: var(--radius-md);
+  border: var(--border-width) solid var(--color-border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
   background: var(--color-surface);
   transition: opacity var(--duration-fast) var(--easing-standard);
 

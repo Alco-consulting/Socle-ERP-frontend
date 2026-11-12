@@ -23,7 +23,7 @@ const SCREENS = [
 ];
 
 test.describe('Accessibilité (axe-core, WCAG 2.1 A/AA)', () => {
-  // Both themes: the dark one is the device's choice or the account menu's (styles/_tokens.scss).
+  // Both themes: the dark one is the device's choice or the top bar's switch (styles/_tokens.scss).
   for (const [scheme, suffix] of [
     ['light', ''],
     ['dark', ' (sombre)'],
@@ -46,22 +46,22 @@ test.describe('Accessibilité (axe-core, WCAG 2.1 A/AA)', () => {
     }
   }
 
-  test('le thème choisi dans le menu du compte s’applique et reste après un rechargement', async ({
+  test('le bouton de thème de la barre bascule clair / sombre et reste après un rechargement', async ({
     page,
   }) => {
+    await page.emulateMedia({ colorScheme: 'light' });
     await page.goto('/');
+    // The theme is no longer in the account menu.
     await page.getByRole('button', { name: /^Compte de / }).click();
-    await page.getByRole('menuitemradio', { name: 'Sombre' }).click();
+    await expect(page.getByRole('menuitemradio', { name: 'Sombre' })).toHaveCount(0);
+    await page.keyboard.press('Escape');
+
+    await page.getByRole('button', { name: 'Passer au thème sombre' }).click();
     await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark');
     await page.reload();
     await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark');
-    await page.getByRole('button', { name: /^Compte de / }).click();
-    await expect(page.getByRole('menuitemradio', { name: 'Sombre' })).toHaveAttribute(
-      'aria-checked',
-      'true',
-    );
-    await page.getByRole('menuitemradio', { name: 'Comme l’appareil' }).click();
-    await expect(page.locator('html')).not.toHaveAttribute('data-theme', /.+/);
+    await page.getByRole('button', { name: 'Passer au thème clair' }).click();
+    await expect(page.locator('html')).toHaveAttribute('data-theme', 'light');
   });
 
   test('open menus and the filter panel stay accessible', async ({ page }) => {

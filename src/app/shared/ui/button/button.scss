@@ -3,6 +3,7 @@
   align-items: center;
   justify-content: center;
   gap: var(--space-2);
+  max-width: 100%;
   height: var(--control-height);
   padding: 0 var(--space-4);
   border: var(--border-width) solid transparent;
@@ -17,7 +18,13 @@
   transition:
     background-color var(--duration-fast) var(--easing-standard),
     border-color var(--duration-fast) var(--easing-standard),
-    color var(--duration-fast) var(--easing-standard);
+    box-shadow var(--duration-fast) var(--easing-standard),
+    color var(--duration-fast) var(--easing-standard),
+    transform var(--duration-fast) var(--easing-standard);
+
+  &:active {
+    transform: translateY(1px);
+  }
 }
 
 :host(.alco-button--sm) {
@@ -35,11 +42,12 @@
   width: var(--control-height-sm);
 }
 
-// The main action: the logo's amber, navy text.
+// The main action: the logo's navy, white text (white with navy text on a plate).
 :host(.alco-button--primary) {
   background: var(--color-action);
+  box-shadow: var(--shadow-action);
   color: var(--color-text-on-action);
-  font-weight: var(--font-weight-bold);
+  font-weight: var(--font-weight-semibold);
 
   &:hover,
   &:active {
@@ -50,7 +58,7 @@
 :host(.alco-button--secondary) {
   background: var(--color-surface);
   border-color: var(--color-border);
-  box-shadow: var(--shadow-sm);
+  box-shadow: var(--shadow-xs);
   color: var(--color-text);
 
   &:hover {
@@ -98,6 +106,19 @@
 
 :host([aria-busy='true']) {
   opacity: 0.85;
+}
+
+alco-icon,
+.spinner {
+  flex: none;
+}
+
+// A long label (a filter's summary) ends with « … » rather than widen the page.
+.label {
+  min-width: 0;
+  overflow: hidden;
+  line-height: var(--line-height-tight);
+  text-overflow: ellipsis;
 }
 
 .spinner {

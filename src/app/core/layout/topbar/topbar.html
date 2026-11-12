@@ -28,6 +28,19 @@
       <kbd class="search-kbd">Ctrl K</kbd>
     </button>
 
+    <!-- The theme in one click: the sun in light mode, the moon in dark mode. -->
+    <button
+      type="button"
+      class="theme-switch"
+      [attr.aria-label]="
+        theme.current() === 'dark' ? 'Passer au thème clair' : 'Passer au thème sombre'
+      "
+      [attr.title]="theme.current() === 'dark' ? 'Thème clair' : 'Thème sombre'"
+      (click)="theme.toggle()"
+    >
+      <alco-icon [name]="theme.current() === 'dark' ? 'moon' : 'sun'" [size]="20" />
+    </button>
+
     @if (session.activeCompany(); as company) {
       <alco-dropdown
         trigger="topbar"
@@ -82,7 +95,7 @@
         [subheading]="user.email"
         [ariaLabel]="'Compte de ' + user.displayName"
         [showChevron]="false"
-        [items]="userItems()"
+        [items]="userItems"
         (selected)="onUserSelected($event)"
       >
         <span class="avatar" aria-hidden="true">{{ session.initials() }}</span>

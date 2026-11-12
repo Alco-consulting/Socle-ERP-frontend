@@ -23,12 +23,22 @@ html {
 body {
   margin: 0;
   min-height: 100vh;
-  background: var(--color-bg);
+  background:
+    var(--gradient-page) no-repeat,
+    var(--color-bg);
   color: var(--color-text);
   font-family: var(--font-family-base);
   font-size: var(--font-size-body);
+  font-feature-settings: var(--font-features);
   line-height: var(--line-height-base);
   -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+}
+
+::selection {
+  background: var(--color-primary-soft);
+  color: var(--color-text);
 }
 
 h1,
@@ -65,6 +75,7 @@ textarea {
 
 a {
   color: var(--color-primary-text);
+  text-underline-offset: 0.18em;
 }
 
 // ---- Focus: always visible for keyboard users, never for mouse clicks ---------------
@@ -75,6 +86,7 @@ a {
 :focus-visible {
   outline: var(--focus-ring-width) solid var(--color-focus-ring);
   outline-offset: var(--focus-ring-offset);
+  border-radius: var(--radius-xs);
 }
 
 // ---- Typography scale (5 levels + dashboard figure) ---------------------------------
@@ -82,13 +94,15 @@ a {
   font-size: var(--font-size-page-title);
   font-weight: var(--font-weight-bold);
   font-stretch: var(--font-stretch-wide);
+  letter-spacing: var(--letter-spacing-title);
   line-height: var(--line-height-tight);
 }
 
 .alco-section-title {
   font-size: var(--font-size-section-title);
-  font-weight: var(--font-weight-bold);
+  font-weight: var(--font-weight-semibold);
   font-stretch: var(--font-stretch-wide);
+  letter-spacing: -0.011em;
   line-height: var(--line-height-tight);
 }
 
@@ -110,16 +124,21 @@ a {
   font-variant-numeric: tabular-nums;
 }
 
-// ---- The plate: a screen's title, state and key figures on the logo's navy -----------
-// The whole width, to the window's edges (no scroll added); what sits on it takes its tones.
+// ---- The plate: a screen's title, state and key figures on the logo's gradient ---------
+// A rounded card at the top of the screen, the logo's « C » faint in its corner; what sits on
+// it takes its tones (white text, the main action in white).
 .alco-plate {
-  padding: var(--space-5) 0;
-  background: var(--color-plate);
-  box-shadow: 0 0 0 100vmax var(--color-plate);
-  clip-path: inset(0 -100vmax);
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  padding: var(--space-5) var(--space-6);
+  border-radius: var(--radius-xl);
+  background: var(--gradient-plate);
+  box-shadow: var(--shadow-brand);
   color: var(--color-plate-text);
   --color-text: var(--color-plate-text);
   --color-text-muted: var(--color-plate-muted);
+  --color-text-subtle: var(--color-plate-muted);
   --color-surface: transparent;
   --color-surface-muted: var(--color-plate-hover);
   --color-surface-sunken: var(--color-plate-hover);
@@ -127,20 +146,55 @@ a {
   --color-border-strong: var(--color-plate-muted);
   --color-primary-text: var(--color-plate-text);
   --color-focus-ring: var(--color-plate-accent);
+  // The main action on the plate: white, navy text.
+  --color-action: var(--color-plate-text);
+  --color-action-hover: var(--navy-100);
+  --color-text-on-action: var(--navy-700);
+  --shadow-action: none;
+  --shadow-sm: none;
+
+  // The logo's « C »: a wide ring, open on its right, faint in the top right corner.
+  &::before {
+    content: '';
+    position: absolute;
+    z-index: var(--z-behind);
+    top: -5.5rem;
+    right: -3rem;
+    width: 15rem;
+    height: 15rem;
+    border: 2.25rem solid var(--color-plate-ring);
+    border-right-color: transparent;
+    border-radius: 50%;
+    transform: rotate(-20deg);
+    pointer-events: none;
+  }
+
+  @media (max-width: 767.98px) {
+    padding: var(--space-4);
+    border-radius: var(--radius-lg);
+
+    &::before {
+      top: -4rem;
+      right: -4rem;
+      width: 10rem;
+      height: 10rem;
+      border-width: 1.5rem;
+    }
+  }
 }
 
 // ---- The bench: a screen's settings (states, search, filters) under its plate ---------
-// A white band, the whole width like the plate.
+// A white toolbar card.
 .alco-bench {
-  padding: var(--space-3) 0;
+  padding: var(--space-3) var(--space-4);
+  border: var(--border-width) solid var(--color-border);
+  border-radius: var(--radius-lg);
   background: var(--color-surface);
-  box-shadow: 0 0 0 100vmax var(--color-surface);
-  clip-path: inset(0 -100vmax);
-}
+  box-shadow: var(--shadow-xs);
 
-// Under a page header, it sits on the plate: the page's own gap is taken back.
-alco-page-header + .alco-bench {
-  margin-top: calc(-1 * var(--space-4));
+  @media (max-width: 767.98px) {
+    padding: var(--space-3);
+  }
 }
 
 // A query's button on the bench, level with its fields' controls (under their labels).
@@ -201,7 +255,11 @@ alco-page-header + .alco-bench {
   width: 100%;
   max-width: var(--content-max-width);
   margin: 0 auto;
-  padding: var(--space-4) var(--page-gutter) var(--space-7);
+  padding: var(--space-5) var(--page-gutter) var(--space-7);
+
+  @media (max-width: 767.98px) {
+    padding-top: var(--space-4);
+  }
 }
 
 .alco-stack {

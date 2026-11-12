@@ -19,7 +19,9 @@
 // One row whatever the width: the table scrolls inside itself on a small screen.
 .table-wrap {
   overflow-x: auto;
-  border-top: 3px solid var(--color-rule-strong);
+  border: var(--border-width) solid var(--color-border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
   background: var(--color-surface);
 }
 

@@ -7,6 +7,7 @@
 
 .alco-dialog-backdrop {
   background: var(--color-overlay);
+  backdrop-filter: blur(2px);
 }
 
 .alco-dialog-panel {

@@ -2,7 +2,7 @@ import { ChangeDetectionStrategy, Component, input } from '@angular/core';
 
 /**
  * Page heading as the plate: the title (the page's only h1), status, subtitle and actions on
- * the logo's navy, the whole width. Slots: `[alcoPageStatus]`, `[alcoPageActions]`. A form's
+ * the logo's gradient, a rounded card. Slots: `[alcoPageStatus]`, `[alcoPageActions]`. A form's
  * heading stays in view (`sticky`) and says its changes not saved yet (`dirty`).
  */
 @Component({
@@ -35,9 +35,9 @@ import { ChangeDetectionStrategy, Component, input } from '@angular/core';
     /* Kept under the menu while the form scrolls. */
     :host(.sticky) {
       position: sticky;
-      top: calc(var(--topbar-height) + var(--module-nav-height) + 2 * var(--border-width));
+      top: calc(var(--topbar-height) + var(--module-nav-height) + var(--space-2));
       z-index: var(--z-sticky);
-      padding: var(--space-4) 0;
+      padding-block: var(--space-4);
     }
     h1 {
       font-size: var(--font-size-plate-title);
@@ -48,7 +48,7 @@ import { ChangeDetectionStrategy, Component, input } from '@angular/core';
       align-items: center;
       gap: var(--space-2);
       padding: var(--space-1) var(--space-3);
-      border-radius: var(--radius-sm);
+      border-radius: var(--radius-pill);
       background: var(--color-warning-soft);
       color: var(--color-warning-text);
       font-size: var(--font-size-caption);
@@ -84,8 +84,7 @@ import { ChangeDetectionStrategy, Component, input } from '@angular/core';
     }
     @media (max-width: 767.98px) {
       :host(.sticky) {
-        position: static;
-        padding: 0;
+        position: relative;
       }
     }
   `,

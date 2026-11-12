@@ -20,6 +20,7 @@ import { SessionService } from './core/auth/session.service';
 import { CompanyContextService } from './core/company/company-context.service';
 import { provideAppConfig } from './core/config/app-config';
 import { provideApi } from './core/http/provide-api';
+import { BackNavigation } from './core/navigation/back-navigation';
 import { AlcoTitleStrategy } from './core/navigation/route-trail';
 import { provideGlobalSearch } from './core/search/global-search';
 import { ThemeService } from './core/theme/theme.service';
@@ -49,6 +50,8 @@ export const appConfig: ApplicationConfig = {
       inject(CompanyContextService);
       // The chosen theme applied before the first screen is drawn.
       inject(ThemeService);
+      // The back arrow knows the pages seen from the first one.
+      inject(BackNavigation);
     }),
   ],
 };

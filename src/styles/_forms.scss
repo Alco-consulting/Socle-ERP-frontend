@@ -12,9 +12,11 @@
   color: var(--color-text);
   // 16px on phones: no automatic zoom on focus (iOS).
   font-size: var(--font-size-control);
+  box-shadow: var(--shadow-xs);
   transition:
     border-color var(--duration-fast) var(--easing-standard),
-    background-color var(--duration-fast) var(--easing-standard);
+    background-color var(--duration-fast) var(--easing-standard),
+    box-shadow var(--duration-fast) var(--easing-standard);
 
   &::placeholder {
     color: var(--color-text-subtle);
@@ -24,9 +26,12 @@
     border-color: var(--color-text-subtle);
   }
 
+  // A soft halo around the field typed in, the ring still drawn for the keyboard.
+  &:focus,
   &:focus-visible {
-    outline-offset: 0;
+    outline: none;
     border-color: var(--color-focus-ring);
+    box-shadow: 0 0 0 3px var(--color-focus-halo);
   }
 
   &[aria-invalid='true'] {
@@ -34,9 +39,14 @@
     background: var(--color-danger-soft);
   }
 
+  &[aria-invalid='true']:focus {
+    box-shadow: 0 0 0 3px var(--color-danger-soft);
+  }
+
   &:disabled,
   &[readonly] {
     border-color: var(--color-border);
+    box-shadow: none;
     background: var(--color-surface-sunken);
     color: var(--color-text-muted);
     cursor: not-allowed;
@@ -72,6 +82,7 @@ textarea.alco-control {
   border-radius: 0;
   background-color: transparent;
   background-size: 0 0;
+  box-shadow: none;
 }
 
 tr:hover .alco-control--quiet,
@@ -243,6 +254,7 @@ input[type='date'].alco-control {
   border-bottom-color: var(--color-border-strong);
   border-radius: 0;
   background-color: transparent;
+  box-shadow: none;
 
   &:hover {
     border-bottom-color: var(--color-text-subtle);

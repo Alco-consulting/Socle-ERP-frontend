@@ -183,6 +183,19 @@ export const ICONS = {
     circle(11, 7.5, 1.1),
     circle(15.5, 8.5, 1.1),
   ],
+  // The theme switch: the sun (light), the moon (dark).
+  sun: [
+    circle(12, 12, 4),
+    'M12 2.5v2',
+    'M12 19.5v2',
+    'M2.5 12h2',
+    'M19.5 12h2',
+    'M5.3 5.3l1.4 1.4',
+    'M17.3 17.3l1.4 1.4',
+    'M5.3 18.7l1.4-1.4',
+    'M17.3 6.7l1.4-1.4',
+  ],
+  moon: ['M20 14.5A8.5 8.5 0 0 1 9.5 4a8.5 8.5 0 1 0 10.5 10.5z'],
 } as const satisfies Record<string, readonly string[]>;
 
 export type IconName = keyof typeof ICONS;

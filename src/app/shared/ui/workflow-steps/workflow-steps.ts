@@ -6,8 +6,8 @@ export interface WorkflowStep {
 }
 
 /**
- * Read-only lifecycle « Brouillon — Soumise — Validée — Verrouillée »: a track of square
- * marks, the current one in amber. The API's state; its transitions are the page's buttons.
+ * Read-only lifecycle « Brouillon — Soumise — Validée — Verrouillée »: a track of round
+ * marks, the steps behind filled, the current one in the navy with a halo. The API's state; its transitions are the page's buttons.
  */
 @Component({
   selector: 'alco-workflow-steps',
@@ -38,34 +38,43 @@ export interface WorkflowStep {
       gap: var(--space-2);
       color: var(--color-text-muted);
       font-size: var(--font-size-caption);
-      font-weight: var(--font-weight-semibold);
-      letter-spacing: 0.06em;
-      text-transform: uppercase;
+      font-weight: var(--font-weight-medium);
     }
     li + li::before {
       content: '';
       width: var(--space-5);
       height: 2px;
-      margin-right: var(--space-1);
-      background: var(--color-border-strong);
+      margin: 0 var(--space-1) 0 var(--space-2);
+      border-radius: var(--radius-pill);
+      background: var(--color-border);
+    }
+    .done + li::before,
+    .done + .current::before {
+      background: var(--color-primary);
     }
     .mark {
       width: 10px;
       height: 10px;
-      border: 2px solid currentColor;
+      border: 2px solid var(--color-border-strong);
+      border-radius: 50%;
+    }
+    .done {
+      color: var(--color-text);
     }
     .done .mark {
-      background: currentColor;
+      border-color: var(--color-primary);
+      background: var(--color-primary);
     }
     .current {
-      color: var(--color-text);
-      font-weight: var(--font-weight-heavy);
+      color: var(--color-primary-text);
+      font-weight: var(--font-weight-semibold);
     }
     .current .mark {
       width: 12px;
       height: 12px;
-      border-color: var(--color-action);
-      background: var(--color-action);
+      border-color: var(--color-primary);
+      background: var(--color-primary);
+      box-shadow: 0 0 0 4px var(--color-primary-soft);
     }
   `,
   changeDetection: ChangeDetectionStrategy.OnPush,

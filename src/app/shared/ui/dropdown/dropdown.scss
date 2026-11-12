@@ -1,5 +1,7 @@
 :host {
   display: inline-flex;
+  min-width: 0;
+  max-width: 100%;
 }
 
 .topbar-trigger {
@@ -27,13 +29,13 @@
   display: inline-flex;
   align-items: center;
   gap: var(--space-2);
-  height: var(--control-height-sm);
+  height: 34px;
   padding: 0 var(--space-2) 0 var(--space-3);
   border: 0;
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-pill);
   background: transparent;
-  color: inherit;
-  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-muted);
+  font-weight: var(--font-weight-medium);
   white-space: nowrap;
   cursor: pointer;
   transition:
@@ -43,6 +45,7 @@
   &:hover,
   &[aria-expanded='true'] {
     background: var(--color-surface-sunken);
+    color: var(--color-text);
   }
 
   .trigger-icon {
@@ -52,9 +55,9 @@
 
 // A menu holding the current screen (« Comptabilité ▾ » on Écritures): the active pill.
 :host(.group-active) .nav-trigger {
-  background: var(--color-primary);
-  color: var(--color-text-inverse);
-  font-weight: var(--font-weight-bold);
+  background: var(--color-primary-soft);
+  color: var(--color-primary-text);
+  font-weight: var(--font-weight-semibold);
 
   .trigger-icon {
     color: inherit;
@@ -75,9 +78,17 @@
   overflow-y: auto;
   padding: var(--space-1);
   border: var(--border-width) solid var(--color-border);
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-lg);
   background: var(--color-surface);
   box-shadow: var(--shadow-lg);
+  animation: alco-menu-in var(--duration-fast) var(--easing-standard);
+}
+
+@keyframes alco-menu-in {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
 }
 
 .menu-heading {
@@ -109,7 +120,7 @@
 
   &:hover,
   &:focus {
-    background: var(--color-surface-sunken);
+    background: var(--color-primary-softer);
   }
 
   &:focus-visible {

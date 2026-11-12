@@ -11,12 +11,14 @@
   gap: var(--space-2);
 }
 
-// The grid under the navy rule, as every register.
+// The grid a rounded card, as every register.
 .grid-wrap {
   // Containing block of the screen-reader-only labels: clipped with the grid, never past it.
   position: relative;
   overflow-x: auto;
-  border-top: 3px solid var(--color-rule-strong);
+  border: var(--border-width) solid var(--color-border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
 }
 
 // One row per line, as Odoo's: the amounts narrow and right aligned, debit and credit split.

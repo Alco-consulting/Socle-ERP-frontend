@@ -12,7 +12,7 @@
 }
 
 // The board: Trésorerie the whole width, then Clients, Fournisseurs and Écritures à traiter;
-// two columns on a laptop, one on a phone. Each module square, under the navy rule.
+// two columns on a laptop, one on a phone. Each module square, a rounded card.
 .pilot {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -34,7 +34,9 @@
   gap: var(--space-2);
   min-width: 0;
   padding: var(--space-5);
-  border-top: 3px solid var(--color-rule-strong);
+  border: var(--border-width) solid var(--color-border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
   background: var(--color-surface);
 }
 

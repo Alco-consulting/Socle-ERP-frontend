@@ -3,7 +3,8 @@
 :host {
   display: block;
   border-bottom: var(--border-width) solid var(--color-border);
-  background: var(--color-surface);
+  background: var(--color-topbar);
+  backdrop-filter: saturate(1.6) blur(14px);
 }
 
 .nav {
@@ -17,7 +18,9 @@
 
 // Second level (a domain inside an application): lighter, aligned with the page content.
 :host(.section) {
+  border-bottom: 0;
   background: transparent;
+  backdrop-filter: none;
 
   .nav {
     height: 40px;
@@ -74,11 +77,11 @@
   display: inline-flex;
   align-items: center;
   gap: var(--space-2);
-  height: var(--control-height-sm);
+  height: 34px;
   padding: 0 var(--space-3);
-  border-radius: var(--radius-md);
-  color: var(--color-text);
-  font-weight: var(--font-weight-semibold);
+  border-radius: var(--radius-pill);
+  color: var(--color-text-muted);
+  font-weight: var(--font-weight-medium);
   text-decoration: none;
   white-space: nowrap;
   transition:
@@ -87,6 +90,7 @@
 
   &:hover {
     background: var(--color-surface-sunken);
+    color: var(--color-text);
   }
 }
 
@@ -95,15 +99,15 @@
   color: var(--color-text-muted);
 }
 
-// Active entry: filled with the navy, bold white text (not color alone).
+// Active entry: a soft navy pill, semibold navy text (not color alone).
 .link.active,
 .group-active {
-  font-weight: var(--font-weight-bold);
+  font-weight: var(--font-weight-semibold);
 }
 
 .link.active {
-  background: var(--color-primary);
-  color: var(--color-text-inverse);
+  background: var(--color-primary-soft);
+  color: var(--color-primary-text);
 
   .link-icon {
     color: inherit;

@@ -19,6 +19,13 @@
   }
 }
 
+// Posé bord à bord dans une carte (alco-card [flush]) : la carte encadre déjà le tableau.
+:host-context(.card-body--flush) .scroll {
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+}
+
 // The table fits: the frame clips without being a scroll container, so the header sticks
 // under the page's sticky top bar and menu.
 .scroll--fits {

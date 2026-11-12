@@ -42,4 +42,7 @@
 
 .card-body--flush {
   padding: var(--space-3) 0 0;
+  // Un tableau bord à bord : ses coins suivent ceux de la carte (sans créer de défilement).
+  overflow: clip;
+  border-radius: 0 0 var(--radius-lg) var(--radius-lg);
 }

@@ -12,6 +12,8 @@ import { AlcoAmountPipe } from '../../../shared/pipes/amount.pipe';
 import { AlcoButton } from '../../../shared/ui/button/button';
 import { AlcoDropdown, DropdownItem } from '../../../shared/ui/dropdown/dropdown';
 import { AlcoErrorState } from '../../../shared/ui/error-state/error-state';
+import { AlcoIcon } from '../../../shared/ui/icon/icon';
+import { IconName } from '../../../shared/ui/icon/icons';
 import { AlcoLoading } from '../../../shared/ui/loading/loading';
 import { localToday } from '../../../shared/utils/dates';
 import { JournalSummary } from '../../dashboards/data-access/dashboard-models';
@@ -63,6 +65,7 @@ function shown(...figures: readonly (Figure & { readonly count: number })[]): Fi
     AlcoDropdown,
     AlcoDueBars,
     AlcoErrorState,
+    AlcoIcon,
     AlcoKpiBand,
     AlcoLoading,
   ],
@@ -77,6 +80,14 @@ export class AccountingDashboardPage {
   protected readonly session = inject(SessionStore);
 
   protected readonly accounting = ACCOUNTING;
+
+  /** Le pictogramme de chaque fonction du tableau, devant son titre. */
+  protected readonly sectionIcons: Readonly<Record<string, IconName>> = {
+    treasury: 'treasury',
+    sales: 'partners',
+    purchase: 'company',
+    general: 'accounting',
+  };
 
   /** The day of the balances and of the due weeks. */
   protected readonly today = localToday();

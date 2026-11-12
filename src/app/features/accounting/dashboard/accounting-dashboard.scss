@@ -3,7 +3,7 @@
 :host {
   display: flex;
   flex-direction: column;
-  gap: var(--space-5);
+  gap: var(--space-6);
 }
 
 .empty {
@@ -11,13 +11,13 @@
   color: var(--color-text-muted);
 }
 
-// The board: Trésorerie the whole width, then Clients, Fournisseurs and Écritures à traiter;
-// two columns on a laptop, one on a phone. Each module square, a rounded card.
+// Le tableau par fonction : la Trésorerie sur toute la largeur (une carte par compte), puis
+// Clients, Fournisseurs et Écritures à traiter côte à côte, de même hauteur ; deux colonnes
+// sur tablette, une sur téléphone. Une fonction est un groupe titré, chaque journal sa carte.
 .pilot {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  align-items: start;
-  gap: var(--space-5);
+  gap: var(--space-6) var(--space-5);
 
   @include bp.below-laptop {
     grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -31,13 +31,8 @@
 .module {
   display: flex;
   flex-direction: column;
-  gap: var(--space-2);
+  gap: var(--space-3);
   min-width: 0;
-  padding: var(--space-5);
-  border: var(--border-width) solid var(--color-border);
-  border-radius: var(--radius-lg);
-  box-shadow: var(--shadow-sm);
-  background: var(--color-surface);
 }
 
 .module--treasury {
@@ -45,53 +40,77 @@
 }
 
 .module-title {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
   margin: 0;
+  color: var(--color-text-muted);
   font-size: var(--font-size-caption);
-  font-weight: var(--font-weight-heavy);
-  font-stretch: var(--font-stretch-wide);
-  letter-spacing: 0.14em;
+  font-weight: var(--font-weight-semibold);
+  letter-spacing: var(--letter-spacing-caps);
   text-transform: uppercase;
+}
+
+.module-mark,
+.card-mark {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-md);
+  background: var(--color-primary-soft);
+  color: var(--color-primary-text);
+}
+
+.module-mark {
+  width: 1.75rem;
+  height: 1.75rem;
+}
+
+.card-mark {
+  width: 2.25rem;
+  height: 2.25rem;
 }
 
 .cards {
   display: flex;
+  flex: 1;
   flex-direction: column;
+  gap: var(--space-4);
   margin: 0;
   padding: 0;
   list-style: none;
 }
 
-// A journal inside its module: no frame, ruled from the next one.
-.card {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-3);
-  min-width: 0;
-  padding: var(--space-4) 0;
-
-  & + & {
-    border-top: var(--border-width) solid var(--color-border);
-  }
+// Les comptes de trésorerie : autant de cartes par ligne que la largeur le permet, qui se la
+// partagent.
+.module--treasury .cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 19rem), 1fr));
 }
 
-// Trésorerie: a register, one line per account — its name, its balance, its 30 days, what to
-// do, its menu. The card's head and top give their children to the line's grid.
-.module--treasury .card {
+// Un journal : une carte ; son en-tête (pictogramme, nom, action principale, menu), ses
+// chiffres, son graphique. L'en-tête et le haut confient leurs enfants à la grille de la carte.
+.card {
   display: grid;
-  // Fixed columns: the balances, curves and buttons of the accounts line up.
-  grid-template:
-    'title figures curve buttons menu' auto
-    / 11rem 13rem minmax(8rem, 1fr) 28rem auto;
-  align-items: center;
-  gap: var(--space-3) var(--space-5);
+  flex: 1;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  grid-auto-rows: min-content;
+  align-content: start;
+  gap: var(--space-4) var(--space-2);
+  min-width: 0;
+  padding: var(--space-5);
+  border: var(--border-width) solid var(--color-border);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface);
+  box-shadow: var(--shadow-sm);
+  transition:
+    border-color var(--duration-base) var(--easing-standard),
+    box-shadow var(--duration-base) var(--easing-standard);
 
-  @include bp.below-laptop {
-    grid-template:
-      'title menu' auto
-      'figures figures' auto
-      'curve curve' auto
-      'buttons buttons' auto
-      / minmax(0, 1fr) auto;
+  &:hover {
+    border-color: var(--color-accent);
+    box-shadow: var(--shadow-md);
   }
 
   .card-head,
@@ -99,117 +118,135 @@
     display: contents;
   }
 
+  // Ligne d'en-tête : le nom, puis « Nouveau », puis le menu.
   .card-title {
-    grid-area: title;
-  }
-
-  alco-dropdown {
-    grid-area: menu;
+    grid-row: 1;
+    grid-column: 1;
   }
 
   .card-buttons {
-    grid-area: buttons;
+    grid-row: 1;
+    grid-column: 2;
   }
 
-  .figures {
-    grid-area: figures;
-    margin: 0;
+  alco-dropdown {
+    grid-row: 1;
+    grid-column: 3;
   }
 
-  alco-balance-curve {
-    grid-area: curve;
+  .figures,
+  alco-balance-curve,
+  alco-due-bars {
+    grid-column: 1 / -1;
   }
 
-  // The balance: the line's figure.
-  .figure {
-    flex-direction: column;
-    align-items: flex-end;
-    gap: 0;
-
-    dt {
-      font-size: var(--font-size-caption);
-      font-weight: var(--font-weight-bold);
-      letter-spacing: 0.1em;
-      text-transform: uppercase;
-    }
-
-    dd {
-      font-size: var(--font-size-figure);
-      font-weight: var(--font-weight-heavy);
-    }
-  }
-}
-
-// Clients, Fournisseurs, Écritures à traiter: the figures as the rows of a register.
-.module:not(.module--treasury) {
-  .figures {
-    width: 100%;
-    margin: 0;
-  }
-
-  .figure {
-    justify-content: space-between;
-    padding: var(--space-2) 0;
-    border-top: var(--border-width) solid var(--color-border);
+  @include bp.below-tablet {
+    padding: var(--space-4);
   }
 }
 
 .card-head {
   display: flex;
   align-items: center;
-  gap: var(--space-2);
+  gap: var(--space-3);
 }
 
 .card-title {
-  flex: 1;
+  align-self: center;
   min-width: 0;
   margin: 0;
   overflow-wrap: anywhere;
   font-size: var(--font-size-section-title);
-  font-weight: var(--font-weight-bold);
+  font-weight: var(--font-weight-semibold);
+  letter-spacing: -0.011em;
 
   a {
     color: var(--color-text);
     text-decoration: none;
 
     &:hover {
-      text-decoration: underline;
+      color: var(--color-primary-text);
     }
   }
-}
-
-.card-top {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: var(--space-3);
 }
 
 .card-buttons {
   display: flex;
   flex-wrap: wrap;
+  align-items: center;
   gap: var(--space-2);
+}
+
+// Un compte de banque ou de caisse : pictogramme et nom, le solde en grand, ses 30 jours,
+// puis les actions.
+.module--treasury .card {
+  grid-template-columns: auto minmax(0, 1fr) auto;
+
+  .card-mark {
+    grid-row: 1;
+    grid-column: 1;
+  }
+
+  .card-title {
+    grid-column: 2;
+  }
+
+  .figures {
+    grid-row: 2;
+    gap: var(--space-3);
+  }
+
+  alco-balance-curve {
+    grid-row: 3;
+  }
+
+  .card-buttons {
+    grid-row: 4;
+    grid-column: 1 / -1;
+    padding-top: var(--space-4);
+    border-top: var(--border-width) solid var(--color-border-soft);
+  }
+
+  .figure {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: var(--space-1);
+
+    dt {
+      font-size: var(--font-size-caption);
+      font-weight: var(--font-weight-semibold);
+      letter-spacing: var(--letter-spacing-caps);
+      text-transform: uppercase;
+    }
+
+    dd {
+      font-size: var(--font-size-figure);
+      font-weight: var(--font-weight-bold);
+      letter-spacing: var(--letter-spacing-title);
+      text-align: left;
+    }
+  }
 }
 
 .figures {
   display: flex;
   flex-direction: column;
-  gap: var(--space-1);
-  margin: 0 0 0 auto;
+  margin: 0;
 }
 
 .figure {
   display: flex;
   align-items: baseline;
-  justify-content: flex-end;
-  gap: var(--space-5);
+  justify-content: space-between;
+  gap: var(--space-4);
 
   dt {
+    min-width: 0;
     color: var(--color-text-muted);
 
     a {
       color: var(--color-primary-text);
+      font-weight: var(--font-weight-medium);
       text-decoration: none;
 
       &:hover {
@@ -224,5 +261,16 @@
     font-variant-numeric: tabular-nums;
     text-align: right;
     white-space: nowrap;
+  }
+}
+
+// Clients, Fournisseurs, Écritures à traiter : les chiffres en lignes discrètes de registre.
+.module:not(.module--treasury) .figure {
+  padding: var(--space-3) var(--space-3);
+  border-radius: var(--radius-md);
+  background: var(--color-surface-muted);
+
+  & + .figure {
+    margin-top: var(--space-2);
   }
 }

@@ -261,6 +261,9 @@
   // ---- Layers ----------------------------------------------------------------------------
   --z-behind: -1; // a decoration behind its own block (isolated)
   --z-base: 0;
+  // The theme's circular reveal: the old page under, the new one revealed over it.
+  --z-transition-old: 1;
+  --z-transition-new: 2;
   --z-sticky: 100;
   --z-header: 200;
   --z-dropdown: 1000;

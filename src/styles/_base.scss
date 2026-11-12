@@ -273,3 +273,45 @@ a {
     min-width: 0;
   }
 }
+
+// ---- Theme change: the new theme revealed in a circle (ThemeService) -------------------
+// The browser's own cross-fade is turned off: the circle's clip-path is the only motion.
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation: none;
+  mix-blend-mode: normal;
+}
+
+::view-transition-old(root) {
+  z-index: var(--z-transition-old);
+}
+
+::view-transition-new(root) {
+  z-index: var(--z-transition-new);
+}
+
+// ---- The logo of the theme shown: light by default, dark under the dark theme ----------
+// Same double rule as the tokens: chosen in the bar, or the device's while nothing is chosen.
+.logo-dark {
+  display: none;
+}
+
+@mixin logo-dark-theme {
+  .logo-light {
+    display: none;
+  }
+
+  .logo-dark {
+    display: block;
+  }
+}
+
+:root[data-theme='dark'] {
+  @include logo-dark-theme;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) {
+    @include logo-dark-theme;
+  }
+}

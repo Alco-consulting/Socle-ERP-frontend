@@ -24,9 +24,11 @@
   justify-content: center;
 }
 
-// An empty state in the register's place, under the navy rule.
+// An empty state in the register's place, a rounded card.
 .empty-frame {
-  border-top: 3px solid var(--color-rule-strong);
+  border: var(--border-width) solid var(--color-border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
   background: var(--color-surface);
 }
 
@@ -153,7 +155,9 @@
   flex-direction: column;
   gap: var(--space-3);
   padding: var(--space-4);
-  border-top: 3px solid var(--color-rule-strong);
+  border: var(--border-width) solid var(--color-border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
   background: var(--color-surface);
 
   h2 {

@@ -1,10 +1,12 @@
 @use 'breakpoints' as bp;
 
+// White glass over the page: what scrolls under it stays faintly visible.
 :host {
   display: block;
   border-bottom: var(--border-width) solid var(--color-border);
   background: var(--color-topbar);
   color: var(--color-text);
+  backdrop-filter: saturate(1.6) blur(14px);
 }
 
 .bar {
@@ -61,27 +63,30 @@
   align-items: center;
   gap: var(--space-2);
   font-size: var(--font-size-section-title);
-  font-weight: var(--font-weight-heavy);
+  font-weight: var(--font-weight-semibold);
   font-stretch: var(--font-stretch-wide);
+  letter-spacing: -0.011em;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 
-// The application's picture in a square of the plate's navy.
+// The application's picture on the logo's gradient, a rounded square.
 .app-mark-box {
   display: inline-flex;
   flex: none;
   align-items: center;
   justify-content: center;
-  width: var(--control-height);
-  height: var(--control-height);
-  background: var(--color-plate);
+  width: 32px;
+  height: 32px;
+  border-radius: var(--radius-md);
+  background: var(--gradient-brand);
+  box-shadow: var(--shadow-action);
 }
 
 .app-mark {
-  width: 22px;
-  height: 22px;
+  width: 20px;
+  height: 20px;
 }
 
 // The global search, as a field: the whole bar finds a screen or a record (Ctrl+K).
@@ -89,13 +94,13 @@
   display: inline-flex;
   align-items: center;
   gap: var(--space-2);
-  width: 15rem;
-  height: var(--control-height-sm);
+  width: 16rem;
+  height: 34px;
   margin-right: var(--space-2);
   padding: 0 var(--space-2) 0 var(--space-3);
   border: var(--border-width) solid var(--color-border);
-  border-radius: var(--radius-md);
-  background: var(--color-surface-sunken);
+  border-radius: var(--radius-pill);
+  background: var(--color-surface-muted);
   color: var(--color-text-muted);
   font: inherit;
   cursor: pointer;
@@ -105,6 +110,7 @@
 
   &:hover {
     border-color: var(--color-border-strong);
+    background: var(--color-surface);
     color: var(--color-text);
   }
 
@@ -127,15 +133,55 @@
 }
 
 .search-kbd {
-  padding: 0 var(--space-1);
+  padding: 1px var(--space-2);
   border: var(--border-width) solid var(--color-border);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-pill);
   background: var(--color-surface);
   font-family: inherit;
   font-size: var(--font-size-caption);
+  font-weight: var(--font-weight-medium);
 
   @include bp.below-laptop {
     display: none;
+  }
+}
+
+// The theme switch: a rounded square, always visible, the icon in the brand's color.
+.theme-switch {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: var(--control-height);
+  height: var(--control-height);
+  margin-right: var(--space-1);
+  padding: 0;
+  border: var(--border-width) solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+  box-shadow: var(--shadow-xs);
+  color: var(--color-primary-text);
+  cursor: pointer;
+  transition:
+    border-color var(--duration-fast) var(--easing-standard),
+    background-color var(--duration-fast) var(--easing-standard),
+    transform var(--duration-fast) var(--easing-standard);
+
+  &:hover {
+    border-color: var(--color-accent);
+    background: var(--color-primary-softer);
+  }
+
+  &:active {
+    transform: scale(0.94);
+  }
+
+  alco-icon {
+    transition: transform var(--duration-base) var(--easing-standard);
+  }
+
+  &:hover alco-icon {
+    transform: rotate(20deg);
   }
 }
 
@@ -189,10 +235,13 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 30px;
-  height: 30px;
+  width: 32px;
+  height: 32px;
   border-radius: var(--radius-pill);
-  background: var(--color-primary);
+  background: var(--gradient-brand);
+  box-shadow:
+    0 0 0 2px var(--color-surface),
+    0 0 0 3px var(--color-accent);
   color: var(--color-text-inverse);
   font-size: var(--font-size-caption);
   font-weight: var(--font-weight-semibold);

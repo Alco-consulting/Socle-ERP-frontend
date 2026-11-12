@@ -1,30 +1,45 @@
-// Alco design tokens — the ONLY place where raw colors, sizes and timings are written.
-// Components consume `var(--…)`; stylelint rejects hex/rgb colors anywhere else.
-// Documented in docs/frontend/design-system.md (section « Design tokens »).
+// Alco design tokens — the ONLY place where raw colors, gradients, sizes and timings are
+// written. Components consume `var(--…)`; stylelint rejects hex/rgb colors and gradients
+// anywhere else.
 //
-// Two layers: the brand palette (`--blue-700`…), then the tokens of meaning the components
+// Direction « Horizon » (refonte 2026-11): the logo's charte — its navy gradient
+// (#1C4C80 → #16375B), its mist blue (#A8C0D6) and white — on light, rounded, softly lifted
+// surfaces. The navy carries the identity (top of a screen, main action), the mist its
+// accents; amber only says « attention ».
+//
+// Two layers: the brand palette (`--navy-600`…), then the tokens of meaning the components
 // use (`--color-primary`…). The dark theme redefines the second layer only: when the device
 // asks for it (`prefers-color-scheme`), or when chosen in the account menu (`data-theme`).
 
 :root {
-  // ---- Brand palette (charte Alco) -------------------------------------------------------
-  --blue-50: #eaf3f9;
-  --blue-100: #d5e8f4;
-  --blue-300: #7cc3ea;
-  --blue-400: #38a3d9;
-  --blue-600: #1c6fa3;
-  --blue-700: #155e8a;
-  --blue-800: #114c70;
-  --blue-900: #0d3b57;
-  --blue-950: #13324a;
+  // ---- Brand palette: the logo's navy, from mist to night ------------------------------
+  --navy-25: #f5f8fc;
+  --navy-50: #ecf2f9;
+  --navy-100: #dbe6f2;
+  --navy-200: #c2d4e7;
+  --navy-300: #a8c0d6; // the logo's mist (the « C »)
+  --navy-400: #7d9fc4;
+  --navy-500: #3f70a6;
+  --navy-600: #1c4c80; // the logo's navy, light end
+  --navy-700: #16375b; // the logo's navy, dark end
+  --navy-800: #112c4a;
+  --navy-900: #0d2138;
+  --navy-950: #0a1828;
 
-  --indigo-50: #eceffa;
-  --indigo-300: #93a6e6;
-  --indigo-600: #3d55a3;
-  --indigo-700: #2f4385;
-  --indigo-950: #1e2648;
+  // Companion hues: information, families, charts (never the identity).
+  --indigo-50: #eef0fb;
+  --indigo-300: #a3b1ec;
+  --indigo-600: #4053a8;
+  --indigo-700: #33438a;
+  --indigo-950: #1c2347;
 
-  --amber-50: #fdf1e1;
+  --teal-50: #e6f6f4;
+  --teal-300: #7fd3c7;
+  --teal-600: #0f7c72;
+  --teal-950: #0d2e2b;
+
+  // Amber: warnings only.
+  --amber-50: #fdf3e3;
   --amber-300: #f4c07a;
   --amber-400: #f0a23b;
   --amber-700: #a65a12;
@@ -33,36 +48,41 @@
 
   --slate-600: #4a5468;
 
-  // The logo's navy and mist: the plates and the rules (direction « Architecture »).
-  --navy-600: #1c4c80;
-  --navy-700: #16375b;
-  --navy-900: #0f2740;
-  --mist-300: #a8c0d6;
-  --amber-500: #e08f22;
-
-  // Neutrals of the light theme: background #EEF2F7, surfaces white, borders #D3DCE7.
+  // Neutrals of the light theme: a cool gray page, white surfaces, quiet borders.
   --gray-0: #ffffff;
-  --gray-25: #f6f8fb;
-  --gray-50: #eef2f7;
-  --gray-100: #e3eaf2;
-  --gray-150: #d3dce7;
+  --gray-25: #f8fafc;
+  --gray-50: #f3f6fa;
+  --gray-100: #eaeff5;
+  --gray-150: #dfe5ee;
+  --gray-200: #d3dbe6;
   --gray-400: #7d8fa6;
   --gray-500: #5b6a80;
-  --gray-600: #47566b;
-  --gray-700: #36445a;
-  --gray-900: #0e1a2b;
+  --gray-600: #46556b;
+  --gray-700: #334257;
+  --gray-900: #0f1b2d;
 
-  // Neutrals of the dark theme.
-  --night-950: #0f1620;
-  --night-925: #121a24;
-  --night-900: #17202c;
-  --night-850: #1d2733;
-  --night-800: #232d3a;
-  --night-700: #2a3442;
-  --night-500: #6b788b;
-  --night-400: #8f9bab;
-  --night-300: #a7b2c1;
-  --night-100: #e6ebf2;
+  // Neutrals of the dark theme: the logo's navy at night.
+  --night-975: #0a111b;
+  --night-950: #0d1520;
+  --night-925: #101a27;
+  --night-900: #142030;
+  --night-850: #192739;
+  --night-800: #1f2f44;
+  --night-700: #283a52;
+  --night-500: #6b7f99;
+  --night-400: #8e9fb5;
+  --night-300: #aebcce;
+  --night-100: #e6edf5;
+
+  // ---- Gradients: the logo's, never decoration elsewhere -------------------------------
+  --gradient-brand: linear-gradient(135deg, var(--navy-600) 0%, var(--navy-700) 100%);
+  --gradient-plate: linear-gradient(120deg, #1f5590 0%, var(--navy-600) 38%, var(--navy-700) 100%);
+  // A page's light: the faintest mist from the top left.
+  --gradient-page: radial-gradient(
+    1200px 480px at 0% 0%,
+    rgba(168, 192, 214, 0.28),
+    transparent 70%
+  );
 
   // ---- Colors: neutrals -------------------------------------------------------------
   --color-bg: var(--gray-50);
@@ -70,6 +90,7 @@
   --color-surface-muted: var(--gray-25);
   --color-surface-sunken: var(--gray-100);
   --color-border: var(--gray-150);
+  --color-border-soft: var(--gray-100);
   // Form controls: 3:1 at least against their surface (WCAG 1.4.11).
   --color-border-strong: var(--gray-400);
 
@@ -82,49 +103,56 @@
   // ---- Colors: identity ------------------------------------------------------------
   --color-primary: var(--navy-600);
   --color-primary-hover: var(--navy-700);
-  --color-primary-active: var(--navy-900);
-  --color-primary-soft: #e3ecf6;
+  --color-primary-active: var(--navy-800);
+  --color-primary-soft: var(--navy-50);
+  --color-primary-softer: var(--navy-25);
   --color-primary-text: var(--navy-600);
-  --color-accent: var(--blue-400);
+  --color-accent: var(--navy-300);
 
-  // The main action of a screen: the logo's amber, navy text on it (6:1).
-  --color-action: var(--amber-400);
-  --color-action-hover: var(--amber-500);
-  --color-text-on-action: var(--navy-900);
+  // The main action of a screen: the logo's navy, white text (9:1).
+  --color-action: var(--navy-600);
+  --color-action-hover: var(--navy-700);
+  --color-text-on-action: #ffffff;
 
-  // The top bar: white, as the surfaces (the user's choice of 2026-10-17).
-  --color-topbar: var(--color-surface);
-  --color-brand-accent: var(--amber-400);
-  // Text on the amber accent (notification count): dark in both themes.
-  --color-text-on-accent: var(--gray-900);
+  // The top bar: white glass over the page.
+  --color-topbar: rgba(255, 255, 255, 0.86);
+  --color-brand-accent: var(--navy-600);
+  // Text on the brand accent (notification count).
+  --color-text-on-accent: #ffffff;
 
-  --color-focus-ring: var(--navy-600);
-  --color-overlay: rgba(17, 24, 39, 0.45);
+  --color-focus-ring: var(--navy-500);
+  --color-focus-halo: rgba(63, 112, 166, 0.22);
+  --color-overlay: rgba(10, 24, 40, 0.48);
 
-  // The plate: a page's title, state and key figures on the logo's navy, the whole width.
+  // The plate: a screen's title, state and key figures on the logo's gradient, a rounded
+  // card; what sits on it takes its tones.
   --color-plate: var(--navy-700);
-  --color-plate-band: var(--navy-600);
+  --color-plate-band: rgba(255, 255, 255, 0.08);
+  --color-plate-band-border: rgba(255, 255, 255, 0.14);
   --color-plate-text: #ffffff;
-  --color-plate-muted: var(--mist-300);
-  --color-plate-rule: rgba(168, 192, 214, 0.35);
-  --color-plate-hover: rgba(255, 255, 255, 0.08);
-  --color-plate-accent: var(--amber-300);
-  --color-plate-negative: #f6a49c;
-  // The navy rule on top of a block.
-  --color-rule-strong: var(--navy-700);
+  --color-plate-muted: #c3d4e6;
+  --color-plate-rule: rgba(168, 192, 214, 0.32);
+  --color-plate-hover: rgba(255, 255, 255, 0.12);
+  --color-plate-accent: #d6e4f2;
+  --color-plate-positive: #8fe3b8;
+  --color-plate-negative: #ffb4ab;
+  // The logo's « C », drawn large and faint in a corner of the plate.
+  --color-plate-ring: rgba(168, 192, 214, 0.16);
+  // The quiet rule between the head of a block and its body.
+  --color-rule-strong: var(--gray-150);
 
   // ---- Colors: feedback (strong = icons/borders, soft = backgrounds, text = on soft) --
   --color-success: #1b7a4b;
-  --color-success-soft: #e4f3ea;
-  --color-success-text: #14603a;
+  --color-success-soft: #e5f5ec;
+  --color-success-text: #13603a;
 
   --color-warning: var(--amber-700);
   --color-warning-soft: var(--amber-50);
   --color-warning-text: var(--amber-800);
 
-  --color-danger: #b42318;
-  --color-danger-hover: #93190f;
-  --color-danger-soft: #fdeceb;
+  --color-danger: #c0362c;
+  --color-danger-hover: #9b241b;
+  --color-danger-soft: #fdeeec;
   --color-danger-text: #97190f;
 
   --color-info: var(--indigo-600);
@@ -137,34 +165,39 @@
 
   // ---- Colors: application families (App Launcher tiles, module mark) ---------------
   // One color per family of applications, never one random color per application.
-  --app-family-finance: var(--blue-700); // Comptabilité (and its domains: trésorerie, taxes…)
+  --app-family-finance: var(--navy-600); // Comptabilité (and its domains: trésorerie, taxes…)
   --app-family-relations: var(--indigo-600); // Contacts, Documents
-  --app-family-steering: var(--amber-700); // Tableau de bord
+  --app-family-steering: var(--teal-600); // Tableau de bord
   --app-family-control: var(--slate-600); // Paramètres
 
   // ---- Colors: charts (dashboard) --------------------------------------------------------
-  --chart-1: var(--blue-700);
-  --chart-2: var(--blue-400);
+  --chart-1: var(--navy-600);
+  --chart-2: var(--navy-300);
   --chart-3: var(--indigo-600);
+  // What is past due: amber, « attention ».
   --chart-4: var(--amber-400);
-  --chart-area: var(--blue-50);
+  --chart-area: var(--navy-50);
   --chart-grid: var(--gray-150);
 
   // ---- Typography --------------------------------------------------------------------
   --font-family-base:
-    'Archivo Variable', 'Archivo', system-ui, -apple-system, 'Segoe UI', 'Helvetica Neue', Arial,
+    'Inter Variable', 'Inter', system-ui, -apple-system, 'Segoe UI', 'Helvetica Neue', Arial,
     sans-serif;
-  // Archivo's width axis: wide for titles and plates, narrow for column headers.
-  --font-stretch-wide: 112%;
-  --font-stretch-narrow: 88%;
+  // Inter has no width axis: titles and column headers keep the normal width.
+  --font-stretch-wide: 100%;
+  --font-stretch-narrow: 100%;
   --font-family-mono: ui-monospace, 'Cascadia Mono', 'Segoe UI Mono', Consolas, monospace;
+  // Inter's straight-sided figures and distinct l / I.
+  --font-features: 'cv05', 'cv08', 'ss03';
+  --letter-spacing-title: -0.022em;
+  --letter-spacing-caps: 0.06em;
 
-  --font-size-plate-figure: 2.5rem; // 40px, the plate's key amount
-  --font-size-plate-title: 2.25rem; // 36px, a plate's title (page, document number)
+  --font-size-plate-figure: 2rem; // 32px, the plate's key amount
+  --font-size-plate-title: 1.75rem; // 28px, a plate's title (page, document number)
   --font-size-display: 1.75rem; // 28px, a document's name (invoice number)
   --font-size-figure: 1.5rem; // 24px, dashboard figures only
-  --font-size-page-title: 1.375rem; // 22px
-  --font-size-lead: 1.125rem; // 18px, the brand name
+  --font-size-page-title: 1.5rem; // 24px
+  --font-size-lead: 1.0625rem; // 17px, the brand name
   --font-size-section-title: 1rem; // 16px
   --font-size-subtitle: 0.875rem; // 14px, semibold
   --font-size-body: 0.875rem; // 14px
@@ -174,8 +207,8 @@
   --font-weight-regular: 400;
   --font-weight-medium: 500;
   --font-weight-semibold: 600;
-  --font-weight-bold: 700;
-  --font-weight-heavy: 800;
+  --font-weight-bold: 650;
+  --font-weight-heavy: 700;
 
   --line-height-tight: 1.25;
   --line-height-base: 1.5;
@@ -191,11 +224,13 @@
   --space-7: 3rem; // 48
   --space-8: 4rem; // 64
 
-  // ---- Radius: square geometry (« Architecture »): 2px at most; circles keep 50 % --------
-  --radius-sm: 0;
-  --radius-md: 2px;
-  --radius-lg: 2px;
-  --radius-xl: 2px;
+  // ---- Radius: soft, rounded geometry; circles keep 50 % ----------------------------------
+  --radius-xs: 4px;
+  --radius-sm: 6px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+  --radius-xl: 16px;
+  --radius-2xl: 22px;
   --radius-pill: 999px;
 
   // ---- Borders -------------------------------------------------------------------------
@@ -203,14 +238,19 @@
   --focus-ring-width: 2px;
   --focus-ring-offset: 2px;
 
-  // ---- Shadows: flat surfaces; only what floats (menus, dialogs) casts one ---------------
-  --shadow-sm: none;
-  --shadow-md: 0 2px 8px rgba(17, 24, 39, 0.06), 0 1px 2px rgba(17, 24, 39, 0.04);
-  --shadow-lg: 0 8px 24px rgba(17, 24, 39, 0.1), 0 2px 6px rgba(17, 24, 39, 0.05);
+  // ---- Shadows: surfaces lifted softly; what floats (menus, dialogs) casts more ----------
+  --shadow-xs: 0 1px 2px rgba(15, 27, 45, 0.05);
+  --shadow-sm: 0 1px 2px rgba(15, 27, 45, 0.04), 0 1px 3px rgba(15, 27, 45, 0.06);
+  --shadow-md: 0 4px 14px rgba(15, 27, 45, 0.08), 0 2px 4px rgba(15, 27, 45, 0.04);
+  --shadow-lg: 0 16px 40px rgba(15, 27, 45, 0.14), 0 4px 10px rgba(15, 27, 45, 0.06);
+  // The navy's own shadow: under the plate and the main action.
+  --shadow-brand: 0 12px 28px -12px rgba(22, 55, 91, 0.55);
+  --shadow-action: 0 1px 2px rgba(22, 55, 91, 0.25), 0 4px 10px -4px rgba(22, 55, 91, 0.45);
 
   // ---- Motion (150–200 ms; none when the user asks for reduced motion) -------------------
   --duration-fast: 150ms;
   --duration-base: 200ms;
+  --duration-slow: 320ms;
   --easing-standard: cubic-bezier(0.2, 0, 0, 1);
   // Loops of loading indicators (they stop themselves under reduced motion).
   --duration-spin: 700ms;
@@ -219,6 +259,7 @@
   --delay-progress: 300ms;
 
   // ---- Layers ----------------------------------------------------------------------------
+  --z-behind: -1; // a decoration behind its own block (isolated)
   --z-base: 0;
   --z-sticky: 100;
   --z-header: 200;
@@ -228,8 +269,8 @@
   --z-toast: 1300;
 
   // ---- Standard dimensions ---------------------------------------------------------------
-  --topbar-height: 52px;
-  --module-nav-height: 44px;
+  --topbar-height: 56px;
+  --module-nav-height: 48px;
   --prototype-banner-height: 32px;
   --control-height: 36px;
   --control-height-sm: 30px;
@@ -241,39 +282,48 @@
   --content-max-width: 1440px;
   // Records and forms take the content's width, under their plate.
   --form-max-width: 100%;
-  --launcher-max-width: 1120px;
+  --launcher-max-width: 1080px;
 
   color-scheme: light;
 }
 
 // ---- Dark theme -------------------------------------------------------------------------
 @mixin dark-theme {
+  --gradient-plate: linear-gradient(120deg, #1a4677 0%, var(--navy-700) 45%, var(--navy-900) 100%);
+  --gradient-page: radial-gradient(1200px 480px at 0% 0%, rgba(28, 76, 128, 0.32), transparent 70%);
+
   --color-bg: var(--night-950);
   --color-surface: var(--night-900);
   --color-surface-muted: var(--night-850);
   --color-surface-sunken: var(--night-925);
   --color-border: var(--night-700);
+  --color-border-soft: var(--night-800);
   --color-border-strong: var(--night-500);
 
   --color-text: var(--night-100);
   --color-text-muted: var(--night-300);
   --color-text-subtle: var(--night-400);
 
-  --color-primary: var(--blue-600);
-  --color-primary-hover: #1b6699;
-  --color-primary-active: #165781;
-  --color-primary-soft: var(--blue-950);
-  --color-primary-text: var(--blue-300);
-  --color-accent: var(--blue-300);
+  --color-primary: var(--navy-500);
+  --color-primary-hover: #366395;
+  --color-primary-active: #2d5683;
+  --color-primary-soft: #16304d;
+  --color-primary-softer: #122539;
+  --color-primary-text: var(--navy-300);
+  --color-accent: var(--navy-300);
 
-  --color-topbar: var(--night-900);
-  --color-plate: var(--navy-900);
-  --color-plate-band: #163659;
-  --color-rule-strong: var(--navy-600);
-  --color-action-hover: var(--amber-300);
+  --color-action: var(--navy-500);
+  --color-action-hover: #4a7db5;
 
-  --color-focus-ring: var(--blue-300);
-  --color-overlay: rgba(0, 0, 0, 0.6);
+  --color-topbar: rgba(20, 32, 48, 0.86);
+  --color-brand-accent: var(--navy-400);
+  --color-text-on-accent: var(--night-975);
+  --color-plate: var(--navy-800);
+  --color-rule-strong: var(--night-700);
+
+  --color-focus-ring: var(--navy-300);
+  --color-focus-halo: rgba(168, 192, 214, 0.22);
+  --color-overlay: rgba(0, 0, 0, 0.62);
 
   --color-success: #4cc38a;
   --color-success-soft: #123222;
@@ -296,16 +346,21 @@
   --color-neutral-soft: var(--night-800);
   --color-neutral-text: #c9d2de;
 
-  --chart-1: var(--blue-300);
-  --chart-2: var(--blue-400);
+  --app-family-steering: var(--teal-300);
+
+  --chart-1: var(--navy-300);
+  --chart-2: var(--navy-500);
   --chart-3: var(--indigo-300);
   --chart-4: var(--amber-400);
-  --chart-area: var(--blue-950);
+  --chart-area: #16304d;
   --chart-grid: var(--night-700);
 
-  --shadow-sm: none;
-  --shadow-md: 0 2px 8px rgba(0, 0, 0, 0.35), 0 1px 2px rgba(0, 0, 0, 0.25);
-  --shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.45), 0 2px 6px rgba(0, 0, 0, 0.3);
+  --shadow-xs: 0 1px 2px rgba(0, 0, 0, 0.3);
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.3), 0 1px 3px rgba(0, 0, 0, 0.25);
+  --shadow-md: 0 4px 14px rgba(0, 0, 0, 0.4), 0 2px 4px rgba(0, 0, 0, 0.25);
+  --shadow-lg: 0 16px 40px rgba(0, 0, 0, 0.5), 0 4px 10px rgba(0, 0, 0, 0.3);
+  --shadow-brand: 0 12px 28px -12px rgba(0, 0, 0, 0.7);
+  --shadow-action: 0 1px 2px rgba(0, 0, 0, 0.35);
 
   color-scheme: dark;
 }
@@ -322,11 +377,13 @@
 
 @media (max-width: 767.98px) {
   :root {
-    --font-size-plate-figure: 1.75rem;
-    --font-size-plate-title: 1.625rem;
+    --font-size-plate-figure: 1.625rem;
+    --font-size-plate-title: 1.375rem;
+    --font-size-page-title: 1.25rem;
     --page-gutter: var(--space-4);
-    --app-icon-size: 68px;
+    --app-icon-size: 64px;
     --font-size-control: 1rem;
+    --topbar-height: 52px;
   }
 }
 
@@ -334,6 +391,7 @@
   :root {
     --duration-fast: 0ms;
     --duration-base: 0ms;
+    --duration-slow: 0ms;
     // A spinner still says « en cours », slowly.
     --duration-spin: 2s;
   }

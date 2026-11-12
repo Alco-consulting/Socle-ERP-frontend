@@ -1,7 +1,10 @@
-import { DOCUMENT, Injectable, effect, inject, signal } from '@angular/core';
+import { DOCUMENT, Injectable, computed, effect, inject, signal } from '@angular/core';
 
-/** The device's setting, or a theme chosen in the account menu. */
+/** The device's setting, or a theme chosen with the top bar's switch. */
 export type ThemeChoice = 'system' | 'light' | 'dark';
+
+/** The theme actually shown. */
+export type Theme = 'light' | 'dark';
 
 const KEY = 'alco.theme';
 
@@ -15,8 +18,25 @@ export class ThemeService {
   private readonly document = inject(DOCUMENT);
   readonly choice = signal<ThemeChoice>(this.read());
 
+  /** The device's own setting, followed while it changes. */
+  private readonly deviceDark = signal(this.watchDevice());
+
+  /** The theme shown: the choice, or the device's while nothing is chosen. */
+  readonly current = computed<Theme>(() => {
+    const choice = this.choice();
+    if (choice !== 'system') {
+      return choice;
+    }
+    return this.deviceDark() ? 'dark' : 'light';
+  });
+
   constructor() {
     effect(() => this.apply(this.choice()));
+  }
+
+  /** The top bar's switch: the other theme than the one shown, kept as the choice. */
+  toggle(): void {
+    this.choose(this.current() === 'dark' ? 'light' : 'dark');
   }
 
   choose(choice: ThemeChoice): void {
@@ -26,6 +46,15 @@ export class ThemeService {
     } catch {
       // Private window or blocked storage: the choice lasts until the page is closed.
     }
+  }
+
+  private watchDevice(): boolean {
+    const query = this.document.defaultView?.matchMedia?.('(prefers-color-scheme: dark)');
+    if (!query) {
+      return false;
+    }
+    query.addEventListener?.('change', (event) => this.deviceDark.set(event.matches));
+    return query.matches;
   }
 
   private read(): ThemeChoice {

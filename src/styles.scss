@@ -1,6 +1,6 @@
 // Global stylesheet: tokens first, then base rules and the CDK primitives we rely on.
-// Archivo: a grotesque with a width axis — wide titles, tight tables (direction « Architecture »).
-@use '@fontsource-variable/archivo/wdth';
+// Inter: a neutral, highly legible grotesque with tabular figures (direction « Horizon »).
+@use '@fontsource-variable/inter';
 @use '@angular/cdk/overlay-prebuilt.css';
 @use 'tokens';
 @use 'base';

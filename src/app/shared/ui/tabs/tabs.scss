@@ -34,9 +34,9 @@
   }
 
   &[aria-selected='true'] {
-    border-bottom: 3px solid var(--color-rule-strong);
-    color: var(--color-text);
-    font-weight: var(--font-weight-bold);
+    border-bottom-color: var(--color-primary);
+    color: var(--color-primary-text);
+    font-weight: var(--font-weight-semibold);
   }
 
   &:focus-visible {

@@ -7,7 +7,7 @@
   flex-direction: column;
   gap: var(--space-3);
   --color-surface: var(--color-plate-band);
-  --color-success-text: var(--color-plate-accent);
+  --color-success-text: var(--color-plate-positive);
   --color-danger-text: var(--color-plate-negative);
 }
 
@@ -60,17 +60,22 @@
   gap: var(--space-1);
   min-width: 0;
   padding: var(--space-4);
+  border: var(--border-width) solid var(--color-plate-band-border);
+  border-radius: var(--radius-lg);
   background: var(--color-plate-band);
   color: var(--color-text);
   text-decoration: none;
 }
 
-// A figure that opens its report: an amber rule under it on hover.
+// A figure that opens its report: the glass brightens and lifts on hover.
 .kpi--link {
-  transition: box-shadow var(--duration-fast) var(--easing-standard);
+  transition:
+    background-color var(--duration-fast) var(--easing-standard),
+    transform var(--duration-fast) var(--easing-standard);
 
   &:hover {
-    box-shadow: inset 0 -3px 0 var(--color-action);
+    background: var(--color-plate-hover);
+    transform: translateY(-2px);
   }
 
   &:focus-visible {
@@ -89,12 +94,12 @@
 .kpi-label {
   color: var(--color-text-muted);
   font-size: var(--font-size-caption);
-  font-weight: var(--font-weight-bold);
-  letter-spacing: 0.1em;
+  font-weight: var(--font-weight-semibold);
+  letter-spacing: var(--letter-spacing-caps);
   text-transform: uppercase;
 }
 
-// The figure's mark: its icon in amber, on the plate.
+// The figure's mark: its icon in mist, in a round of glass.
 .kpi-mark {
   display: inline-flex;
   flex: none;
@@ -102,14 +107,17 @@
   justify-content: center;
   width: 2rem;
   height: 2rem;
-  color: var(--color-action);
+  border-radius: 50%;
+  background: var(--color-plate-band);
+  color: var(--color-plate-accent);
 }
 
 .kpi-value {
   overflow-wrap: anywhere;
   font-size: var(--font-size-figure);
-  font-weight: var(--font-weight-heavy);
+  font-weight: var(--font-weight-bold);
   font-variant-numeric: tabular-nums;
+  letter-spacing: var(--letter-spacing-title);
   line-height: var(--line-height-tight);
 
   @include bp.below-tablet {

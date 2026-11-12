@@ -1,7 +1,7 @@
 @use 'breakpoints' as bp;
 
 // The document: its plate (what it is, its state, what is due, what to do) on the logo's
-// navy, then its modules; edited in place as a draft (notes backend 0040, 0041).
+// gradient, then its modules; edited in place as a draft (notes backend 0040, 0041).
 :host {
   display: flex;
   flex-direction: column;
@@ -50,9 +50,10 @@
   overflow-wrap: anywhere;
 }
 
-// Paid, in part or reversed: a square label beside the number (Odoo's ribbon, redrawn).
+// Paid, in part or reversed: a label beside the number (Odoo's ribbon, redrawn).
 .ribbon {
   padding: var(--space-1) var(--space-3);
+  border-radius: var(--radius-pill);
   background: var(--color-plate-muted);
   color: var(--color-plate);
   font-size: var(--font-size-caption);
@@ -61,8 +62,8 @@
   text-transform: uppercase;
 
   &.paid {
-    background: var(--color-action);
-    color: var(--color-text-on-action);
+    background: var(--color-plate-positive);
+    color: var(--color-plate);
   }
 }
 
@@ -135,7 +136,9 @@
 .module {
   display: block;
   padding: var(--space-5);
-  border-top: 3px solid var(--color-rule-strong);
+  border: var(--border-width) solid var(--color-border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
   background: var(--color-surface);
 
   @include bp.below-tablet {
@@ -251,11 +254,12 @@
     font-style: italic;
   }
 
-  // What is due: on the navy, as the plate.
+  // What is due: on the logo's gradient, as the plate.
   .due {
     margin-top: var(--space-2);
     padding: var(--space-3) var(--space-4);
-    background: var(--color-plate);
+    border-radius: var(--radius-md);
+    background: var(--gradient-brand);
 
     dt,
     dd {

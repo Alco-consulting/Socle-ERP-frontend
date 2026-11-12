@@ -1,17 +1,25 @@
 @use 'breakpoints' as bp;
 
+// Two halves on a wide screen: the brand on the logo's gradient, the form on the page. On a
+// tablet or a phone, the form alone under a short band of the gradient.
 .page {
-  display: flex;
-  justify-content: center;
-  align-items: flex-start;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
   min-height: 100vh;
-  padding: var(--space-8) var(--space-4);
   background: var(--color-bg);
-  // The logo's navy plate across the top, the panel standing on it.
-  box-shadow: inset 0 16rem 0 var(--color-plate);
 
   &:focus {
     outline: none;
+  }
+
+  @include bp.below-laptop {
+    grid-template-columns: minmax(0, 1fr);
+    align-content: start;
+    justify-items: center;
+    padding: var(--space-7) var(--space-4) var(--space-6);
+    background:
+      var(--gradient-plate) top / 100% 15rem no-repeat,
+      var(--color-bg);
   }
 
   @include bp.below-tablet {
@@ -19,16 +27,119 @@
   }
 }
 
+.brand {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: var(--space-4);
+  padding: var(--space-8) clamp(var(--space-6), 6vw, 6rem);
+  background: var(--gradient-plate);
+  color: var(--color-plate-text);
+
+  // The logo's « C », drawn large behind the words.
+  &::before {
+    content: '';
+    position: absolute;
+    z-index: var(--z-behind);
+    right: -9rem;
+    bottom: -10rem;
+    width: 30rem;
+    height: 30rem;
+    border: 4.5rem solid var(--color-plate-ring);
+    border-right-color: transparent;
+    border-radius: 50%;
+    transform: rotate(-20deg);
+  }
+
+  @include bp.below-laptop {
+    display: none;
+  }
+}
+
+.brand-mark {
+  width: 88px;
+  height: 88px;
+  border-radius: 50%;
+  box-shadow: 0 0 0 6px var(--color-plate-band);
+}
+
+.brand-name {
+  margin-top: var(--space-3);
+  font-size: var(--font-size-plate-figure);
+  font-weight: var(--font-weight-heavy);
+  letter-spacing: var(--letter-spacing-title);
+  line-height: var(--line-height-tight);
+
+  span {
+    color: var(--color-plate-muted);
+    font-weight: var(--font-weight-medium);
+  }
+}
+
+.brand-line {
+  max-width: 28rem;
+  color: var(--color-plate-muted);
+  font-size: var(--font-size-lead);
+  line-height: var(--line-height-base);
+}
+
+.brand-points {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  margin: var(--space-4) 0 0;
+  padding: 0;
+  list-style: none;
+
+  li {
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+
+    // A small check in a ring of mist.
+    &::before {
+      content: '';
+      flex: none;
+      width: 0.5rem;
+      height: 0.5rem;
+      border-radius: 50%;
+      background: var(--color-accent);
+      box-shadow: 0 0 0 5px var(--color-plate-band);
+    }
+  }
+}
+
 .panel {
   display: flex;
   flex-direction: column;
+  align-self: center;
+  justify-self: center;
   gap: var(--space-4);
   width: min(420px, 100%);
-  padding: var(--space-6) var(--space-5);
+  margin: var(--space-7) var(--space-4);
+  padding: var(--space-6);
+  border: var(--border-width) solid var(--color-border);
+  border-radius: var(--radius-xl);
   background: var(--color-surface);
+  box-shadow: var(--shadow-lg);
+  animation: alco-panel-in var(--duration-slow) var(--easing-standard);
+
+  @include bp.below-laptop {
+    margin: 0;
+  }
 
   @include bp.below-tablet {
     padding: var(--space-5) var(--space-4);
+  }
+}
+
+@keyframes alco-panel-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
   }
 }
 
@@ -100,6 +211,7 @@
 
 .submit {
   width: 100%;
+  height: 42px;
   margin-top: var(--space-1);
 }
 

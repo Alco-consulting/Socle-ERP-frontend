@@ -3,7 +3,6 @@
 :host {
   display: block;
   min-height: 100vh;
-  background: var(--color-bg);
 }
 
 .sticky {
@@ -13,20 +12,48 @@
 }
 
 .launcher {
+  position: relative;
+  isolation: isolate;
   display: flex;
   flex-direction: column;
   gap: var(--space-5);
   max-width: var(--launcher-max-width);
   margin: 0 auto;
+  // The ring behind the tiles never widens the page.
+  overflow-x: clip;
   // The tiles a little below the top bar, as a home page, not stuck to it.
-  padding: max(var(--space-7), 14vh) var(--page-gutter) var(--space-8);
+  padding: max(var(--space-7), 12vh) var(--page-gutter) var(--space-8);
 
   &:focus {
     outline: none;
   }
 
+  // The logo's « C », large and faint behind the tiles.
+  &::before {
+    content: '';
+    position: absolute;
+    z-index: var(--z-behind);
+    top: 2rem;
+    left: 50%;
+    width: 34rem;
+    height: 34rem;
+    border: 4.5rem solid var(--color-primary-soft);
+    border-right-color: transparent;
+    border-radius: 50%;
+    transform: translateX(-50%) rotate(-20deg);
+    opacity: 0.7;
+    pointer-events: none;
+  }
+
   @include bp.below-tablet {
     padding-top: var(--space-5);
+
+    &::before {
+      top: 0;
+      width: 20rem;
+      height: 20rem;
+      border-width: 2.5rem;
+    }
   }
 }
 
@@ -35,18 +62,20 @@
   align-items: center;
   gap: var(--space-2);
   width: min(480px, 100%);
-  height: 44px;
+  height: 46px;
   margin: 0 auto;
   padding: 0 var(--space-4);
-  border: var(--border-width) solid var(--color-border-strong);
+  border: var(--border-width) solid var(--color-border);
   border-radius: var(--radius-pill);
   background: var(--color-surface);
   color: var(--color-text-muted);
-  box-shadow: var(--shadow-sm);
+  box-shadow: var(--shadow-md);
 
   &:focus-within {
     border-color: var(--color-focus-ring);
-    box-shadow: 0 0 0 1px var(--color-focus-ring);
+    box-shadow:
+      0 0 0 3px var(--color-focus-halo),
+      var(--shadow-md);
   }
 
   input {
@@ -67,38 +96,85 @@
   }
 }
 
-// The applications as wide doors: the picture, then the name, a navy rule on top; the
-// door fills with the navy under the pointer or the keyboard.
+// The applications as cards: the picture on a soft navy square, then the name; the card
+// lifts under the pointer or the keyboard, its square takes the logo's gradient.
 .grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(12.5rem, 1fr));
   gap: var(--space-4);
   margin: 0;
   padding: 0;
+
+  @include bp.below-tablet {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: var(--space-3);
+  }
+
+  li {
+    display: flex;
+    animation: alco-tile-in var(--duration-slow) var(--easing-standard) backwards;
+  }
+
+  li:nth-child(2) {
+    animation-delay: calc(var(--duration-base) * 0.2);
+  }
+
+  li:nth-child(3) {
+    animation-delay: calc(var(--duration-base) * 0.4);
+  }
+
+  li:nth-child(n + 4) {
+    animation-delay: calc(var(--duration-base) * 0.6);
+  }
+}
+
+@keyframes alco-tile-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
 }
 
 .tile {
   display: flex;
+  flex: 1;
+  flex-direction: column;
   align-items: center;
-  gap: var(--space-4);
-  min-height: 6rem;
-  padding: var(--space-4) var(--space-5);
-  border-top: 3px solid var(--color-rule-strong);
+  justify-content: center;
+  gap: var(--space-3);
+  min-height: 11rem;
+  padding: var(--space-5) var(--space-4);
+  border: var(--border-width) solid var(--color-border);
+  border-radius: var(--radius-xl);
   background: var(--color-surface);
+  box-shadow: var(--shadow-sm);
   color: var(--color-text);
+  text-align: center;
   text-decoration: none;
   transition:
-    background-color var(--duration-base) var(--easing-standard),
-    color var(--duration-base) var(--easing-standard);
+    transform var(--duration-base) var(--easing-standard),
+    box-shadow var(--duration-base) var(--easing-standard),
+    border-color var(--duration-base) var(--easing-standard);
 
   &:hover,
   &:focus-visible {
-    background: var(--color-plate);
-    color: var(--color-plate-text);
+    border-color: var(--color-accent);
+    box-shadow: var(--shadow-lg);
+    transform: translateY(-3px);
+
+    .tile-box {
+      background: var(--gradient-brand);
+      box-shadow: var(--shadow-brand);
+    }
   }
 
   &:focus-visible {
     outline-offset: var(--focus-ring-offset);
+  }
+
+  @include bp.below-tablet {
+    min-height: 8.5rem;
+    padding: var(--space-4) var(--space-3);
   }
 }
 
@@ -107,19 +183,24 @@
   flex: none;
   align-items: center;
   justify-content: center;
-  width: 3.5rem;
-  height: 3.5rem;
-  background: var(--color-surface-muted);
+  width: var(--app-icon-size);
+  height: var(--app-icon-size);
+  border-radius: var(--radius-2xl);
+  background: var(--color-primary-soft);
+  transition:
+    background var(--duration-base) var(--easing-standard),
+    box-shadow var(--duration-base) var(--easing-standard);
 }
 
 .tile-icon {
-  width: 70%;
-  height: 70%;
+  width: 55%;
+  height: 55%;
 }
 
 .tile-label {
   font-size: var(--font-size-lead);
-  font-weight: var(--font-weight-bold);
+  font-weight: var(--font-weight-semibold);
   font-stretch: var(--font-stretch-wide);
+  letter-spacing: -0.011em;
   line-height: var(--line-height-tight);
 }

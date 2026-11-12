@@ -1,6 +1,6 @@
 @use 'breakpoints' as bp;
 
-// The sheet: a module under the navy rule, the left side facing the right one, block facing
+// The sheet: a module a rounded card, the left side facing the right one, block facing
 // block; one column on a phone, the left side first.
 :host {
   display: grid;
@@ -10,7 +10,9 @@
   gap: 0 var(--space-6);
   width: min(100%, 72rem);
   padding: var(--space-5) var(--space-6);
-  border-top: 3px solid var(--color-rule-strong);
+  border: var(--border-width) solid var(--color-border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
   background: var(--color-surface);
   font-variant-numeric: tabular-nums;
   transition: opacity var(--duration-fast) var(--easing-standard);
@@ -106,7 +108,8 @@
 
 .grand-total {
   margin-top: var(--space-4);
-  background: var(--color-plate);
+  border-radius: var(--radius-md);
+  background: var(--gradient-brand);
   color: var(--color-plate-text);
   font-weight: var(--font-weight-heavy);
 }

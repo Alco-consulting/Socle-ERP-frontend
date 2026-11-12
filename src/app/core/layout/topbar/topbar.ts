@@ -11,7 +11,7 @@ import { ApiError } from '../../http/api-error';
 import { APP_ROOT, AlcoApplication } from '../../navigation/applications';
 import { NotificationCenter } from '../../notifications/notification-center';
 import { SessionStore } from '../../session/session.store';
-import { ThemeChoice, ThemeService } from '../../theme/theme.service';
+import { ThemeService } from '../../theme/theme.service';
 import { CommandPaletteService } from '../command-palette/command-palette.service';
 import { AlcoLogo } from '../logo/logo';
 
@@ -33,7 +33,7 @@ export class AlcoTopbar {
   private readonly toast = inject(AlcoToastService);
   private readonly companyContext = inject(CompanyContextService);
   private readonly sessionService = inject(SessionService);
-  private readonly theme = inject(ThemeService);
+  protected readonly theme = inject(ThemeService);
   protected readonly palette = inject(CommandPaletteService);
 
   /** Current application; absent on the launcher. */
@@ -88,23 +88,11 @@ export class AlcoTopbar {
     },
   ];
 
-  /** The account, the theme (as the device, light or dark), then the logout. */
-  protected readonly userItems = computed<readonly DropdownItem[]>(() => {
-    const choice = this.theme.choice();
-    const theme = (id: ThemeChoice, label: string): DropdownItem => ({
-      id: `theme:${id}`,
-      label,
-      group: 'Thème',
-      checked: choice === id,
-    });
-    return [
-      { id: 'profile', label: 'Mon profil', icon: 'user', disabled: true },
-      theme('system', 'Comme l’appareil'),
-      theme('light', 'Clair'),
-      theme('dark', 'Sombre'),
-      { id: 'logout', label: 'Se déconnecter', icon: 'logout', dividerBefore: true },
-    ];
-  });
+  /** The account, then the logout (the theme has its own switch in the bar). */
+  protected readonly userItems: readonly DropdownItem[] = [
+    { id: 'profile', label: 'Mon profil', icon: 'user', disabled: true },
+    { id: 'logout', label: 'Se déconnecter', icon: 'logout', dividerBefore: true },
+  ];
 
   /**
    * The server gives the chosen company's permissions; the screens of the previous company
@@ -115,10 +103,6 @@ export class AlcoTopbar {
   }
 
   protected async onUserSelected(item: DropdownItem): Promise<void> {
-    if (item.id.startsWith('theme:')) {
-      this.theme.choose(item.id.slice('theme:'.length) as ThemeChoice);
-      return;
-    }
     if (item.id !== 'logout') {
       return;
     }

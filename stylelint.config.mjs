@@ -1,7 +1,8 @@
 /**
  * Stylelint guards the design tokens: no raw color, radius, timing, layer or font size outside
- * `src/styles/_tokens.scss`, and no gradient (the charte asks for flat surfaces). Components
- * use `var(--…)`; a new value is added as a token first. Inline component styles are checked
+ * `src/styles/_tokens.scss`, and no gradient written by hand (the logo's gradients are tokens:
+ * `--gradient-brand`, `--gradient-plate`…). Components use `var(--…)`; a new value is added as a
+ * token first. Inline component styles are checked
  * too (scripts/stylelint-inline.mjs).
  */
 const GRADIENTS = ['linear-gradient', 'radial-gradient', 'conic-gradient', 'repeating-linear-gradient'];

@@ -37,8 +37,10 @@
   max-height: calc(100vh - 8rem);
   overflow-y: auto;
   padding: var(--space-2);
-  // A module beside the register, under the same navy rule.
-  border-top: 3px solid var(--color-rule-strong);
+  // A module beside the register, a rounded card too.
+  border: var(--border-width) solid var(--color-border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
   background: var(--color-surface);
 
   @include bp.below-tablet {

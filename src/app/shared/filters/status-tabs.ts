@@ -32,41 +32,46 @@ export interface StatusTab {
       display: block;
       min-width: 0;
     }
-    /* Square segments side by side; the chosen one filled with the navy. */
+    /* A segmented control: the segments in a sunken track, the chosen one raised in white. */
     .tabs {
-      display: flex;
+      display: inline-flex;
+      max-width: 100%;
+      gap: 2px;
+      padding: 3px;
       overflow-x: auto;
+      border-radius: var(--radius-md);
+      background: var(--color-surface-sunken);
       scrollbar-width: none;
     }
     .tab {
       flex: none;
-      height: var(--control-height-sm);
-      padding: 0 var(--space-4);
-      border: var(--border-width) solid var(--color-border-strong);
+      height: calc(var(--control-height) - 6px);
+      padding: 0 var(--space-3);
+      border: 0;
       border-radius: var(--radius-sm);
-      background: var(--color-surface);
+      background: transparent;
       color: var(--color-text-muted);
       font: inherit;
-      font-weight: var(--font-weight-semibold);
+      font-weight: var(--font-weight-medium);
       white-space: nowrap;
       cursor: pointer;
       transition:
         background-color var(--duration-fast) var(--easing-standard),
+        box-shadow var(--duration-fast) var(--easing-standard),
         color var(--duration-fast) var(--easing-standard);
     }
-    .tab + .tab {
-      margin-left: calc(-1 * var(--border-width));
-    }
     .tab:hover {
-      background: var(--color-surface-sunken);
       color: var(--color-text);
+    }
+    .tab:focus-visible {
+      outline-offset: calc(-1 * var(--focus-ring-width));
     }
     .tab--active,
     .tab--active:hover {
-      border-color: var(--color-primary);
-      background: var(--color-primary);
-      color: var(--color-text-inverse);
-      font-weight: var(--font-weight-bold);
+      background: var(--color-surface);
+      box-shadow: var(--shadow-sm);
+      color: var(--color-primary-text);
+      font-weight: var(--font-weight-semibold);
     }
   `,
   changeDetection: ChangeDetectionStrategy.OnPush,

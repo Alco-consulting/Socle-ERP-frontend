@@ -83,6 +83,8 @@ describe('AlcoDomainTransfers (« Actions ▾ » of a domain, real API)', () => 
     const create = httpMock().expectOne('/api/v1/imports-exports/exports/');
     expect(create.request.body).toEqual({
       export_type: 'partners',
+      // CSV unless a format is asked (the reports' PDF / XLSX exports ask theirs).
+      file_format: 'csv',
       parameters: { role: 'customer', status: 'active' },
       asynchronous: false,
     });

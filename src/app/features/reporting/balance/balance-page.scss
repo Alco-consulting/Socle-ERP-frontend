@@ -24,3 +24,10 @@
 .fold--group {
   padding-left: var(--space-4);
 }
+
+// Sous le tableau : pourquoi la ligne Total n'a pas encore ses soldes débiteurs et créditeurs.
+.totals-note {
+  margin: var(--space-3) 0 0;
+  color: var(--color-text-muted);
+  font-size: var(--font-size-caption);
+}

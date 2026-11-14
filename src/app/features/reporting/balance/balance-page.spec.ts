@@ -65,7 +65,9 @@ const GROUPS = [
   groupOf('7', 'Comptes de produits des activités ordinaires', 1),
   groupOf('70', 'Ventes', 2),
 ];
-const balance = (options: { periods?: object[]; rows?: unknown[]; warnings?: unknown[] } = {}) => ({
+const balance = (
+  options: { periods?: object[]; rows?: unknown[]; warnings?: unknown[]; totals?: object } = {},
+) => ({
   scope: {
     fiscal_year: { public_id: 'fy-2026', code: '2026' },
     period: null,
@@ -74,7 +76,13 @@ const balance = (options: { periods?: object[]; rows?: unknown[]; warnings?: unk
   },
   comparative_scope: null,
   periods: options.periods ?? [OCTOBER],
-  totals: { opening: ZERO, debit: amount(99294000), credit: amount(99294000), closing: ZERO },
+  totals: {
+    opening: ZERO,
+    debit: amount(99294000),
+    credit: amount(99294000),
+    closing: ZERO,
+    ...options.totals,
+  },
   movements: (options.periods ?? [OCTOBER]).map(() => move(99294000, 99294000)),
   groups: GROUPS,
   comparison: null,
@@ -141,7 +149,7 @@ describe('BalancePage (Analyse › Balance comptable, as Odoo’s)', () => {
     return { element, stable, references, asked, harness };
   }
 
-  it('this month by default, Odoo’s bar and columns: zeros in grey, negatives in red', async () => {
+  it('ce mois par défaut, la barre d’Odoo ; les soldes sur deux colonnes, débiteur et créditeur', async () => {
     const { element, stable, references } = await open('/balance');
     const request = await references();
     expect(request.request.params.get('date_from')).toBe('2026-10-01');
@@ -164,19 +172,60 @@ describe('BalancePage (Analyse › Balance comptable, as Odoo’s)', () => {
       'oct. 2026',
       'Solde final',
     ]);
+    // La balance à six colonnes : chaque solde en débiteur ou créditeur, les mouvements entre.
     expect(cells(element.querySelector('.subheads'), 'th')).toEqual([
       'Compte',
-      'Solde',
+      'Débiteur',
+      'Créditeur',
       'Débit',
       'Crédit',
-      'Solde',
+      'Débiteur',
+      'Créditeur',
     ]);
-    const [capital, , clients] = [...element.querySelectorAll('tbody tr')];
-    expect(cells(clients)).toEqual(['8 000 000', '72 914 000', '0', '80 914 000']);
+    const [capital, fournisseurs, clients, ventes] = [...element.querySelectorAll('tbody tr')];
+    // Un solde positif est débiteur, l'autre colonne vide.
+    expect(cells(clients)).toEqual(['8 000 000', '', '72 914 000', '0', '80 914 000', '']);
+    expect(clients.querySelectorAll('td')[3].classList).toContain('zero');
+    // Un solde négatif est créditeur, sans le signe moins.
     expect(text(capital.querySelector('th'))).toContain('101300 Capital souscrit');
-    expect(capital.querySelector('td')?.classList).toContain('negative');
-    expect(clients.querySelectorAll('td')[2].classList).toContain('zero');
-    expect(cells(element.querySelector('tfoot'))).toEqual(['0', '99 294 000', '99 294 000', '0']);
+    expect(cells(capital)).toEqual(['', '5 000 000', '0', '0', '', '5 000 000']);
+    expect(cells(ventes)).toEqual(['', '', '0', '22 914 000', '', '22 914 000']);
+    // Un solde nul : les deux colonnes vides.
+    expect(cells(fournisseurs)).toEqual(['', '', '12 803 500', '12 803 500', '', '']);
+    // Sans les totaux des soldes du serveur : la ligne Total les laisse vides et le dit.
+    expect(cells(element.querySelector('tfoot'))).toEqual([
+      '',
+      '',
+      '99 294 000',
+      '99 294 000',
+      '',
+      '',
+    ]);
+    expect(text(element.querySelector('.totals-note'))).toContain('ne sont pas calculés ici');
+  });
+
+  it('les totaux des soldes débiteurs et créditeurs, quand le serveur les donne', async () => {
+    const { element, stable, references } = await open('/balance');
+    (await references()).flush(
+      balance({
+        totals: {
+          opening_debit: amount(8000000),
+          opening_credit: amount(5000000),
+          closing_debit: amount(80914000),
+          closing_credit: amount(27914000),
+        },
+      }),
+    );
+    await stable();
+    expect(cells(element.querySelector('tfoot'))).toEqual([
+      '8 000 000',
+      '5 000 000',
+      '99 294 000',
+      '99 294 000',
+      '80 914 000',
+      '27 914 000',
+    ]);
+    expect(element.querySelector('.totals-note')).toBeNull();
   });
 
   it('the date menu, as Odoo’s: a month moved by ◀, then a quarter', async () => {
@@ -232,13 +281,16 @@ describe('BalancePage (Analyse › Balance comptable, as Odoo’s)', () => {
       'oct. 2026',
       'Solde final',
     ]);
+    // Solde initial nul (deux colonnes vides), deux périodes, solde final débiteur.
     expect(cells(element.querySelector('tbody tr'))).toEqual([
-      '0',
+      '',
+      '',
       '8 000 000',
       '0',
       '72 914 000',
       '0',
       '80 914 000',
+      '',
     ]);
   });
 

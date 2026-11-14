@@ -186,20 +186,22 @@
           <thead>
             <tr class="heads">
               <td class="blank"></td>
-              <th scope="col" class="box">Solde initial</th>
+              <th scope="colgroup" colspan="2" class="box">Solde initial</th>
               @for (period of found.periods; track period.date_from) {
                 <th scope="colgroup" colspan="2" class="box">{{ period.label }}</th>
               }
-              <th scope="col" class="box">Solde final</th>
+              <th scope="colgroup" colspan="2" class="box">Solde final</th>
             </tr>
             <tr class="subheads">
               <th scope="col"><span class="alco-sr-only">Compte</span></th>
-              <th scope="col" class="num">Solde</th>
+              <th scope="col" class="num">Débiteur</th>
+              <th scope="col" class="num">Créditeur</th>
               @for (period of found.periods; track period.date_from) {
                 <th scope="col" class="num">Débit</th>
                 <th scope="col" class="num">Crédit</th>
               }
-              <th scope="col" class="num">Solde</th>
+              <th scope="col" class="num">Débiteur</th>
+              <th scope="col" class="num">Créditeur</th>
             </tr>
           </thead>
           <tbody>
@@ -222,7 +224,18 @@
                       {{ line.name }}
                     </button>
                   </th>
-                  <ng-container *ngTemplateOutlet="figures; context: { $implicit: line.figures }" />
+                  <ng-container
+                    *ngTemplateOutlet="
+                      figures;
+                      context: {
+                        $implicit: {
+                          opening: line.figures.opening | balanceSides,
+                          movements: line.figures.movements,
+                          closing: line.figures.closing | balanceSides,
+                        },
+                      }
+                    "
+                  />
                 </tr>
               } @else {
                 <tr>
@@ -244,7 +257,18 @@
                       </alco-dropdown>
                     </span>
                   </th>
-                  <ng-container *ngTemplateOutlet="figures; context: { $implicit: line.row }" />
+                  <ng-container
+                    *ngTemplateOutlet="
+                      figures;
+                      context: {
+                        $implicit: {
+                          opening: line.row.opening | balanceSides,
+                          movements: line.row.movements,
+                          closing: line.row.closing | balanceSides,
+                        },
+                      }
+                    "
+                  />
                 </tr>
               }
             }
@@ -257,6 +281,12 @@
           </tfoot>
         </table>
       </div>
+      @if (totalsPending()) {
+        <p class="totals-note">
+          Les totaux des soldes débiteurs et créditeurs s’afficheront dès que le serveur les
+          fournira : ils portent sur toutes les lignes, ils ne sont pas calculés ici.
+        </p>
+      }
     </div>
     @if (found.count > pageSize) {
       <alco-pagination
@@ -271,15 +301,10 @@
   <alco-loading variant="table" [rows]="8" [columns]="4" label="Chargement de la balance…" />
 }
 
-<!-- The amounts of a row, as Odoo's: zeros in grey, negatives in red. -->
+<!-- Les montants d'une ligne : le solde initial sur deux colonnes, les mouvements de chaque
+     période (les zéros en gris), le solde final sur deux colonnes. -->
 <ng-template #figures let-figures>
-  <td
-    class="num"
-    [class.zero]="isZero(figures.opening)"
-    [class.negative]="isNegative(figures.opening)"
-  >
-    {{ figures.opening | alcoAmount: decimals() }}
-  </td>
+  <ng-container *ngTemplateOutlet="sides; context: { $implicit: figures.opening }" />
   @for (move of figures.movements; track $index) {
     <td class="num" [class.zero]="isZero(move.debit)">
       {{ move.debit | alcoAmount: decimals() }}
@@ -288,11 +313,19 @@
       {{ move.credit | alcoAmount: decimals() }}
     </td>
   }
-  <td
-    class="num"
-    [class.zero]="isZero(figures.closing)"
-    [class.negative]="isNegative(figures.closing)"
-  >
-    {{ figures.closing | alcoAmount: decimals() }}
+  <ng-container *ngTemplateOutlet="sides; context: { $implicit: figures.closing }" />
+</ng-template>
+
+<!-- Un solde : débiteur ou créditeur, l'autre colonne vide ; les deux vides sans solde. -->
+<ng-template #sides let-side>
+  <td class="num">
+    @if (side.debit !== null) {
+      {{ side.debit | alcoAmount: decimals() }}
+    }
+  </td>
+  <td class="num">
+    @if (side.credit !== null) {
+      {{ side.credit | alcoAmount: decimals() }}
+    }
   </td>
 </ng-template>

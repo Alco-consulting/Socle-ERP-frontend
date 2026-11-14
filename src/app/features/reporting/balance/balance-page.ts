@@ -37,7 +37,13 @@ import { Journal } from '../../accounting/data-access/accounting-models';
 import { PartnersApi } from '../../partners/data-access/partners-api';
 import { TransfersApi } from '../../transfers/transfers-api';
 import { BALANCE_PAGE_SIZE, ReportingApi } from '../data-access/reporting-api';
-import { BalanceFigures, BalanceRow, TrialBalance } from '../data-access/reporting-models';
+import { AlcoBalanceSidesPipe, BalanceSides } from '../balance-sides';
+import {
+  BalanceFigures,
+  BalanceMovement,
+  BalanceRow,
+  TrialBalance,
+} from '../data-access/reporting-models';
 import { GENERAL_LEDGER_PARAM, LEDGER_PATHS } from '../general-ledger/general-ledger-presentation';
 import {
   AlcoReportPeriod,
@@ -64,6 +70,13 @@ const OPTION_DRAFTS = 'brouillons';
 const OPTION_HIERARCHY = 'hierarchie';
 const OPTION_UNFOLD = 'deplier';
 
+/** Les chiffres d'une ligne, ses soldes scindés en débiteur et créditeur. */
+interface SplitFigures {
+  readonly opening: BalanceSides;
+  readonly movements: readonly BalanceMovement[];
+  readonly closing: BalanceSides;
+}
+
 /** A row of the table: a class or a group of the hierarchy, or an account. */
 type Line =
   | {
@@ -86,8 +99,9 @@ type Line =
 /**
  * Comptabilité › Analyse › Balance comptable, as Odoo's (notes backend 0051, 0052): PDF and
  * XLSX, the search, the period (◀ ▶), the comparison, the journals, the entries, all in the
- * URL; Solde initial, each period's Débit and Crédit, Solde final; the ⋮ of an account toward
- * its ledger or its lines. Every figure is the server's.
+ * URL; Solde initial et Solde final scindés en débiteur et créditeur (balance à six colonnes),
+ * each period's Débit and Crédit; the ⋮ of an account toward its ledger or its lines. Every
+ * figure is the server's.
  */
 @Component({
   selector: 'alco-balance-page',
@@ -96,6 +110,7 @@ type Line =
     ReactiveFormsModule,
     RouterLink,
     AlcoAmountPipe,
+    AlcoBalanceSidesPipe,
     AlcoButton,
     AlcoDropdown,
     AlcoEmptyState,
@@ -205,16 +220,26 @@ export class BalancePage {
   /** The drafts up to the period's end, in Écritures comptables. */
   protected readonly draftsUrl = `${ACCOUNTING}/ecritures`;
   protected readonly draftsQuery = computed(() => ({ etat: 'draft', au: this.period().to }));
-  /** The Total row: the server's totals over every row. */
-  protected readonly total = computed<BalanceFigures | null>(() => {
+  /**
+   * La ligne Total : les totaux du serveur sur toutes les lignes. Les soldes y sont ceux des
+   * colonnes débitrice et créditrice, quand le serveur les donne ; jamais calculés ici.
+   */
+  protected readonly total = computed<SplitFigures | null>(() => {
     const balance = this.balance.value();
-    return balance
-      ? {
-          opening: balance.totals.opening,
-          movements: balance.movements,
-          closing: balance.totals.closing,
-        }
-      : null;
+    if (!balance) {
+      return null;
+    }
+    const totals = balance.totals;
+    return {
+      opening: { debit: totals.opening_debit ?? null, credit: totals.opening_credit ?? null },
+      movements: balance.movements,
+      closing: { debit: totals.closing_debit ?? null, credit: totals.closing_credit ?? null },
+    };
+  });
+  /** Le serveur ne donne pas encore les totaux des soldes débiteurs et créditeurs. */
+  protected readonly totalsPending = computed(() => {
+    const totals = this.balance.value()?.totals;
+    return !!totals && totals.closing_debit === undefined;
   });
   private readonly folded = signal<ReadonlySet<string>>(new Set());
 
@@ -430,10 +455,6 @@ export class BalancePage {
 
   protected isZero(amount: string): boolean {
     return Number(amount) === 0;
-  }
-
-  protected isNegative(amount: string): boolean {
-    return amount.startsWith('-') && !this.isZero(amount);
   }
 
   protected async exportFile(format: 'pdf' | 'xlsx'): Promise<void> {

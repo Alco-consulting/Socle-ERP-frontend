@@ -11,7 +11,11 @@
 } @else if (!ready()) {
   <alco-loading [rows]="5" label="Chargement de la devise…" />
 } @else {
-  <alco-page-header [title]="title()" [subtitle]="currency()?.name ?? 'Devise du catalogue'">
+  <alco-page-header
+    [title]="title()"
+    [subtitle]="currency()?.name ?? 'Devise du catalogue'"
+    [sticky]="canSave"
+  >
     <div alcoPageActions>
       <button alcoButton type="button" variant="ghost" (click)="cancel()">
         {{ canSave && form.dirty ? 'Annuler' : 'Retour aux devises' }}

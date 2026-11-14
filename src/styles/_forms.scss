@@ -34,9 +34,10 @@
     box-shadow: 0 0 0 3px var(--color-focus-halo);
   }
 
+  // Un champ en erreur : la bordure rouge et le message sous le champ suffisent ; le fond reste
+  // celui de la page, pour que plusieurs erreurs ne transforment pas le formulaire en alerte.
   &[aria-invalid='true'] {
     border-color: var(--color-danger);
-    background: var(--color-danger-soft);
   }
 
   &[aria-invalid='true']:focus {
@@ -120,7 +121,6 @@ tr:focus-within .alco-control--quiet {
 
   .alco-control--quiet[aria-invalid='true'] {
     border-color: var(--color-danger);
-    background-color: var(--color-danger-soft);
   }
 }
 
@@ -180,6 +180,11 @@ input[type='date'].alco-control {
   display: flex;
   flex-direction: column;
   gap: var(--space-1);
+
+  // Le titre d'une section : la marine, comme dans les fiches de comptabilité.
+  .alco-section-title {
+    color: var(--color-primary-text);
+  }
 
   p {
     margin: 0;
@@ -267,6 +272,54 @@ input[type='date'].alco-control {
 
   &[aria-invalid='true'] {
     border-bottom-color: var(--color-danger);
-    background-color: var(--color-danger-soft);
+  }
+}
+
+// ---- Cases à cocher et boutons radio : la marine de la charte -----------------------------
+// :where() garde une spécificité nulle : la règle d'un composant (interrupteur, tableau) gagne.
+:where(input[type='checkbox'], input[type='radio']) {
+  width: 16px;
+  height: 16px;
+  margin: 0;
+  accent-color: var(--color-primary);
+  cursor: pointer;
+}
+
+:where(input[type='checkbox'], input[type='radio']):disabled {
+  cursor: not-allowed;
+}
+
+// L'interrupteur garde sa case invisible sur toute sa surface (elle reçoit le clic).
+.alco-switch input {
+  width: 100%;
+  height: 100%;
+}
+
+// ---- Un champ court : un code, un taux, une quantité --------------------------------------
+// Sur le champ de formulaire (alco-form-field) : la saisie est courte, l'aide garde la largeur.
+.alco-field--short .alco-control,
+.alco-field--short .with-unit {
+  max-width: 16rem;
+}
+
+// ---- Les actions d'un formulaire sur téléphone ---------------------------------------------
+// L'en-tête d'un formulaire long ne colle pas sur un téléphone ; ses boutons (Annuler,
+// Enregistrer) descendent dans une barre fixée en bas de l'écran, toujours à portée du pouce.
+@media (max-width: 767.98px) {
+  alco-page-header.sticky [alcoPageActions] {
+    position: fixed;
+    z-index: var(--z-sticky);
+    inset: auto 0 0;
+    justify-content: flex-end;
+    padding: var(--space-3) max(var(--space-4), env(safe-area-inset-right, 0px))
+      calc(var(--space-3) + env(safe-area-inset-bottom, 0px))
+      max(var(--space-4), env(safe-area-inset-left, 0px));
+    background: var(--gradient-plate);
+    box-shadow: var(--shadow-lg);
+  }
+
+  // La page laisse la place de la barre : le dernier champ n'est jamais caché dessous.
+  .alco-page:has(alco-page-header.sticky [alcoPageActions]) {
+    padding-bottom: calc(var(--space-8) + var(--space-5) + env(safe-area-inset-bottom, 0px));
   }
 }

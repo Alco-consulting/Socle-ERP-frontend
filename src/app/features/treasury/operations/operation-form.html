@@ -16,6 +16,7 @@
   <alco-page-header
     [title]="isNew ? 'Nouvelle opération de trésorerie' : 'Modifier le brouillon'"
     subtitle="Créée en brouillon : elle se confirme puis se comptabilise depuis sa fiche."
+    [sticky]="true"
   >
     <div alcoPageActions>
       <button alcoButton type="button" variant="ghost" (click)="cancel()">Annuler</button>

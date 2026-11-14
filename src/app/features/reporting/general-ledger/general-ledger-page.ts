@@ -26,6 +26,7 @@ import { AlcoEmptyState } from '../../../shared/ui/empty-state/empty-state';
 import { AlcoErrorState } from '../../../shared/ui/error-state/error-state';
 import { AlcoIcon } from '../../../shared/ui/icon/icon';
 import { AlcoLoading } from '../../../shared/ui/loading/loading';
+import { AlcoStatusTabs } from '../../../shared/filters/status-tabs';
 import { AlcoPagination } from '../../../shared/ui/pagination/pagination';
 import { AlcoToastService } from '../../../shared/ui/toast/toast.service';
 import { localToday } from '../../../shared/utils/dates';
@@ -55,7 +56,17 @@ import {
   periodFromUrl,
   periodParams,
 } from '../report-period/report-period';
-import { GENERAL_LEDGER_PARAM, LedgerMode } from './general-ledger-presentation';
+import {
+  GENERAL_LEDGER_PARAM,
+  LEDGER_VIEWS,
+  LedgerMode,
+  LedgerView,
+  readLedgerView,
+  rememberLedgerView,
+  Subject,
+  SubjectLines,
+} from './general-ledger-presentation';
+import { AlcoTAccounts } from './t-accounts';
 
 const ACCOUNTING = `${APP_ROOT}/comptabilite`;
 const ALL_JOURNALS = '*';
@@ -70,15 +81,6 @@ const TIERS: readonly {
   { id: 'payable', url: 'payer', label: 'Comptes à payer' },
 ];
 
-/** A line of the report: an account or a partner, its figures. */
-interface Subject {
-  readonly id: string;
-  readonly code: string;
-  /** As Odoo shows it: « 571001 Caisse Principale », a partner by its name. */
-  readonly label: string;
-  readonly figures: GeneralLedgerFigures;
-}
-
 interface Report {
   readonly scope: ReportScope;
   readonly period: string;
@@ -92,15 +94,6 @@ interface Report {
 type Loaded =
   | { readonly kind: 'ledger'; readonly report: Report }
   | { readonly kind: 'unknown'; readonly code: string };
-
-/** The lines of an unfolded subject, read page by page (« Charger plus »). */
-interface SubjectLines {
-  readonly rows: readonly LedgerRow[];
-  readonly count: number;
-  readonly page: number;
-  readonly loading: boolean;
-  readonly failed: boolean;
-}
 
 /**
  * Comptabilité › Analyse › Grand livre général and Grand livre des partenaires, as Odoo's
@@ -124,6 +117,8 @@ interface SubjectLines {
     AlcoLoading,
     AlcoPagination,
     AlcoReportPeriod,
+    AlcoStatusTabs,
+    AlcoTAccounts,
   ],
   templateUrl: './general-ledger-page.html',
   styleUrl: './general-ledger-page.scss',
@@ -410,6 +405,31 @@ export class GeneralLedgerPage {
 
   protected setPage(page: number): void {
     this.navigate({ [GENERAL_LEDGER_PARAM.page]: page > 1 ? page : null });
+  }
+
+  /** La vue tableau, ou les comptes en T ; le choix est retenu sur cet appareil. */
+  protected readonly views = LEDGER_VIEWS;
+  protected readonly view = signal<LedgerView>(readLedgerView());
+
+  protected chooseView(id: string | null): void {
+    const view: LedgerView = id === 'cards' ? 'cards' : 'table';
+    this.view.set(view);
+    rememberLedgerView(view);
+  }
+
+  /** Une carte arrive à l'écran : ses mouvements sont lus, une fois (les mêmes que le tableau). */
+  protected showCard(subject: Subject): void {
+    if (!this.lines().has(subject.id)) {
+      this.readLines(subject.id, 1);
+    }
+  }
+
+  /** Tous les mouvements d'un compte : la vue tableau, ce compte déplié. */
+  protected openInTable(subject: Subject): void {
+    this.chooseView('table');
+    if (!this.unfolded().has(subject.id)) {
+      this.toggle(subject);
+    }
   }
 
   protected isZero(amount: string): boolean {

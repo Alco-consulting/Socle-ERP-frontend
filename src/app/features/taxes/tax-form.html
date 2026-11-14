@@ -11,7 +11,11 @@
 } @else if (!ready()) {
   <alco-loading [rows]="5" label="Chargement de la taxe…" />
 } @else {
-  <alco-page-header [title]="title()" [subtitle]="isNew ? 'Taxe de la société' : ''">
+  <alco-page-header
+    [title]="title()"
+    [subtitle]="isNew ? 'Taxe de la société' : ''"
+    [sticky]="canSave"
+  >
     <div alcoPageActions>
       <button alcoButton type="button" variant="ghost" (click)="cancel()">
         {{ canSave ? 'Annuler' : 'Retour aux taxes' }}
@@ -58,7 +62,7 @@
         >
           <input alcoInput formControlName="name" maxlength="100" autocomplete="off" />
         </alco-form-field>
-        <alco-form-field label="Taux" [required]="true">
+        <alco-form-field class="alco-field--short" label="Taux" [required]="true">
           <div class="with-unit">
             <input alcoInput [numeric]="true" inputmode="decimal" formControlName="rate" />
             <span class="unit" aria-hidden="true">%</span>

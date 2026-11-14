@@ -16,6 +16,7 @@
   <alco-page-header
     [title]="isNew ? 'Nouveau compte' : 'Modifier ' + (account()?.code ?? '')"
     [subtitle]="isNew ? 'Compte du plan comptable de la société' : (account()?.name ?? '')"
+    [sticky]="true"
   >
     <div alcoPageActions>
       <button alcoButton type="button" variant="ghost" (click)="cancel()">Annuler</button>
@@ -84,7 +85,7 @@
     </section>
 
     <section class="section" aria-labelledby="accounting-title">
-      <h2 id="accounting-title" class="alco-section-title tab">Comptabilité</h2>
+      <h2 id="accounting-title" class="alco-section-title">Comptabilité</h2>
       <div class="columns">
         <div class="column">
           <alco-form-field

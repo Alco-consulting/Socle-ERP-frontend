@@ -1,21 +1,20 @@
 @use 'breakpoints' as bp;
 
-// Odoo's account form: the code and the name first, large; then « Comptabilité » on two
-// columns (one on a phone).
+// Le formulaire de compte, comme celui d'Odoo : le code (court) et le nom sur une ligne, en
+// grand ; puis « Comptabilité » sur deux colonnes (une sur un téléphone).
 .identity {
   display: grid;
-  gap: var(--space-4);
-  margin-bottom: var(--space-5);
+  grid-template-columns: minmax(0, 14rem) minmax(0, 1fr);
+  align-items: start;
+  gap: var(--space-4) var(--space-5);
+
+  @include bp.below-tablet {
+    grid-template-columns: minmax(0, 1fr);
+  }
 }
 
 .big {
   font-size: var(--font-size-section-title);
-}
-
-.tab {
-  display: inline-block;
-  padding-bottom: var(--space-2);
-  border-bottom: 2px solid var(--color-primary);
 }
 
 .columns {

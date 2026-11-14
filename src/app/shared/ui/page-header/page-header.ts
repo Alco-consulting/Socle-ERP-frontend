@@ -38,6 +38,11 @@ import { ChangeDetectionStrategy, Component, input } from '@angular/core';
       top: calc(var(--topbar-height) + var(--module-nav-height) + var(--space-2));
       z-index: var(--z-sticky);
       padding-block: var(--space-4);
+      /* L'interstice au-dessus de l'en-tête collé prend la couleur de la page : le formulaire
+         qui défile dessous n'y apparaît pas. */
+      box-shadow:
+        0 calc(-1 * var(--space-2)) 0 var(--space-2) var(--color-bg),
+        var(--shadow-brand);
     }
     h1 {
       font-size: var(--font-size-plate-title);

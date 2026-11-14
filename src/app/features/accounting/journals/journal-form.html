@@ -14,6 +14,7 @@
   <alco-page-header
     [title]="isNew ? 'Nouveau journal' : 'Modifier ' + (journal()?.name ?? '')"
     [subtitle]="isNew ? 'Journal comptable de la société' : (journal()?.code ?? '')"
+    [sticky]="true"
   >
     <div alcoPageActions>
       <button alcoButton type="button" variant="ghost" (click)="cancel()">Annuler</button>
@@ -62,6 +63,7 @@
           </select>
         </alco-form-field>
         <alco-form-field
+          class="alco-field--short"
           label="Code court"
           [required]="true"
           hint="Ex. VTE : il commence le numéro des écritures ; il ne change plus une fois une écriture validée."

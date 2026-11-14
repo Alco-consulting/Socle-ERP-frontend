@@ -11,7 +11,11 @@
 } @else if (!ready()) {
   <alco-loading [rows]="5" label="Chargement du produit…" />
 } @else {
-  <alco-page-header [title]="title()" [subtitle]="isNew ? 'Produit de la société' : ''">
+  <alco-page-header
+    [title]="title()"
+    [subtitle]="isNew ? 'Produit de la société' : ''"
+    [sticky]="canSave"
+  >
     <div alcoPageActions>
       <button alcoButton type="button" variant="ghost" (click)="cancel()">
         {{ canSave ? 'Annuler' : 'Retour aux produits' }}

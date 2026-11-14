@@ -29,6 +29,32 @@ test.describe('Analyse › Grand livre général (comme Odoo)', () => {
     expect(total[1]).toBe(total[2]);
   });
 
+  test('deux vues : le tableau, ou les comptes en T ; la vue choisie est retenue', async ({
+    page,
+  }) => {
+    await page.goto(`${LEDGER}?periode=annee`);
+    await expect(accounts(page).first()).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Vue tableau' })).toHaveAttribute(
+      'aria-pressed',
+      'true',
+    );
+
+    await page.getByRole('button', { name: 'Comptes en T' }).click();
+    const cards = page.locator('.t-card');
+    await expect(cards.first()).toBeVisible();
+    await expect(cards).toHaveCount(await page.locator('.t-code').count());
+    // Chaque carte : un solde avec sa nature, jamais un montant négatif.
+    await expect(cards.first().locator('.t-balance')).toContainText(/Débiteur|Créditeur|Soldé/);
+    await expect(cards.locator('.t-cell').filter({ hasText: /^\s*-/ })).toHaveCount(0);
+
+    await page.reload();
+    await expect(cards.first()).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Comptes en T' })).toHaveAttribute(
+      'aria-pressed',
+      'true',
+    );
+  });
+
   test('un compte déplié : son solde initial, ses lignes ; le ⋮ d’une ligne ouvre sa pièce', async ({
     page,
   }) => {

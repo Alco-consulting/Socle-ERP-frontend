@@ -1,0 +1,112 @@
+<!-- Les comptes en T : une carte par compte, ses mouvements au débit ou au crédit. -->
+<ul class="t-accounts" role="list" [attr.aria-label]="label() + ' — comptes en T'">
+  @for (subject of subjects(); track subject.id) {
+    @let figures = subject.figures;
+    @let read = lines().get(subject.id);
+    @let opening = figures.opening | balanceSides;
+    @let closing = figures.closing | balanceSides;
+    <li class="t-card" (alcoInView)="shown.emit(subject)">
+      <h2 class="t-title">
+        <span class="t-code">{{ subject.code }}</span>
+        <span class="t-name">{{ cardName(subject) }}</span>
+      </h2>
+      <div class="t-body">
+        <span class="t-head">Débit</span>
+        <span class="t-head">Crédit</span>
+        @if (opening.debit !== null || opening.credit !== null) {
+          <span class="t-cell t-opening" title="Solde initial">
+            @if (opening.debit !== null) {
+              {{ opening.debit | alcoAmount: decimals() }}
+            }
+          </span>
+          <span class="t-cell t-opening" title="Solde initial">
+            @if (opening.credit !== null) {
+              {{ opening.credit | alcoAmount: decimals() }}
+            }
+          </span>
+        }
+        @for (line of (read?.rows ?? []).slice(0, cardLines); track line.line) {
+          @let what = date(line.entry_date) + ' · ' + line.entry_number + ' ' + line.label;
+          <span class="t-cell" [attr.title]="isZero(line.debit) ? null : what">
+            @if (!isZero(line.debit)) {
+              {{ line.debit | alcoAmount: decimals() }}
+            }
+          </span>
+          <span class="t-cell" [attr.title]="isZero(line.credit) ? null : what">
+            @if (!isZero(line.credit)) {
+              {{ line.credit | alcoAmount: decimals() }}
+            }
+          </span>
+        }
+      </div>
+      @if (!read || read.loading) {
+        <p class="t-note">Chargement des mouvements…</p>
+      } @else if (read.failed) {
+        <p class="t-note">
+          Les mouvements n’ont pas pu être chargés.
+          <button alcoButton type="button" size="sm" variant="ghost" (click)="retry.emit(subject)">
+            Réessayer
+          </button>
+        </p>
+      } @else if (read.count > cardLines) {
+        <button
+          alcoButton
+          class="t-more"
+          type="button"
+          size="sm"
+          variant="ghost"
+          (click)="openAll.emit(subject)"
+        >
+          Voir les {{ read.count }} mouvements
+        </button>
+      }
+      <dl class="t-foot">
+        <div class="t-total">
+          <dt>Total débit</dt>
+          <dd>{{ figures.total_debit | alcoAmount: decimals() }}</dd>
+        </div>
+        <div class="t-total">
+          <dt>Total crédit</dt>
+          <dd>{{ figures.total_credit | alcoAmount: decimals() }}</dd>
+        </div>
+        <div class="t-balance">
+          <dt>Solde</dt>
+          <dd>
+            @if (closing.debit !== null) {
+              {{ closing.debit | alcoAmount: decimals() }} {{ currency() }}
+              <span class="t-nature t-nature--debit">Débiteur</span>
+            } @else if (closing.credit !== null) {
+              {{ closing.credit | alcoAmount: decimals() }} {{ currency() }}
+              <span class="t-nature t-nature--credit">Créditeur</span>
+            } @else {
+              <span class="t-nature">Soldé</span>
+            }
+          </dd>
+        </div>
+      </dl>
+    </li>
+  }
+</ul>
+@let all = totals().closing | balanceSides;
+<dl class="t-summary">
+  <div>
+    <dt>Total débit</dt>
+    <dd>{{ totals().total_debit | alcoAmount: decimals() }} {{ currency() }}</dd>
+  </div>
+  <div>
+    <dt>Total crédit</dt>
+    <dd>{{ totals().total_credit | alcoAmount: decimals() }} {{ currency() }}</dd>
+  </div>
+  <div>
+    <dt>Solde</dt>
+    <dd>
+      @if (all.debit !== null) {
+        {{ all.debit | alcoAmount: decimals() }} {{ currency() }} (débiteur)
+      } @else if (all.credit !== null) {
+        {{ all.credit | alcoAmount: decimals() }} {{ currency() }} (créditeur)
+      } @else {
+        Soldé
+      }
+    </dd>
+  </div>
+</dl>

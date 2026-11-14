@@ -103,6 +103,8 @@ describe('GeneralLedgerPage (Analyse › Grand livre général, as Odoo’s)', (
     httpMock().verify();
     vi.useRealTimers();
     clearCookie('XSRF-TOKEN');
+    // La vue retenue par un test ne passe pas au suivant.
+    localStorage.removeItem('alco.ledgerView');
   });
 
   async function open(url: string, permissions: string[] = ACCOUNTANT) {
@@ -179,6 +181,53 @@ describe('GeneralLedgerPage (Analyse › Grand livre général, as Odoo’s)', (
       '18 576 500 GNF',
       '957 500 GNF',
     ]);
+  });
+
+  it('comptes en T : une carte par compte, ses mouvements au débit ou au crédit, son solde', async () => {
+    const { element, stable, references, general } = await open('/grand-livre');
+    await references();
+    general().flush(ledgerOf());
+    await stable();
+
+    const views = [...element.querySelectorAll<HTMLButtonElement>('alco-status-tabs button')];
+    expect(views.map((button) => text(button))).toEqual(['Vue tableau', 'Comptes en T']);
+    views[1].click();
+    await stable();
+    await settle();
+
+    // Chaque carte lit ses mouvements (les mêmes que le tableau) quand elle arrive à l'écran.
+    const asked = httpMock().match((req) => req.url.startsWith('/api/v1/reporting/ledger/'));
+    expect(asked.map((request) => request.request.url).sort()).toEqual([
+      '/api/v1/reporting/ledger/a-101300/',
+      '/api/v1/reporting/ledger/a-571001/',
+    ]);
+    const lines = Array.from({ length: 8 }, (_, index) =>
+      line(index + 1, `Ligne ${index}`, 1000, 0),
+    );
+    for (const request of asked) {
+      request.flush(linesOf(request.request.url.includes('571001') ? lines : [], 8));
+    }
+    await stable();
+
+    const [capital, cash] = [...element.querySelectorAll('.t-card')];
+    expect(text(cash.querySelector('.t-code'))).toBe('571001');
+    expect(text(cash.querySelector('.t-name'))).toBe('Caisse Principale');
+    // Le solde initial au débit, puis six mouvements au crédit ; les autres dans le tableau.
+    expect(cells(cash, '.t-cell').slice(0, 2)).toEqual(['19 534 000', '']);
+    expect(cells(cash, '.t-cell').slice(2)).toEqual(
+      Array.from({ length: 6 }, () => ['', '1 000']).flat(),
+    );
+    expect(text(cash.querySelector('.t-more'))).toBe('Voir les 8 mouvements');
+    expect(text(cash.querySelector('.t-balance'))).toContain('5 957 500 GNF Débiteur');
+    expect(text(capital.querySelector('.t-balance'))).toContain('5 000 000 GNF Créditeur');
+    // Le choix est retenu sur cet appareil.
+    expect(localStorage.getItem('alco.ledgerView')).toBe('cards');
+
+    // « Voir les 8 mouvements » : la vue tableau, ce compte déplié.
+    cash.querySelector<HTMLButtonElement>('.t-more')?.click();
+    await stable();
+    expect(element.querySelector('.t-card')).toBeNull();
+    expect(element.querySelectorAll('tr.account-row')[1].classList).toContain('open');
   });
 
   it('an account unfolded: its « Solde initial », its lines, « Charger plus », its entries', async () => {

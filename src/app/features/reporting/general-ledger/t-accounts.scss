@@ -1,0 +1,180 @@
+// ---- Les comptes en T --------------------------------------------------------------------
+// Une carte par compte : le code en grand, les mouvements au débit à gauche et au crédit à
+// droite, de part et d'autre du trait du T, puis les totaux et le solde avec sa nature.
+.t-accounts {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 18rem), 1fr));
+  gap: var(--space-4);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.t-card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  min-width: 0;
+  padding: var(--space-4) var(--space-5);
+  border: var(--border-width) solid var(--color-border);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface);
+  box-shadow: var(--shadow-sm);
+}
+
+.t-title {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-1);
+  margin: 0;
+  text-align: center;
+}
+
+.t-code {
+  color: var(--color-primary-text);
+  font-size: var(--font-size-figure);
+  font-weight: var(--font-weight-bold);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: var(--letter-spacing-title);
+}
+
+.t-name {
+  color: var(--color-text-muted);
+  font-size: var(--font-size-caption);
+  font-weight: var(--font-weight-medium);
+}
+
+// Le T : un trait sous les titres, un trait vertical entre le débit et le crédit.
+.t-body {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  border-top: 2px solid var(--color-primary);
+  font-variant-numeric: tabular-nums;
+}
+
+.t-head,
+.t-cell {
+  padding: var(--space-1) var(--space-3);
+  text-align: right;
+
+  &:nth-child(odd) {
+    border-right: 2px solid var(--color-primary);
+  }
+}
+
+.t-head {
+  padding-block: var(--space-2);
+  color: var(--color-text-muted);
+  font-size: var(--font-size-caption);
+  font-weight: var(--font-weight-semibold);
+  letter-spacing: var(--letter-spacing-caps);
+  text-align: center;
+  text-transform: uppercase;
+}
+
+.t-opening {
+  color: var(--color-text-muted);
+  font-style: italic;
+}
+
+.t-note {
+  margin: 0;
+  color: var(--color-text-muted);
+  font-size: var(--font-size-caption);
+  text-align: center;
+}
+
+.t-more {
+  align-self: center;
+}
+
+.t-foot {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-2) var(--space-3);
+  margin: auto 0 0;
+  padding: var(--space-3);
+  border-radius: var(--radius-md);
+  background: var(--color-surface-muted);
+  font-variant-numeric: tabular-nums;
+
+  dt {
+    color: var(--color-text-muted);
+    font-size: var(--font-size-caption);
+  }
+
+  dd {
+    margin: 0;
+    font-weight: var(--font-weight-semibold);
+  }
+}
+
+.t-total {
+  text-align: right;
+}
+
+.t-balance {
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  padding-top: var(--space-2);
+  border-top: var(--border-width) solid var(--color-border);
+
+  dd {
+    font-size: var(--font-size-section-title);
+    font-weight: var(--font-weight-bold);
+  }
+}
+
+// La nature du solde : un mot dans une pastille, la couleur seulement en rappel.
+.t-nature {
+  margin-left: var(--space-1);
+  padding: 0 var(--space-2);
+  border-radius: var(--radius-pill);
+  background: var(--color-neutral-soft);
+  color: var(--color-neutral-text);
+  font-size: var(--font-size-caption);
+  font-weight: var(--font-weight-semibold);
+}
+
+.t-nature--debit {
+  background: var(--color-primary-soft);
+  color: var(--color-primary-text);
+}
+
+.t-nature--credit {
+  background: var(--color-warning-soft);
+  color: var(--color-warning-text);
+}
+
+// Le total du rapport, sous les cartes.
+.t-summary {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: var(--space-3) var(--space-6);
+  margin: 0;
+  padding: var(--space-4) var(--space-5);
+  border: var(--border-width) solid var(--color-border);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface);
+  font-variant-numeric: tabular-nums;
+
+  div {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+  }
+
+  dt {
+    color: var(--color-text-muted);
+    font-size: var(--font-size-caption);
+  }
+
+  dd {
+    margin: 0;
+    font-weight: var(--font-weight-bold);
+  }
+}

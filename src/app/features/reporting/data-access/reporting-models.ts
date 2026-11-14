@@ -281,6 +281,15 @@ export interface TrialBalance {
     readonly debit: string;
     readonly credit: string;
     readonly closing: string;
+    /**
+     * Les totaux des soldes débiteurs et créditeurs, à l'ouverture et à la clôture, sur toutes
+     * les lignes (toutes les pages). Demandés au backend : absents, la ligne Total les laisse
+     * vides plutôt que de les calculer sur la seule page affichée.
+     */
+    readonly opening_debit?: string;
+    readonly opening_credit?: string;
+    readonly closing_debit?: string;
+    readonly closing_credit?: string;
   };
   /** Each period's movements over every row (every page). */
   readonly movements: readonly BalanceMovement[];

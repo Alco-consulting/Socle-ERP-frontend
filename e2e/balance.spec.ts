@@ -39,9 +39,28 @@ test.describe('Analyse › Balance comptable (comme Odoo)', () => {
       '2026-10-01',
       '2026-10-31',
     ]);
-    // A balance balances: debits equal credits, the openings and closings sum to zero.
+    // La balance à six colonnes : chaque solde en débiteur ou créditeur, jamais de signe moins.
+    await expect(page.locator('.subheads th')).toHaveText([
+      'Compte',
+      'Débiteur',
+      'Créditeur',
+      'Débit',
+      'Crédit',
+      'Débiteur',
+      'Créditeur',
+    ]);
+    await expect(page.locator('tbody td').filter({ hasText: /^\s*-/ })).toHaveCount(0);
+    // Une balance s'équilibre : les débits égalent les crédits. Les totaux des soldes viendront
+    // du serveur ; d'ici là, leurs cellules restent vides et une note le dit.
     const total = await page.locator('tfoot td').allInnerTexts();
-    expect([total[0], total[1] === total[2], total[3]]).toEqual(['0', true, '0']);
+    expect([total[0], total[1], total[2] === total[3], total[4], total[5]]).toEqual([
+      '',
+      '',
+      true,
+      '',
+      '',
+    ]);
+    await expect(page.locator('.totals-note')).toBeVisible();
 
     const banner = page.getByRole('note').filter({ hasText: 'pièces non comptabilisées' });
     await expect(banner).toHaveText(

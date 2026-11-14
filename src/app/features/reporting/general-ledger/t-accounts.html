@@ -10,9 +10,12 @@
         <span class="t-code">{{ subject.code }}</span>
         <span class="t-name">{{ cardName(subject) }}</span>
       </h2>
-      <div class="t-body">
+      <!-- Le T : « Débit » et « Crédit » au-dessus de la barre, les montants dessous. -->
+      <div class="t-heads">
         <span class="t-head">Débit</span>
         <span class="t-head">Crédit</span>
+      </div>
+      <div class="t-body">
         @if (opening.debit !== null || opening.credit !== null) {
           <span class="t-cell t-opening" title="Solde initial">
             @if (opening.debit !== null) {

@@ -46,21 +46,34 @@
 }
 
 // Le T : un trait sous les titres, un trait vertical entre le débit et le crédit.
-.t-body {
+// Les titres des deux colonnes, au-dessus de la barre du T.
+.t-heads {
   display: grid;
   grid-template-columns: 1fr 1fr;
+}
+
+// La barre du T, puis le trait vertical sur toute la hauteur, même sans mouvement.
+.t-body {
+  position: relative;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  min-height: var(--space-7);
   border-top: 2px solid var(--color-primary);
   font-variant-numeric: tabular-nums;
+
+  &::before {
+    content: '';
+    position: absolute;
+    inset: 0 auto 0 50%;
+    border-left: 2px solid var(--color-primary);
+    transform: translateX(-1px);
+  }
 }
 
 .t-head,
 .t-cell {
   padding: var(--space-1) var(--space-3);
   text-align: right;
-
-  &:nth-child(odd) {
-    border-right: 2px solid var(--color-primary);
-  }
 }
 
 .t-head {

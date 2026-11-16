@@ -153,6 +153,13 @@ a {
   --shadow-action: none;
   --shadow-sm: none;
 
+  // Un message d'erreur sur le bandeau : ses tons à lui (fond translucide, texte blanc), sinon
+  // le rose clair de l'erreur et le rose du texte se confondent.
+  alco-error-state {
+    --color-danger-soft: var(--color-plate-band);
+    --color-danger-text: var(--color-plate-text);
+  }
+
   // La liste qu'ouvre un menu déroulant natif (« Exercice 2026 ») : le navigateur la dessine
   // sur fond blanc, où le texte blanc du bandeau disparaîtrait. Ses options prennent la marine.
   option,

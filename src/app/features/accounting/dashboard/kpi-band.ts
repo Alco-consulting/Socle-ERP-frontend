@@ -127,6 +127,13 @@ function startOf(day: string, months: number, year: FiscalYear | undefined): str
  * result, receivables and payables over a period chosen above them, from
  * `GET dashboards/overview/`. Each figure is the server's; each leads to its report.
  */
+/** Le message d'un échec du calcul, et si réessayer a un sens. */
+interface Failure {
+  readonly title: string;
+  readonly message: string;
+  readonly retry: boolean;
+}
+
 @Component({
   selector: 'alco-kpi-band',
   imports: [NgTemplateOutlet, RouterLink, AlcoErrorState, AlcoIcon, AlcoInput, AlcoLoading],
@@ -194,6 +201,31 @@ export class AlcoKpiBand {
     () => this.dashboards.overview(untracked(this.period).scope),
     { immediate: false },
   );
+
+  /**
+   * Pourquoi les indicateurs manquent, dit à partir du code du serveur. Sans exercice sur la
+   * période (`reporting_scope_invalid`, `fiscal_year: none`), réessayer ne changerait rien.
+   */
+  protected readonly failure = computed<Failure | null>(() => {
+    const error = this.overview.error();
+    if (!error) {
+      return null;
+    }
+    const details = error.details as { fiscal_year?: unknown } | null;
+    if (error.code === 'reporting_scope_invalid' && details?.fiscal_year === 'none') {
+      return {
+        title: 'Aucun exercice comptable ne couvre cette période.',
+        message:
+          'L’exercice s’ouvre avec la première écriture de son année : enregistrez une écriture, puis revenez ici.',
+        retry: false,
+      };
+    }
+    return {
+      title: 'Les indicateurs n’ont pas pu être calculés pour cette période.',
+      message: 'Choisissez une autre période, ou réessayez.',
+      retry: true,
+    };
+  });
 
   /** « du 1 janv. au 17 oct. 2026 », the server's scope. */
   protected readonly range = computed(() => {

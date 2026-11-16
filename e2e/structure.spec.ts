@@ -92,19 +92,14 @@ test.describe('Comptabilité : un lien et cinq menus groupés', () => {
     await expect(page.getByRole('heading', { level: 1 })).toHaveText('Fournisseurs');
   });
 
-  test('Comptabilité ▾: the nine functions, lettrage and échéances operational (V2.1 A4, A5)', async ({
-    page,
-  }) => {
+  test('Comptabilité ▾: sans doublon, lettrage operational (V2.1 A4)', async ({ page }) => {
     await page.goto('/app/comptabilite/tableau-de-bord');
     const menu = await openMenu(page, 'Comptabilité');
+    // Journaux et Plan comptable : Configuration ; Échéances : Analyse ; Contacts : son application.
     await expect(menu.getByRole('menuitemradio')).toHaveText([
       'Écritures',
       'Pièces comptables',
-      'Journaux',
-      'Plan comptable',
-      'Contacts',
       'Lettrage',
-      'Échéances',
       'Clôture',
     ]);
     const lettering = menu.getByRole('menuitemradio', { name: 'Lettrage' });
@@ -122,7 +117,7 @@ test.describe('Comptabilité : un lien et cinq menus groupés', () => {
       ['Rapports comptables', ['Balance comptable', 'Grand livre']],
       [
         'Rapports de tiers',
-        ['Balance clients', 'Balance fournisseurs', 'Grand livre des partenaires'],
+        ['Échéances', 'Balance clients', 'Balance fournisseurs', 'Grand livre des partenaires'],
       ],
       ['Analyses', ['Analytique', 'Immobilisations', 'Emprunts', 'Journal d’audit']],
     ] as const) {
@@ -205,10 +200,12 @@ test.describe('Comptabilité : un lien et cinq menus groupés', () => {
     });
   }
 
-  test('Contacts is an application (records) and a list of Comptabilité', async ({ page }) => {
-    await page.goto('/app/comptabilite/tableau-de-bord');
-    await openFrom(page, 'Comptabilité', 'Contacts');
-    await expect(page).toHaveURL(/\/app\/comptabilite\/contacts$/);
+  test('Contacts is an application; its records still open inside Comptabilité', async ({
+    page,
+  }) => {
+    // Hors du menu Comptabilité (doublon de l'application), l'écran reste ouvert par son adresse
+    // et par les liens des écritures, échéances, lettrages et opérations.
+    await page.goto('/app/comptabilite/contacts');
     await expect(page.getByRole('heading', { level: 1 })).toHaveText('Contacts');
     await page.getByRole('table').getByRole('link').first().click();
     await expect(page).toHaveURL(/\/app\/comptabilite\/contacts\/[^/]+$/);

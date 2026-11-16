@@ -29,7 +29,8 @@ test.describe('Échéances', () => {
     page,
   }) => {
     await page.goto(`${ACC}/tableau-de-bord`);
-    await openMenuItem(page, 'Comptabilité', 'Échéances');
+    // Les échéances : Analyse › Rapports de tiers, à côté des balances âgées.
+    await openMenuItem(page, 'Analyse', 'Échéances');
     await expect(page.getByRole('heading', { level: 1 })).toHaveText('Échéances');
     await expect(rows(page)).toHaveCount(3);
 

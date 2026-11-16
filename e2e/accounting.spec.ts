@@ -70,7 +70,8 @@ test.describe('Comptabilité — tableau de bord réel', () => {
 test.describe('Comptabilité — journaux', () => {
   test('Scénario 3 : liste, filtre, fiche, création, désactivation', async ({ page, api }) => {
     await page.goto('/app/comptabilite/tableau-de-bord');
-    await openMenuItem(page, 'Comptabilité', 'Journaux');
+    // Les journaux : Configuration › Comptabilité (plus de doublon dans le menu Comptabilité).
+    await openMenuItem(page, 'Configuration', 'Journaux');
     await expect(page.getByRole('heading', { level: 1 })).toHaveText('Journaux');
     // By code (ACH, ANC, BQ1, CAI, OD, VTE): each row links its journal by its name.
     await expect(codes(page)).toHaveText([
@@ -389,7 +390,7 @@ test.describe('Comptabilité — exercices, société, permissions, téléphone'
     // A's accounts are gone (« Fournisseurs » stays a link of the navigation).
     await expect(page.getByRole('table').getByText('Fournisseurs')).toHaveCount(0);
 
-    await openMenuItem(page, 'Comptabilité', 'Journaux');
+    await openMenuItem(page, 'Configuration', 'Journaux');
     await expect(codes(page)).toHaveText(['Ventes Dakar']);
     await moduleNav(page).getByRole('link', { name: 'Tableau de bord' }).click();
     await expect(

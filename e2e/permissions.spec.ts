@@ -75,17 +75,16 @@ test.describe('Affichage selon les permissions (confort d’interface ; l’API 
     await expect(page.getByRole('menu').getByRole('menuitemradio')).toHaveText([
       'Écritures',
       'Pièces comptables',
-      'Journaux',
-      'Plan comptable',
       /Lettrage/,
-      'Échéances',
     ]);
     await page.keyboard.press('Escape');
-    // reporting.read only: the accounting reports, not the others.
+    // reporting.read only: the accounting reports, not the others ; les Échéances (lecture
+    // comptable) sont dans Analyse › Rapports de tiers.
     await moduleNav(page).getByRole('button', { name: 'Analyse', exact: true }).click();
     await expect(page.getByRole('menu').getByRole('menuitemradio')).toHaveText([
       'Balance comptable',
       'Grand livre',
+      'Échéances',
     ]);
     await page.keyboard.press('Escape');
     await moduleNav(page).getByRole('button', { name: 'Configuration', exact: true }).click();

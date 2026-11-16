@@ -1,8 +1,9 @@
 import { environment as production } from './environment.production';
 import { environment as development } from './environment.development';
 import { environment as testing } from './environment.testing';
+import { environment as vercel } from './environment.vercel';
 
-const ALL = { production, development, testing };
+const ALL = { production, development, testing, vercel };
 
 describe('Environments', () => {
   it('production talks to the deployed API', () => {
@@ -11,6 +12,11 @@ describe('Environments', () => {
 
   it('development goes through the dev proxy (relative URL, same origin)', () => {
     expect(development.apiBaseUrl).toBe('/api/v1');
+  });
+
+  it('Vercel relaie l’API : URL relative, même origine que le site (vercel.json)', () => {
+    expect(vercel.apiBaseUrl).toBe('/api/v1');
+    expect(vercel.name).toBe('production');
   });
 
   it('tests never target the real API', () => {

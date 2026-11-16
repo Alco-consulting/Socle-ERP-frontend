@@ -1022,62 +1022,6 @@ export class FakeTreasury {
     };
     const parts = path.split('/').filter(Boolean);
 
-    // Odoo's « Modèles de rapprochement » (note backend 0048): « Frais bancaires » and the
-    // « Virements internes » through 585100 (note backend 0049).
-    if (parts[0] === 'reconcile-models') {
-      const models = this.modelsOf(desk.company);
-      if (method === 'GET') {
-        const status = params.get('status');
-        return reply(200, {
-          count: models.length,
-          next: null,
-          previous: null,
-          results: models.filter((item) => !status || item.status === status),
-        });
-      }
-      if (!can('treasury.manage_accounts')) {
-        return forbidden();
-      }
-      const data = body();
-      const found = models.find((item) => item.public_id === parts[1]);
-      const name = String(data['name'] ?? found?.name ?? '').trim();
-      if (models.some((item) => item !== found && item.name.toLowerCase() === name.toLowerCase())) {
-        return reply(400, error('treasury_reconcile_model_exists'));
-      }
-      // Every model has its account; a transfer's allows lettering (note backend 0049).
-      const kind = String(data['kind'] ?? found?.kind ?? 'account');
-      const chart = this.accounting?.books(desk.company).accounts ?? [];
-      const typed = chart.find((item) => item.public_id === data['account']);
-      const account = data['account']
-        ? typed
-          ? { public_id: typed.public_id, code: typed.code, name: typed.name }
-          : { public_id: String(data['account']), code: 'compte', name: '' }
-        : found?.account;
-      if (!account) {
-        return reply(400, error('validation_error', { account: [{ code: 'required' }] }));
-      }
-      const letterable = typed
-        ? typed.letterable
-        : this.isTransferAccount(desk.company, account.public_id);
-      if (kind === 'transfer' && !letterable) {
-        return reply(400, error('treasury_transfer_account_not_letterable'));
-      }
-      const model = {
-        public_id: found?.public_id ?? uuid(),
-        name,
-        kind,
-        account,
-        label: String(data['label'] ?? found?.label ?? ''),
-        status: String(data['status'] ?? found?.status ?? 'active'),
-      };
-      if (found) {
-        models.splice(models.indexOf(found), 1, model);
-        return reply(200, model);
-      }
-      models.push(model);
-      return reply(201, model);
-    }
-
     // Accounts.
     if (parts[0] === 'accounts') {
       const full = can('treasury.manage_accounts');

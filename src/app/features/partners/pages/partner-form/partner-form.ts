@@ -31,7 +31,6 @@ import {
   Partner,
   PartnerUpdate,
   PartnerWrite,
-  PaymentTerm,
 } from '../../data-access/partner-models';
 import { AccountingApi } from '../../../accounting/data-access/accounting-api';
 import { Account } from '../../../accounting/data-access/accounting-models';
@@ -54,11 +53,22 @@ const TEXT_FIELDS = [
 const ACCOUNT_FIELDS = ['customer_account_code', 'supplier_account_code'] as const;
 
 /** References: an empty choice is sent as `null` (none). */
-const REFERENCE_FIELDS = [
-  'default_currency',
-  'customer_payment_term',
-  'supplier_payment_term',
-] as const;
+const REFERENCE_FIELDS = ['default_currency'] as const;
+
+/** Les délais de paiement, en jours : envoyés comme nombres entiers. */
+const DAYS_FIELDS = ['customer_payment_days', 'supplier_payment_days'] as const;
+
+/** Un délai en jours : entier de 0 à 365, 0 par défaut (payable à réception). */
+function days() {
+  return new FormControl<number | null>(0, {
+    validators: [
+      Validators.required,
+      Validators.min(0),
+      Validators.max(365),
+      Validators.pattern(/^\d+$/),
+    ],
+  });
+}
 
 type TextField = (typeof TEXT_FIELDS)[number];
 
@@ -125,8 +135,8 @@ export class PartnerFormPage {
     phone: text(32, inputFormat(/^[0-9+().\s-]+$/, 'Chiffres, espaces et + ( ) . - seulement.')),
     email: new FormControl('', { nonNullable: true, validators: [Validators.email] }),
     default_currency: text(),
-    customer_payment_term: text(),
-    supplier_payment_term: text(),
+    customer_payment_days: days(),
+    supplier_payment_days: days(),
     /** Odoo's « Compte client » and « Compte fournisseur » (note backend 0045). */
     customer_account_code: text(20),
     supplier_account_code: text(20),
@@ -151,7 +161,6 @@ export class PartnerFormPage {
       .pipe(map((found) => found.map((tag) => ({ id: tag.public_id, label: tag.name }))));
   protected readonly createTag = (name: string) =>
     this.api.createTag(name).pipe(map((tag) => ({ id: tag.public_id, label: tag.name })));
-  protected readonly paymentTerms = signal<readonly PaymentTerm[] | null>(null);
   protected readonly ready = computed(() => this.isNew || this.partner() !== null);
 
   /** Active choices, plus the current one even if it became inactive. */
@@ -161,12 +170,6 @@ export class PartnerFormPage {
       (currency) => currency.status === 'active' || currency.code === current,
     );
   });
-  protected termOptions(field: 'customer_payment_term' | 'supplier_payment_term') {
-    const current = this.partner()?.[field]?.public_id;
-    return (this.paymentTerms() ?? []).filter(
-      (term) => term.status === 'active' || term.public_id === current,
-    );
-  }
 
   constructor() {
     inject(UnsavedChangesService).track(() => this.form.dirty);
@@ -183,13 +186,6 @@ export class PartnerFormPage {
         .pipe(catchError(() => of([] as readonly Account[])))
         .subscribe((list) => this.showAccounts(side, list));
     }
-    this.api
-      .paymentTerms()
-      .pipe(
-        map((page) => page.results),
-        catchError(() => of([])),
-      )
-      .subscribe((list) => this.paymentTerms.set(list));
     if (this.id) {
       this.api.get(this.id).subscribe({
         next: (partner) => this.fill(partner),
@@ -259,6 +255,9 @@ export class PartnerFormPage {
     for (const field of REFERENCE_FIELDS) {
       write[field] = value[field] || null;
     }
+    for (const field of DAYS_FIELDS) {
+      write[field] = value[field] ?? 0;
+    }
     for (const field of ACCOUNT_FIELDS) {
       if (value[field]) {
         write[field] = value[field];
@@ -293,8 +292,8 @@ export class PartnerFormPage {
       is_customer: partner.is_customer,
       is_supplier: partner.is_supplier,
       default_currency: partner.default_currency ?? '',
-      customer_payment_term: partner.customer_payment_term?.public_id ?? '',
-      supplier_payment_term: partner.supplier_payment_term?.public_id ?? '',
+      customer_payment_days: partner.customer_payment_days ?? 0,
+      supplier_payment_days: partner.supplier_payment_days ?? 0,
       customer_account_code: partner.customer_account_code,
       supplier_account_code: partner.supplier_account_code,
       tags: (partner.tags ?? []).map((tag) => ({ id: tag.public_id, label: tag.name })),
@@ -357,15 +356,6 @@ export class PartnerFormPage {
         return { code: 'Ce code est déjà utilisé par un autre contact de la société.' };
       case 'currency_inactive':
         return { default_currency: 'Cette devise est inactive.' };
-      case 'payment_term_inactive': {
-        const code = (error.details as Record<string, unknown> | null)?.['payment_term'];
-        const field = (['customer_payment_term', 'supplier_payment_term'] as const).find(
-          (name) =>
-            this.paymentTerms()?.find((term) => term.public_id === this.form.controls[name].value)
-              ?.code === code,
-        );
-        return field ? { [field]: 'Cette condition de paiement est inactive.' } : {};
-      }
       default:
         return {};
     }

@@ -31,6 +31,14 @@ export function roleLabel(partner: Pick<PartnerSummary, 'is_customer' | 'is_supp
 }
 
 /** Errors of the partner commands, by their stable code (backend/docs/api/contract.md). */
+/** Un délai de paiement en mots : « À réception » (0), « 1 jour », « 30 jours ». */
+export function paymentDaysLabel(days: number): string {
+  if (days === 0) {
+    return 'À réception';
+  }
+  return days === 1 ? '1 jour' : `${days} jours`;
+}
+
 export const PARTNER_ERRORS: ErrorCatalog = {
   partner_code_exists: {
     title: 'Ce code est déjà utilisé par un autre contact de la société.',
@@ -39,10 +47,6 @@ export const PARTNER_ERRORS: ErrorCatalog = {
   currency_inactive: {
     title: 'La devise choisie est inactive.',
     message: 'Choisissez une autre devise, ou aucune.',
-  },
-  payment_term_inactive: {
-    title: 'La condition de paiement choisie est inactive.',
-    message: 'Choisissez-en une autre, ou aucune.',
   },
   not_found: {
     title: 'Ce contact n’existe pas ou plus dans cette société.',
@@ -55,8 +59,8 @@ export const PARTNER_FIELD_MESSAGES: FieldMessageOverrides = {
   email: { invalid: 'Saisissez une adresse e-mail valide.' },
   country: { invalid: 'Saisissez le code pays à 2 lettres (ex. GN).' },
   default_currency: { unknown: 'Devise inconnue.' },
-  customer_payment_term: { unknown: 'Condition de paiement inconnue.' },
-  supplier_payment_term: { unknown: 'Condition de paiement inconnue.' },
+  customer_payment_days: { invalid: 'Saisissez un nombre de jours entre 0 et 365.' },
+  supplier_payment_days: { invalid: 'Saisissez un nombre de jours entre 0 et 365.' },
 };
 
 /** Import and export of partners (API V1: `partners` for both). */

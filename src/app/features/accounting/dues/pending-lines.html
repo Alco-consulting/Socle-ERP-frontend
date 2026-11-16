@@ -13,8 +13,7 @@
             {{ schedule.entry.entry_number }} · {{ schedule.partner.code }}
           </a>
           — {{ schedule.items.length }} {{ schedule.items.length > 1 ? 'échéances' : 'échéance' }},
-          condition
-          {{ schedule.terms.code }}
+          délai {{ daysLabel(schedule.payment_days) }}
         </li>
       }
     </ul>

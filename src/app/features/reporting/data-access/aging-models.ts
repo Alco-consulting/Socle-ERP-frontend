@@ -1,6 +1,5 @@
 /**
- * Shapes of the aged balance contract (V2.1, lot A5: `reporting/aged-balance/`,
- * `reporting/aging-policy/`). Buckets, amounts, days past due: the server's, never computed
+ * Shapes of the aged balance contract (V2.1, lot A5: `reporting/aged-balance/`). Buckets, amounts, days past due: the server's, never computed
  * here. Amounts are decimal strings in the company's reference currency.
  */
 
@@ -86,11 +85,4 @@ export interface AgedPartner {
   readonly next: string | null;
   readonly previous: string | null;
   readonly results: readonly AgedDocument[];
-}
-
-/** `GET`/`PUT reporting/aging-policy/`. */
-export interface AgingPolicy {
-  readonly limits: readonly number[];
-  readonly default: boolean;
-  readonly buckets: readonly AgingBucket[];
 }

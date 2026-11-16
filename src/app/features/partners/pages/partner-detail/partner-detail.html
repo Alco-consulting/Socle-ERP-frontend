@@ -179,12 +179,12 @@
           <dd>{{ partner.default_currency ?? 'Devise de la société' }}</dd>
         </div>
         <div>
-          <dt>Conditions de paiement client</dt>
-          <dd>{{ termLabel(partner.customer_payment_term) }}</dd>
+          <dt>Délai de paiement client</dt>
+          <dd>{{ daysLabel(partner.customer_payment_days) }}</dd>
         </div>
         <div>
-          <dt>Conditions de paiement fournisseur</dt>
-          <dd>{{ termLabel(partner.supplier_payment_term) }}</dd>
+          <dt>Délai de paiement fournisseur</dt>
+          <dd>{{ daysLabel(partner.supplier_payment_days) }}</dd>
         </div>
         <!-- No longer entered (note backend 0037): shown only when a record holds one. -->
         @if (partner.default_tax_code) {

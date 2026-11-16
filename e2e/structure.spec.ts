@@ -136,11 +136,10 @@ test.describe('Comptabilité : un lien et cinq menus groupés', () => {
     await page.goto('/app/comptabilite/tableau-de-bord');
     const menu = await openMenu(page, 'Configuration');
     const titles = menu.getByRole('group');
-    await expect(titles).toHaveCount(8);
+    await expect(titles).toHaveCount(7);
     for (const title of [
       'Général',
       'Comptabilité',
-      'Paiements',
       'Produits',
       'Taxes',
       'Immobilisations',
@@ -149,12 +148,13 @@ test.describe('Comptabilité : un lien et cinq menus groupés', () => {
     ]) {
       await expect(menu.getByRole('group', { name: title, exact: true })).toBeVisible();
     }
+    // Plus de « Paiements » : les délais sont sur la fiche du tiers (en jours).
+    await expect(menu.getByRole('group', { name: 'Paiements', exact: true })).toHaveCount(0);
     await menu
-      .getByRole('group', { name: 'Paiements' })
-      .getByRole('menuitemradio', { name: 'Conditions de paiement' })
+      .getByRole('group', { name: 'Comptabilité', exact: true })
+      .getByRole('menuitemradio', { name: 'Journaux' })
       .click();
-    await expect(page).toHaveURL(/\/app\/comptabilite\/configuration\/conditions-paiement$/);
-    await expect(page.getByText('Écran prévu, pas encore construit.')).toBeVisible();
+    await expect(page).toHaveURL(/\/app\/comptabilite\/journaux$/);
   });
 
   test('no « Trésorerie » tab, as Odoo: a bank card opens its transactions', async ({ page }) => {

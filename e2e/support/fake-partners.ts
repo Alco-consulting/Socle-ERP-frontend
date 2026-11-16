@@ -22,8 +22,8 @@ export interface PartnerJson {
   phone: string;
   email: string;
   default_currency: string | null;
-  customer_payment_term: null;
-  supplier_payment_term: null;
+  customer_payment_days: number;
+  supplier_payment_days: number;
   default_tax_code: string;
   customer_account_code: string;
   tags?: { public_id: string; name: string }[];
@@ -52,8 +52,8 @@ export function partner(seed: Seed): PartnerJson {
     phone: '',
     email: '',
     default_currency: null,
-    customer_payment_term: null,
-    supplier_payment_term: null,
+    customer_payment_days: 0,
+    supplier_payment_days: 0,
     default_tax_code: '',
     customer_account_code: '',
     supplier_account_code: '',
@@ -106,6 +106,8 @@ const WRITABLE = [
   'phone',
   'email',
   'default_currency',
+  'customer_payment_days',
+  'supplier_payment_days',
   'default_tax_code',
   'customer_account_code',
   'supplier_account_code',
@@ -188,9 +190,6 @@ export class FakePartners {
     const method = request.method();
     if (method !== 'GET' && !(await this.context.csrfOk(request))) {
       return this.answer(route, 403, error('csrf_failed'));
-    }
-    if (path === 'payment-terms/') {
-      return this.answer(route, 200, { count: 0, next: null, previous: null, results: [] });
     }
     // Odoo's « Étiquettes » (note backend 0045): one list per company, never doubled.
     if (path === 'tags/') {

@@ -160,15 +160,4 @@ tr.waiting {
     flex: 1;
     min-width: 0;
   }
-
-  .lead {
-    white-space: nowrap;
-    color: var(--color-text-muted);
-  }
-
-  .lead-code {
-    margin-left: var(--space-1);
-    font-family: var(--font-family-mono);
-    font-size: var(--font-size-caption);
-  }
 }

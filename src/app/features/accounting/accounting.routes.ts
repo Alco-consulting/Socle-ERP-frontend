@@ -175,13 +175,6 @@ export const ACCOUNTING_ROUTES: Routes = [
   // Analyse › Rapports de tiers: the aged balance (V2.1 A5), customers and suppliers.
   agedBalance('analyse/balance-clients', 'Balance clients', 'customer'),
   agedBalance('analyse/balance-fournisseurs', 'Balance fournisseurs', 'supplier'),
-  {
-    path: 'configuration/balance-agee',
-    data: { breadcrumb: 'Tranches de la balance âgée' },
-    canDeactivate: [unsavedChangesGuard],
-    loadComponent: () =>
-      import('../reporting/aging/aging-policy-page').then((m) => m.AgingPolicyPage),
-  },
   // Analyse › Balance comptable, as Odoo's (notes backend 0051, 0052).
   {
     path: 'analyse/balance',

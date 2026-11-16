@@ -31,8 +31,8 @@ const PARTNER: Partner = {
   phone: '',
   email: '',
   default_currency: null,
-  customer_payment_term: null,
-  supplier_payment_term: null,
+  customer_payment_days: 0,
+  supplier_payment_days: 0,
   default_tax_code: '',
   customer_account_code: '',
   supplier_account_code: '',
@@ -79,9 +79,6 @@ describe('PartnerFormPage (creation and modification)', () => {
           { code: 'XXX', name: 'Retirée', status: 'inactive' },
         ],
       });
-    httpMock()
-      .expectOne((req) => req.url === '/api/v1/partners/payment-terms/')
-      .flush(EMPTY);
     // The chart's customer and supplier accounts (note backend 0045).
     for (const [type, results] of Object.entries(accounts)) {
       httpMock()
@@ -165,8 +162,9 @@ describe('PartnerFormPage (creation and modification)', () => {
       phone: '',
       email: '',
       default_currency: null,
-      customer_payment_term: null,
-      supplier_payment_term: null,
+      // Les délais de paiement : 0 par défaut (payable à réception).
+      customer_payment_days: 0,
+      supplier_payment_days: 0,
     });
     request.flush({ ...PARTNER, public_id: 'p-2', code: 'FRN-00001', name: 'Diallo et Cie' });
     await stable();
@@ -293,6 +291,25 @@ describe('PartnerFormPage (creation and modification)', () => {
     request.flush(PARTNER);
     await stable();
     expect(navigate).toHaveBeenCalledWith(['..'], expect.anything());
+  });
+
+  it('délai de paiement : un nombre de jours entre 0 et 365, envoyé comme entier', async () => {
+    const { stable, type, submit, element } = await open('/liste/p-1/modifier');
+    httpMock().expectOne('/api/v1/partners/p-1/').flush(PARTNER);
+    await stable();
+    // Hors bornes : refusé avant l'envoi.
+    type('customer_payment_days', '400');
+    submit();
+    await stable();
+    httpMock().expectNone('/api/v1/partners/p-1/');
+    type('customer_payment_days', '45');
+    submit();
+    await stable();
+    const request = httpMock().expectOne('/api/v1/partners/p-1/');
+    expect(request.request.body).toEqual({ customer_payment_days: 45 });
+    request.flush({ ...PARTNER, customer_payment_days: 45 });
+    await stable();
+    expect(element.textContent).toContain('Délai de paiement client (jours)');
   });
 
   it('modification without change: nothing sent', async () => {

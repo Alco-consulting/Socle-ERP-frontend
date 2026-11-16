@@ -12,16 +12,12 @@ import {
 import { NavigationService } from '../../../core/navigation/navigation.service';
 import { SessionStore } from '../../../core/session/session.store';
 import { openTestSession } from '../../../core/session/testing';
-import { AlcoConfirmService } from '../../../shared/ui/confirm-dialog/confirm-dialog';
-import { AlcoToastService } from '../../../shared/ui/toast/toast.service';
 import { AgedBalance, AgedPartner, AgingBucket } from '../data-access/aging-models';
 import { AgedBalancePage } from './aged-balance-page';
 import { AgedPartnerPage } from './aged-partner-page';
-import { AgingPolicyPage } from './aging-policy-page';
 
 const CUSTOMERS = '/app/comptabilite/analyse/balance-clients';
 const SUPPLIERS = '/app/comptabilite/analyse/balance-fournisseurs';
-const POLICY = '/app/comptabilite/configuration/balance-agee';
 const READ = ['accounting.read', 'reporting.read_auxiliary'];
 const GNF = { code: 'GNF', name: 'Franc guinéen', decimal_places: 0, status: 'active' };
 const PARTNER = { public_id: 'p-1', code: 'CLI-001', name: 'Dupont SARL' };
@@ -157,7 +153,6 @@ describe('Analyse › Balance âgée (V2.1 A5)', () => {
             data: { aging: 'supplier' },
             children: [{ path: '', component: AgedBalancePage }],
           },
-          { path: 'app/comptabilite/configuration/balance-agee', component: AgingPolicyPage },
         ]),
       ],
     });
@@ -385,69 +380,6 @@ describe('Analyse › Balance âgée (V2.1 A5)', () => {
     openTestSession(TestBed.inject(SessionStore), { permissions: READ });
     const navigation = TestBed.inject(NavigationService);
     expect(navigation.canOpenUrl(CUSTOMERS)).toBe(true);
-    expect(navigation.canOpenUrl(POLICY)).toBe(true);
     expect(navigation.landingUrl(`${CUSTOMERS}/p-1`)).toBe(CUSTOMERS);
-  });
-
-  // ---- The company's buckets ----------------------------------------------------------------
-
-  it('the buckets are read; their limits are changed, confirmed, by the server', async () => {
-    const { element, stable, button } = await open(POLICY, [...READ, 'reporting.manage_aging']);
-    httpMock()
-      .expectOne(is('reporting/aging-policy/'))
-      .flush({ limits: [30, 60, 90, 120], default: true, buckets: DEFAULT });
-    await stable();
-    expect(text(element())).toContain('Tranches par défaut d’Alco');
-    const inputs = () =>
-      Array.from(element().querySelectorAll<HTMLInputElement>('ol.limits input'));
-    expect(inputs().map((input) => input.value)).toEqual(['30', '60', '90', '120']);
-    button('Retirer la limite 4')!.click();
-    button('Retirer la limite 3')!.click();
-    await stable();
-    inputs()[0].value = '15';
-    inputs()[0].dispatchEvent(new Event('input'));
-    inputs()[1].value = '45';
-    inputs()[1].dispatchEvent(new Event('input'));
-    const confirm = vi.spyOn(TestBed.inject(AlcoConfirmService), 'confirm').mockResolvedValue(true);
-    button('Enregistrer les tranches')!.click();
-    await stable();
-    expect(confirm).toHaveBeenCalled();
-    const request = httpMock().expectOne(is('reporting/aging-policy/', 'PUT'));
-    expect(request.request.body).toEqual({ limits: [15, 45] });
-    request.flush({ limits: [15, 45], default: false, buckets: OWN });
-    await stable();
-    expect(
-      TestBed.inject(AlcoToastService)
-        .toasts()
-        .map((toast) => toast.message),
-    ).toContain('Tranches enregistrées.');
-    expect(text(element())).toContain('Tranches propres à la société.');
-    expect(text(element())).toContain('16–45 j');
-  });
-
-  it('invalid limits are refused by the server, with its message', async () => {
-    const { element, stable, button } = await open(POLICY, [...READ, 'reporting.manage_aging']);
-    httpMock()
-      .expectOne(is('reporting/aging-policy/'))
-      .flush({ limits: [30], default: false, buckets: DEFAULT.slice(0, 3) });
-    await stable();
-    vi.spyOn(TestBed.inject(AlcoConfirmService), 'confirm').mockResolvedValue(true);
-    button('Enregistrer les tranches')!.click();
-    await stable();
-    httpMock()
-      .expectOne(is('reporting/aging-policy/', 'PUT'))
-      .flush(envelope('reporting_aging_policy_invalid'), { status: 400, statusText: 'x' });
-    await stable();
-    expect(text(element())).toContain('Ces tranches ne sont pas valides.');
-  });
-
-  it('without reporting.manage_aging the buckets are read only', async () => {
-    const { element, stable, button } = await open(POLICY);
-    httpMock()
-      .expectOne(is('reporting/aging-policy/'))
-      .flush({ limits: [30, 60, 90, 120], default: true, buckets: DEFAULT });
-    await stable();
-    expect(button('Enregistrer les tranches')).toBeUndefined();
-    expect(text(element())).toContain('Votre profil permet de consulter les tranches');
   });
 });

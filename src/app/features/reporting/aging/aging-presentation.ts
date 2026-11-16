@@ -40,11 +40,6 @@ export const DOCUMENT_KINDS: Readonly<Record<AgedDocumentKind, string>> = {
 
 /** Errors of the aged balance and its buckets, by their stable code. */
 export const AGING_ERRORS: ErrorCatalog = {
-  reporting_aging_policy_invalid: {
-    title: 'Ces tranches ne sont pas valides.',
-    message:
-      'Donnez des nombres de jours entiers, croissants, à partir de 1 (12 tranches au plus).',
-  },
   reporting_aging_bucket_unknown: {
     title: 'Cette tranche n’existe plus.',
     message: 'Les tranches de la société ont changé : choisissez une des tranches proposées.',

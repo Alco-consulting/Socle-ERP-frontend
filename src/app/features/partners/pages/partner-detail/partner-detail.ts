@@ -33,7 +33,8 @@ import { AUDIT_TYPES, AlcoObjectHistory } from '../../../audit/object-history';
 import { DueApi } from '../../../accounting/data-access/due-api';
 import { LetteringApi } from '../../../accounting/data-access/lettering-api';
 import { CollectiveAccount, RelationsApi } from '../../../relations/data-access/relations-api';
-import { Partner, PaymentTerm } from '../../data-access/partner-models';
+import { Partner } from '../../data-access/partner-models';
+import { paymentDaysLabel } from '../../partner-presentation';
 import { PartnersApi } from '../../data-access/partners-api';
 import { PARTNER_ERRORS, PARTNER_STATUS, roleLabel } from '../../partner-presentation';
 
@@ -182,8 +183,9 @@ export class PartnerDetailPage {
     return this.navigation.canOpenUrl(`${APP_ROOT}/comptabilite/${path}`);
   }
 
-  protected termLabel(term: PaymentTerm | null): string {
-    return term ? `${term.code} — ${term.name}` : 'Aucune';
+  /** Le délai du serveur, en mots : « À réception », « 1 jour », « 30 jours ». */
+  protected daysLabel(days: number): string {
+    return paymentDaysLabel(days);
   }
 
   protected retry(): void {

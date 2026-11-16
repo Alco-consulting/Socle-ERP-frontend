@@ -152,49 +152,6 @@
                       </span>
                     </td>
                   }
-                  @case ('transfer') {
-                    <!-- Through its account: a transfer waiting comes in, else one leaves. -->
-                    <td colspan="2">
-                      <span class="with-close">
-                        <span class="lead">
-                          Virement interne
-                          @if (transferModel(); as model) {
-                            <span class="lead-code">{{ model.account.code }}</span>
-                          }
-                        </span>
-                        <select
-                          alcoSelect
-                          formControlName="waiting"
-                          aria-label="Virement en attente"
-                        >
-                          <option value="">
-                            {{
-                              pendingTransfers().length
-                                ? 'Nouveau virement (départ)'
-                                : 'Aucun virement en attente : départ'
-                            }}
-                          </option>
-                          @for (line of pendingTransfers(); track line.public_id) {
-                            <option [value]="line.public_id">{{ transferLabel(line) }}</option>
-                          }
-                        </select>
-                        <!-- Sent: the journal it goes to, where its line waits (note 0050). -->
-                        @if (!value().waiting && !reconciling() && otherAccounts().length > 0) {
-                          <span class="lead">vers</span>
-                          <select
-                            alcoSelect
-                            formControlName="destination"
-                            aria-label="Journal d’arrivée"
-                          >
-                            @for (item of otherAccounts(); track item.public_id) {
-                              <option [value]="item.public_id">{{ item.name }}</option>
-                            }
-                          </select>
-                        }
-                        <ng-container *ngTemplateOutlet="close" />
-                      </span>
-                    </td>
-                  }
                   @default {
                     <td colspan="2">
                       <span class="choices">
@@ -204,17 +161,6 @@
                         <button alcoButton type="button" size="sm" (click)="choose('account')">
                           Compte
                         </button>
-                        <alco-dropdown
-                          [items]="moreItems()"
-                          icon="more-vertical"
-                          [iconOnly]="true"
-                          [showChevron]="false"
-                          size="sm"
-                          ariaLabel="Plus de choix"
-                          (selected)="onMore($event)"
-                        >
-                          Plus de choix
-                        </alco-dropdown>
                       </span>
                     </td>
                   }
@@ -269,17 +215,6 @@
                       >
                         Compte
                       </button>
-                      <alco-dropdown
-                        [items]="moreItems()"
-                        icon="more-vertical"
-                        [iconOnly]="true"
-                        [showChevron]="false"
-                        size="sm"
-                        ariaLabel="Plus de choix"
-                        (selected)="completeRowWith(row.transaction, $event)"
-                      >
-                        Plus de choix
-                      </alco-dropdown>
                     </span>
                   </td>
                 } @else {

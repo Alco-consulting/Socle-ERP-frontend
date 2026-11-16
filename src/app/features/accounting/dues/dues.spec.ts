@@ -70,12 +70,7 @@ function schedule(extra: Partial<DueSchedule> = {}): DueSchedule {
     partner: PARTNER,
     account: { public_id: 'a-411', code: '411' },
     role: 'customer',
-    payment_term: { public_id: 't-1', code: 'NET30' },
-    terms: {
-      code: 'NET30',
-      name: '30 jours',
-      lines: [{ sequence: 1, percentage: '100.0000', days: 30, rule: 'net' }],
-    },
+    payment_days: 30,
     reference_date: '2026-03-02',
     currency: 'GNF',
     amount: '1000000.000000',
@@ -240,7 +235,7 @@ describe('Comptabilité › Échéances (V2.1 A5)', () => {
     expect(view.toasts()).toContain('Échéancier généré.');
     const generated = view.element().querySelector('.generated')!;
     expect(text(generated)).toContain('VTE-000109 · CLI-001');
-    expect(text(generated)).toContain('1 échéance, condition NET30');
+    expect(text(generated)).toContain('1 échéance, délai 30 jours');
     expect(generated.querySelector('a')?.getAttribute('href')).toBe(`${BASE}/echeanciers/s-9`);
     httpMock().expectOne(is('accounting/due-schedules/pending-lines/')).flush(page([]));
     await view.stable();
@@ -258,16 +253,17 @@ describe('Comptabilité › Échéances (V2.1 A5)', () => {
       .flush(
         {
           error: {
-            code: 'accounting_due_payment_term_missing',
+            code: 'accounting_due_line_not_eligible',
             message: 'x',
-            details: { partner: 'CLI-001', role: 'customer' },
+            details: { reason: 'not_posted' },
             correlation_id: 'c',
           },
         },
         { status: 400, statusText: 'x' },
       );
     await view.stable();
-    expect(text(view.element())).toContain('Le tiers CLI-001 n’a pas de condition de paiement.');
+    expect(text(view.element())).toContain('Une ligne ne peut pas recevoir d’échéances.');
+    expect(text(view.element())).toContain('Ici : l’écriture n’est pas validée.');
   });
 
   it('without accounting.manage_due_dates nothing can be generated', async () => {
@@ -315,8 +311,8 @@ describe('Comptabilité › Échéances (V2.1 A5)', () => {
       .flush(page([]));
     await stable();
     expect(text(element())).toContain('Échéancier VTE-000101');
-    expect(text(element())).toContain('NET30 — 30 jours');
-    expect(text(element())).toContain('100.0000 % à 30 j');
+    expect(text(element())).toContain('Délai de paiement (au moment du calcul)');
+    expect(text(element())).toContain('30 jours');
     expect(text(element())).toContain('02/03/2026');
     expect(element().querySelectorAll('alco-table tbody tr')).toHaveLength(1);
   });
@@ -329,15 +325,18 @@ describe('Comptabilité › Échéances (V2.1 A5)', () => {
     httpMock()
       .expectOne((req) => req.url.includes('/audit/objects/accounting.dueschedule/'))
       .flush(page([]));
-    const ask = vi
-      .spyOn(TestBed.inject(RecomputeDialogService), 'ask')
-      .mockResolvedValue({ reason: 'Conditions renégociées', reference_date: '2026-03-31' });
+    const ask = vi.spyOn(TestBed.inject(RecomputeDialogService), 'ask').mockResolvedValue({
+      reason: 'Conditions renégociées',
+      payment_days: 45,
+      reference_date: '2026-03-31',
+    });
     button('Recalculer')!.click();
     await stable();
-    expect(ask).toHaveBeenCalledWith('VTE-000101 · CLI-001', []);
+    expect(ask).toHaveBeenCalledWith('VTE-000101 · CLI-001');
     const request = httpMock().expectOne(is('accounting/due-schedules/s-1/recompute/', 'POST'));
     expect(request.request.body).toEqual({
       reason: 'Conditions renégociées',
+      payment_days: 45,
       reference_date: '2026-03-31',
     });
     request.flush(schedule({ recomputed_at: '2026-10-04T11:00:00Z' }));

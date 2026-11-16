@@ -7,7 +7,6 @@
 
 export type DueRole = 'customer' | 'supplier';
 export type DueItemStatus = 'open' | 'partial' | 'settled';
-export type DueDateRule = 'net' | 'end_of_month' | 'end_of_month_then_days';
 
 export interface DueReference {
   readonly public_id: string;
@@ -69,18 +68,6 @@ export interface ScheduleItem {
   readonly last_settled_on: string | null;
 }
 
-/** The payment term as it was when the dates were computed. */
-export interface ScheduleTerms {
-  readonly code: string;
-  readonly name: string;
-  readonly lines: readonly {
-    readonly sequence: number;
-    readonly percentage: string;
-    readonly days: number;
-    readonly rule: DueDateRule;
-  }[];
-}
-
 /** `AccountingDueSchedule`. */
 export interface DueSchedule {
   readonly public_id: string;
@@ -89,8 +76,8 @@ export interface DueSchedule {
   readonly partner: DuePartnerReference;
   readonly account: DueReference;
   readonly role: DueRole;
-  readonly payment_term: DueReference;
-  readonly terms: ScheduleTerms;
+  /** Le délai appliqué, en jours après la date de référence (0 : à réception). */
+  readonly payment_days: number;
   readonly reference_date: string;
   readonly currency: string;
   readonly amount: string;
@@ -137,6 +124,7 @@ export interface PendingLineFilters {
 /** `AccountingRecomputeRequest`. */
 export interface RecomputeRequest {
   readonly reason: string;
-  readonly payment_term?: string;
+  /** De 0 à 365 jours ; absent : le délai du tiers, tel qu'il est aujourd'hui. */
+  readonly payment_days?: number;
   readonly reference_date?: string;
 }

@@ -1,6 +1,6 @@
 import { ErrorCatalog } from '../../../core/errors/user-error';
 import { StatusLook } from '../accounting-presentation';
-import { DueDateRule, DueItemStatus, DueRole } from '../data-access/due-models';
+import { DueItemStatus, DueRole } from '../data-access/due-models';
 
 /**
  * Words and look of the due dates' values (the API's enums) and messages of their error codes
@@ -21,18 +21,6 @@ export const DUE_ROLES: Readonly<Record<DueRole, string>> = {
   supplier: 'Fournisseur',
 };
 
-/** A payment term's line, in words (« 30 j », « 30 j fin de mois », « fin de mois + 10 j »). */
-export function ruleLabel(days: number, rule: DueDateRule): string {
-  switch (rule) {
-    case 'end_of_month':
-      return `${days} j fin de mois`;
-    case 'end_of_month_then_days':
-      return days ? `fin de mois + ${days} j` : 'fin de mois';
-    default:
-      return days ? `${days} j` : 'immédiat';
-  }
-}
-
 /** Why a line has no due dates (`details.reason` of `accounting_due_line_not_eligible`). */
 export const INELIGIBLE_REASONS: Readonly<Record<string, string>> = {
   not_posted: 'l’écriture n’est pas validée',
@@ -47,15 +35,6 @@ export const DUE_ERRORS: ErrorCatalog = {
     title: 'Une ligne ne peut pas recevoir d’échéances.',
     message:
       'Seule une facture validée d’un tiers, sur son compte collectif, reçoit des échéances.',
-  },
-  accounting_due_payment_term_missing: {
-    title: 'Le tiers n’a pas de condition de paiement.',
-    message:
-      'Renseignez la condition de paiement du tiers (client ou fournisseur), puis recommencez.',
-  },
-  payment_term_inactive: {
-    title: 'La condition de paiement est désactivée.',
-    message: 'Choisissez une condition active, ou réactivez-la.',
   },
   accounting_due_schedule_exists: {
     title: 'Cette ligne a déjà ses échéances.',

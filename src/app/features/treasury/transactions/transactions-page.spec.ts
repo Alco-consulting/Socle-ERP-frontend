@@ -85,40 +85,6 @@ const ALL = [
   'accounting.read',
   'accounting.validate',
 ];
-/** Odoo's « Frais bancaires » (note backend 0048). */
-const FEES = {
-  public_id: 'm-fees',
-  name: 'Frais bancaires',
-  kind: 'account',
-  account: { public_id: 'a-631', code: '631800', name: 'Autres frais bancaires' },
-  label: 'Frais de tenue de compte',
-  status: 'active',
-};
-/** Configured by the company: through 585100 (note backend 0049). */
-const VERSEMENT = {
-  public_id: 'm-vir',
-  name: 'Versement en banque',
-  kind: 'transfer',
-  account: { public_id: 'a-585', code: '585100', name: 'Virements de fonds' },
-  label: '',
-  status: 'active',
-};
-/** 500 000 sent from Coris bank onto 585100, waiting to come in (note backend 0049). */
-const SENT = {
-  ...INVOICE,
-  public_id: 'l-585',
-  entry: { public_id: 'e-bq', entry_number: 'BQ-000012' },
-  entry_date: '2026-10-13',
-  journal: 'BQ',
-  document_reference: '',
-  account: { public_id: 'a-585', code: '585100' },
-  partner: null,
-  label: 'Versement en caisse',
-  amount: '500000.000000',
-  lettered_amount: '0.000000',
-  open_amount: '500000.000000',
-  status: 'open',
-};
 const settle = () => new Promise((resolve) => setTimeout(resolve, 0));
 const text = (element: Element | null | undefined) =>
   (element?.textContent ?? '').replace(/\s+/g, ' ').trim();
@@ -151,10 +117,6 @@ describe('Réconciliation bancaire (treasury/accounts/{id}/transactions/, note b
     mock
       .expectOne((req) => req.url === '/api/v1/currencies/')
       .flush(page([{ code: 'GNF', name: 'Franc guinéen', decimal_places: 0, status: 'active' }]));
-    for (const models of mock.match((req) => req.url === '/api/v1/treasury/reconcile-models/')) {
-      expect(models.request.params.get('status')).toBe('active');
-      models.flush(page([FEES, VERSEMENT]));
-    }
     await stable();
     mock
       .expectOne('/api/v1/treasury/accounts/t-css/balance/')
@@ -196,7 +158,8 @@ describe('Réconciliation bancaire (treasury/accounts/{id}/transactions/, note b
     expect(
       Array.from(row(element).querySelectorAll('.choices > button')).map((cell) => text(cell)),
     ).toEqual(['Partenaire', 'Compte']);
-    expect(row(element).querySelector('alco-dropdown')).not.toBeNull();
+    // Plus de ⋮ : les modèles de rapprochement n'existent plus.
+    expect(row(element).querySelector('alco-dropdown')).toBeNull();
     expect(text(row(element).querySelector('.running'))).toBe('6 108 500 GNF');
     const lines = Array.from(element.querySelectorAll('tbody tr:not(.entry)')).map((line) =>
       Array.from(line.querySelectorAll('td'))
@@ -287,7 +250,6 @@ describe('Réconciliation bancaire (treasury/accounts/{id}/transactions/, note b
       partner: 'p-9',
       settled_line: null,
       offset_account: null,
-      destination: null,
       idempotency_key: expect.any(String),
     });
     post.flush(ROWS[0]);
@@ -361,10 +323,6 @@ describe('Réconciliation bancaire (treasury/accounts/{id}/transactions/, note b
     enter(element);
     await stable();
     expect(error()).toBe('Choisissez le compte.');
-    component['choose']('transfer');
-    enter(element);
-    await stable();
-    expect(error()).toBe('Choisissez le virement interne.');
     httpMock().expectNone((req) => req.method === 'POST');
   });
 
@@ -460,78 +418,21 @@ describe('Réconciliation bancaire (treasury/accounts/{id}/transactions/, note b
       .flush(page(ROWS));
   });
 
-  it('⋮: the models configured, « Gérer modèles »; a model gives its account and label', async () => {
-    const { component, element, stable } = await open();
+  it('plus de modèle de rapprochement : « Partenaire » et « Compte » seulement, sans ⋮', async () => {
+    const { element } = await open();
+    // Aucun appel à treasury/reconcile-models/ (httpMock().verify() le refuserait).
     expect(
-      component['moreItems']().map((item) => [item.label, item.route ?? '', !!item.dividerBefore]),
-    ).toEqual([
-      ['Frais bancaires', '', false],
-      ['Versement en banque', '', false],
-      ['Gérer modèles', '/app/comptabilite/configuration/modeles-rapprochement', true],
-    ]);
-
-    component['onMore']({ id: 'model:m-fees', label: 'Frais bancaires' });
-    component['form'].patchValue({ amountOut: '15000' });
-    await stable();
-    expect(
-      row(element).querySelector('alco-autocomplete[formControlName="account"]'),
-    ).not.toBeNull();
-    enter(element);
-    await stable();
-
-    const post = httpMock().expectOne('/api/v1/treasury/accounts/t-css/transactions/');
-    expect(post.request.body).toMatchObject({
-      description: 'Frais de tenue de compte',
-      direction: 'outflow',
-      partner: null,
-      offset_account: 'a-631',
-    });
-    post.flush(ROWS[0]);
-    await stable();
-    httpMock().expectOne('/api/v1/treasury/accounts/t-css/balance/').flush({ balance: '0' });
-    httpMock()
-      .expectOne((req) => req.url === '/api/v1/treasury/accounts/t-css/transactions/')
-      .flush(page(ROWS));
+      Array.from(row(element).querySelectorAll<HTMLButtonElement>('button')).map((button) =>
+        text(button),
+      ),
+    ).toEqual(['Partenaire', 'Compte']);
+    expect(row(element).querySelector('alco-dropdown')).toBeNull();
+    expect(element.querySelector('tbody tr.waiting alco-dropdown')).toBeNull();
   });
 
-  it('⋮ a transfer model: what waits on its account comes in, its amount by itself', async () => {
+  it('un virement de Trésorerie › Virements : « Virement interne » et l’autre journal', async () => {
     const { component, element, stable } = await open();
-    const form = component['form'];
-    component['onMore']({ id: 'model:m-vir', label: 'Versement en banque' });
-    form.patchValue({ date: '2026-10-14' });
-    await stable();
-    const waiting = httpMock().expectOne(
-      (req) => req.url === '/api/v1/accounting/letterable-lines/',
-    );
-    expect(waiting.request.params.get('account')).toBe('a-585');
-    expect(waiting.request.params.get('status')).toBe('open');
-    waiting.flush(page([SENT]));
-    await stable();
-    const select = row(element).querySelector<HTMLSelectElement>(
-      'select[aria-label="Virement en attente"]',
-    )!;
-    expect(Array.from(select.options).map((option) => text(option))).toEqual([
-      'Nouveau virement (départ)',
-      'BQ · 13/10/2026 · 500 000 GNF · Versement en caisse',
-    ]);
-    expect(form.controls.waiting.value).toBe('l-585');
-    expect(form.controls.amountIn.value).toBe('500000');
-    expect(form.controls.description.value).toBe('Versement en caisse');
-    enter(element);
-    await stable();
-
-    const post = httpMock().expectOne('/api/v1/treasury/accounts/t-css/transactions/');
-    expect(post.request.body).toMatchObject({
-      operation_date: '2026-10-14',
-      direction: 'inflow',
-      amount: '500000',
-      partner: null,
-      settled_line: 'l-585',
-      offset_account: 'a-585',
-    });
-    expect(post.request.body).not.toHaveProperty('internal_account');
-    post.flush({ ...ROWS[0], public_id: 'o-3', direction: 'inflow' });
-    await stable();
+    component['reload']();
     httpMock()
       .expectOne('/api/v1/treasury/accounts/t-css/balance/')
       .flush({ balance: '6608500.000000', currency: 'GNF' });
@@ -543,8 +444,7 @@ describe('Réconciliation bancaire (treasury/accounts/{id}/transactions/, note b
             ...ROWS[0],
             public_id: 'o-3',
             direction: 'inflow',
-            offset_account: { public_id: 'a-585', code: '585100', name: 'Virements de fonds' },
-            settled: ['BQ-000012'],
+            transfer_account: { public_id: 't-bq', code: 'BQ', name: 'Coris Bank' },
           },
         ]),
       );
@@ -554,20 +454,7 @@ describe('Réconciliation bancaire (treasury/accounts/{id}/transactions/, note b
       Array.from(line.querySelectorAll('td'))
         .slice(2, 4)
         .map((cell) => text(cell)),
-    ).toEqual(['Virement interne', 'BQ-000012']);
-  });
-
-  it('a transfer account typed in « Compte »: the internal transfer, as from ⋮', async () => {
-    const { component, stable } = await open();
-    await press(component['host'].nativeElement as HTMLElement, 'Compte', stable);
-    component['form'].controls.account.setValue({ id: 'a-585', label: '585100' });
-    await stable();
-    expect(component['counterpart']()).toBe('transfer');
-    httpMock()
-      .expectOne((req) => req.url === '/api/v1/accounting/letterable-lines/')
-      .flush(page([]));
-    await stable();
-    expect(component['form'].controls.waiting.value).toBe('');
+    ).toEqual(['Virement interne', 'Coris Bank']);
   });
 
   it('read only: the lines, no line to type nor « Nouveau »', async () => {

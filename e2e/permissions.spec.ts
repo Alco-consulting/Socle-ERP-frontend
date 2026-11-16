@@ -91,7 +91,6 @@ test.describe('Affichage selon les permissions (confort d’interface ; l’API 
     await expect(page.getByRole('menu').getByRole('group')).toHaveText([
       /^\s*Général/,
       /^\s*Comptabilité/,
-      /^\s*Paiements/, // treasury.read: Modèles de rapprochement (note backend 0048)
       /^\s*Taxes/,
     ]);
   });

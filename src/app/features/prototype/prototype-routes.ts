@@ -72,11 +72,6 @@ export const LEGACY_REDIRECTS: Routes = [
   // « Tiers » became « Contacts », as Odoo's application (2026-10-17).
   { path: 'comptabilite/tiers', pathMatch: 'full', redirectTo: `${ACCOUNTING}/contacts` },
   { path: 'comptabilite/tiers/:id', redirectTo: `${ACCOUNTING}/contacts/:id` },
-  {
-    path: 'tiers/configuration/conditions',
-    pathMatch: 'full',
-    redirectTo: `${ACCOUNTING}/configuration/conditions-paiement`,
-  },
   { path: 'tiers', pathMatch: 'full', redirectTo: '/app/contacts' },
   { path: 'tiers/:screen', redirectTo: '/app/contacts/:screen' },
   { path: 'tiers/:screen/:id', redirectTo: '/app/contacts/:screen/:id' },

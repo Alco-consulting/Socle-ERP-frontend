@@ -1,0 +1,10 @@
+# Envoyé à Vercel : les sources seulement ; Vercel installe et construit lui-même.
+node_modules
+dist
+.angular
+coverage
+e2e/.results
+playwright-report
+test-results
+.vercel
+.env*

@@ -29,6 +29,7 @@ import { AlcoToastService } from '../../../shared/ui/toast/toast.service';
 import { DUE_PAGE_SIZE, DueApi } from '../data-access/due-api';
 import { DueSchedule, PendingLine } from '../data-access/due-models';
 import { isoDay } from '../entries/entry-presentation';
+import { paymentDaysLabel } from '../../partners/partner-presentation';
 import { DUE_ERRORS, DUE_ROLES, DUE_STALE_CODES, INELIGIBLE_REASONS } from './due-presentation';
 import { DueScope, dueScopeKey } from './due-scope';
 
@@ -69,6 +70,8 @@ export class AlcoPendingLines {
   protected readonly pageSize = DUE_PAGE_SIZE;
   protected readonly entriesUrl = `${APP_ROOT}/comptabilite/ecritures`;
   protected readonly day = isoDay;
+  /** « À réception », « 30 jours » : le délai appliqué par le serveur. */
+  protected readonly daysLabel = paymentDaysLabel;
   protected readonly canGenerate = computed(() => this.session.can('accounting.manage_due_dates'));
   protected readonly columns: readonly TableColumn[] = [
     { key: 'entry', label: 'Écriture' },
@@ -201,12 +204,6 @@ export class AlcoPendingLines {
     if (error.code === 'accounting_due_line_not_eligible' && value) {
       const reason = INELIGIBLE_REASONS[String(value['reason'])];
       return reason ? { ...error, message: `${error.message} Ici : ${reason}.` } : error;
-    }
-    if (error.code === 'accounting_due_payment_term_missing' && value?.['partner']) {
-      return {
-        ...error,
-        title: `Le tiers ${String(value['partner'])} n’a pas de condition de paiement.`,
-      };
     }
     return error;
   }

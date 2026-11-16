@@ -72,7 +72,6 @@ describe('Application catalogue', () => {
     expect(groupsOf('Configuration')).toEqual([
       'Général',
       'Comptabilité',
-      'Paiements',
       'Produits',
       'Taxes',
       'Immobilisations',

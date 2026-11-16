@@ -61,12 +61,7 @@ interface ScheduleJson {
   partner: PartnerRef;
   account: Ref;
   role: Role;
-  payment_term: Ref;
-  terms: {
-    code: string;
-    name: string;
-    lines: { sequence: number; percentage: string; days: number; rule: string }[];
-  };
+  payment_days: number;
   reference_date: string;
   currency: string;
   amount: string;
@@ -98,11 +93,8 @@ interface Desk {
 
 const D = (units: string) => `${units}.000000`;
 const NOW = '2026-10-04T10:00:00Z';
-const NET30 = {
-  code: 'NET30',
-  name: '30 jours',
-  lines: [{ sequence: 1, percentage: '100.0000', days: 30, rule: 'net' }],
-};
+/** Le délai des fixtures : 30 jours après la date de référence. */
+const NET_DAYS = 30;
 
 let sequence = 0;
 const uuid = () => `80000000-0000-4000-9000-${String(++sequence).padStart(12, '0')}`;
@@ -259,7 +251,6 @@ export class FakeDues {
     await page.route('**/api/v1/accounting/due-items/**', (route) => this.handle(route));
     await page.route('**/api/v1/accounting/due-schedules/**', (route) => this.handle(route));
     await page.route('**/api/v1/reporting/aged-balance/**', (route) => this.report(route));
-    await page.route('**/api/v1/reporting/aging-policy/**', (route) => this.policy(route));
   }
 
   // ---- Fixtures ------------------------------------------------------------------------------
@@ -319,8 +310,7 @@ export class FakeDues {
         partner: who,
         account: account(role === 'customer' ? '411' : '401'),
         role,
-        payment_term: { public_id: uuid(), code: NET30.code },
-        terms: NET30,
+        payment_days: NET_DAYS,
         reference_date: entry(at).entry_date,
         currency: 'GNF',
         amount: D(amount),
@@ -508,7 +498,11 @@ export class FakeDues {
       return this.answer(route, 404, error('not_found'));
     }
     if (command === 'recompute' && request.method() === 'POST') {
-      const body = request.postDataJSON() as { reason?: string; reference_date?: string };
+      const body = request.postDataJSON() as {
+        reason?: string;
+        payment_days?: number;
+        reference_date?: string;
+      };
       if (!body.reason?.trim()) {
         return this.answer(
           route,
@@ -519,6 +513,9 @@ export class FakeDues {
         );
       }
       schedule.recomputed_at = NOW;
+      if (body.payment_days !== undefined) {
+        schedule.payment_days = body.payment_days;
+      }
       if (body.reference_date) {
         schedule.reference_date = body.reference_date;
       }
@@ -698,41 +695,5 @@ export class FakeDues {
         open_amount: line.amount,
       }));
     return [...installments, ...unscheduled];
-  }
-
-  private async policy(route: Route): Promise<void> {
-    const request = route.request();
-    const permissions = await this.context.permissionsOf(request);
-    if (!permissions.includes('reporting.read_auxiliary')) {
-      return this.answer(route, 403, error('company_permission_denied'));
-    }
-    const desk = this.desk(await this.context.companyOf(request));
-    if (request.method() === 'PUT') {
-      if (!(await this.context.csrfOk(request))) {
-        return this.answer(route, 403, error('csrf_failed'));
-      }
-      if (!permissions.includes('reporting.manage_aging')) {
-        return this.answer(route, 403, error('company_permission_denied'));
-      }
-      const { limits } = request.postDataJSON() as { limits: number[] };
-      if (!BUCKETS[limits.join(',')]) {
-        // Only the fixtures' policies are known; any other is refused like an invalid one.
-        return this.answer(route, 400, error('reporting_aging_policy_invalid', { limits }));
-      }
-      desk.limits = limits;
-      this.entries.recordEvent(
-        desk.company,
-        'parameter_change',
-        'reporting.agingpolicy',
-        desk.company,
-        'aging',
-      );
-    }
-    const key = desk.limits.join(',');
-    return this.answer(route, 200, {
-      limits: desk.limits,
-      default: key === '30,60,90,120',
-      buckets: BUCKETS[key],
-    });
   }
 }

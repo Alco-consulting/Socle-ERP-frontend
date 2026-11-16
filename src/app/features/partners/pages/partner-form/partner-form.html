@@ -186,21 +186,36 @@
             }
           </select>
         </alco-form-field>
-        <alco-form-field label="Conditions de paiement client">
-          <select alcoSelect formControlName="customer_payment_term">
-            <option value="">Aucune</option>
-            @for (term of termOptions('customer_payment_term'); track term.public_id) {
-              <option [value]="term.public_id">{{ term.code }} — {{ term.name }}</option>
-            }
-          </select>
+        <!-- Un simple délai en jours (0 : payable à réception) ; l'échéance, le serveur la calcule. -->
+        <alco-form-field
+          label="Délai de paiement client (jours)"
+          hint="0 : payable à réception"
+          class="alco-field--short"
+        >
+          <input
+            alcoInput
+            type="number"
+            min="0"
+            max="365"
+            step="1"
+            inputmode="numeric"
+            formControlName="customer_payment_days"
+          />
         </alco-form-field>
-        <alco-form-field label="Conditions de paiement fournisseur">
-          <select alcoSelect formControlName="supplier_payment_term">
-            <option value="">Aucune</option>
-            @for (term of termOptions('supplier_payment_term'); track term.public_id) {
-              <option [value]="term.public_id">{{ term.code }} — {{ term.name }}</option>
-            }
-          </select>
+        <alco-form-field
+          label="Délai de paiement fournisseur (jours)"
+          hint="0 : payable à réception"
+          class="alco-field--short"
+        >
+          <input
+            alcoInput
+            type="number"
+            min="0"
+            max="365"
+            step="1"
+            inputmode="numeric"
+            formControlName="supplier_payment_days"
+          />
         </alco-form-field>
       </div>
     </details>

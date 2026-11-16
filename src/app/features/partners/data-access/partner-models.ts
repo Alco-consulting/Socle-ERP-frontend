@@ -28,15 +28,6 @@ export interface PartnerSummary {
   readonly tags?: readonly PartnerTag[];
 }
 
-/** `PartnersPaymentTerm`. */
-export interface PaymentTerm {
-  readonly public_id: string;
-  readonly code: string;
-  readonly name: string;
-  readonly status: PartnerStatus;
-  readonly lines: readonly { sequence: number; percentage: string; days: number; rule?: string }[];
-}
-
 /** `PartnersPartner`: the record. */
 export interface Partner extends PartnerSummary {
   readonly registration_number: string;
@@ -45,8 +36,10 @@ export interface Partner extends PartnerSummary {
   readonly phone: string;
   readonly email: string;
   readonly default_currency: string | null;
-  readonly customer_payment_term: PaymentTerm | null;
-  readonly supplier_payment_term: PaymentTerm | null;
+  /** Jours entre une facture client et son échéance ; 0 : payable à réception. */
+  readonly customer_payment_days: number;
+  /** Jours entre une facture fournisseur et son échéance ; 0 : payable à réception. */
+  readonly supplier_payment_days: number;
   readonly default_tax_code: string;
   readonly customer_account_code: string;
   readonly supplier_account_code: string;
@@ -73,8 +66,9 @@ export interface PartnerWrite {
   readonly phone: string;
   readonly email: string;
   readonly default_currency: string | null;
-  readonly customer_payment_term: string | null;
-  readonly supplier_payment_term: string | null;
+  /** De 0 à 365 jours (le serveur vérifie). */
+  readonly customer_payment_days: number;
+  readonly supplier_payment_days: number;
   readonly default_tax_code?: string;
   readonly customer_account_code?: string;
   readonly supplier_account_code?: string;

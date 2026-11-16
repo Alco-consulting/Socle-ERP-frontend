@@ -10,7 +10,6 @@ import {
   PartnerTag,
   PartnerUpdate,
   PartnerWrite,
-  PaymentTerm,
 } from './partner-models';
 
 /** Page size of the partner list (the server caps it at API_MAX_PAGE_SIZE). */
@@ -81,12 +80,6 @@ export class PartnersApi {
   /** A tag of this name, created when the company has none: Odoo's « Créer ». */
   createTag(name: string): Observable<PartnerTag> {
     return this.api.post<PartnerTag>('partners/tags/', { name });
-  }
-
-  paymentTerms(): Observable<Paginated<PaymentTerm>> {
-    return this.api.get<Paginated<PaymentTerm>>('partners/payment-terms/', {
-      params: { page_size: OPTIONS_PAGE_SIZE },
-    });
   }
 
   /** The shared ISO catalogue (any signed-in user). */

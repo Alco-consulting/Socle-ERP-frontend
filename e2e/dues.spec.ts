@@ -76,15 +76,24 @@ test.describe('Échéances', () => {
     await expect(page.getByRole('heading', { level: 1 })).toHaveText(
       `Échéancier ${schedule.entry.entry_number}`,
     );
-    await expect(page.getByText('100.0000 % à 30 j')).toBeVisible();
+    // Le délai appliqué, en jours (plus de condition de paiement).
+    const delay = page.locator('dt', { hasText: 'Délai de paiement' }).locator('+ dd');
+    await expect(delay).toHaveText('30 jours');
     await page.getByRole('button', { name: 'Recalculer' }).click();
     const dialog = page.getByRole('dialog', { name: /^Recalculer l’échéancier/ });
     await expect(dialog).toContainText('Les échéances existantes seront recalculées');
     await dialog.getByRole('button', { name: 'Recalculer' }).click();
     await expect(dialog.getByText('Indiquez le motif du recalcul.')).toBeVisible();
     await dialog.getByLabel('Motif').fill('Conditions renégociées');
+    await dialog.getByLabel(/Délai de paiement/).fill('45');
     await dialog.getByRole('button', { name: 'Recalculer' }).click();
     await expect(page.getByText('Échéancier recalculé.')).toBeVisible();
+    const recompute = api.callsTo(`accounting/due-schedules/${schedule.public_id}/recompute/`)[0];
+    expect(recompute.postDataJSON()).toMatchObject({
+      reason: 'Conditions renégociées',
+      payment_days: 45,
+    });
+    await expect(delay).toHaveText('45 jours');
     await expect(page.getByText('Dernier recalcul')).toBeVisible();
     await expect(page.locator('#historique')).toContainText('Modification');
   });
@@ -132,40 +141,10 @@ test.describe('Balance âgée', () => {
     const call = api.callsTo('reporting/aged-balance/').at(-1)!;
     expect(new URL(call.url()).searchParams.get('role')).toBe('supplier');
   });
-
-  test('13. modifier les tranches : la balance montre celles du serveur', async ({ page }) => {
-    await page.goto(`${ACC}/configuration/balance-agee`);
-    await expect(page.getByText('Tranches par défaut d’Alco')).toBeVisible();
-    await page.getByRole('button', { name: 'Retirer la limite 4' }).click();
-    await page.getByRole('button', { name: 'Retirer la limite 3' }).click();
-    await page.getByLabel('Limite 1 (jours)').fill('15');
-    await page.getByLabel('Limite 2 (jours)').fill('45');
-    await page.getByRole('button', { name: 'Enregistrer les tranches' }).click();
-    await page
-      .getByRole('alertdialog', { name: 'Enregistrer ces tranches ?' })
-      .getByRole('button', { name: 'Enregistrer les tranches' })
-      .click();
-    await expect(page.getByText('Tranches enregistrées.')).toBeVisible();
-    await expect(page.getByText('Tranches propres à la société.')).toBeVisible();
-
-    await page.goto(`${CUSTOMERS}?au=2026-04-15`);
-    await expect(page.locator('.wide thead th')).toHaveText([
-      'Tiers',
-      'Non échue',
-      '1–15 j',
-      '16–45 j',
-      'Plus de 45 j',
-      'Total',
-      'Solde',
-    ]);
-  });
 });
 
 test.describe('Permissions, sociétés, smart button', () => {
-  test('14. lecture seule : ni génération, ni recalcul, ni tranches modifiables', async ({
-    page,
-    api,
-  }) => {
+  test('14. lecture seule : ni génération, ni recalcul', async ({ page, api }) => {
     api.withPermissions(COMPANY_A.public_id, PROFILES.viewer);
     await page.goto(`${DUES}?vue=a-generer`);
     await expect(rows(page)).toHaveCount(2);
@@ -176,12 +155,7 @@ test.describe('Permissions, sociétés, smart button', () => {
     await expect(page.getByRole('button', { name: 'Recalculer' })).toHaveCount(0);
   });
 
-  test('15. gestion : génération et tranches proposées ; sans état auxiliaire, pas de balance', async ({
-    page,
-    api,
-  }) => {
-    await page.goto(`${ACC}/configuration/balance-agee`);
-    await expect(page.getByRole('button', { name: 'Enregistrer les tranches' })).toBeVisible();
+  test('15. sans état auxiliaire, pas de balance', async ({ page, api }) => {
     api.withPermissions(COMPANY_A.public_id, ['accounting.read', 'reporting.read']);
     await page.goto(`${CUSTOMERS}?au=2026-04-15`);
     await expect(page.getByRole('heading', { name: 'Balance âgée clients' })).toHaveCount(0);
@@ -232,7 +206,6 @@ test.describe('19. accessibilité', () => {
     ['Échéancier', (api) => `${DUES}/echeanciers/${api.dues.schedules('A')[0].public_id}`],
     ['Balance sans date', () => CUSTOMERS],
     ['Balance au 15/04/2026', () => `${CUSTOMERS}?au=2026-04-15`],
-    ['Tranches', () => `${ACC}/configuration/balance-agee`],
   ];
   for (const [name, url] of screens) {
     test(`${name} : axe sans violation`, async ({ page, api }) => {

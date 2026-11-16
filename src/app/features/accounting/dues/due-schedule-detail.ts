@@ -29,9 +29,10 @@ import { AlcoToastService } from '../../../shared/ui/toast/toast.service';
 import { AUDIT_TYPES, AlcoObjectHistory } from '../../audit/object-history';
 import { PartnersApi } from '../../partners/data-access/partners-api';
 import { DueApi } from '../data-access/due-api';
-import { DueDateRule, ScheduleItem } from '../data-access/due-models';
+import { ScheduleItem } from '../data-access/due-models';
+import { paymentDaysLabel } from '../../partners/partner-presentation';
 import { isoDay } from '../entries/entry-presentation';
-import { DUE_ERRORS, DUE_ROLES, DUE_STATUS, ruleLabel } from './due-presentation';
+import { DUE_ERRORS, DUE_ROLES, DUE_STATUS } from './due-presentation';
 import { RecomputeDialogService } from './recompute-dialog';
 
 /**
@@ -84,7 +85,8 @@ export class DueScheduleDetailPage {
   protected readonly accounting = `${APP_ROOT}/comptabilite`;
   protected readonly day = isoDay;
   protected readonly roles = DUE_ROLES;
-  protected readonly rule = (days: number, value: DueDateRule) => ruleLabel(days, value);
+  /** « À réception », « 30 jours » : le délai du serveur, en mots. */
+  protected readonly daysLabel = paymentDaysLabel;
   protected readonly canRecompute = computed(() => this.session.can('accounting.manage_due_dates'));
   protected readonly auditType = AUDIT_TYPES.dueSchedule;
   protected readonly canSeeHistory = computed(() => this.session.can('audit.read'));
@@ -133,24 +135,8 @@ export class DueScheduleDetailPage {
     if (!schedule || this.busy()) {
       return;
     }
-    const terms = this.session.can('partners.read')
-      ? await firstValueFrom(
-          this.partners.paymentTerms().pipe(
-            map((page) =>
-              page.results
-                .filter((term) => term.status === 'active')
-                .map((term) => ({
-                  public_id: term.public_id,
-                  label: `${term.code} — ${term.name}`,
-                })),
-            ),
-            catchError(() => of([])),
-          ),
-        )
-      : [];
     const request = await this.dialog.ask(
       `${schedule.entry.entry_number} · ${schedule.partner.code}`,
-      terms,
     );
     if (request === null) {
       return;

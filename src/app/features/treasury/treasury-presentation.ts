@@ -88,15 +88,6 @@ export const OPERATION_DOCUMENTS = 'treasury.operation';
 
 /** Errors of the treasury, by their stable code (backend apps/treasury). */
 export const TREASURY_ERRORS: ErrorCatalog = {
-  treasury_transfer_account_not_letterable: {
-    title: 'Le compte d’un virement interne doit autoriser le lettrage.',
-    message:
-      'Ouvrez ce compte dans le plan comptable, cochez « Autoriser le lettrage », puis enregistrez à nouveau le modèle.',
-  },
-  treasury_reconcile_model_exists: {
-    title: 'Un modèle de rapprochement porte déjà ce nom.',
-    message: 'Choisissez un autre nom.',
-  },
   ...RECONCILIATION_ERRORS,
   treasury_transaction_line: {
     title: 'Cette facture ne correspond pas.',

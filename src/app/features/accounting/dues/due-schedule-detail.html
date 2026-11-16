@@ -67,16 +67,9 @@
           <dt>Date de référence</dt>
           <dd>{{ day(schedule.reference_date) }}</dd>
         </div>
-        <div class="wide">
-          <dt>Condition de paiement (au moment du calcul)</dt>
-          <dd>
-            <span class="mono">{{ schedule.terms.code }}</span> — {{ schedule.terms.name }}
-            <ul class="terms">
-              @for (line of schedule.terms.lines; track line.sequence) {
-                <li>{{ line.percentage }} % à {{ rule(line.days, line.rule) }}</li>
-              }
-            </ul>
-          </dd>
+        <div>
+          <dt>Délai de paiement (au moment du calcul)</dt>
+          <dd>{{ daysLabel(schedule.payment_days) }}</dd>
         </div>
         @if (schedule.recomputed_at) {
           <div>

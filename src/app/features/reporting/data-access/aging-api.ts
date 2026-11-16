@@ -2,7 +2,7 @@ import { Injectable, inject } from '@angular/core';
 import { Observable } from 'rxjs';
 
 import { ApiClient } from '../../../core/http/api-client';
-import { AgedBalance, AgedPartner, AgingPolicy, AgingRole } from './aging-models';
+import { AgedBalance, AgedPartner, AgingRole } from './aging-models';
 
 /** Partners per page of the aged balance; documents per page of a partner. */
 export const AGED_PAGE_SIZE = 50;
@@ -55,14 +55,5 @@ export class AgingApi {
         page_size: AGED_DOCUMENT_PAGE_SIZE,
       },
     });
-  }
-
-  policy(): Observable<AgingPolicy> {
-    return this.api.get<AgingPolicy>('reporting/aging-policy/');
-  }
-
-  /** `reporting.manage_aging`: the server validates and stores the limits. */
-  setPolicy(limits: readonly number[]): Observable<AgingPolicy> {
-    return this.api.put<AgingPolicy>('reporting/aging-policy/', { limits });
   }
 }

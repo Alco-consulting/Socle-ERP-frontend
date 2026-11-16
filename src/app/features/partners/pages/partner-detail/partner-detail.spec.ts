@@ -32,14 +32,8 @@ const PARTNER: Partner = {
   phone: '+224 622 00 00 00',
   email: 'contact@diallo.example',
   default_currency: 'GNF',
-  customer_payment_term: null,
-  supplier_payment_term: {
-    public_id: 't-1',
-    code: '30J',
-    name: '30 jours',
-    status: 'active',
-    lines: [],
-  },
+  customer_payment_days: 0,
+  supplier_payment_days: 30,
   default_tax_code: '',
   customer_account_code: '',
   supplier_account_code: '401',
@@ -96,7 +90,9 @@ describe('PartnerDetailPage (the record)', () => {
     expect(element.textContent).toContain('Actif');
     expect(element.textContent).toContain('Diallo et Compagnie SA');
     expect(element.textContent).toContain('contact@diallo.example');
-    expect(element.textContent).toContain('30J — 30 jours');
+    // Les délais en mots : 0 « À réception », sinon le nombre de jours.
+    expect(element.textContent).toContain('À réception');
+    expect(element.textContent).toContain('30 jours');
     expect(TestBed.inject(BreadcrumbService).items().at(-1)?.label).toBe('FOU-007 — Diallo et Cie');
   });
 

@@ -28,8 +28,8 @@ const WRITE: PartnerWrite = {
   phone: '',
   email: '',
   default_currency: null,
-  customer_payment_term: null,
-  supplier_payment_term: null,
+  customer_payment_days: 0,
+  supplier_payment_days: 0,
   default_tax_code: '',
   customer_account_code: '',
   supplier_account_code: '',
@@ -120,9 +120,5 @@ describe('PartnersApi (partners/, company scoped)', () => {
     const request = httpMock().expectOne((req) => req.url === '/api/v1/currencies/');
     expect(request.request.headers.has('X-Company-ID')).toBe(false);
     request.flush({ count: 0, next: null, previous: null, results: [] });
-    void firstValueFrom(api.paymentTerms());
-    httpMock()
-      .expectOne((req) => req.url === '/api/v1/partners/payment-terms/')
-      .flush({ count: 0, next: null, previous: null, results: [] });
   });
 });

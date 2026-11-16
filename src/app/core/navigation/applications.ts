@@ -232,23 +232,6 @@ export const APPLICATIONS: readonly AlcoApplication[] = [
               permission: 'currencies.read',
             },
           ]),
-          ...group('Paiements', [
-            {
-              label: 'Conditions de paiement',
-              path: 'configuration/conditions-paiement',
-              permission: 'partners.read',
-            },
-            {
-              label: 'Modèles de rapprochement',
-              path: 'configuration/modeles-rapprochement',
-              permission: 'treasury.read',
-            },
-            {
-              label: 'Tranches de la balance âgée',
-              path: 'configuration/balance-agee',
-              permission: 'reporting.read_auxiliary',
-            },
-          ]),
           // As Odoo's « Produits » of its Configuration (note backend 0047).
           ...group('Produits', [
             {

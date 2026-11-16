@@ -425,6 +425,31 @@ describe('AccountingDashboardPage (dashboards/journals/, as Odoo)', () => {
     ]);
   });
 
+  it('aucun exercice sur la période : le dire, sans « Réessayer » inutile', async () => {
+    const { element, stable } = await open();
+    const mock = httpMock();
+    mock.expectOne((req) => req.url === '/api/v1/dashboards/journals/').flush(journals([CASH]));
+    mock
+      .expectOne((req) => req.url === '/api/v1/currencies/')
+      .flush(page([{ code: 'GNF', name: 'Franc guinéen', decimal_places: 0, status: 'active' }]));
+    // Une société sans exercice : le serveur refuse la période (`fiscal_year: none`).
+    mock.expectOne((req) => req.url === '/api/v1/accounting/fiscal-years/').flush(page([]));
+    await stable();
+    const body = envelope('reporting_scope_invalid');
+    mock
+      .expectOne((req) => req.url === '/api/v1/dashboards/overview/')
+      .flush(
+        { error: { ...body.error, details: { date: '2026-10-01', fiscal_year: 'none' } } },
+        { status: 400, statusText: 'x' },
+      );
+    await stable();
+
+    const failure = element.querySelector('alco-kpi-band alco-error-state')!;
+    expect(text(failure)).toContain('Aucun exercice comptable ne couvre cette période.');
+    expect(text(failure)).toContain('enregistrez une écriture');
+    expect(failure.querySelector('button')).toBeNull();
+  });
+
   it('a failing request says so and offers a retry', async () => {
     const { element, stable } = await open();
     await answer(stable, 'error');

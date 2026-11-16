@@ -21,12 +21,12 @@
     }
   </div>
 
-  @if (overview.error()) {
+  @if (failure(); as failed) {
     <alco-error-state
       [inline]="true"
-      title="Les indicateurs n’ont pas pu être calculés pour cette période."
-      message="Choisissez une autre période, ou réessayez."
-      retryLabel="Réessayer"
+      [title]="failed.title"
+      [message]="failed.message"
+      [retryLabel]="failed.retry ? 'Réessayer' : ''"
       (retry)="overview.reload()"
     />
   } @else if (kpis().length > 0) {

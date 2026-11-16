@@ -41,6 +41,8 @@ function gatesOf(nav: readonly AppNavEntry[], prefix = ''): Gate[] {
 function gatesOfApplication(app: AlcoApplication): Gate[] {
   return [
     ...gatesOf(app.nav),
+    // Les écrans hors menu gardent leurs droits.
+    ...(app.offMenu ?? []).map((link) => ({ path: link.path, permission: link.permission })),
     ...(app.sections ?? []).flatMap((section) => [
       { path: section.path, permission: section.permission, feature: section.feature },
       ...gatesOf(section.nav, section.path),

@@ -64,6 +64,11 @@ export interface AlcoApplication {
    */
   readonly permission?: string;
   readonly nav: readonly AppNavEntry[];
+  /**
+   * Écrans hors menu, ouverts depuis d'autres écrans (la fiche d'un contact depuis une
+   * écriture) : jamais affichés dans le menu, mais leurs droits restent appliqués.
+   */
+  readonly offMenu?: readonly AppNavLink[];
   readonly sections?: readonly AppSection[];
   /** Words that also find the application in the launcher search. */
   readonly keywords?: readonly string[];
@@ -152,14 +157,12 @@ export const APPLICATIONS: readonly AlcoApplication[] = [
       {
         label: 'Comptabilité',
         icon: 'book',
+        // Sans doublon : Journaux et Plan comptable sont dans Configuration, Contacts dans son
+        // application (et Clients, Fournisseurs), Échéances dans Analyse › Rapports de tiers.
         children: [
           { label: 'Écritures', path: 'ecritures' },
           { label: 'Pièces comptables', path: 'ecritures/pieces' },
-          { label: 'Journaux', path: 'journaux' },
-          { label: 'Plan comptable', path: 'plan-comptable' },
-          { label: 'Contacts', path: 'contacts', permission: 'partners.read' },
           { label: 'Lettrage', path: 'lettrage' },
-          { label: 'Échéances', path: 'echeances' },
           { label: 'Clôture', path: 'cloture', permission: 'closing.read' },
         ],
       },
@@ -184,6 +187,7 @@ export const APPLICATIONS: readonly AlcoApplication[] = [
             { label: 'Grand livre', path: 'analyse/grand-livre', permission: 'reporting.read' },
           ]),
           ...group('Rapports de tiers', [
+            { label: 'Échéances', path: 'echeances' },
             {
               label: 'Balance clients',
               path: 'analyse/balance-clients',
@@ -270,6 +274,9 @@ export const APPLICATIONS: readonly AlcoApplication[] = [
         ],
       },
     ],
+    // La fiche d'un contact, ouverte depuis une écriture, une échéance, un lettrage ou une
+    // opération : hors du menu Comptabilité (doublon de l'application Contacts), même droit.
+    offMenu: [{ label: 'Contacts', path: 'contacts', permission: 'partners.read' }],
     sections: [
       // No « Trésorerie » tab, as Odoo (note backend 0043): its screens open from the bank
       // and cash cards of the dashboard.

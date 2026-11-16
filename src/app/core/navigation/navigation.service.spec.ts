@@ -82,13 +82,30 @@ describe('Application catalogue', () => {
     expect(labels(nav.find((entry) => entry.label === 'Comptabilité')?.children ?? [])).toEqual([
       'Écritures',
       'Pièces comptables',
-      'Journaux',
-      'Plan comptable',
-      'Contacts',
       'Lettrage',
-      'Échéances',
       'Clôture',
     ]);
+  });
+
+  it('sans doublon : Journaux, Plan comptable et Échéances une seule fois, Contacts dans son application', () => {
+    const links = menuLinks(accounting().nav);
+    const count = (path: string) => links.filter((link) => link.path === path).length;
+    // Journaux et Plan comptable : dans Configuration seulement ; Échéances : dans Analyse.
+    expect([count('journaux'), count('plan-comptable'), count('echeances')]).toEqual([1, 1, 1]);
+    const groupOf = (path: string) =>
+      accounting().nav.find((entry) => entry.children?.some((link) => link.path === path))?.label;
+    expect(groupOf('journaux')).toBe('Configuration');
+    expect(groupOf('plan-comptable')).toBe('Configuration');
+    expect(groupOf('echeances')).toBe('Analyse');
+    // Les contacts : l'application Contacts (et les menus Clients, Fournisseurs).
+    expect(count('contacts')).toBe(0);
+  });
+
+  it("hors menu, la fiche d'un contact garde son droit partners.read", () => {
+    expect(signIn(['accounting.read']).canOpenPath(accounting(), 'contacts/pt-1')).toBe(false);
+    expect(
+      signIn(['accounting.read', 'partners.read']).canOpenPath(accounting(), 'contacts/pt-1'),
+    ).toBe(true);
   });
 
   it('gives Lettrage its screen now that the API offers it (V2.1 A4)', () => {
@@ -193,6 +210,11 @@ describe('NavigationService', () => {
     // Only the reports of the user's permission, under their title.
     expect(analysis?.children).toEqual([
       {
+        label: 'Échéances',
+        group: 'Rapports de tiers',
+        url: '/app/comptabilite/echeances',
+      },
+      {
         label: 'Balance clients',
         group: 'Rapports de tiers',
         url: '/app/comptabilite/analyse/balance-clients',
@@ -217,7 +239,12 @@ describe('NavigationService', () => {
 
   it('hides a menu whose screens are all closed', () => {
     const navigation = signIn(['accounting.read']);
-    expect(labels(navigation.menu(accounting()))).toEqual(['Comptabilité', 'Configuration']);
+    // Analyse : les Échéances, ouvertes avec la seule lecture comptable.
+    expect(labels(navigation.menu(accounting()))).toEqual([
+      'Comptabilité',
+      'Analyse',
+      'Configuration',
+    ]);
   });
 
   it('hides the domains the user may not read', () => {

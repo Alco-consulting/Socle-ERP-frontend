@@ -82,6 +82,11 @@ export class EntriesApi {
     return this.api.get<AccountingSettings>('accounting/settings/');
   }
 
+  /** Only the settings given; each needs its own permission (the server checks). */
+  saveSettings(changes: Partial<AccountingSettings>): Observable<AccountingSettings> {
+    return this.api.put<AccountingSettings>('accounting/settings/', changes);
+  }
+
   // ---- References for the form (searched by the server) --------------------------------
 
   /** Accounts an entry may use, as the server decides (`postable=true`, active). */

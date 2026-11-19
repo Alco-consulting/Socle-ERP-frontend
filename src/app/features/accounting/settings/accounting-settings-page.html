@@ -1,0 +1,96 @@
+@if (loadError(); as failure) {
+  <alco-error-state
+    [title]="failure.title"
+    [message]="failure.message"
+    [code]="failure.code"
+    [correlationId]="failure.correlationId ?? ''"
+  />
+} @else if (settings() === null) {
+  <alco-loading [rows]="3" label="Chargement des paramètres comptables…" />
+} @else {
+  <alco-page-header title="Paramètres comptables" [sticky]="canSave()" [dirty]="form.dirty">
+    @if (canSave()) {
+      <div alcoPageActions>
+        @if (form.dirty) {
+          <button alcoButton type="button" variant="ghost" (click)="discard()">Annuler</button>
+        }
+        <button
+          alcoButton
+          type="submit"
+          form="accounting-settings-form"
+          variant="primary"
+          [loading]="saving()"
+          loadingLabel="Enregistrement…"
+        >
+          Enregistrer
+        </button>
+      </div>
+    }
+  </alco-page-header>
+
+  @if (!canSave()) {
+    <p class="note">
+      Paramètres en lecture seule : votre profil ne permet pas de les modifier dans cette société.
+    </p>
+  }
+  @if (error(); as failure) {
+    <alco-error-state
+      [inline]="true"
+      [title]="failure.title"
+      [message]="failure.message"
+      [code]="failure.code"
+      [correlationId]="failure.correlationId ?? ''"
+    />
+  }
+
+  <form
+    id="accounting-settings-form"
+    class="sheet"
+    [formGroup]="form"
+    (ngSubmit)="save()"
+    novalidate
+  >
+    <section class="alco-form-section" aria-labelledby="entries-title">
+      <div class="alco-form-section__intro">
+        <h2 id="entries-title" class="alco-section-title">Écritures</h2>
+        <p>Les règles de saisie de la société.</p>
+      </div>
+      <div class="settings">
+        <div class="field-check">
+          <label class="check">
+            <input
+              type="checkbox"
+              formControlName="submission_required"
+              aria-describedby="submission-help"
+            />
+            Soumettre les écritures avant de les valider
+          </label>
+          <span id="submission-help" class="alco-caption">
+            Une écriture est d’abord soumise, puis validée : celui qui saisit n’est pas forcément
+            celui qui valide. Décoché, elle peut être validée directement.
+            @if (!allowed().submission_required) {
+              Réservé aux personnes qui gèrent les journaux.
+            }
+          </span>
+        </div>
+        <div class="field-check">
+          <label class="check">
+            <input
+              type="checkbox"
+              formControlName="parent_accounts_postable"
+              aria-describedby="parent-help"
+            />
+            Autoriser les écritures sur les comptes de regroupement
+          </label>
+          <span id="parent-help" class="alco-caption">
+            Un compte qui a des sous-comptes peut alors recevoir des écritures. Décoché, seuls les
+            comptes sans sous-compte en reçoivent.
+            @if (!allowed().parent_accounts_postable) {
+              Réservé aux personnes qui gèrent le plan comptable.
+            }
+          </span>
+        </div>
+      </div>
+    </section>
+  </form>
+}

@@ -105,7 +105,7 @@ export interface ReverseRequest {
   readonly description?: string;
 }
 
-/** `AccountingSettings`: what the company's rules say (read only here). */
+/** `AccountingSettings`: the company's rules (Configuration › Paramètres comptables). */
 export interface AccountingSettings {
   readonly submission_required: boolean;
   readonly parent_accounts_postable: boolean;

@@ -4,6 +4,7 @@ import { RouterLink } from '@angular/router';
 import { AlcoDropdown, DropdownItem } from '../../../shared/ui/dropdown/dropdown';
 import { AlcoIcon } from '../../../shared/ui/icon/icon';
 import { AlcoToastService } from '../../../shared/ui/toast/toast.service';
+import { PasswordDialogService } from '../../auth/password-dialog';
 import { SessionService } from '../../auth/session.service';
 import { CompanyContextService } from '../../company/company-context.service';
 import { toUserError } from '../../errors/user-error';
@@ -33,6 +34,7 @@ export class AlcoTopbar {
   private readonly toast = inject(AlcoToastService);
   private readonly companyContext = inject(CompanyContextService);
   private readonly sessionService = inject(SessionService);
+  private readonly passwordDialog = inject(PasswordDialogService);
   protected readonly theme = inject(ThemeService);
   protected readonly palette = inject(CommandPaletteService);
 
@@ -91,6 +93,7 @@ export class AlcoTopbar {
   /** The account, then the logout (the theme has its own switch in the bar). */
   protected readonly userItems: readonly DropdownItem[] = [
     { id: 'profile', label: 'Mon profil', icon: 'user', disabled: true },
+    { id: 'password', label: 'Changer le mot de passe', icon: 'lock' },
     { id: 'logout', label: 'Se déconnecter', icon: 'logout', dividerBefore: true },
   ];
 
@@ -116,6 +119,12 @@ export class AlcoTopbar {
   }
 
   protected async onUserSelected(item: DropdownItem): Promise<void> {
+    if (item.id === 'password') {
+      if (await this.passwordDialog.open()) {
+        this.toast.success('Mot de passe modifié.');
+      }
+      return;
+    }
     if (item.id !== 'logout') {
       return;
     }

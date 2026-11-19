@@ -1,0 +1,154 @@
+@if (forbidden()) {
+  <alco-page-header title="Déclaration" />
+  <alco-error-state
+    title="Vous n’avez pas accès aux déclarations de cette société."
+    message="Demandez l’accès à un administrateur de la société si vous en avez besoin."
+  />
+} @else if (loadError(); as failure) {
+  <alco-page-header title="Déclaration" />
+  <alco-error-state
+    [title]="failure.title"
+    [message]="failure.message"
+    [code]="failure.code"
+    [correlationId]="failure.correlationId ?? ''"
+    retryLabel="Réessayer"
+    (retry)="retry()"
+  />
+} @else if (record(); as current) {
+  <alco-page-header [title]="title()">
+    @let look = status[current.status];
+    <alco-badge alcoPageStatus [tone]="look.tone" [icon]="look.icon">{{ look.label }}</alco-badge>
+    @if (steps().length > 0) {
+      <div alcoPageActions>
+        @for (command of steps(); track command; let first = $first) {
+          <button
+            alcoButton
+            type="button"
+            [variant]="first ? 'primary' : 'secondary'"
+            [loading]="busy() === command"
+            [disabled]="busy() !== null"
+            loadingLabel="En cours…"
+            (click)="step(current, command)"
+          >
+            {{ commands[command].label }}
+          </button>
+        }
+      </div>
+    }
+  </alco-page-header>
+
+  <alco-workflow-steps
+    [steps]="workflow"
+    [current]="current.status"
+    label="Étape de la déclaration"
+  />
+
+  <alco-card title="Montants" icon="percent">
+    <dl class="figures">
+      <div>
+        <dt>TVA collectée</dt>
+        <dd>{{ current.vat.collected | alcoAmount: places() }}</dd>
+      </div>
+      <div>
+        <dt>TVA déductible</dt>
+        <dd>{{ current.vat.deductible | alcoAmount: places() }}</dd>
+      </div>
+      <div class="total">
+        <dt>{{ credit() ? 'Crédit de TVA' : 'TVA à payer' }}</dt>
+        <dd>{{ current.calculated_amount | alcoAmount: places() }}</dd>
+      </div>
+      <div>
+        <dt>Montant déclaré</dt>
+        <dd>
+          @if (editable()) {
+            <form
+              class="declared"
+              (submit)="$event.preventDefault(); saveDeclared(current)"
+              novalidate
+            >
+              <input
+                alcoInput
+                class="declared-input"
+                inputmode="decimal"
+                aria-label="Montant déclaré"
+                [attr.aria-invalid]="declaredError() ? true : null"
+                [formControl]="declared"
+              />
+              @if (declared.dirty) {
+                <button
+                  alcoButton
+                  type="submit"
+                  size="sm"
+                  [loading]="busy() === 'declared'"
+                  loadingLabel="Enregistrement…"
+                >
+                  Enregistrer
+                </button>
+              }
+            </form>
+          } @else {
+            {{ current.declared_amount | alcoAmount: places() }}
+          }
+        </dd>
+      </div>
+      <div>
+        <dt>Écart</dt>
+        <dd [class.gap]="!isZero(current.difference)">
+          {{ current.difference | alcoAmount: places() }}
+        </dd>
+      </div>
+    </dl>
+    @if (declaredError(); as message) {
+      <p class="alco-caption gap" role="alert">{{ message }}</p>
+    }
+    @if (stale()) {
+      <p class="alco-caption stale" role="status">
+        Les écritures du mois ont changé depuis le calcul : la TVA sera recalculée à la prochaine
+        étape.
+      </p>
+    }
+    <p class="alco-caption">
+      Le montant déclaré est celui porté sur le formulaire de la DGI. Il se modifie jusqu’à la
+      validation.
+    </p>
+  </alco-card>
+
+  <alco-card title="Détail par taxe" icon="file">
+    @if (current.vat.lines.length === 0) {
+      <p class="alco-caption">Aucune écriture validée avec de la TVA sur la période.</p>
+    } @else {
+      <alco-table
+        caption="TVA par taxe"
+        [columns]="columns"
+        [rows]="current.vat.lines"
+        [rowId]="lineId"
+      >
+        <ng-template alcoCell="tax" let-line>{{ line.tax.name }}</ng-template>
+        <ng-template alcoCell="side" let-line>{{ sideLabel(line) }}</ng-template>
+        <ng-template alcoCell="base" let-line>{{ line.base | alcoAmount: places() }}</ng-template>
+        <ng-template alcoCell="amount" let-line>
+          {{ line.amount | alcoAmount: places() }}
+        </ng-template>
+      </alco-table>
+    }
+  </alco-card>
+
+  @if (current.checked_at || current.validated_at || current.declared_at || current.paid_at) {
+    <p class="alco-caption dates">
+      @if (current.checked_at) {
+        <span>Vérifiée le {{ current.checked_at | date: 'dd/MM/yyyy' }}</span>
+      }
+      @if (current.validated_at) {
+        <span>Validée le {{ current.validated_at | date: 'dd/MM/yyyy' }}</span>
+      }
+      @if (current.declared_at) {
+        <span>Déclarée le {{ current.declared_at | date: 'dd/MM/yyyy' }}</span>
+      }
+      @if (current.paid_at) {
+        <span>Payée le {{ current.paid_at | date: 'dd/MM/yyyy' }}</span>
+      }
+    </p>
+  }
+} @else {
+  <alco-loading [rows]="6" label="Chargement de la déclaration…" />
+}

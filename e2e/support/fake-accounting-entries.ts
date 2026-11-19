@@ -143,6 +143,7 @@ interface Ledger {
   reversed: Set<string>;
   numbers: Record<string, number>;
   settings: { submission_required: boolean; parent_accounts_postable: boolean };
+  taxSettings: { declaration_check_required: boolean };
   taxes: TaxJson[];
   documents: DocumentJson[];
   events: EventJson[];
@@ -326,6 +327,7 @@ export class FakeAccountingEntries {
       reversed: new Set(),
       numbers: {},
       settings: { submission_required: company === 'A', parent_accounts_postable: false },
+      taxSettings: { declaration_check_required: true },
       // Company A (Guinea): the VAT and a withholding; « Créer les taxes de Guinée » adds the
       // others. The other companies have none.
       taxes:
@@ -686,6 +688,14 @@ export class FakeAccountingEntries {
         body.withholding === true,
       );
       return this.saveTax(route, taxes, tax, 201);
+    }
+    if (path === 'settings/') {
+      // « Vérifier une déclaration avant de la valider » (Paramètres comptables).
+      const settings = this.ledger(gate.company).taxSettings;
+      if (method === 'PUT') {
+        Object.assign(settings, request.postDataJSON() as object);
+      }
+      return this.answer(route, 200, settings);
     }
     const [id, command] = path.split('/');
     const tax = taxes.find((item) => item.public_id === id);

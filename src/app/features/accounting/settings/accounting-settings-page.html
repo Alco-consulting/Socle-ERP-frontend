@@ -92,5 +92,33 @@
         </div>
       </div>
     </section>
+
+    @if (settings()?.taxes) {
+      <section class="alco-form-section" aria-labelledby="taxes-title">
+        <div class="alco-form-section__intro">
+          <h2 id="taxes-title" class="alco-section-title">Taxes</h2>
+          <p>Les étapes des déclarations de TVA.</p>
+        </div>
+        <div class="settings">
+          <div class="field-check">
+            <label class="check">
+              <input
+                type="checkbox"
+                formControlName="declaration_check_required"
+                aria-describedby="declaration-help"
+              />
+              Vérifier une déclaration avant de la valider
+            </label>
+            <span id="declaration-help" class="alco-caption">
+              Une déclaration est d’abord vérifiée, puis validée par une personne qui en a le droit.
+              Décoché, elle peut être validée directement.
+              @if (!allowed().declaration_check_required) {
+                Réservé aux personnes qui gèrent la fiscalité.
+              }
+            </span>
+          </div>
+        </div>
+      </section>
+    }
   </form>
 }

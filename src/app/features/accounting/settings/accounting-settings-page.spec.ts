@@ -12,6 +12,7 @@ import { openTestSession } from '../../../core/session/testing';
 import { AccountingSettingsPage } from './accounting-settings-page';
 
 const URL = '/api/v1/accounting/settings/';
+const TAXES_URL = '/api/v1/taxes/settings/';
 const SETTINGS = { submission_required: true, parent_accounts_postable: false };
 const BOTH = ['accounting.read', 'accounting.manage_journals', 'accounting.manage_accounts'];
 const settle = () => new Promise((resolve) => setTimeout(resolve, 0));
@@ -27,6 +28,11 @@ describe('Paramètres comptables (accounting/settings/)', () => {
     element = fixture.nativeElement as HTMLElement;
     await fixture.whenStable();
     httpMock().expectOne({ method: 'GET', url: URL }).flush(SETTINGS);
+    if (permissions.includes('taxes.read')) {
+      httpMock()
+        .expectOne({ method: 'GET', url: TAXES_URL })
+        .flush({ declaration_check_required: true });
+    }
     await settle();
     await fixture.whenStable();
   }
@@ -103,5 +109,30 @@ describe('Paramètres comptables (accounting/settings/)', () => {
     await fixture.whenStable();
     expect(element.querySelector('alco-error-state')).not.toBeNull();
     expect(box('parent_accounts_postable').checked).toBe(true);
+  });
+
+  it('without the right to read the taxes, no Taxes section', async () => {
+    await open();
+    expect(element.querySelector('input[formcontrolname=declaration_check_required]')).toBeNull();
+  });
+
+  it('the declarations step is a tax setting, saved apart', async () => {
+    await open(['accounting.read', 'taxes.read', 'taxes.update']);
+    expect(box('submission_required').disabled).toBe(true);
+    await toggle('declaration_check_required');
+    await save();
+    httpMock().expectNone({ method: 'PUT', url: URL });
+    const request = httpMock().expectOne({ method: 'PUT', url: TAXES_URL });
+    expect(request.request.body).toEqual({ declaration_check_required: false });
+    request.flush({ declaration_check_required: false });
+    await settle();
+    await fixture.whenStable();
+    expect(box('declaration_check_required').checked).toBe(false);
+  });
+
+  it('a tax reader sees the setting, greyed', async () => {
+    await open(['accounting.read', 'accounting.manage_journals', 'taxes.read']);
+    expect(box('declaration_check_required').disabled).toBe(true);
+    expect(element.textContent).toContain('Réservé aux personnes qui gèrent la fiscalité.');
   });
 });

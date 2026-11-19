@@ -240,10 +240,7 @@ export const APPLICATIONS: readonly AlcoApplication[] = [
               permission: 'invoicing.read',
             },
           ]),
-          ...group('Taxes', [
-            { label: 'Taxes', path: 'taxes/liste' },
-            { label: 'Paramètres fiscaux', path: 'taxes/configuration' },
-          ]),
+          ...group('Taxes', [{ label: 'Taxes', path: 'taxes/liste' }]),
           ...group('Immobilisations', [
             { label: 'Catégories', path: 'immobilisations/categories' },
             { label: 'Paramètres', path: 'immobilisations/configuration' },
@@ -312,7 +309,6 @@ export const APPLICATIONS: readonly AlcoApplication[] = [
         nav: [
           { label: 'Taxes', path: 'liste' },
           { label: 'Déclarations', path: 'declarations' },
-          { label: 'Plus', children: [{ label: 'Configuration', path: 'configuration' }] },
         ],
       },
       {

@@ -47,3 +47,8 @@ export interface DefaultTaxes {
   readonly created: readonly Tax[];
   readonly existing: readonly string[];
 }
+
+/** `TaxesSettings`: whether a declaration is checked before it is validated. */
+export interface TaxSettings {
+  readonly declaration_check_required: boolean;
+}

@@ -1,0 +1,6 @@
+// One setting under the other, each with its explanation, as Odoo's settings.
+.settings {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+}

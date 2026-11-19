@@ -125,6 +125,13 @@ export const ACCOUNTING_ROUTES: Routes = [
       },
     ],
   ),
+  {
+    path: 'configuration/parametres',
+    data: { breadcrumb: 'Paramètres comptables' },
+    canDeactivate: [unsavedChangesGuard],
+    loadComponent: () =>
+      import('./settings/accounting-settings-page').then((m) => m.AccountingSettingsPage),
+  },
   // Lettering (V2.1 A4): lines, proposals, letterings; a lettering's record.
   {
     path: 'lettrage',

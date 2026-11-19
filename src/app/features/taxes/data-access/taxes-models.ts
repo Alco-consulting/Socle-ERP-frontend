@@ -52,3 +52,48 @@ export interface DefaultTaxes {
 export interface TaxSettings {
   readonly declaration_check_required: boolean;
 }
+
+export type DeclarationStatus = 'draft' | 'checked' | 'validated' | 'declared' | 'paid';
+/** The commands of a declaration, one per step (`taxes/declarations/<id>/<command>/`). */
+export type DeclarationCommand = 'check' | 'validate' | 'declare' | 'mark-paid';
+export type VatSide = 'sale' | 'purchase';
+
+/** A VAT declaration (`GET taxes/declarations/`); amounts are decimal strings. */
+export interface Declaration {
+  readonly public_id: string;
+  readonly declaration_type: string;
+  readonly country: string;
+  readonly period_start: string;
+  readonly period_end: string;
+  readonly status: DeclarationStatus;
+  /** What is due from the entries (negative: a VAT credit); frozen once validated. */
+  readonly calculated_amount: string;
+  /** What is written on the tax form. */
+  readonly declared_amount: string;
+  /** Declared − calculated. */
+  readonly difference: string;
+  readonly checked_at: string | null;
+  readonly validated_at: string | null;
+  readonly declared_at: string | null;
+  readonly paid_at: string | null;
+  readonly created_at: string;
+  readonly updated_at: string;
+}
+
+export interface VatLine {
+  readonly tax: { readonly public_id: string; readonly code: string; readonly name: string };
+  readonly side: VatSide;
+  readonly base: string;
+  readonly amount: string;
+}
+
+/** The record: its VAT as the posted entries give it now, and the commands open to it. */
+export interface DeclarationDetail extends Declaration {
+  readonly vat: {
+    readonly lines: readonly VatLine[];
+    readonly collected: string;
+    readonly deductible: string;
+    readonly payable: string;
+  };
+  readonly next_steps: readonly DeclarationCommand[];
+}

@@ -2,12 +2,25 @@ import { Injectable, inject } from '@angular/core';
 import { Observable } from 'rxjs';
 
 import { ApiClient, Paginated } from '../../../core/http/api-client';
-import { DefaultTaxes, Tax, TaxQuery, TaxSettings, TaxWrite } from './taxes-models';
+import {
+  Declaration,
+  DeclarationCommand,
+  DeclarationDetail,
+  DefaultTaxes,
+  Tax,
+  TaxQuery,
+  TaxSettings,
+  TaxWrite,
+} from './taxes-models';
 
 /** A company has a few taxes: one page shows them all. */
 export const TAX_PAGE_SIZE = 80;
 
+/** One declaration a month: two years on a page. */
+export const DECLARATION_PAGE_SIZE = 24;
+
 const base = 'taxes/';
+const declarations = 'taxes/declarations/';
 const id = (value: string) => encodeURIComponent(value);
 
 /**
@@ -64,5 +77,39 @@ export class TaxesApi {
   /** `taxes.update` (the server checks). */
   saveSettings(settings: TaxSettings): Observable<TaxSettings> {
     return this.api.put<TaxSettings>(`${base}settings/`, settings);
+  }
+
+  // ---- Declarations (VAT computed by the server from the posted entries) --------------
+
+  declarations(page = 1): Observable<Paginated<Declaration>> {
+    return this.api.get<Paginated<Declaration>>(declarations, {
+      params: { page: page > 1 ? page : null, page_size: DECLARATION_PAGE_SIZE },
+    });
+  }
+
+  declaration(declarationId: string): Observable<DeclarationDetail> {
+    return this.api.get<DeclarationDetail>(`${declarations}${id(declarationId)}/`);
+  }
+
+  /** The VAT of a period; the server fills the amount due from the entries. */
+  createDeclaration(periodStart: string, periodEnd: string): Observable<Declaration> {
+    return this.api.post<Declaration>(declarations, {
+      period_start: periodStart,
+      period_end: periodEnd,
+    });
+  }
+
+  /** The amount written on the tax form, until the declaration is validated. */
+  setDeclaredAmount(declarationId: string, amount: string): Observable<DeclarationDetail> {
+    return this.api.patch<DeclarationDetail>(`${declarations}${id(declarationId)}/`, {
+      declared_amount: amount,
+    });
+  }
+
+  runDeclarationStep(
+    declarationId: string,
+    command: DeclarationCommand,
+  ): Observable<DeclarationDetail> {
+    return this.api.post<DeclarationDetail>(`${declarations}${id(declarationId)}/${command}/`);
   }
 }

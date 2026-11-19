@@ -1,0 +1,77 @@
+<alco-page-header
+  title="Déclarations"
+  subtitle="La TVA de chaque mois, calculée à partir des écritures validées."
+>
+  @if (canCreate()) {
+    <div alcoPageActions>
+      <button
+        alcoButton
+        type="button"
+        variant="primary"
+        icon="plus"
+        [loading]="creating()"
+        loadingLabel="Création…"
+        (click)="create()"
+      >
+        Nouvelle déclaration
+      </button>
+    </div>
+  }
+</alco-page-header>
+
+@if (declarations.status() === 'forbidden') {
+  <alco-error-state
+    title="Vous n’avez pas accès aux déclarations de cette société."
+    message="Demandez l’accès à un administrateur de la société si vous en avez besoin."
+  />
+} @else if (loadError(); as failure) {
+  <alco-error-state
+    [title]="failure.title"
+    [message]="failure.message"
+    [code]="failure.code"
+    [correlationId]="failure.correlationId ?? ''"
+    retryLabel="Réessayer"
+    (retry)="declarations.reload()"
+  />
+} @else if (declarations.value(); as result) {
+  @if (result.count === 0) {
+    <div class="empty-frame">
+      <alco-empty-state
+        icon="file"
+        title="Aucune déclaration pour l’instant."
+        message="Créez la déclaration d’un mois : sa TVA à payer est calculée à partir des ventes, des achats et des avoirs validés."
+      />
+    </div>
+  } @else {
+    <alco-table
+      caption="Déclarations de TVA"
+      [columns]="columns"
+      [rows]="result.results"
+      [rowId]="rowId"
+    >
+      <ng-template alcoCell="period" let-row>
+        <a [routerLink]="row.public_id">{{ period(row.period_start, row.period_end) }}</a>
+      </ng-template>
+      <ng-template alcoCell="calculated" let-row>
+        {{ row.calculated_amount | alcoAmount: places() }}
+      </ng-template>
+      <ng-template alcoCell="declared" let-row>
+        {{ row.declared_amount | alcoAmount: places() }}
+      </ng-template>
+      <ng-template alcoCell="status" let-row>
+        @let look = statusLook(row);
+        <alco-badge [tone]="look.tone" [icon]="look.icon">{{ look.label }}</alco-badge>
+      </ng-template>
+    </alco-table>
+    @if (result.count > pageSize) {
+      <alco-pagination
+        [page]="page()"
+        [pageSize]="pageSize"
+        [total]="result.count"
+        (pageChange)="goTo($event)"
+      />
+    }
+  }
+} @else {
+  <alco-loading variant="table" [rows]="4" [columns]="4" label="Chargement des déclarations…" />
+}

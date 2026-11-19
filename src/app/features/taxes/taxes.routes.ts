@@ -34,4 +34,21 @@ export const TAXES_ROUTES: Routes = [
       },
     ],
   },
+  // VAT declarations (note backend 0059): computed by the server from the posted entries.
+  {
+    path: 'taxes/declarations',
+    data: { breadcrumb: 'Déclarations' },
+    children: [
+      {
+        path: '',
+        loadComponent: () => import('./declaration-list').then((m) => m.DeclarationListPage),
+      },
+      {
+        path: ':id',
+        // Named after its period once loaded (BreadcrumbService.nameCurrent).
+        data: { breadcrumb: 'Déclaration' },
+        loadComponent: () => import('./declaration-detail').then((m) => m.DeclarationDetailPage),
+      },
+    ],
+  },
 ];

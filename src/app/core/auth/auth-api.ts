@@ -40,6 +40,15 @@ export class AuthApi {
     );
   }
 
+  /** 204; the session stays open. 400 `validation_error` on `current_password` or `new_password`. */
+  changePassword(currentPassword: string, newPassword: string): Observable<void> {
+    return this.api.post<void>(
+      'auth/password/change/',
+      { current_password: currentPassword, new_password: newPassword },
+      { skipCompany: true },
+    );
+  }
+
   /** Ends the session (204). */
   logout(): Observable<void> {
     return this.api.post<void>('auth/logout/', null, {

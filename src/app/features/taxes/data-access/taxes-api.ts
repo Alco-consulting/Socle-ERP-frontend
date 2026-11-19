@@ -2,7 +2,7 @@ import { Injectable, inject } from '@angular/core';
 import { Observable } from 'rxjs';
 
 import { ApiClient, Paginated } from '../../../core/http/api-client';
-import { DefaultTaxes, Tax, TaxQuery, TaxWrite } from './taxes-models';
+import { DefaultTaxes, Tax, TaxQuery, TaxSettings, TaxWrite } from './taxes-models';
 
 /** A company has a few taxes: one page shows them all. */
 export const TAX_PAGE_SIZE = 80;
@@ -55,5 +55,14 @@ export class TaxesApi {
    */
   createDefaultTaxes(): Observable<DefaultTaxes> {
     return this.api.post<DefaultTaxes>('accounting/default-taxes/');
+  }
+
+  settings(): Observable<TaxSettings> {
+    return this.api.get<TaxSettings>(`${base}settings/`);
+  }
+
+  /** `taxes.update` (the server checks). */
+  saveSettings(settings: TaxSettings): Observable<TaxSettings> {
+    return this.api.put<TaxSettings>(`${base}settings/`, settings);
   }
 }

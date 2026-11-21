@@ -1,13 +1,7 @@
-import { Signal, inject } from '@angular/core';
-import { toSignal } from '@angular/core/rxjs-interop';
-import { catchError, map, of } from 'rxjs';
-
 import { ErrorCatalog } from '../../core/errors/user-error';
-import { SessionStore } from '../../core/session/session.store';
 import { BadgeTone } from '../../shared/ui/badge/badge';
 import { IconName } from '../../shared/ui/icon/icons';
 import { WorkflowStep } from '../../shared/ui/workflow-steps/workflow-steps';
-import { CurrenciesApi } from '../currencies/data-access/currencies-api';
 import { DeclarationCommand, DeclarationStatus, VatSide } from './data-access/taxes-models';
 
 /** Words and look of the declarations API's values: no state is decided here. */
@@ -90,17 +84,3 @@ export const DECLARATION_ERRORS: ErrorCatalog = {
     message: 'Ses montants ne changent plus.',
   },
 };
-
-/** The decimals of the company's reference currency (GNF: none), read once. */
-export function referencePlaces(): Signal<number> {
-  const currency = inject(SessionStore).activeCompany()?.currency ?? '';
-  return toSignal(
-    inject(CurrenciesApi)
-      .currencies()
-      .pipe(
-        map((page) => page.results.find((item) => item.code === currency)?.decimal_places ?? 0),
-        catchError(() => of(0)),
-      ),
-    { initialValue: 0 },
-  );
-}

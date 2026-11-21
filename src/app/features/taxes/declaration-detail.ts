@@ -29,6 +29,7 @@ import { AlcoPageHeader } from '../../shared/ui/page-header/page-header';
 import { AlcoToastService } from '../../shared/ui/toast/toast.service';
 import { AlcoWorkflowSteps } from '../../shared/ui/workflow-steps/workflow-steps';
 import { isZeroDecimal, normalizeDecimalInput, subtractDecimals } from '../../shared/utils/decimal';
+import { referencePlaces } from '../currencies/reference-places';
 import { TaxesApi } from './data-access/taxes-api';
 import { DeclarationCommand, DeclarationDetail, VatLine } from './data-access/taxes-models';
 import {
@@ -38,7 +39,6 @@ import {
   DECLARATION_WORKFLOW,
   VAT_SIDES,
   periodLabel,
-  referencePlaces,
 } from './declarations-presentation';
 
 const EDITABLE = new Set(['draft', 'checked']);

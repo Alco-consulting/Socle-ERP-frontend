@@ -16,6 +16,7 @@ import { AlcoPageHeader } from '../../shared/ui/page-header/page-header';
 import { AlcoPagination } from '../../shared/ui/pagination/pagination';
 import { AlcoToastService } from '../../shared/ui/toast/toast.service';
 import { localToday } from '../../shared/utils/dates';
+import { referencePlaces } from '../currencies/reference-places';
 import { DECLARATION_PAGE_SIZE, TaxesApi } from './data-access/taxes-api';
 import { Declaration } from './data-access/taxes-models';
 import { DeclarationDialogService } from './declaration-dialog';
@@ -25,7 +26,6 @@ import {
   monthBounds,
   periodLabel,
   previousMonth,
-  referencePlaces,
 } from './declarations-presentation';
 
 /** Comptabilité › Taxes › Déclarations: the VAT of each month, the newest first. */

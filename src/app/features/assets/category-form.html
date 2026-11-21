@@ -1,0 +1,118 @@
+@if (loadError(); as failure) {
+  <alco-error-state
+    [title]="failure.title"
+    [message]="failure.message"
+    [code]="failure.code"
+    [correlationId]="failure.correlationId ?? ''"
+  />
+} @else if (!ready()) {
+  <alco-loading [rows]="6" label="Chargement de la catégorie…" />
+} @else {
+  <alco-page-header [title]="title()" subtitle="Catégorie d’immobilisations" [dirty]="form.dirty">
+    @if (canSave()) {
+      <div alcoPageActions>
+        <button
+          alcoButton
+          type="submit"
+          form="category-form"
+          variant="primary"
+          [loading]="saving()"
+          loadingLabel="Enregistrement…"
+        >
+          Enregistrer
+        </button>
+      </div>
+    }
+  </alco-page-header>
+
+  @if (error(); as failure) {
+    <alco-error-state
+      [inline]="true"
+      [title]="failure.title"
+      [message]="failure.message"
+      [code]="failure.code"
+      [correlationId]="failure.correlationId ?? ''"
+    />
+  }
+
+  <form id="category-form" class="sheet" [formGroup]="form" (ngSubmit)="save()" novalidate>
+    <section class="alco-form-section" aria-labelledby="identity-title">
+      <div class="alco-form-section__intro">
+        <h2 id="identity-title" class="alco-section-title">Catégorie</h2>
+        <p>Le code sert de préfixe au numéro de chaque bien (« MAT-000001 »).</p>
+      </div>
+      <div class="grid">
+        <alco-form-field label="Code" [required]="true" hint="Ne change plus après la création.">
+          <input alcoInput formControlName="code" maxlength="32" autocomplete="off" />
+        </alco-form-field>
+        <alco-form-field label="Nom" [required]="true">
+          <input alcoInput formControlName="name" maxlength="100" autocomplete="off" />
+        </alco-form-field>
+        <alco-form-field
+          label="Durée d’amortissement (mois)"
+          [required]="true"
+          hint="Linéaire, au prorata des jours. Proposée pour chaque bien, qui peut en changer."
+        >
+          <input alcoInput type="number" min="1" step="1" formControlName="duration_months" />
+        </alco-form-field>
+        <alco-form-field label="Journal" hint="Où passent les écritures des biens.">
+          <select alcoSelect formControlName="journal">
+            <option value="">Aucun</option>
+            @for (journal of journals(); track journal.public_id) {
+              <option [value]="journal.public_id">{{ journal.code }} — {{ journal.name }}</option>
+            }
+          </select>
+        </alco-form-field>
+      </div>
+    </section>
+
+    <section class="alco-form-section" aria-labelledby="accounts-title">
+      <div class="alco-form-section__intro">
+        <h2 id="accounts-title" class="alco-section-title">Comptes</h2>
+        <p>Par leur code ou leur nom. Un compte manquant bloque l’écriture qui en a besoin.</p>
+      </div>
+      <div class="grid">
+        <alco-form-field label="Immobilisation" hint="Ex. 245100 Matériel automobile.">
+          <alco-autocomplete
+            formControlName="asset_account"
+            [search]="searchAccounts"
+            placeholder="Aucun compte"
+            emptyText="Aucun compte ne correspond."
+          />
+        </alco-form-field>
+        <alco-form-field label="Amortissements" hint="Ex. 284500.">
+          <alco-autocomplete
+            formControlName="accumulated_depreciation_account"
+            [search]="searchAccounts"
+            placeholder="Aucun compte"
+            emptyText="Aucun compte ne correspond."
+          />
+        </alco-form-field>
+        <alco-form-field label="Dotations" hint="Ex. 681300.">
+          <alco-autocomplete
+            formControlName="depreciation_expense_account"
+            [search]="searchAccounts"
+            placeholder="Aucun compte"
+            emptyText="Aucun compte ne correspond."
+          />
+        </alco-form-field>
+        <alco-form-field label="Valeur des biens cédés" hint="Ex. 812000.">
+          <alco-autocomplete
+            formControlName="disposal_value_account"
+            [search]="searchAccounts"
+            placeholder="Aucun compte"
+            emptyText="Aucun compte ne correspond."
+          />
+        </alco-form-field>
+        <alco-form-field label="Produit des cessions" hint="Ex. 822000.">
+          <alco-autocomplete
+            formControlName="disposal_proceeds_account"
+            [search]="searchAccounts"
+            placeholder="Aucun compte"
+            emptyText="Aucun compte ne correspond."
+          />
+        </alco-form-field>
+      </div>
+    </section>
+  </form>
+}

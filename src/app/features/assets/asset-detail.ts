@@ -29,10 +29,8 @@ import { ClosingReasonDialogService } from '../closing/reason-dialog';
 import { referencePlaces } from '../currencies/reference-places';
 import { ASSET_ERRORS, ASSET_STATUS, LINE_STATUS, durationText } from './assets-presentation';
 import { AssetsApi } from './data-access/assets-api';
-import { DepreciationLine, DisposalRequest } from './data-access/assets-models';
+import { DepreciationLine } from './data-access/assets-models';
 import { DisposeDialogService } from './dispose-dialog';
-
-const DUE = new Set(['planned', 'recorded']);
 
 /** One asset: what it is worth now, its depreciation month by month, and its next step. */
 @Component({
@@ -83,7 +81,11 @@ export class AssetDetailPage {
     () => this.isDraft() && this.session.can('assets.activate'),
   );
   protected readonly canDispose = computed(
-    () => this.asset.value()?.status === 'in_service' && this.session.can('assets.dispose'),
+    () =>
+      this.asset.value()?.status === 'in_service' &&
+      ['assets.dispose', 'assets.depreciate', 'assets.account'].every((code) =>
+        this.session.can(code),
+      ),
   );
   protected readonly loadError = computed(() => {
     const error = this.asset.error();
@@ -148,27 +150,14 @@ export class AssetDetailPage {
 
   protected async dispose(): Promise<void> {
     const asset = this.asset.value();
-    const request = asset ? await this.disposals.ask(asset.name) : null;
-    if (request) {
-      await this.run('dispose', () => this.disposeWith(request));
+    const disposal = asset ? await this.disposals.ask(asset.name) : null;
+    if (disposal) {
+      // The server depreciates up to the date (the last period pro rata) then posts the disposal.
+      await this.run('dispose', async () => {
+        await firstValueFrom(this.api.dispose(this.assetId, disposal));
+        this.toast.success('Immobilisation cédée et comptabilisée.');
+      });
     }
-  }
-
-  /** The depreciation due by the date first (as the server asks), then the disposal and its entry. */
-  private async disposeWith(request: DisposalRequest): Promise<void> {
-    const until = request.disposal.disposal_date;
-    for (const line of this.lines().filter((item) => DUE.has(item.status))) {
-      if (line.period_end > until) {
-        break;
-      }
-      if (line.status === 'planned') {
-        await firstValueFrom(this.api.recordLine(line.public_id));
-      }
-      await firstValueFrom(this.api.accountLine(line.public_id));
-    }
-    const disposal = await firstValueFrom(this.api.dispose(this.assetId, request.disposal));
-    await firstValueFrom(this.api.accountDisposal(disposal.public_id, request.proceedsAccount));
-    this.toast.success('Immobilisation cédée et comptabilisée.');
   }
 
   private async run(key: string, action: () => Promise<void>): Promise<void> {

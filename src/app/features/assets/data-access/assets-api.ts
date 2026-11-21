@@ -80,27 +80,9 @@ export class AssetsApi {
     return this.api.post<Asset>(`${base}${id(assetId)}/cancel/`, { reason });
   }
 
-  dispose(assetId: string, disposal: DisposalWrite): Observable<{ readonly public_id: string }> {
-    return this.api.post<{ readonly public_id: string }>(
-      `${base}${id(assetId)}/dispose/`,
-      disposal,
-    );
-  }
-
-  /** The disposal's entry; a sale's price is debited to `proceedsAccount`. */
-  accountDisposal(disposalId: string, proceedsAccount: string | null): Observable<unknown> {
-    return this.api.post<unknown>(
-      `${base}disposals/${id(disposalId)}/account/`,
-      proceedsAccount ? { proceeds_account: proceedsAccount } : {},
-    );
-  }
-
-  recordLine(lineId: string): Observable<unknown> {
-    return this.api.post<unknown>(`${base}depreciation-lines/${id(lineId)}/record/`);
-  }
-
-  accountLine(lineId: string): Observable<unknown> {
-    return this.api.post<unknown>(`${base}depreciation-lines/${id(lineId)}/account/`, {});
+  /** Depreciated up to the date (the last period pro rata), disposed and posted at once. */
+  dispose(assetId: string, disposal: DisposalWrite): Observable<unknown> {
+    return this.api.post<unknown>(`${base}${id(assetId)}/dispose/`, disposal);
   }
 
   schedule(assetId: string): Observable<readonly DepreciationPlan[]> {

@@ -256,7 +256,7 @@ describe('Immobilisations', () => {
     expect(button('Céder / mettre au rebut')).toBeDefined();
   });
 
-  it('a sale: the depreciation due first, then the disposal and its entry', async () => {
+  it('a sale: one call, the server depreciates up to the date and posts', async () => {
     const { stable, button } = await open('/actifs/as-1');
     httpMock()
       .expectOne(`${BASE}as-1/`)
@@ -265,35 +265,21 @@ describe('Immobilisations', () => {
       .expectOne(`${BASE}as-1/schedule/`)
       .flush([plan(['accounted', 'planned', 'planned'])]);
     await stable();
-    vi.spyOn(TestBed.inject(DisposeDialogService), 'ask').mockResolvedValue({
-      disposal: {
-        kind: 'sale',
-        disposal_date: '2026-02-28',
-        reason: 'Vendu',
-        proceeds: '40000000',
-      },
-      proceedsAccount: 'acc-485',
-    });
+    const disposal = {
+      kind: 'sale' as const,
+      disposal_date: '2026-02-15',
+      reason: 'Vendu',
+      proceeds: '40000000',
+      proceeds_account: 'acc-411',
+    };
+    vi.spyOn(TestBed.inject(DisposeDialogService), 'ask').mockResolvedValue(disposal);
 
     button('Céder / mettre au rebut')!.click();
     await stable();
-    httpMock()
-      .expectOne({ method: 'POST', url: `${BASE}depreciation-lines/l-2/record/` })
-      .flush({});
+    const request = httpMock().expectOne({ method: 'POST', url: `${BASE}as-1/dispose/` });
+    expect(request.request.body).toEqual(disposal);
+    request.flush({ public_id: 'd-1' });
     await stable();
-    httpMock()
-      .expectOne({ method: 'POST', url: `${BASE}depreciation-lines/l-2/account/` })
-      .flush({});
-    await stable();
-    httpMock()
-      .expectOne({ method: 'POST', url: `${BASE}as-1/dispose/` })
-      .flush({ public_id: 'd-1' });
-    await stable();
-    const account = httpMock().expectOne({ method: 'POST', url: `${BASE}disposals/d-1/account/` });
-    expect(account.request.body).toEqual({ proceeds_account: 'acc-485' });
-    account.flush({});
-    await stable();
-    httpMock().expectNone(`${BASE}depreciation-lines/l-3/record/`);
     httpMock()
       .expectOne(`${BASE}as-1/`)
       .flush(asset({ status: 'disposed' }));

@@ -17,7 +17,7 @@ import { localToday } from '../../shared/utils/dates';
 import { normalizeDecimalInput } from '../../shared/utils/decimal';
 import { EntriesApi } from '../accounting/data-access/entries-api';
 import { DISPOSAL_KINDS } from './assets-presentation';
-import { DisposalKind, DisposalRequest } from './data-access/assets-models';
+import { DisposalKind, DisposalWrite } from './data-access/assets-models';
 
 const TITLE_ID = 'alco-dispose-title';
 
@@ -86,7 +86,7 @@ const TITLE_ID = 'alco-dispose-title';
 })
 export class AlcoDisposeDialog {
   protected readonly name = inject<string>(DIALOG_DATA);
-  protected readonly ref = inject<DialogRef<DisposalRequest | null>>(DialogRef);
+  protected readonly ref = inject<DialogRef<DisposalWrite | null>>(DialogRef);
   private readonly entries = inject(EntriesApi);
   /** Every account of the chart that takes entries, searched by code or name. */
   protected readonly searchAccounts: AutocompleteSearch = (term) =>
@@ -128,13 +128,12 @@ export class AlcoDisposeDialog {
       return;
     }
     this.ref.close({
-      disposal: {
-        kind: value.kind,
-        disposal_date: value.disposal_date,
-        reason: value.reason.trim(),
-        ...(proceeds !== null ? { proceeds } : {}),
-      },
-      proceedsAccount: value.kind === 'sale' ? (value.proceeds_account?.id ?? null) : null,
+      kind: value.kind,
+      disposal_date: value.disposal_date,
+      reason: value.reason.trim(),
+      ...(proceeds !== null && value.proceeds_account
+        ? { proceeds, proceeds_account: value.proceeds_account.id }
+        : {}),
     });
   }
 }
@@ -144,8 +143,8 @@ export class AlcoDisposeDialog {
 export class DisposeDialogService {
   private readonly dialog = inject(Dialog);
 
-  ask(name: string): Promise<DisposalRequest | null> {
-    const ref = this.dialog.open<DisposalRequest | null, string>(AlcoDisposeDialog, {
+  ask(name: string): Promise<DisposalWrite | null> {
+    const ref = this.dialog.open<DisposalWrite | null, string>(AlcoDisposeDialog, {
       data: name,
       ariaLabelledBy: TITLE_ID,
       backdropClass: 'alco-dialog-backdrop',

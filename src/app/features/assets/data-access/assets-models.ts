@@ -122,12 +122,8 @@ export interface DisposalWrite {
   readonly disposal_date: string;
   readonly reason: string;
   readonly proceeds?: string;
-}
-
-/** What the disposal dialog gives: the disposal, and where a sale's price goes. */
-export interface DisposalRequest {
-  readonly disposal: DisposalWrite;
-  readonly proceedsAccount: string | null;
+  /** Where a sale's price is due (customer, bank…). */
+  readonly proceeds_account?: string;
 }
 
 /** « Comptabiliser les dotations jusqu'au… »: how many posted, the assets refused. */

@@ -291,10 +291,7 @@ export const APPLICATIONS: readonly AlcoApplication[] = [
         feature: 'loans',
         nav: [
           { label: 'Emprunts', path: 'liste' },
-          { label: 'Échéanciers', path: 'echeanciers' },
-          { label: 'Remboursements', path: 'remboursements' },
-          { label: 'Taux', path: 'taux' },
-          { label: 'Plus', children: [{ label: 'Types d’emprunt', path: 'types' }] },
+          { label: 'Types', path: 'types' },
         ],
       },
       {

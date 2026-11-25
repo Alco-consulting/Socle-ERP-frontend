@@ -1,0 +1,22 @@
+:host {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  min-width: 0;
+}
+
+// An empty state in the register's place, a rounded card.
+.empty-frame {
+  border: var(--border-width) solid var(--color-border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
+  background: var(--color-surface);
+}
+
+.muted {
+  color: var(--color-text-muted);
+}
+
+.search {
+  max-width: 22rem;
+}

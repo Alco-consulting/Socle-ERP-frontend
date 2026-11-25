@@ -1,0 +1,73 @@
+<alco-page-header
+  title="Emprunts"
+  subtitle="Les emprunts de la société et ce qu’il reste à rembourser."
+>
+  @if (canCreate()) {
+    <div alcoPageActions>
+      <a alcoButton variant="primary" icon="plus" routerLink="nouveau">Nouvel emprunt</a>
+    </div>
+  }
+</alco-page-header>
+
+<alco-form-field label="Rechercher" class="search">
+  <input alcoInput type="search" [formControl]="search" autocomplete="off" />
+</alco-form-field>
+
+@if (loans.status() === 'forbidden') {
+  <alco-error-state
+    title="Vous n’avez pas accès aux emprunts de cette société."
+    message="Demandez l’accès à un administrateur de la société si vous en avez besoin."
+  />
+} @else if (loadError(); as failure) {
+  <alco-error-state
+    [title]="failure.title"
+    [message]="failure.message"
+    [code]="failure.code"
+    [correlationId]="failure.correlationId ?? ''"
+    retryLabel="Réessayer"
+    (retry)="loans.reload()"
+  />
+} @else if (loans.value(); as result) {
+  @if (result.count === 0) {
+    <div class="empty-frame">
+      <alco-empty-state
+        icon="company"
+        [title]="search.value ? 'Aucun emprunt ne correspond.' : 'Aucun emprunt pour l’instant.'"
+        message="Créez l’emprunt, vérifiez son échéancier, puis « Activer » : le déblocage des fonds est comptabilisé."
+      />
+    </div>
+  } @else {
+    <alco-table caption="Emprunts" [columns]="columns" [rows]="result.results" [rowId]="rowId">
+      <ng-template alcoCell="name" let-row>
+        <a [routerLink]="row.public_id">{{ row.name }}</a>
+        @if (row.code) {
+          <span class="muted"> · {{ row.code }}</span>
+        }
+      </ng-template>
+      <ng-template alcoCell="type" let-row>{{ row.loan_type.code }}</ng-template>
+      <ng-template alcoCell="maturity" let-row>{{
+        row.maturity_date ? (row.maturity_date | date: 'dd/MM/yyyy') : '—'
+      }}</ng-template>
+      <ng-template alcoCell="principal" let-row>{{
+        row.principal_amount | alcoAmount: places()
+      }}</ng-template>
+      <ng-template alcoCell="outstanding" let-row>{{
+        outstandingOf(row) | alcoAmount: places()
+      }}</ng-template>
+      <ng-template alcoCell="status" let-row>
+        @let look = statusLook(row);
+        <alco-badge [tone]="look.tone" [icon]="look.icon">{{ look.label }}</alco-badge>
+      </ng-template>
+    </alco-table>
+    @if (result.count > pageSize) {
+      <alco-pagination
+        [page]="page()"
+        [pageSize]="pageSize"
+        [total]="result.count"
+        (pageChange)="goTo($event)"
+      />
+    }
+  }
+} @else {
+  <alco-loading variant="table" [rows]="5" [columns]="6" label="Chargement des emprunts…" />
+}

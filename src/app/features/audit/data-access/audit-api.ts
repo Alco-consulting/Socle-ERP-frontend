@@ -3,7 +3,7 @@ import { Observable } from 'rxjs';
 
 import { ApiClient, Paginated } from '../../../core/http/api-client';
 
-/** `AuditEvent`: `before`/`after` are `null` without `audit.read_sensitive`. */
+/** `AuditEvent` (`before`/`after` only for `audit.read_sensitive`: not shown here). */
 export interface AuditEvent {
   readonly public_id: string;
   readonly occurred_at: string;
@@ -17,26 +17,13 @@ export interface AuditEvent {
   readonly correlation_id: string;
   readonly metadata: unknown;
   readonly changed_fields: readonly string[];
-  readonly before?: Readonly<Record<string, unknown>> | null;
-  readonly after?: Readonly<Record<string, unknown>> | null;
-}
-
-/** Filters of the company's journal (`GET audit/events/`); dates are UTC days, included. */
-export interface AuditQuery {
-  readonly action?: string;
-  readonly objectType?: string;
-  readonly dateFrom?: string;
-  readonly dateTo?: string;
-  readonly search?: string;
-  readonly page?: number;
 }
 
 const PAGE_SIZE = 50;
-export const JOURNAL_PAGE_SIZE = 50;
 
 /**
- * The journal of the backend's Audit: the company's events (newest first) or one object's
- * (oldest first). The object type is the backend's model label (`accounting.journalentry`).
+ * The journal of the backend's Audit, read for one object (oldest first). The object type is
+ * the backend's model label (`accounting.journalentry`). No screen of its own here.
  */
 @Injectable({ providedIn: 'root' })
 export class AuditApi {
@@ -47,23 +34,5 @@ export class AuditApi {
       `audit/objects/${encodeURIComponent(objectType)}/${encodeURIComponent(objectId)}/`,
       { params: { page: page > 1 ? page : null, page_size: PAGE_SIZE } },
     );
-  }
-
-  events(query: AuditQuery = {}): Observable<Paginated<AuditEvent>> {
-    return this.api.get<Paginated<AuditEvent>>('audit/events/', {
-      params: {
-        action: query.action || null,
-        object_type: query.objectType || null,
-        date_from: query.dateFrom || null,
-        date_to: query.dateTo || null,
-        search: query.search || null,
-        page: query.page && query.page > 1 ? query.page : null,
-        page_size: JOURNAL_PAGE_SIZE,
-      },
-    });
-  }
-
-  event(eventId: string): Observable<AuditEvent> {
-    return this.api.get<AuditEvent>(`audit/events/${encodeURIComponent(eventId)}/`);
   }
 }

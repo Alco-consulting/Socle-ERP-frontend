@@ -1,0 +1,58 @@
+<alco-page-header
+  title="Types d’emprunt"
+  subtitle="Les comptes et le journal de chaque sorte d’emprunt."
+>
+  @if (canManage()) {
+    <div alcoPageActions>
+      <button
+        alcoButton
+        type="button"
+        [loading]="creatingDefaults()"
+        loadingLabel="Création…"
+        (click)="createDefaults()"
+      >
+        Créer les types usuels
+      </button>
+      <a alcoButton variant="primary" icon="plus" routerLink="nouveau">Nouveau type</a>
+    </div>
+  }
+</alco-page-header>
+
+@if (types.status() === 'forbidden') {
+  <alco-error-state
+    title="Vous n’avez pas accès aux emprunts de cette société."
+    message="Demandez l’accès à un administrateur de la société si vous en avez besoin."
+  />
+} @else if (loadError(); as failure) {
+  <alco-error-state
+    [title]="failure.title"
+    [message]="failure.message"
+    [code]="failure.code"
+    [correlationId]="failure.correlationId ?? ''"
+    retryLabel="Réessayer"
+    (retry)="types.reload()"
+  />
+} @else if (types.value(); as rows) {
+  @if (rows.length === 0) {
+    <div class="empty-frame">
+      <alco-empty-state
+        icon="company"
+        title="Aucun type d’emprunt pour l’instant."
+        message="« Créer les types usuels » ajoute l’emprunt bancaire, avec les comptes de votre plan (162, 6712, 631)."
+      />
+    </div>
+  } @else {
+    <alco-table caption="Types d’emprunt" [columns]="columns" [rows]="rows" [rowId]="rowId">
+      <ng-template alcoCell="code" let-row>
+        <a [routerLink]="row.public_id">{{ row.code }}</a>
+      </ng-template>
+      <ng-template alcoCell="name" let-row>{{ row.name }}</ng-template>
+      <ng-template alcoCell="principal" let-row>{{
+        row.principal_account?.code ?? '—'
+      }}</ng-template>
+      <ng-template alcoCell="interest" let-row>{{ row.interest_account?.code ?? '—' }}</ng-template>
+    </alco-table>
+  }
+} @else {
+  <alco-loading variant="table" [rows]="3" [columns]="4" label="Chargement des types…" />
+}

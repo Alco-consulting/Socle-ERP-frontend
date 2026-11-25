@@ -1,0 +1,127 @@
+@if (loadError(); as failure) {
+  <alco-error-state
+    [title]="failure.title"
+    [message]="failure.message"
+    [code]="failure.code"
+    [correlationId]="failure.correlationId ?? ''"
+  />
+} @else if (!ready()) {
+  <alco-loading [rows]="6" label="Chargement de l’emprunt…" />
+} @else {
+  <alco-page-header [title]="title()" subtitle="Emprunt" [dirty]="form.dirty">
+    <div alcoPageActions>
+      <button
+        alcoButton
+        type="submit"
+        form="loan-form"
+        variant="primary"
+        [loading]="saving()"
+        loadingLabel="Enregistrement…"
+      >
+        Enregistrer
+      </button>
+    </div>
+  </alco-page-header>
+
+  @if (error(); as failure) {
+    <alco-error-state
+      [inline]="true"
+      [title]="failure.title"
+      [message]="failure.message"
+      [code]="failure.code"
+      [correlationId]="failure.correlationId ?? ''"
+    />
+  }
+
+  <form id="loan-form" class="sheet" [formGroup]="form" (ngSubmit)="save()" novalidate>
+    <section class="alco-form-section" aria-labelledby="loan-title">
+      <div class="alco-form-section__intro">
+        <h2 id="loan-title" class="alco-section-title">Emprunt</h2>
+        <p>Enregistré en brouillon : son échéancier s’affiche sur sa fiche avant « Activer ».</p>
+      </div>
+      <div class="grid">
+        <alco-form-field
+          label="Nom"
+          [required]="true"
+          class="wide"
+          hint="Ex. Prêt véhicule BICIGUI."
+        >
+          <input alcoInput formControlName="name" maxlength="255" autocomplete="off" />
+        </alco-form-field>
+        <alco-form-field label="Type" [required]="true" hint="Donne les comptes.">
+          <select alcoSelect formControlName="loan_type">
+            <option value="" disabled>Choisir…</option>
+            @for (loanType of types(); track loanType.public_id) {
+              <option [value]="loanType.public_id">{{ loanType.name }}</option>
+            }
+          </select>
+        </alco-form-field>
+        <alco-form-field
+          label="Prêteur"
+          [required]="true"
+          hint="La banque ou la personne qui prête."
+        >
+          <alco-autocomplete
+            formControlName="partner"
+            [search]="searchPartners"
+            placeholder="Choisir…"
+            emptyText="Aucun contact ne correspond."
+          />
+        </alco-form-field>
+        <alco-form-field label="Capital emprunté" [required]="true">
+          <input
+            alcoInput
+            inputmode="decimal"
+            formControlName="principal_amount"
+            autocomplete="off"
+          />
+        </alco-form-field>
+        <alco-form-field label="Frais de dossier" [optional]="true" hint="Payés au déblocage.">
+          <input alcoInput inputmode="decimal" formControlName="fee" autocomplete="off" />
+        </alco-form-field>
+        <alco-form-field label="Date de déblocage" [required]="true">
+          <input alcoInput type="date" formControlName="start_date" />
+        </alco-form-field>
+        <alco-form-field
+          label="Première échéance"
+          [required]="true"
+          hint="Une période après le déblocage."
+        >
+          <input alcoInput type="date" formControlName="first_payment_date" />
+        </alco-form-field>
+      </div>
+    </section>
+
+    <section class="alco-form-section" aria-labelledby="terms-title">
+      <div class="alco-form-section__intro">
+        <h2 id="terms-title" class="alco-section-title">Remboursement</h2>
+        <p>Taux fixe ; intérêts de chaque échéance = capital restant × taux × mois ÷ 12.</p>
+      </div>
+      <div class="grid">
+        <alco-form-field label="Taux annuel (%)" [required]="true">
+          <input alcoInput inputmode="decimal" formControlName="interest_rate" autocomplete="off" />
+        </alco-form-field>
+        <alco-form-field label="Nombre d’échéances" [required]="true">
+          <input alcoInput type="number" min="1" step="1" formControlName="installments" />
+        </alco-form-field>
+        <alco-form-field label="Périodicité" [required]="true">
+          <select alcoSelect formControlName="payment_frequency">
+            @for (frequency of frequencies; track frequency.id) {
+              <option [value]="frequency.id">{{ frequency.label }}</option>
+            }
+          </select>
+        </alco-form-field>
+        <alco-form-field label="Échéances" [required]="true">
+          <select alcoSelect formControlName="repayment_method">
+            @for (method of methods; track method.id) {
+              <option [value]="method.id">{{ method.label }}</option>
+            }
+          </select>
+        </alco-form-field>
+        <alco-form-field label="Référence" [optional]="true" hint="N° de contrat de la banque.">
+          <input alcoInput formControlName="reference" maxlength="64" autocomplete="off" />
+        </alco-form-field>
+      </div>
+    </section>
+  </form>
+}

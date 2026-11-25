@@ -1,0 +1,148 @@
+@if (loan.status() === 'forbidden') {
+  <alco-page-header title="Emprunt" />
+  <alco-error-state
+    title="Vous n’avez pas accès aux emprunts de cette société."
+    message="Demandez l’accès à un administrateur de la société si vous en avez besoin."
+  />
+} @else if (loadError(); as failure) {
+  <alco-page-header title="Emprunt" />
+  <alco-error-state
+    [title]="failure.title"
+    [message]="failure.message"
+    [code]="failure.code"
+    [correlationId]="failure.correlationId ?? ''"
+    retryLabel="Réessayer"
+    (retry)="loan.reload()"
+  />
+} @else if (loan.value(); as current) {
+  <alco-page-header [title]="current.name" [subtitle]="current.code || 'Brouillon'">
+    @let look = status[current.status];
+    <alco-badge alcoPageStatus [tone]="look.tone" [icon]="look.icon">{{ look.label }}</alco-badge>
+    <div alcoPageActions>
+      @if (canEdit()) {
+        <a alcoButton variant="ghost" routerLink="modifier">Modifier</a>
+        <button
+          alcoButton
+          type="button"
+          variant="ghost"
+          [loading]="busy() === 'cancel'"
+          loadingLabel="Annulation…"
+          (click)="cancel()"
+        >
+          Annuler
+        </button>
+      }
+      @if (canActivate()) {
+        <button
+          alcoButton
+          type="button"
+          variant="primary"
+          [loading]="busy() === 'activate'"
+          loadingLabel="Activation…"
+          (click)="activate()"
+        >
+          Activer
+        </button>
+      }
+      @if (canPrepay()) {
+        <button
+          alcoButton
+          type="button"
+          [loading]="busy() === 'prepay'"
+          loadingLabel="Remboursement…"
+          (click)="prepay()"
+        >
+          Remboursement anticipé
+        </button>
+      }
+      @if (canPay()) {
+        <button
+          alcoButton
+          type="button"
+          variant="primary"
+          [loading]="busy() === 'pay'"
+          loadingLabel="Paiement…"
+          (click)="pay()"
+        >
+          Payer l’échéance n°{{ next()?.sequence }}
+        </button>
+      }
+    </div>
+  </alco-page-header>
+
+  <alco-card title="Emprunt" icon="percent">
+    <dl class="facts">
+      <div>
+        <dt>Prêteur</dt>
+        <dd>{{ lender() ?? '—' }}</dd>
+      </div>
+      <div>
+        <dt>Type</dt>
+        <dd>{{ current.loan_type.code }}</dd>
+      </div>
+      <div>
+        <dt>Capital emprunté</dt>
+        <dd class="amount">{{ current.principal_amount | alcoAmount: places() }}</dd>
+      </div>
+      <div>
+        <dt>Taux annuel</dt>
+        <dd>{{ rate(current) }}</dd>
+      </div>
+      <div>
+        <dt>Échéances</dt>
+        <dd>{{ current.installments }}, {{ frequency(current) }} — {{ method(current) }}</dd>
+      </div>
+      <div>
+        <dt>Déblocage</dt>
+        <dd>{{ current.start_date | date: 'dd/MM/yyyy' }}</dd>
+      </div>
+      <div>
+        <dt>Fin</dt>
+        <dd>
+          {{ current.maturity_date ? (current.maturity_date | date: 'dd/MM/yyyy') : '—' }}
+        </dd>
+      </div>
+      @if (current.status !== 'draft') {
+        <div>
+          <dt>Intérêts payés</dt>
+          <dd class="amount">{{ current.position.interest_paid | alcoAmount: places() }}</dd>
+        </div>
+        <div>
+          <dt>Capital restant dû</dt>
+          <dd class="amount total">
+            {{ current.position.outstanding | alcoAmount: places() }}
+          </dd>
+        </div>
+      }
+    </dl>
+  </alco-card>
+
+  <alco-card title="Échéancier" icon="calendar">
+    @if (current.status === 'draft') {
+      <p class="note">Calculé sur ces conditions ; « Activer » le fixe.</p>
+    }
+    @if (scheduleError(); as failure) {
+      <alco-error-state [inline]="true" [title]="failure.title" [message]="failure.message" />
+    } @else if (lines().length === 0) {
+      <p class="note">Aucune échéance.</p>
+    } @else {
+      <alco-table caption="Échéancier" [columns]="columns" [rows]="lines()" [rowId]="lineId">
+        <ng-template alcoCell="sequence" let-line>{{ line.sequence }}</ng-template>
+        <ng-template alcoCell="due" let-line>{{ line.due_date | date: 'dd/MM/yyyy' }}</ng-template>
+        <ng-template alcoCell="principal" let-line>{{
+          line.principal | alcoAmount: places()
+        }}</ng-template>
+        <ng-template alcoCell="interest" let-line>{{
+          line.interest | alcoAmount: places()
+        }}</ng-template>
+        <ng-template alcoCell="total" let-line>{{ line.total | alcoAmount: places() }}</ng-template>
+        <ng-template alcoCell="balance" let-line>{{
+          line.closing_balance | alcoAmount: places()
+        }}</ng-template>
+        <ng-template alcoCell="status" let-line>{{ lineStatus(line) }}</ng-template>
+      </alco-table>
+    }
+  </alco-card>
+} @else {
+  <alco-loading [rows]="6" label="Chargement de l’emprunt…" />
+}

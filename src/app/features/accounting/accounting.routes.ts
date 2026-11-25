@@ -7,6 +7,7 @@ import { AUDIT_ROUTES } from '../audit/audit.routes';
 import { CLOSING_ROUTES } from '../closing/closing.routes';
 import { CURRENCIES_ROUTES } from '../currencies/currencies.routes';
 import { INVOICING_ROUTES } from '../invoicing/invoicing.routes';
+import { LOANS_ROUTES } from '../loans/loans.routes';
 import { TAXES_ROUTES } from '../taxes/taxes.routes';
 import { TREASURY_ROUTES } from '../treasury/treasury.routes';
 import { ACCOUNT_TRANSFER } from './accounts/account-transfer';
@@ -183,6 +184,8 @@ export const ACCOUNTING_ROUTES: Routes = [
   ...CLOSING_ROUTES,
   // Immobilisations (note backend 0060): served among the section's routes.
   ...ASSETS_ROUTES,
+  // Emprunts (note backend 0062): served among the section's routes.
+  ...LOANS_ROUTES,
   // Audit › Journal d'audit: served among the section's routes.
   ...AUDIT_ROUTES,
   // Analyse › Rapports de tiers: the aged balance (V2.1 A5), customers and suppliers.

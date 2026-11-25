@@ -1,0 +1,87 @@
+@if (event.status() === 'forbidden') {
+  <alco-page-header title="Événement" />
+  <alco-error-state
+    title="Vous n’avez pas accès au journal d’audit de cette société."
+    message="Demandez l’accès à un administrateur de la société si vous en avez besoin."
+  />
+} @else if (loadError(); as failure) {
+  <alco-page-header title="Événement" />
+  <alco-error-state
+    [title]="failure.title"
+    [message]="failure.message"
+    [code]="failure.code"
+    [correlationId]="failure.correlationId ?? ''"
+    retryLabel="Réessayer"
+    (retry)="event.reload()"
+  />
+} @else if (event.value(); as current) {
+  <alco-page-header [title]="title()" />
+
+  <alco-card title="Événement" icon="clock">
+    <dl class="facts">
+      <div>
+        <dt>Date et heure</dt>
+        <dd>{{ current.occurred_at | date: 'dd/MM/yyyy à HH:mm:ss' }}</dd>
+      </div>
+      <div>
+        <dt>Utilisateur</dt>
+        <dd>{{ current.user?.email ?? 'Système' }}</dd>
+      </div>
+      <div>
+        <dt>Objet</dt>
+        <dd>
+          @if (link(); as page) {
+            <a [routerLink]="page">{{ current.object_label || current.object_id }}</a>
+          } @else {
+            {{ current.object_label || current.object_id }}
+          }
+        </dd>
+      </div>
+      <div>
+        <dt>Origine</dt>
+        <dd>{{ origin() }}</dd>
+      </div>
+    </dl>
+  </alco-card>
+
+  <alco-card title="Changements" icon="edit">
+    @if (changes().length === 0) {
+      <p class="note">Aucun champ modifié.</p>
+    } @else if (valuesShown()) {
+      <table class="changes">
+        <caption class="alco-sr-only">
+          Champs modifiés, avant et après
+        </caption>
+        <thead>
+          <tr>
+            <th scope="col">Champ</th>
+            <th scope="col">Avant</th>
+            <th scope="col">Après</th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (change of changes(); track change.field) {
+            <tr>
+              <th scope="row">
+                <code>{{ change.field }}</code>
+              </th>
+              <td>{{ change.before }}</td>
+              <td>{{ change.after }}</td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    } @else {
+      <p class="note">
+        Champs modifiés :
+        @for (change of changes(); track change.field; let last = $last) {
+          <code>{{ change.field }}</code
+          >{{ last ? '.' : ', ' }}
+        }
+      </p>
+      <p class="note">Votre profil ne permet pas de voir les valeurs avant et après.</p>
+    }
+  </alco-card>
+} @else {
+  <alco-loading [rows]="5" label="Chargement de l’événement…" />
+}

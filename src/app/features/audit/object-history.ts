@@ -48,6 +48,12 @@ export const AUDIT_ACTIONS: Readonly<Record<string, string>> = {
   unletter: 'Délettrage',
   reconcile: 'Rapprochement bancaire',
   dereconcile: 'Annulation du rapprochement bancaire',
+  cancel: 'Annulation',
+  account: 'Comptabilisation',
+  unaccount: 'Annulation de la comptabilisation',
+  close: 'Clôture',
+  reopen: 'Réouverture',
+  parameter_change: 'Changement de paramètres ou de droits',
 };
 
 /**

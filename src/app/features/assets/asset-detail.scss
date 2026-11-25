@@ -1,0 +1,35 @@
+:host {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  min-width: 0;
+}
+
+.facts {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(12rem, 1fr));
+  gap: var(--space-3) var(--space-5);
+  margin: 0;
+
+  dt {
+    color: var(--color-text-muted);
+    font-size: var(--font-size-caption);
+  }
+
+  dd {
+    margin: var(--space-1) 0 0;
+  }
+}
+
+.amount {
+  font-variant-numeric: tabular-nums;
+}
+
+.total {
+  font-weight: var(--font-weight-semibold);
+}
+
+.note {
+  margin: 0;
+  color: var(--color-text-muted);
+}

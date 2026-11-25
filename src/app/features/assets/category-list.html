@@ -1,0 +1,61 @@
+<alco-page-header
+  title="Catégories d’immobilisations"
+  subtitle="Les comptes, le journal et la durée d’amortissement de chaque sorte de bien."
+>
+  @if (canManage()) {
+    <div alcoPageActions>
+      <button
+        alcoButton
+        type="button"
+        [loading]="creatingDefaults()"
+        loadingLabel="Création…"
+        (click)="createDefaults()"
+      >
+        Créer les catégories usuelles
+      </button>
+      <a alcoButton variant="primary" icon="plus" routerLink="nouvelle">Nouvelle catégorie</a>
+    </div>
+  }
+</alco-page-header>
+
+@if (categories.status() === 'forbidden') {
+  <alco-error-state
+    title="Vous n’avez pas accès aux immobilisations de cette société."
+    message="Demandez l’accès à un administrateur de la société si vous en avez besoin."
+  />
+} @else if (loadError(); as failure) {
+  <alco-error-state
+    [title]="failure.title"
+    [message]="failure.message"
+    [code]="failure.code"
+    [correlationId]="failure.correlationId ?? ''"
+    retryLabel="Réessayer"
+    (retry)="categories.reload()"
+  />
+} @else if (categories.value(); as rows) {
+  @if (rows.length === 0) {
+    <div class="empty-frame">
+      <alco-empty-state
+        icon="company"
+        title="Aucune catégorie pour l’instant."
+        message="« Créer les catégories usuelles » ajoute bâtiments, matériel, transport, informatique et mobilier, avec les comptes de votre plan."
+      />
+    </div>
+  } @else {
+    <alco-table
+      caption="Catégories d’immobilisations"
+      [columns]="columns"
+      [rows]="rows"
+      [rowId]="rowId"
+    >
+      <ng-template alcoCell="code" let-row>
+        <a [routerLink]="row.public_id">{{ row.code }}</a>
+      </ng-template>
+      <ng-template alcoCell="name" let-row>{{ row.name }}</ng-template>
+      <ng-template alcoCell="account" let-row>{{ row.asset_account?.code ?? '—' }}</ng-template>
+      <ng-template alcoCell="duration" let-row>{{ durationOf(row) }}</ng-template>
+    </alco-table>
+  }
+} @else {
+  <alco-loading variant="table" [rows]="4" [columns]="4" label="Chargement des catégories…" />
+}

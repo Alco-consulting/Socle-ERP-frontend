@@ -1,0 +1,79 @@
+<alco-page-header title="Immobilisations" subtitle="Les biens de la société et leur valeur nette.">
+  @if (canCreate()) {
+    <div alcoPageActions>
+      <a alcoButton variant="primary" icon="plus" routerLink="nouvelle">Nouvelle immobilisation</a>
+    </div>
+  }
+</alco-page-header>
+
+<alco-form-field label="Rechercher" class="search">
+  <input alcoInput type="search" [formControl]="search" autocomplete="off" />
+</alco-form-field>
+
+@if (assets.status() === 'forbidden') {
+  <alco-error-state
+    title="Vous n’avez pas accès aux immobilisations de cette société."
+    message="Demandez l’accès à un administrateur de la société si vous en avez besoin."
+  />
+} @else if (loadError(); as failure) {
+  <alco-error-state
+    [title]="failure.title"
+    [message]="failure.message"
+    [code]="failure.code"
+    [correlationId]="failure.correlationId ?? ''"
+    retryLabel="Réessayer"
+    (retry)="assets.reload()"
+  />
+} @else if (assets.value(); as result) {
+  @if (result.count === 0) {
+    <div class="empty-frame">
+      <alco-empty-state
+        icon="company"
+        [title]="
+          search.value
+            ? 'Aucune immobilisation ne correspond.'
+            : 'Aucune immobilisation pour l’instant.'
+        "
+        message="Créez un bien, puis « Confirmer » : son tableau d’amortissement est calculé aussitôt."
+      />
+    </div>
+  } @else {
+    <alco-table
+      caption="Immobilisations"
+      [columns]="columns"
+      [rows]="result.results"
+      [rowId]="rowId"
+    >
+      <ng-template alcoCell="name" let-row>
+        <a [routerLink]="row.public_id">{{ row.name }}</a>
+        @if (row.code) {
+          <span class="muted"> · {{ row.code }}</span>
+        }
+      </ng-template>
+      <ng-template alcoCell="category" let-row>{{ row.category.code }}</ng-template>
+      <ng-template alcoCell="date" let-row>{{
+        row.acquisition_date | date: 'dd/MM/yyyy'
+      }}</ng-template>
+      <ng-template alcoCell="gross" let-row>{{
+        row.gross_value | alcoAmount: places()
+      }}</ng-template>
+      <ng-template alcoCell="net" let-row>
+        {{ row.values?.net_book_value ?? row.gross_value | alcoAmount: places() }}
+      </ng-template>
+      <ng-template alcoCell="status" let-row>
+        @let look = statusLook(row);
+        <alco-badge [tone]="look.tone" [icon]="look.icon">{{ look.label }}</alco-badge>
+      </ng-template>
+    </alco-table>
+    @if (result.count > pageSize) {
+      <alco-pagination
+        [page]="page()"
+        [pageSize]="pageSize"
+        [total]="result.count"
+        (pageChange)="goTo($event)"
+      />
+    }
+  }
+} @else {
+  <alco-loading variant="table" [rows]="5" [columns]="6" label="Chargement des immobilisations…" />
+}

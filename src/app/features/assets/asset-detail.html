@@ -1,0 +1,146 @@
+@if (asset.status() === 'forbidden') {
+  <alco-page-header title="Immobilisation" />
+  <alco-error-state
+    title="Vous n’avez pas accès aux immobilisations de cette société."
+    message="Demandez l’accès à un administrateur de la société si vous en avez besoin."
+  />
+} @else if (loadError(); as failure) {
+  <alco-page-header title="Immobilisation" />
+  <alco-error-state
+    [title]="failure.title"
+    [message]="failure.message"
+    [code]="failure.code"
+    [correlationId]="failure.correlationId ?? ''"
+    retryLabel="Réessayer"
+    (retry)="asset.reload()"
+  />
+} @else if (asset.value(); as current) {
+  <alco-page-header [title]="current.name" [subtitle]="current.code || 'Brouillon'">
+    @let look = status[current.status];
+    <alco-badge alcoPageStatus [tone]="look.tone" [icon]="look.icon">{{ look.label }}</alco-badge>
+    <div alcoPageActions>
+      @if (canEdit()) {
+        <a alcoButton variant="ghost" routerLink="modifier">Modifier</a>
+        <button
+          alcoButton
+          type="button"
+          variant="ghost"
+          [loading]="busy() === 'cancel'"
+          loadingLabel="Annulation…"
+          (click)="cancel()"
+        >
+          Annuler
+        </button>
+      }
+      @if (canConfirm()) {
+        <button
+          alcoButton
+          type="button"
+          variant="primary"
+          [loading]="busy() === 'confirm'"
+          loadingLabel="Confirmation…"
+          (click)="confirm()"
+        >
+          Confirmer
+        </button>
+      }
+      @if (canDispose()) {
+        <button
+          alcoButton
+          type="button"
+          [loading]="busy() === 'dispose'"
+          loadingLabel="Cession…"
+          (click)="dispose()"
+        >
+          Céder / mettre au rebut
+        </button>
+      }
+    </div>
+  </alco-page-header>
+
+  <alco-card title="Valeurs" icon="percent">
+    <dl class="facts">
+      <div>
+        <dt>Catégorie</dt>
+        <dd>{{ current.category.code }}</dd>
+      </div>
+      <div>
+        <dt>Acquise le</dt>
+        <dd>{{ current.acquisition_date | date: 'dd/MM/yyyy' }}</dd>
+      </div>
+      <div>
+        <dt>Mise en service</dt>
+        <dd>
+          {{ current.commissioning_date ? (current.commissioning_date | date: 'dd/MM/yyyy') : '—' }}
+        </dd>
+      </div>
+      <div>
+        <dt>Durée</dt>
+        <dd>{{ duration(current.duration_months) }}, linéaire</dd>
+      </div>
+      <div>
+        <dt>Valeur d’acquisition</dt>
+        <dd class="amount">{{ current.gross_value | alcoAmount: places() }}</dd>
+      </div>
+      <div>
+        <dt>Amortissements cumulés</dt>
+        <dd class="amount">
+          {{ current.values?.accumulated_depreciation ?? '0' | alcoAmount: places() }}
+        </dd>
+      </div>
+      <div>
+        <dt>Valeur nette</dt>
+        <dd class="amount total">
+          {{ current.values?.net_book_value ?? current.gross_value | alcoAmount: places() }}
+        </dd>
+      </div>
+      @if (current.partner) {
+        <div>
+          <dt>Fournisseur</dt>
+          <dd>{{ current.partner.code }}</dd>
+        </div>
+      }
+      @if (current.disposal_date) {
+        <div>
+          <dt>Cédée le</dt>
+          <dd>{{ current.disposal_date | date: 'dd/MM/yyyy' }}</dd>
+        </div>
+      }
+    </dl>
+  </alco-card>
+
+  <alco-card title="Tableau d’amortissement" icon="calendar">
+    @if (lines().length === 0) {
+      <p class="note">
+        @if (current.status === 'draft') {
+          « Confirmer » calcule le tableau d’amortissement.
+        } @else {
+          Aucune dotation.
+        }
+      </p>
+    } @else {
+      <alco-table
+        caption="Tableau d’amortissement"
+        [columns]="columns"
+        [rows]="lines()"
+        [rowId]="lineId"
+      >
+        <ng-template alcoCell="period" let-line>{{
+          line.period_end | date: 'MM/yyyy'
+        }}</ng-template>
+        <ng-template alcoCell="amount" let-line>{{
+          line.amount | alcoAmount: places()
+        }}</ng-template>
+        <ng-template alcoCell="cumulative" let-line>
+          {{ line.cumulative | alcoAmount: places() }}
+        </ng-template>
+        <ng-template alcoCell="net" let-line>{{
+          line.net_value | alcoAmount: places()
+        }}</ng-template>
+        <ng-template alcoCell="status" let-line>{{ lineStatus(line) }}</ng-template>
+      </alco-table>
+    }
+  </alco-card>
+} @else {
+  <alco-loading [rows]="6" label="Chargement de l’immobilisation…" />
+}

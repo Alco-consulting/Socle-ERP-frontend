@@ -2,6 +2,7 @@ import { Route, Routes } from '@angular/router';
 
 import { permissionGuard } from '../../core/navigation/app-access.guard';
 import { unsavedChangesGuard } from '../../core/navigation/unsaved-changes';
+import { ASSETS_ROUTES } from '../assets/assets.routes';
 import { AUDIT_ROUTES } from '../audit/audit.routes';
 import { CLOSING_ROUTES } from '../closing/closing.routes';
 import { CURRENCIES_ROUTES } from '../currencies/currencies.routes';
@@ -180,6 +181,8 @@ export const ACCOUNTING_ROUTES: Routes = [
   // Devises as Odoo's screens (Configuration › Devises): the shared catalogue, the rates.
   ...CURRENCIES_ROUTES,
   ...CLOSING_ROUTES,
+  // Immobilisations (note backend 0060): served among the section's routes.
+  ...ASSETS_ROUTES,
   // Audit › Journal d'audit: served among the section's routes.
   ...AUDIT_ROUTES,
   // Analyse › Rapports de tiers: the aged balance (V2.1 A5), customers and suppliers.

@@ -1,0 +1,65 @@
+<alco-page-header
+  title="Amortissements"
+  subtitle="Les dotations de tous les biens, comptabilisées en une fois chaque mois ou avant la clôture."
+/>
+
+<alco-card title="Comptabiliser les dotations" icon="calendar">
+  <form class="post" (submit)="$event.preventDefault(); post()" novalidate>
+    <alco-form-field label="Jusqu’à la fin du mois de" [required]="true">
+      <input alcoInput type="month" [formControl]="month" />
+    </alco-form-field>
+    @if (canPost()) {
+      <button
+        alcoButton
+        type="submit"
+        variant="primary"
+        [loading]="posting()"
+        loadingLabel="Comptabilisation…"
+        [disabled]="due.value() === 0"
+      >
+        Comptabiliser
+      </button>
+    }
+  </form>
+  <p class="note" role="status">
+    @switch (due.value()) {
+      @case (null) {
+        Calcul des dotations à passer…
+      }
+      @case (0) {
+        Aucune dotation à comptabiliser jusqu’à cette date.
+      }
+      @case (1) {
+        1 dotation à comptabiliser jusqu’à cette date.
+      }
+      @default {
+        {{ due.value() }} dotations à comptabiliser jusqu’à cette date.
+      }
+    }
+  </p>
+  @if (!canPost()) {
+    <p class="note">Votre profil ne permet pas de comptabiliser les dotations.</p>
+  }
+</alco-card>
+
+@if (result(); as done) {
+  @if (done.failures.length > 0) {
+    <alco-card title="Biens à corriger" icon="info">
+      <p class="note">
+        {{ done.posted }} dotation{{ done.posted > 1 ? 's' : '' }} comptabilisée{{
+          done.posted > 1 ? 's' : ''
+        }}. Ces biens ont été laissés de côté : corrigez leur catégorie, puis recommencez.
+      </p>
+      <ul class="failures">
+        @for (failure of done.failures; track failure.asset.public_id) {
+          <li>
+            <a [routerLink]="['../actifs', failure.asset.public_id]">
+              {{ failure.asset.name }} · {{ failure.asset.code }}
+            </a>
+            — {{ refusal(failure.code) }}
+          </li>
+        }
+      </ul>
+    </alco-card>
+  }
+}

@@ -243,7 +243,6 @@ export const APPLICATIONS: readonly AlcoApplication[] = [
           ...group('Taxes', [{ label: 'Taxes', path: 'taxes/liste' }]),
           ...group('Immobilisations', [
             { label: 'Catégories', path: 'immobilisations/categories' },
-            { label: 'Paramètres', path: 'immobilisations/configuration' },
           ]),
           ...group('Analytique', [
             { label: 'Axes', path: 'analytique/axes' },
@@ -283,9 +282,6 @@ export const APPLICATIONS: readonly AlcoApplication[] = [
           { label: 'Actifs', path: 'actifs' },
           { label: 'Catégories', path: 'categories' },
           { label: 'Amortissements', path: 'amortissements' },
-          { label: 'Dépréciations', path: 'depreciations' },
-          { label: 'Cessions', path: 'cessions' },
-          { label: 'Plus', children: [{ label: 'Configuration', path: 'configuration' }] },
         ],
       },
       {

@@ -79,6 +79,10 @@ export class InvoiceListPage {
   private readonly router = inject(Router);
   private readonly route = inject(ActivatedRoute);
   private readonly session = inject(SessionStore);
+  /** The company's currency: another one is named beside the total (note backend 0069). */
+  protected readonly companyCurrency = computed(
+    () => this.session.activeCompany()?.currency ?? 'GNF',
+  );
 
   protected readonly spec = KINDS[this.route.snapshot.data['kind'] as InvoiceKind];
   protected readonly statuses = STATUSES.map((id) => ({ id, label: INVOICE_STATUS[id].label }));

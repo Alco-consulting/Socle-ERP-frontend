@@ -410,3 +410,19 @@ alco-autocomplete.account {
 .lines-table select[aria-label='Taxes'] {
   min-width: 9rem;
 }
+
+// The rate of an invoice in another currency (note backend 0069); a warning when it is not
+// the invoice's day's, or when there is none.
+.rate {
+  grid-column: 1 / -1;
+
+  dd {
+    margin: 0;
+    color: var(--color-text-muted);
+  }
+
+  .rate--warning {
+    color: var(--color-warning-text);
+    font-weight: var(--font-weight-semibold);
+  }
+}

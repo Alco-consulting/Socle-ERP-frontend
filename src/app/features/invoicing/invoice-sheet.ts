@@ -46,6 +46,7 @@ import { localToday } from '../../shared/utils/dates';
 import { normalizeDecimalInput, trimDecimalZeros } from '../../shared/utils/decimal';
 import { AccountingApi } from '../accounting/data-access/accounting-api';
 import { Journal } from '../accounting/data-access/accounting-models';
+import { EntriesApi } from '../accounting/data-access/entries-api';
 import { EntryLineRow, EntryLinesApi } from '../accounting/data-access/entry-lines-api';
 import { distributionText } from '../analytics/analytics-presentation';
 import { DistributionShare } from '../analytics/data-access/analytics-models';
@@ -88,7 +89,15 @@ interface LineForm {
   tax: FormControl<string>;
   /** The analytic distribution (note backend 0063); empty: the models of the account. */
   analytics: FormControl<readonly DistributionShare[]>;
+  /** As Odoo's « Compte »: the product's for the side, or another (note backend 0066). */
+  account: FormControl<AutocompleteOption | null>;
 }
+
+/** An account of the line, as Odoo shows it: « 701100 Ventes de marchandises ». */
+const accountOption = (account: NamedReference): AutocompleteOption => ({
+  id: account.public_id,
+  label: `${account.code} ${account.name}`,
+});
 
 type Action = 'confirm' | 'cancel' | 'creditNote' | 'reset';
 
@@ -147,6 +156,7 @@ export class InvoiceSheetPage {
   private readonly api = inject(InvoicingApi);
   private readonly lineApi = inject(EntryLinesApi);
   private readonly accountingApi = inject(AccountingApi);
+  private readonly entriesApi = inject(EntriesApi);
   private readonly route = inject(ActivatedRoute);
   private readonly router = inject(Router);
   private readonly toast = inject(AlcoToastService);
@@ -230,6 +240,10 @@ export class InvoiceSheetPage {
         })),
       ),
     );
+
+  /** Every account of the chart that takes entries, by its code or name. */
+  protected readonly searchAccounts: AutocompleteSearch = (term) =>
+    this.entriesApi.postableAccounts(term).pipe(map((found) => found.map(accountOption)));
 
   /** The amounts as typed (the server's rules, nothing stored); by line index. */
   protected readonly preview = signal<Preview | null>(null);
@@ -446,14 +460,9 @@ export class InvoiceSheetPage {
     return this.products().find((item) => item.public_id === id);
   }
 
-  /** The account of a line: posted, else the product's for the side. */
+  /** The account of a line, as the server gives it: its own, else the product's. */
   protected accountOf(index: number): NamedReference | null {
-    const saved = this.invoice()?.lines[index];
-    const product = this.productOf(index);
-    if (product) {
-      return this.customerSide() ? product.sale_account : product.purchase_account;
-    }
-    return saved?.account ?? null;
+    return this.invoice()?.lines[index]?.account ?? null;
   }
 
   /** The units a line may take: those of its product's category, active or its own. */
@@ -555,6 +564,9 @@ export class InvoiceSheetPage {
     if (this.sideTaxes().some((tax) => tax.public_id === product.tax.public_id)) {
       line.controls.tax.setValue(product.tax.public_id);
     }
+    // Its account for the side, as Odoo proposes it; none: chosen on the line.
+    const account = this.customerSide() ? product.sale_account : product.purchase_account;
+    line.controls.account.setValue(account ? accountOption(account) : null);
   }
 
   /** The active products, with a line's own product if it was retired since. */
@@ -903,6 +915,7 @@ export class InvoiceSheetPage {
       }),
       tax: new FormControl(values?.tax ?? '', { nonNullable: true }),
       analytics: new FormControl<readonly DistributionShare[]>([], { nonNullable: true }),
+      account: new FormControl<AutocompleteOption | null>(null),
     });
   }
 
@@ -923,6 +936,7 @@ export class InvoiceSheetPage {
         value: share.value,
         percentage: share.percentage,
       })),
+      account: value.account?.id ?? null,
     };
   }
 
@@ -1041,6 +1055,7 @@ export class InvoiceSheetPage {
           axis: share.axis,
         })),
       );
+      group.controls.account.setValue(line.account ? accountOption(line.account) : null);
       this.lines.push(group);
     }
     this.form.markAsPristine();

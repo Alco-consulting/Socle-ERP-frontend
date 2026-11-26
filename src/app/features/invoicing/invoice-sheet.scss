@@ -206,6 +206,12 @@
   max-width: 14rem;
 }
 
+// The line's account, chosen as Odoo's (note backend 0066).
+alco-autocomplete.account {
+  display: block;
+  min-width: 9rem;
+}
+
 .totals {
   display: flex;
   flex-direction: column;

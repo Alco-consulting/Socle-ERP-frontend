@@ -91,8 +91,9 @@ export const INVOICING_ERRORS: ErrorCatalog = {
     message: 'Elle peut seulement être renommée.',
   },
   invoicing_product_account_missing: {
-    title: 'Un produit de la facture n’a pas de compte pour ce côté.',
-    message: 'Renseignez le compte de vente (ou d’achat) du produit, puis comptabilisez à nouveau.',
+    title: 'Une ligne de la facture n’a pas de compte.',
+    message:
+      'Choisissez-le dans la colonne « Compte » de la ligne (ou sur le produit), puis comptabilisez à nouveau.',
   },
   invoicing_partner_account_missing: {
     title: 'Le compte du tiers n’est pas dans le plan comptable.',

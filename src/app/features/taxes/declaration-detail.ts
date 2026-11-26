@@ -9,11 +9,12 @@ import {
   untracked,
 } from '@angular/core';
 import { FormControl, ReactiveFormsModule } from '@angular/forms';
-import { ActivatedRoute } from '@angular/router';
-import { firstValueFrom } from 'rxjs';
+import { ActivatedRoute, RouterLink } from '@angular/router';
+import { catchError, firstValueFrom, map, of } from 'rxjs';
 
 import { toUserError } from '../../core/errors/user-error';
 import { requestState } from '../../core/http/request-state';
+import { APP_ROOT } from '../../core/navigation/applications';
 import { BreadcrumbService } from '../../core/navigation/route-trail';
 import { SessionStore } from '../../core/session/session.store';
 import { AlcoInput } from '../../shared/forms/input';
@@ -28,7 +29,10 @@ import { AlcoLoading } from '../../shared/ui/loading/loading';
 import { AlcoPageHeader } from '../../shared/ui/page-header/page-header';
 import { AlcoToastService } from '../../shared/ui/toast/toast.service';
 import { AlcoWorkflowSteps } from '../../shared/ui/workflow-steps/workflow-steps';
+import { localToday } from '../../shared/utils/dates';
 import { isZeroDecimal, normalizeDecimalInput, subtractDecimals } from '../../shared/utils/decimal';
+import { AccountingApi } from '../accounting/data-access/accounting-api';
+import { Journal } from '../accounting/data-access/accounting-models';
 import { referencePlaces } from '../currencies/reference-places';
 import { TaxesApi } from './data-access/taxes-api';
 import { DeclarationCommand, DeclarationDetail, VatLine } from './data-access/taxes-models';
@@ -49,6 +53,7 @@ const EDITABLE = new Set(['draft', 'checked']);
   imports: [
     DatePipe,
     ReactiveFormsModule,
+    RouterLink,
     AlcoAmountPipe,
     AlcoBadge,
     AlcoButton,
@@ -67,6 +72,7 @@ const EDITABLE = new Set(['draft', 'checked']);
 })
 export class DeclarationDetailPage {
   private readonly api = inject(TaxesApi);
+  private readonly accounting = inject(AccountingApi);
   private readonly session = inject(SessionStore);
   private readonly toast = inject(AlcoToastService);
   private readonly confirm = inject(AlcoConfirmService);
@@ -84,6 +90,14 @@ export class DeclarationDetailPage {
   protected readonly busy = signal<string | null>(null);
   protected readonly declared = new FormControl('', { nonNullable: true });
   protected readonly declaredError = signal<string | null>(null);
+  protected readonly entriesUrl = `${APP_ROOT}/comptabilite/ecritures`;
+  /** « Marquer payée » with VAT due: the journal and the date asked first (note 0067). */
+  protected readonly paying = signal(false);
+  protected readonly payJournal = new FormControl('', { nonNullable: true });
+  protected readonly payDate = new FormControl(localToday(), { nonNullable: true });
+  protected readonly payError = signal<string | null>(null);
+  /** The bank and cash journals the VAT can be paid from, read when it is paid. */
+  protected readonly payJournals = signal<readonly Journal[]>([]);
 
   protected readonly title = computed(() => {
     const record = this.record();
@@ -172,7 +186,26 @@ export class DeclarationDetailPage {
     });
   }
 
+  /** VAT due: the payment's journal and date are asked before marking it paid. */
+  protected owes(record: DeclarationDetail): boolean {
+    return record.amount_due !== null && !isZeroDecimal(record.amount_due);
+  }
+
   protected async step(record: DeclarationDetail, command: DeclarationCommand): Promise<void> {
+    if (command === 'mark-paid' && this.owes(record)) {
+      const found = await firstValueFrom(
+        this.accounting.journals({ status: 'active', pageSize: 100 }).pipe(
+          map((page) =>
+            page.results.filter((item) => ['bank', 'cash'].includes(item.journal_type)),
+          ),
+          catchError(() => of([] as Journal[])),
+        ),
+      );
+      this.payJournals.set(found);
+      this.payJournal.setValue(found[0]?.public_id ?? '');
+      this.paying.set(true);
+      return;
+    }
     if (command === 'validate' && !(await this.confirmValidate())) {
       return;
     }
@@ -182,11 +215,31 @@ export class DeclarationDetailPage {
     });
   }
 
+  protected async pay(record: DeclarationDetail): Promise<void> {
+    if (!this.payJournal.value) {
+      this.payError.set('Choisissez le journal de banque ou de caisse.');
+      return;
+    }
+    this.payError.set(null);
+    await this.run('mark-paid', async () => {
+      this.record.set(
+        await firstValueFrom(
+          this.api.runDeclarationStep(record.public_id, 'mark-paid', {
+            journal: this.payJournal.value,
+            payment_date: this.payDate.value || null,
+          }),
+        ),
+      );
+      this.paying.set(false);
+      this.toast.success('TVA payée : le paiement est passé dans le journal.');
+    });
+  }
+
   private confirmValidate(): Promise<boolean> {
     return this.confirm.confirm({
       title: 'Valider la déclaration ?',
       message:
-        'La TVA est recalculée à partir des écritures, puis les montants sont figés : ils ne changeront plus.',
+        'La TVA est recalculée à partir des écritures et l’écriture de liquidation est passée (TVA due ou crédit à reporter). Les montants sont ensuite figés.',
       confirmLabel: 'Valider',
     });
   }

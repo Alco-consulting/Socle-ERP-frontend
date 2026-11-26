@@ -245,9 +245,8 @@ export const APPLICATIONS: readonly AlcoApplication[] = [
             { label: 'Catégories', path: 'immobilisations/categories' },
           ]),
           ...group('Analytique', [
-            { label: 'Axes', path: 'analytique/axes' },
-            { label: 'Valeurs', path: 'analytique/valeurs' },
-            { label: 'Règles', path: 'analytique/regles' },
+            { label: 'Plans analytiques', path: 'analytique/plans' },
+            { label: 'Modèles de répartition', path: 'analytique/regles' },
           ]),
           ...group('Emprunts', [{ label: 'Types d’emprunt', path: 'emprunts/types' }]),
         ],
@@ -310,11 +309,9 @@ export const APPLICATIONS: readonly AlcoApplication[] = [
         permission: 'analytics.read',
         feature: 'analytics',
         nav: [
-          { label: 'Axes', path: 'axes' },
-          { label: 'Valeurs', path: 'valeurs' },
-          { label: 'Règles', path: 'regles' },
-          { label: 'Répartitions', path: 'repartitions' },
-          { label: 'Plus', children: [{ label: 'Rapports analytiques', path: 'rapports' }] },
+          { label: 'Rapport', path: 'rapports' },
+          { label: 'Plans', path: 'plans' },
+          { label: 'Modèles', path: 'regles' },
         ],
       },
       {

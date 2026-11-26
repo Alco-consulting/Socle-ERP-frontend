@@ -1,0 +1,90 @@
+<alco-page-header
+  title="Analytique"
+  subtitle="Ce que chaque compte analytique a reçu sur la période (écritures comptabilisées)."
+/>
+
+<div class="bench">
+  @if (plans(); as all) {
+    @if (all.length > 0) {
+      <alco-form-field label="Plan" class="plan">
+        <select
+          alcoSelect
+          [value]="plan()?.public_id ?? ''"
+          #choice
+          (change)="choosePlan(choice.value)"
+        >
+          @for (one of all; track one.public_id) {
+            <option [value]="one.public_id">{{ one.name }}</option>
+          }
+        </select>
+      </alco-form-field>
+    }
+  }
+  <alco-report-period
+    [kind]="periodKind()"
+    [anchor]="anchor()"
+    [period]="period()"
+    (chosen)="choosePeriod($event)"
+  />
+  <span class="muted" title="Montants en devise de la société">En {{ currency() }}</span>
+</div>
+
+@if (plans()?.length === 0) {
+  <div class="empty-frame">
+    <alco-empty-state
+      icon="analytics"
+      title="Aucun plan analytique."
+      message="Créez un plan et ses comptes dans Configuration › Analytique › Plans analytiques."
+    />
+  </div>
+} @else if (report.status() === 'forbidden') {
+  <alco-error-state
+    title="Vous n’avez pas accès aux rapports analytiques."
+    message="Demandez l’accès à un administrateur de la société si vous en avez besoin."
+  />
+} @else if (failure(); as error) {
+  <alco-error-state
+    [title]="error.title"
+    [message]="error.message"
+    [code]="error.code"
+    [correlationId]="error.correlationId ?? ''"
+    retryLabel="Réessayer"
+    (retry)="report.reload()"
+  />
+} @else if (report.value(); as found) {
+  @if (found.results.length === 0) {
+    <div class="empty-frame">
+      <alco-empty-state
+        icon="analytics"
+        title="Rien de réparti sur cette période."
+        message="Répartissez les lignes de facture, ou créez un modèle de répartition par compte."
+      />
+    </div>
+  } @else {
+    <alco-table
+      caption="Comptes analytiques"
+      [columns]="columns"
+      [rows]="found.results"
+      [rowId]="rowId"
+    >
+      <ng-template alcoCell="account" let-row>
+        {{ row.value.code }} <span class="muted">· {{ row.value.label }}</span>
+      </ng-template>
+      <ng-template alcoCell="debit" let-row>{{ row.debit | alcoAmount: places() }}</ng-template>
+      <ng-template alcoCell="credit" let-row>{{ row.credit | alcoAmount: places() }}</ng-template>
+      <ng-template alcoCell="balance" let-row>{{ row.balance | alcoAmount: places() }}</ng-template>
+    </alco-table>
+  }
+  <dl class="totals">
+    <div>
+      <dt>Réparti</dt>
+      <dd class="amount">{{ balanceOf(found.allocated) | alcoAmount: places() }}</dd>
+    </div>
+    <div>
+      <dt>Non réparti</dt>
+      <dd class="amount">{{ balanceOf(found.unallocated) | alcoAmount: places() }}</dd>
+    </div>
+  </dl>
+} @else {
+  <alco-loading variant="table" [rows]="5" [columns]="4" label="Chargement du rapport…" />
+}

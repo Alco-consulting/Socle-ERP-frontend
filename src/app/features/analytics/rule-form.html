@@ -1,0 +1,141 @@
+@if (loadError(); as failure) {
+  <alco-error-state
+    [title]="failure.title"
+    [message]="failure.message"
+    [code]="failure.code"
+    [correlationId]="failure.correlationId ?? ''"
+  />
+} @else if (!ready()) {
+  <alco-loading [rows]="5" label="Chargement du modèle…" />
+} @else {
+  <alco-page-header [title]="title()" subtitle="Modèle de répartition" [dirty]="form.dirty">
+    @if (canSave()) {
+      <div alcoPageActions>
+        @if (rule(); as current) {
+          <button
+            alcoButton
+            type="button"
+            variant="ghost"
+            [loading]="toggling()"
+            loadingLabel="…"
+            (click)="toggle()"
+          >
+            {{ current.status === 'active' ? 'Désactiver' : 'Réactiver' }}
+          </button>
+        }
+        <button
+          alcoButton
+          type="submit"
+          form="rule-form"
+          variant="primary"
+          [loading]="saving()"
+          loadingLabel="Enregistrement…"
+        >
+          Enregistrer
+        </button>
+      </div>
+    }
+  </alco-page-header>
+
+  @if (error(); as failure) {
+    <alco-error-state
+      [inline]="true"
+      [title]="failure.title"
+      [message]="failure.message"
+      [code]="failure.code"
+      [correlationId]="failure.correlationId ?? ''"
+    />
+  }
+
+  <form id="rule-form" class="sheet" [formGroup]="form" (ngSubmit)="save()" novalidate>
+    <section class="alco-form-section" aria-labelledby="rule-title">
+      <div class="alco-form-section__intro">
+        <h2 id="rule-title" class="alco-section-title">Modèle</h2>
+        <p>
+          Ex. : comptes 62 → 60 % Chantier Kipé, 40 % Chantier Ratoma. Chaque ligne de ces comptes
+          saisie sans répartition (facture, écriture) la reçoit toute seule.
+        </p>
+      </div>
+      <div class="grid">
+        <alco-form-field label="Nom" [required]="true" hint="Ex. Frais généraux des chantiers.">
+          <input alcoInput formControlName="name" maxlength="100" autocomplete="off" />
+        </alco-form-field>
+        <alco-form-field label="Plan" [required]="true" hint="Ne change plus après la création.">
+          <select alcoSelect formControlName="axis">
+            <option value="" disabled>Choisir…</option>
+            @for (plan of plans(); track plan.public_id) {
+              <option [value]="plan.public_id">{{ plan.name }}</option>
+            }
+          </select>
+        </alco-form-field>
+        <alco-form-field
+          label="Début de compte"
+          [optional]="true"
+          hint="Ex. 62 : tous les comptes qui commencent par 62. Vide : sur demande seulement."
+        >
+          <input alcoInput formControlName="account_prefix" maxlength="16" autocomplete="off" />
+        </alco-form-field>
+      </div>
+    </section>
+
+    <section class="alco-form-section" aria-labelledby="shares-title">
+      <div class="alco-form-section__intro">
+        <h2 id="shares-title" class="alco-section-title">Répartition</h2>
+        <p>100 % au total. Le reste d’arrondi va à la plus grosse part.</p>
+      </div>
+      <div class="shares" formArrayName="lines">
+        @if (form.controls.axis.value && accounts().length === 0) {
+          <p class="empty">
+            Ce plan n’a pas encore de comptes analytiques.
+            <a [routerLink]="planUrl(form.controls.axis.value)">Ajoutez-les</a>, puis revenez ici.
+          </p>
+        }
+        @for (line of lines.controls; track line; let i = $index) {
+          <div class="share" [formGroupName]="i">
+            <alco-form-field
+              [label]="i === 0 ? 'Compte du plan (ex. Chantier Kipé)' : 'Compte du plan'"
+              [required]="true"
+            >
+              <select alcoSelect formControlName="value">
+                <option value="" disabled>Choisir…</option>
+                @for (account of accounts(); track account.public_id) {
+                  <option [value]="account.public_id">
+                    {{ account.code }} — {{ account.label }}
+                  </option>
+                }
+              </select>
+            </alco-form-field>
+            <alco-form-field label="%" [required]="true">
+              <input
+                alcoInput
+                [numeric]="true"
+                inputmode="decimal"
+                formControlName="percentage"
+                autocomplete="off"
+              />
+            </alco-form-field>
+            @if (canSave() && lines.length > 1) {
+              <button
+                alcoButton
+                type="button"
+                variant="ghost"
+                icon="trash"
+                [iconOnly]="true"
+                (click)="removeLine(i)"
+              >
+                Retirer la part {{ i + 1 }}
+              </button>
+            }
+          </div>
+        }
+        @if (canSave()) {
+          <div>
+            <button alcoButton type="button" variant="ghost" icon="plus" (click)="addLine()">
+              Ajouter une part
+            </button>
+          </div>
+        }
+      </div>
+    </section>
+  </form>
+}

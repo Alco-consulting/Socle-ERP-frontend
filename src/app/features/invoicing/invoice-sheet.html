@@ -322,10 +322,25 @@
                             aria-label="Description"
                             placeholder="Description (facultatif)"
                           />
+                          <button
+                            alcoButton
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            icon="analytics"
+                            class="analytics"
+                            [attr.aria-label]="'Répartition analytique de la ligne ' + (i + 1)"
+                            (click)="distribute(i)"
+                          >
+                            {{ distributionOf(i) || 'Analytique' }}
+                          </button>
                         } @else if (saved?.product; as product) {
                           <a [routerLink]="productUrl(product.public_id)">{{ product.name }}</a>
                           @if (saved?.description !== product.name) {
                             <span class="alco-caption cut">{{ saved?.description }}</span>
+                          }
+                          @if (distributionOf(i); as distribution) {
+                            <span class="alco-caption cut">{{ distribution }}</span>
                           }
                         }
                       </td>

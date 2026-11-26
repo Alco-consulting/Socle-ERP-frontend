@@ -113,6 +113,14 @@ export interface InvoiceLine {
   readonly amount_untaxed: string;
   /** The account posted; on a draft, the product's account of the side. */
   readonly account: NamedReference | null;
+  /** Analytic accounts and percentages, 100 % per plan (note backend 0063). */
+  readonly analytic_distribution?: readonly {
+    readonly public_id: string;
+    readonly code: string;
+    readonly label: string;
+    readonly axis: string;
+    readonly percentage: string;
+  }[];
 }
 
 /** `InvoicingInvoiceTax`: one line per tax. */
@@ -197,6 +205,8 @@ export interface InvoiceLineWrite {
   readonly unit?: string | null;
   readonly description?: string;
   readonly tax?: string | null;
+  /** Empty: the distribution models of the account apply at posting. */
+  readonly analytic_distribution?: readonly { value: string; percentage: string }[];
 }
 
 /** `InvoicingInvoiceWriteRequest`: a draft invoice (a credit note comes from its invoice). */

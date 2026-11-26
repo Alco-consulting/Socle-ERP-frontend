@@ -1,0 +1,43 @@
+@use 'breakpoints' as bp;
+
+:host {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  min-width: 0;
+}
+
+// An empty state in the table's place, a rounded card.
+.empty-frame {
+  border: var(--border-width) solid var(--color-border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
+  background: var(--color-surface);
+}
+
+// A one-line form: its fields side by side, its button at their foot.
+.add {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  align-items: flex-end;
+
+  alco-form-field {
+    flex: 1 1 12rem;
+    max-width: 22rem;
+  }
+
+  @include bp.below-tablet {
+    alco-form-field {
+      max-width: none;
+    }
+  }
+}
+
+.muted {
+  color: var(--color-text-muted);
+}
+
+.amount {
+  font-variant-numeric: tabular-nums;
+}

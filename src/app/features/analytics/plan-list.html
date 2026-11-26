@@ -1,0 +1,66 @@
+<alco-page-header
+  title="Plans analytiques"
+  subtitle="Chaque plan a ses comptes analytiques : un chantier, un projet, un département…"
+/>
+
+@if (canCreate()) {
+  <form class="add" [formGroup]="form" (ngSubmit)="create()" novalidate>
+    <alco-form-field label="Nouveau plan" [required]="true" hint="Ex. Chantiers, Départements.">
+      <input alcoInput formControlName="name" maxlength="100" autocomplete="off" />
+    </alco-form-field>
+    <button
+      alcoButton
+      type="submit"
+      variant="primary"
+      icon="plus"
+      [loading]="creating()"
+      loadingLabel="Création…"
+    >
+      Créer
+    </button>
+  </form>
+  @if (error(); as failure) {
+    <alco-error-state [inline]="true" [title]="failure.title" [message]="failure.message" />
+  }
+}
+
+@if (plans.status() === 'forbidden') {
+  <alco-error-state
+    title="Vous n’avez pas accès à l’analytique de cette société."
+    message="Demandez l’accès à un administrateur de la société si vous en avez besoin."
+  />
+} @else if (loadError(); as failure) {
+  <alco-error-state
+    [title]="failure.title"
+    [message]="failure.message"
+    [code]="failure.code"
+    [correlationId]="failure.correlationId ?? ''"
+    retryLabel="Réessayer"
+    (retry)="plans.reload()"
+  />
+} @else if (plans.value(); as rows) {
+  @if (rows.length === 0) {
+    <div class="empty-frame">
+      <alco-empty-state
+        icon="company"
+        title="Aucun plan analytique pour l’instant."
+        message="Créez un plan (ex. Chantiers), puis ses comptes analytiques (Kipé, Ratoma…)."
+      />
+    </div>
+  } @else {
+    <alco-table caption="Plans analytiques" [columns]="columns" [rows]="rows" [rowId]="rowId">
+      <ng-template alcoCell="name" let-row>
+        <a [routerLink]="row.public_id">{{ row.name }}</a>
+      </ng-template>
+      <ng-template alcoCell="status" let-row>
+        @if (row.status === 'active') {
+          <alco-badge tone="primary" icon="check">Actif</alco-badge>
+        } @else {
+          <alco-badge tone="neutral" icon="close">Désactivé</alco-badge>
+        }
+      </ng-template>
+    </alco-table>
+  }
+} @else {
+  <alco-loading variant="table" [rows]="3" [columns]="3" label="Chargement des plans…" />
+}

@@ -47,6 +47,9 @@ import { normalizeDecimalInput, trimDecimalZeros } from '../../shared/utils/deci
 import { AccountingApi } from '../accounting/data-access/accounting-api';
 import { Journal } from '../accounting/data-access/accounting-models';
 import { EntryLineRow, EntryLinesApi } from '../accounting/data-access/entry-lines-api';
+import { distributionText } from '../analytics/analytics-presentation';
+import { DistributionShare } from '../analytics/data-access/analytics-models';
+import { DistributionDialogService } from '../analytics/distribution-dialog';
 import { AUDIT_TYPES, AlcoObjectHistory } from '../audit/object-history';
 import { ClosingReasonDialogService } from '../closing/reason-dialog';
 import { TaxesApi } from '../taxes/data-access/taxes-api';
@@ -83,6 +86,8 @@ interface LineForm {
   unit: FormControl<string>;
   unit_price: FormControl<string>;
   tax: FormControl<string>;
+  /** The analytic distribution (note backend 0063); empty: the models of the account. */
+  analytics: FormControl<readonly DistributionShare[]>;
 }
 
 type Action = 'confirm' | 'cancel' | 'creditNote' | 'reset';
@@ -147,6 +152,7 @@ export class InvoiceSheetPage {
   private readonly toast = inject(AlcoToastService);
   private readonly confirmService = inject(AlcoConfirmService);
   private readonly reasons = inject(ClosingReasonDialogService);
+  private readonly distributions = inject(DistributionDialogService);
   private readonly catalog = inject(ProductCatalogService);
   private readonly breadcrumbs = inject(BreadcrumbService);
   private readonly session = inject(SessionStore);
@@ -518,6 +524,21 @@ export class InvoiceSheetPage {
     this.form.markAsDirty();
   }
 
+  /** « KIPE 70 %, RATOMA 30 % », or nothing when the account's models will decide. */
+  protected distributionOf(index: number): string {
+    return distributionText(this.lines.at(index)?.controls.analytics.value ?? []);
+  }
+
+  /** The line's analytic distribution, chosen in a dialog as Odoo's. */
+  protected async distribute(index: number): Promise<void> {
+    const control = this.lines.at(index)?.controls.analytics;
+    const chosen = control ? await this.distributions.ask(control.value) : null;
+    if (control && chosen) {
+      control.setValue(chosen);
+      this.form.markAsDirty();
+    }
+  }
+
   /** A product chosen: its price (customer documents) and its tax, as proposals. */
   protected productChosen(index: number): void {
     const line = this.lines.at(index);
@@ -881,6 +902,7 @@ export class InvoiceSheetPage {
             : [Validators.required, decimalFormat(6)],
       }),
       tax: new FormControl(values?.tax ?? '', { nonNullable: true }),
+      analytics: new FormControl<readonly DistributionShare[]>([], { nonNullable: true }),
     });
   }
 
@@ -897,6 +919,10 @@ export class InvoiceSheetPage {
       description: value.description.trim(),
       tax: value.tax || null,
       unit: value.unit || null,
+      analytic_distribution: value.analytics.map((share) => ({
+        value: share.value,
+        percentage: share.percentage,
+      })),
     };
   }
 
@@ -995,20 +1021,27 @@ export class InvoiceSheetPage {
     this.form.controls.journal.setValue(invoice.journal.public_id);
     this.lines.clear();
     for (const line of invoice.lines) {
-      this.lines.push(
-        this.line({
-          display_type: line.display_type,
-          product: line.product?.public_id ?? '',
-          description:
-            line.display_type === 'product' && line.description === line.product?.name
-              ? ''
-              : line.description,
-          quantity: trimDecimalZeros(line.quantity, 0),
-          unit: line.unit?.public_id ?? '',
-          unit_price: trimDecimalZeros(line.unit_price, 0),
-          tax: line.tax?.public_id ?? '',
-        }),
+      const group = this.line({
+        display_type: line.display_type,
+        product: line.product?.public_id ?? '',
+        description:
+          line.display_type === 'product' && line.description === line.product?.name
+            ? ''
+            : line.description,
+        quantity: trimDecimalZeros(line.quantity, 0),
+        unit: line.unit?.public_id ?? '',
+        unit_price: trimDecimalZeros(line.unit_price, 0),
+        tax: line.tax?.public_id ?? '',
+      });
+      group.controls.analytics.setValue(
+        (line.analytic_distribution ?? []).map((share) => ({
+          value: share.public_id,
+          percentage: share.percentage,
+          code: share.code,
+          axis: share.axis,
+        })),
       );
+      this.lines.push(group);
     }
     this.form.markAsPristine();
     this.changes.update((n) => n + 1);

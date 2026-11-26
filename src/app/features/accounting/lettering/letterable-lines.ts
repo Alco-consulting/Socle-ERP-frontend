@@ -193,17 +193,15 @@ export class AlcoLetterableLines {
       : '0';
   });
   protected readonly searchAccounts: AutocompleteSearch = (term) =>
-    this.entries
-      .postableAccounts(term)
-      .pipe(
-        map((found) =>
-          found.map((account) => ({
-            id: account.public_id,
-            label: account.code,
-            detail: account.name,
-          })),
-        ),
-      );
+    this.entries.postableAccounts(term).pipe(
+      map((found) =>
+        found.map((account) => ({
+          id: account.public_id,
+          label: account.code,
+          detail: account.name,
+        })),
+      ),
+    );
   private idempotencyKey: string | null = null;
   private readonly previewTitle = viewChild<ElementRef<HTMLElement>>('previewTitle');
   private lastScope = '';

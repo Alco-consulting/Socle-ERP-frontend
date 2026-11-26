@@ -314,3 +314,51 @@ export interface BalanceQuery {
   readonly search: string;
   readonly page: number;
 }
+
+/** `ReportingBookLine`: a line of an entry of the livre-journal (note backend 0068). */
+export interface JournalBookLine {
+  readonly account_code: string;
+  readonly account_name: string;
+  readonly partner_code: string | null;
+  readonly partner_name: string | null;
+  readonly label: string;
+  readonly debit: string;
+  readonly credit: string;
+}
+
+/** `ReportingJournalBookRow`: a posted entry, in date then number order, with its lines. */
+export interface JournalBookEntry {
+  readonly public_id: string;
+  readonly entry_number: string;
+  readonly entry_date: string;
+  readonly journal_code: string;
+  readonly journal_name: string;
+  readonly description: string;
+  readonly document_reference: string;
+  readonly lines: readonly JournalBookLine[];
+  readonly debit: string;
+  readonly credit: string;
+}
+
+/** `ReportingJournalTotals`: a journal of the scope and its totals. */
+export interface JournalBookTotals {
+  readonly public_id: string;
+  readonly code: string;
+  readonly name: string;
+  readonly entries: number;
+  readonly debit: string;
+  readonly credit: string;
+}
+
+/** `GET reporting/journal-book/`: the totals are the scope's, whatever the page. */
+export interface JournalBook {
+  readonly scope: ReportScope;
+  readonly period: string;
+  readonly journals: readonly JournalBookTotals[];
+  readonly debit: string;
+  readonly credit: string;
+  readonly count: number;
+  readonly next: string | null;
+  readonly previous: string | null;
+  readonly results: readonly JournalBookEntry[];
+}

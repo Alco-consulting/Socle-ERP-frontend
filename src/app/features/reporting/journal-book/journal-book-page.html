@@ -1,0 +1,156 @@
+<!-- The report: its plate (title, printing), then its bench (the period). -->
+<div class="report-bar alco-no-print">
+  <div class="report-plate alco-plate">
+    <h1 class="report-title">Livre-journal</h1>
+    <div class="report-exports">
+      <button
+        alcoButton
+        type="button"
+        variant="primary"
+        [disabled]="!book.value()?.count"
+        [loading]="printing()"
+        loadingLabel="Préparation…"
+        (click)="print()"
+      >
+        Imprimer
+      </button>
+    </div>
+  </div>
+  <div class="report-bench alco-bench">
+    <alco-report-period
+      [kind]="periodKind()"
+      [anchor]="anchor()"
+      [period]="period()"
+      (chosen)="choosePeriod($event)"
+    />
+    <span class="currency" title="Montants en devise de la société">En {{ currency() }}</span>
+  </div>
+</div>
+
+@if (failure(); as error) {
+  <alco-error-state
+    [title]="error.title"
+    [message]="error.message"
+    [code]="error.code"
+    [correlationId]="error.correlationId ?? ''"
+    retryLabel="Réessayer"
+    (retry)="book.reload()"
+  />
+} @else if (book.value(); as current) {
+  <!-- Printed only: the company and the period, on the first page. -->
+  <header class="print-head alco-print-only">
+    <strong>{{ company()?.legalName || company()?.name }}</strong>
+    <span
+      >Livre-journal du {{ period().from | date: 'dd/MM/yyyy' }} au
+      {{ period().to | date: 'dd/MM/yyyy' }}</span
+    >
+    <span>Montants en {{ currency() }}</span>
+  </header>
+
+  @if (current.count === 0) {
+    <p class="empty">Aucune écriture comptabilisée sur la période.</p>
+  } @else {
+    <div class="sheet" [class.reloading]="book.loading()">
+      <table class="book">
+        <caption class="alco-sr-only">
+          Écritures comptabilisées de la période, par date puis par numéro
+        </caption>
+        <thead>
+          <tr>
+            <th scope="col" class="col-date">Date</th>
+            <th scope="col" class="col-account">Compte</th>
+            <th scope="col">Libellé</th>
+            <th scope="col" class="col-partner">Tiers</th>
+            <th scope="col" class="num">Débit</th>
+            <th scope="col" class="num">Crédit</th>
+          </tr>
+        </thead>
+        @for (entry of entries(); track entry.public_id) {
+          <tbody class="entry">
+            <tr class="entry-head">
+              <td class="col-date">{{ entry.entry_date | date: 'dd/MM/yyyy' }}</td>
+              <td colspan="5">
+                <a [routerLink]="[entriesUrl, entry.public_id]" class="number">{{
+                  entry.entry_number
+                }}</a>
+                <span class="journal">{{ entry.journal_code }}</span>
+                <span class="description">{{ entry.description }}</span>
+                @if (entry.document_reference) {
+                  <span class="reference">Réf. {{ entry.document_reference }}</span>
+                }
+              </td>
+            </tr>
+            @for (line of entry.lines; track $index) {
+              <tr>
+                <td></td>
+                <td class="col-account">
+                  <span class="mono">{{ line.account_code }}</span>
+                  <span class="sub">{{ line.account_name }}</span>
+                </td>
+                <td>{{ line.label || entry.description }}</td>
+                <td class="col-partner">{{ line.partner_name ?? '' }}</td>
+                <td class="num">
+                  @if (!isZero(line.debit)) {
+                    {{ line.debit | alcoAmount: decimals() }}
+                  }
+                </td>
+                <td class="num">
+                  @if (!isZero(line.credit)) {
+                    {{ line.credit | alcoAmount: decimals() }}
+                  }
+                </td>
+              </tr>
+            }
+          </tbody>
+        }
+      </table>
+    </div>
+
+    @if (current.count > pageSize && !printed()) {
+      <alco-pagination
+        class="alco-no-print"
+        [page]="page()"
+        [pageSize]="pageSize"
+        [total]="current.count"
+        (pageChange)="goTo($event)"
+      />
+    }
+
+    <!-- The totals of the period: each journal, then the book (debit = credit). -->
+    <table class="totals">
+      <caption>
+        Totaux de la période
+      </caption>
+      <thead>
+        <tr>
+          <th scope="col">Journal</th>
+          <th scope="col" class="num">Écritures</th>
+          <th scope="col" class="num">Débit</th>
+          <th scope="col" class="num">Crédit</th>
+        </tr>
+      </thead>
+      <tbody>
+        @for (journal of current.journals; track journal.public_id) {
+          <tr>
+            <td>
+              <span class="mono">{{ journal.code }}</span> {{ journal.name }}
+            </td>
+            <td class="num">{{ journal.entries }}</td>
+            <td class="num">{{ journal.debit | alcoAmount: decimals() }}</td>
+            <td class="num">{{ journal.credit | alcoAmount: decimals() }}</td>
+          </tr>
+        }
+      </tbody>
+      <tfoot>
+        <tr>
+          <th scope="row">Total du livre-journal</th>
+          <td class="num">{{ current.count }}</td>
+          <td class="num">{{ current.debit | alcoAmount: decimals() }}</td>
+          <td class="num">{{ current.credit | alcoAmount: decimals() }}</td>
+        </tr>
+      </tfoot>
+    </table>
+  }
+} @else {
+  <alco-loading variant="table" [rows]="8" [columns]="6" label="Chargement du livre-journal…" />
+}

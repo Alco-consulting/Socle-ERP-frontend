@@ -148,6 +148,9 @@ export interface InvoiceSummary {
   readonly invoice_date: string;
   readonly journal: NamedReference;
   readonly currency: string;
+  /** In another currency: 1 unit in the company's currency, at posting (note backend 0069). */
+  readonly exchange_rate?: string | null;
+  readonly rate_date?: string | null;
   readonly reference: string;
   readonly origin: string | null;
   readonly amount_untaxed: string;
@@ -155,6 +158,8 @@ export interface InvoiceSummary {
   readonly amount_total: string;
   readonly payment_state: PaymentState | null;
   readonly amount_residual: string | null;
+  /** What remains open in the invoice's own currency (note backend 0069). */
+  readonly amount_residual_currency?: string | null;
 }
 
 /** `InvoicingInvoicePartner`: the partner of the record, with its address. */
@@ -218,6 +223,8 @@ export interface InvoiceWrite {
   readonly invoice_date: string;
   readonly journal?: string | null;
   readonly reference?: string;
+  /** ISO code; absent: the company's currency (note backend 0069). */
+  readonly currency?: string;
   readonly lines: readonly InvoiceLineWrite[];
 }
 
@@ -227,6 +234,7 @@ export interface InvoiceUpdate {
   readonly invoice_date?: string;
   readonly journal?: string;
   readonly reference?: string;
+  readonly currency?: string;
   readonly lines?: readonly InvoiceLineWrite[];
 }
 
@@ -242,6 +250,9 @@ export interface InvoiceQuery {
 export interface PreviewRequest {
   readonly kind: InvoiceKind;
   readonly partner?: string | null;
+  readonly currency?: string;
+  /** The rate's date; absent: today. */
+  readonly invoice_date?: string;
   readonly lines: readonly InvoiceLineWrite[];
 }
 
@@ -257,6 +268,10 @@ export interface Preview {
   readonly amount_untaxed: string;
   readonly amount_tax: string;
   readonly amount_total: string;
+  /** In another currency than the company's (note backend 0069). */
+  readonly foreign?: boolean;
+  /** Its rate: the invoice's day's, or the latest before; null without any. */
+  readonly rate?: { readonly value: string; readonly rate_date: string } | null;
   /** Empty while an account is missing. */
   readonly entry_lines: readonly {
     readonly account: NamedReference;

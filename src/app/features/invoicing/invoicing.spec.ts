@@ -158,6 +158,14 @@ function answerSideRequests(): void {
 
 /** What the sheet reads to edit a draft: the products, the taxes, the journals. */
 function answerOptions(): void {
+  for (const request of httpMock().match((req) => req.url === '/api/v1/currencies/')) {
+    request.flush(
+      page([
+        { code: 'GNF', name: 'Franc guinéen', decimal_places: 0, status: 'active' },
+        { code: 'USD', name: 'Dollar des États-Unis', decimal_places: 2, status: 'active' },
+      ]),
+    );
+  }
   for (const request of httpMock().match((req) => req.url === '/api/v1/invoicing/products/')) {
     request.flush(page([PRODUCT]));
   }
@@ -358,6 +366,8 @@ describe('Facturation (invoicing/)', () => {
     expect(preview.request.body).toEqual({
       kind: 'customer_invoice',
       partner: 'r-CLI-00001',
+      currency: 'GNF',
+      invoice_date: '2026-10-12',
       lines: [
         {
           product: 'r-MAR',
@@ -437,6 +447,8 @@ describe('Facturation (invoicing/)', () => {
   it('« Compte »: another account chosen on the line is sent with it (note backend 0066)', async () => {
     const { element, stable, harness } = await openDraft();
     const line = harness.routeDebugElement!.componentInstance.lines.at(0);
+    // As typed in the field: the form becomes dirty, the preview is asked.
+    line.controls.account.markAsDirty();
     line.controls.account.setValue({ id: 'r-706100', label: '706100 Services vendus' });
     await wait(350);
     await stable();
@@ -456,6 +468,37 @@ describe('Facturation (invoicing/)', () => {
       element.querySelector<HTMLInputElement>('alco-autocomplete[formControlName="account"] input')
         ?.value,
     ).toBe('706100 Services vendus');
+  });
+
+  it('in USD: the amounts in USD, the rate of another day said, posting allowed (note backend 0069)', async () => {
+    const { element, stable } = await openDraft({ ...DRAFT, currency: 'USD' });
+    expect(text(element.querySelector('.dates'))).toContain('Devise');
+    const row = element.querySelector('[data-line="0"]')!;
+    type(row.querySelector<HTMLInputElement>('input[aria-label="Prix"]')!, '100');
+    await wait(350);
+    await stable();
+
+    const preview = httpMock().expectOne('/api/v1/invoicing/invoices/preview/');
+    expect(preview.request.body).toMatchObject({ currency: 'USD', invoice_date: '2026-10-12' });
+    preview.flush({
+      lines: [{ amount_untaxed: '100.000000' }],
+      taxes: [{ tax: VAT, base: '100.000000', amount: '18.000000' }],
+      amount_untaxed: '100.000000',
+      amount_tax: '18.000000',
+      amount_total: '118.000000',
+      foreign: true,
+      rate: { value: '8600.000000000000', rate_date: '2026-10-10' },
+      entry_lines: [],
+    });
+    await stable();
+
+    expect(text(element.querySelector('.totals'))).toContain('Total : 118,00 USD');
+    const note = element.querySelector('.rate dd')!;
+    expect(note.classList).toContain('rate--warning');
+    expect(text(note)).toContain('Le taux USD du 12 oct. n’est pas renseigné');
+    expect(text(note)).toContain('1 USD = 8 600 GNF');
+    // A warning, never a refusal: « Confirmer » stays.
+    expect(button(element, 'Confirmer')).toBeDefined();
   });
 
   it('another unit of the category: the price follows it, as in Odoo', async () => {

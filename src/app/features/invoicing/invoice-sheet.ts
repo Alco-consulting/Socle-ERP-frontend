@@ -12,7 +12,7 @@ import {
   signal,
   untracked,
 } from '@angular/core';
-import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
+import { takeUntilDestroyed, toSignal } from '@angular/core/rxjs-interop';
 import { FormArray, FormControl, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { Subscription, catchError, debounceTime, firstValueFrom, map, of } from 'rxjs';
@@ -43,7 +43,7 @@ import { AlcoTabPanel, AlcoTabs, TabItem } from '../../shared/ui/tabs/tabs';
 import { AlcoToastService } from '../../shared/ui/toast/toast.service';
 import { AlcoWorkflowSteps, WorkflowStep } from '../../shared/ui/workflow-steps/workflow-steps';
 import { localToday } from '../../shared/utils/dates';
-import { normalizeDecimalInput, trimDecimalZeros } from '../../shared/utils/decimal';
+import { formatDecimal, normalizeDecimalInput, trimDecimalZeros } from '../../shared/utils/decimal';
 import { AccountingApi } from '../accounting/data-access/accounting-api';
 import { Journal } from '../accounting/data-access/accounting-models';
 import { EntriesApi } from '../accounting/data-access/entries-api';
@@ -51,6 +51,7 @@ import { EntryLineRow, EntryLinesApi } from '../accounting/data-access/entry-lin
 import { distributionText } from '../analytics/analytics-presentation';
 import { DistributionShare } from '../analytics/data-access/analytics-models';
 import { DistributionDialogService } from '../analytics/distribution-dialog';
+import { PartnersApi } from '../partners/data-access/partners-api';
 import { AUDIT_TYPES, AlcoObjectHistory } from '../audit/object-history';
 import { ClosingReasonDialogService } from '../closing/reason-dialog';
 import { TaxesApi } from '../taxes/data-access/taxes-api';
@@ -166,6 +167,7 @@ export class InvoiceSheetPage {
   private readonly catalog = inject(ProductCatalogService);
   private readonly breadcrumbs = inject(BreadcrumbService);
   private readonly session = inject(SessionStore);
+  private readonly partnersApi = inject(PartnersApi);
   private readonly locale = inject(LOCALE_ID);
   private readonly host = inject<ElementRef<HTMLElement>>(ElementRef);
   private readonly injector = inject(Injector);
@@ -184,6 +186,66 @@ export class InvoiceSheetPage {
   protected readonly spec = computed<KindSpec>(() => KINDS[this.kind()]);
   protected readonly kindLabel = computed(() => KIND_LABELS[this.kind()]);
   protected readonly customerSide = computed(() => this.spec().side === 'customer');
+  /** The active currencies an invoice may be typed in (note backend 0069). */
+  protected readonly currencies = toSignal(
+    this.partnersApi.currencies().pipe(
+      map((page) => page.results.filter((item) => item.status === 'active')),
+      catchError(() => of([])),
+    ),
+    { initialValue: [] },
+  );
+  /** The company's currency: the entries' (GNF). */
+  protected readonly companyCurrency = computed(
+    () => this.session.activeCompany()?.currency ?? 'GNF',
+  );
+  /** The invoice's currency: typed, else posted, else the company's. */
+  protected readonly currencyCode = computed(() => {
+    this.changes();
+    return this.form.controls.currency.value || this.invoice()?.currency || this.companyCurrency();
+  });
+  /** Its decimals, for the amounts shown (the server rounds). */
+  protected readonly places = computed(
+    () => this.currencies().find((item) => item.code === this.currencyCode())?.decimal_places ?? 0,
+  );
+  protected readonly companyPlaces = computed(
+    () =>
+      this.currencies().find((item) => item.code === this.companyCurrency())?.decimal_places ?? 0,
+  );
+  protected readonly foreign = computed(() => this.currencyCode() !== this.companyCurrency());
+  /**
+   * In another currency, its rate as Odoo shows it, and a warning when it is not the invoice's
+   * day's (posting still goes on with it) or when there is none (posting is refused).
+   */
+  protected readonly rateNote = computed(() => {
+    if (!this.foreign()) {
+      return null;
+    }
+    const code = this.currencyCode();
+    const invoice = this.invoice();
+    const preview = this.editable() ? this.preview() : null;
+    const value = preview ? preview.rate?.value : invoice?.exchange_rate;
+    const day = preview ? preview.rate?.rate_date : invoice?.rate_date;
+    const typedDay = this.editable()
+      ? this.form.controls.invoice_date.value
+      : invoice?.invoice_date;
+    if (this.editable() && preview && !preview.rate) {
+      return {
+        warning: true,
+        text: `Aucun taux ${code} n’est saisi : ajoutez-le dans Comptabilité › Devises avant de confirmer.`,
+      };
+    }
+    if (!value || !day) {
+      return null;
+    }
+    const rate = `1 ${code} = ${formatDecimal(trimDecimalZeros(value, 0), 0)} ${this.companyCurrency()}`;
+    if (this.editable() && typedDay && day !== typedDay) {
+      return {
+        warning: true,
+        text: `Le taux ${code} du ${this.shortDate(typedDay)} n’est pas renseigné : celui du ${this.shortDate(day)} sera utilisé (${rate}).`,
+      };
+    }
+    return { warning: false, text: `Taux : ${rate} (du ${this.shortDate(day)})` };
+  });
   protected readonly isCreditNote = computed(() => !this.spec().creatable);
   /** A draft is edited in place, as in Odoo; a posted or cancelled document is read only. */
   protected readonly editable = computed(() => {
@@ -212,6 +274,8 @@ export class InvoiceSheetPage {
       validators: [Validators.required],
     }),
     reference: new FormControl('', { nonNullable: true, validators: [Validators.maxLength(64)] }),
+    /** ISO code (note backend 0069); the company's by default. */
+    currency: new FormControl('', { nonNullable: true }),
     journal: new FormControl('', { nonNullable: true }),
     lines: new FormArray<FormGroup<LineForm>>([]),
   });
@@ -336,7 +400,11 @@ export class InvoiceSheetPage {
               total: invoice.amount_total,
             }
           : { untaxed: '0', taxes: [], total: '0' };
-    const due = invoice?.amount_residual ?? (invoice?.status === 'cancelled' ? null : source.total);
+    // What remains open in the invoice's own currency (note backend 0069).
+    const due =
+      invoice?.amount_residual_currency ??
+      invoice?.amount_residual ??
+      (invoice?.status === 'cancelled' ? null : source.total);
     return { ...source, due };
   });
 
@@ -948,6 +1016,7 @@ export class InvoiceSheetPage {
       invoice_date: value.invoice_date,
       journal: value.journal || null,
       reference: value.reference.trim(),
+      ...(value.currency ? { currency: value.currency } : {}),
       lines: this.lines.controls.map((line) => this.written(line)),
     };
   }
@@ -960,6 +1029,7 @@ export class InvoiceSheetPage {
       invoice_date: value.invoice_date,
       ...(value.journal ? { journal: value.journal } : {}),
       reference: value.reference.trim(),
+      ...(value.currency && !this.isCreditNote() ? { currency: value.currency } : {}),
       lines: this.lines.controls.map((line) => this.written(line)),
     };
   }
@@ -984,7 +1054,15 @@ export class InvoiceSheetPage {
     });
     this.previewCall?.unsubscribe();
     this.previewCall = this.api
-      .preview({ kind: this.kind(), partner: this.form.controls.partner.value?.id ?? null, lines })
+      .preview({
+        kind: this.kind(),
+        partner: this.form.controls.partner.value?.id ?? null,
+        ...(this.form.controls.currency.value
+          ? { currency: this.form.controls.currency.value }
+          : {}),
+        invoice_date: this.form.controls.invoice_date.value,
+        lines,
+      })
       .subscribe({
         next: (preview) => {
           this.previewIndex.set(index);
@@ -1032,6 +1110,7 @@ export class InvoiceSheetPage {
     }
     this.form.controls.invoice_date.setValue(invoice.invoice_date);
     this.form.controls.reference.setValue(invoice.reference);
+    this.form.controls.currency.setValue(invoice.currency);
     this.form.controls.journal.setValue(invoice.journal.public_id);
     this.lines.clear();
     for (const line of invoice.lines) {

@@ -122,7 +122,13 @@
         <ng-template alcoCell="untaxed" let-row>{{
           row.amount_untaxed | alcoAmount: 0
         }}</ng-template>
-        <ng-template alcoCell="total" let-row>{{ row.amount_total | alcoAmount: 0 }}</ng-template>
+        <ng-template alcoCell="total" let-row
+          >{{ row.amount_total | alcoAmount: 0 }}
+          @if (row.currency !== companyCurrency()) {
+            <!-- An invoice in another currency (note backend 0069). -->
+            <span class="currency">{{ row.currency }}</span>
+          }
+        </ng-template>
         <ng-template alcoCell="status" let-row>
           <alco-badge [tone]="statusOf(row).tone" [icon]="statusOf(row).icon">{{
             statusOf(row).label

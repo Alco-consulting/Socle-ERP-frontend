@@ -28,8 +28,8 @@
       <p class="figure">
         <span class="figure-label">{{ sums.due !== null ? 'Montant dû' : 'Total' }}</span>
         <span class="figure-value"
-          >{{ sums.due ?? sums.total | alcoAmount: 0 }}
-          <span class="figure-currency">{{ invoice()?.currency ?? 'GNF' }}</span></span
+          >{{ sums.due ?? sums.total | alcoAmount: places() }}
+          <span class="figure-currency">{{ currencyCode() }}</span></span
         >
       </p>
       <div class="plate-buttons">
@@ -176,6 +176,26 @@
             }
           </dd>
         </div>
+        <!-- The invoice's currency (note backend 0069): the entry stays in the company's. -->
+        <div>
+          <dt>Devise</dt>
+          <dd>
+            @if (editable() && !isCreditNote()) {
+              <select alcoSelect formControlName="currency" aria-label="Devise">
+                <option value="">{{ companyCurrency() }}</option>
+                @for (currency of currencies(); track currency.code) {
+                  @if (currency.code !== companyCurrency()) {
+                    <option [value]="currency.code">
+                      {{ currency.code }} — {{ currency.name }}
+                    </option>
+                  }
+                }
+              </select>
+            } @else {
+              {{ currencyCode() }}
+            }
+          </dd>
+        </div>
         @if (!customerSide()) {
           <div>
             <dt>Référence de la facture</dt>
@@ -192,6 +212,14 @@
               } @else {
                 {{ invoice()?.reference }}
               }
+            </dd>
+          </div>
+        }
+        @if (rateNote(); as note) {
+          <div class="rate">
+            <dt class="alco-sr-only">Taux</dt>
+            <dd [class.rate--warning]="note.warning" [attr.role]="note.warning ? 'status' : null">
+              {{ note.text }}
             </dd>
           </div>
         }
@@ -400,7 +428,7 @@
                             aria-label="Prix"
                           />
                         } @else {
-                          {{ saved?.unit_price | alcoAmount: 2 }}
+                          {{ saved?.unit_price | alcoAmount: places() }}
                         }
                       </td>
                       <td class="hide-below-tablet">
@@ -417,7 +445,7 @@
                       </td>
                       <td class="num amount">
                         @if (amountOf(i); as amount) {
-                          {{ amount | alcoAmount: 0 }} {{ invoice()?.currency ?? 'GNF' }}
+                          {{ amount | alcoAmount: places() }} {{ currencyCode() }}
                         }
                       </td>
                       @if (editable()) {
@@ -458,17 +486,17 @@
         <dl class="totals">
           <div>
             <dt>Montant hors taxes :</dt>
-            <dd>{{ sums.untaxed | alcoAmount: 0 }} {{ invoice()?.currency ?? 'GNF' }}</dd>
+            <dd>{{ sums.untaxed | alcoAmount: places() }} {{ currencyCode() }}</dd>
           </div>
           @for (tax of sums.taxes; track tax.name) {
             <div>
               <dt>{{ tax.name }} :</dt>
-              <dd>{{ tax.amount | alcoAmount: 0 }} {{ invoice()?.currency ?? 'GNF' }}</dd>
+              <dd>{{ tax.amount | alcoAmount: places() }} {{ currencyCode() }}</dd>
             </div>
           }
           <div class="total">
             <dt>Total :</dt>
-            <dd>{{ sums.total | alcoAmount: 0 }} {{ invoice()?.currency ?? 'GNF' }}</dd>
+            <dd>{{ sums.total | alcoAmount: places() }} {{ currencyCode() }}</dd>
           </div>
           @for (item of invoice()?.settlements ?? []; track item.lettering) {
             <div class="settlement">
@@ -481,13 +509,13 @@
                   Payé le {{ item.date | date: 'dd/MM/yyyy' }}
                 }
               </dt>
-              <dd>{{ item.amount | alcoAmount: 0 }} {{ invoice()?.currency ?? 'GNF' }}</dd>
+              <dd>{{ item.amount | alcoAmount: places() }} {{ currencyCode() }}</dd>
             </div>
           }
           @if (sums.due !== null) {
             <div class="due">
               <dt>Montant dû :</dt>
-              <dd>{{ sums.due | alcoAmount: 0 }} {{ invoice()?.currency ?? 'GNF' }}</dd>
+              <dd>{{ sums.due | alcoAmount: places() }} {{ currencyCode() }}</dd>
             </div>
           }
         </dl>
@@ -512,10 +540,10 @@
                 <span class="cut account" [title]="row.label">{{ row.label }}</span>
               </ng-template>
               <ng-template alcoCell="debit" let-row
-                >{{ row.debit | alcoAmount: 0 }} {{ invoice()?.currency ?? 'GNF' }}</ng-template
+                >{{ row.debit | alcoAmount: companyPlaces() }} {{ companyCurrency() }}</ng-template
               >
               <ng-template alcoCell="credit" let-row
-                >{{ row.credit | alcoAmount: 0 }} {{ invoice()?.currency ?? 'GNF' }}</ng-template
+                >{{ row.credit | alcoAmount: companyPlaces() }} {{ companyCurrency() }}</ng-template
               >
             </alco-table>
             <p class="alco-caption entry-link">L’écriture est créée à la confirmation.</p>

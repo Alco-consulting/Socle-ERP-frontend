@@ -9,6 +9,7 @@ import {
   GeneralLedger,
   GeneralLedgerQuery,
   IncomeStatement,
+  JournalBook,
   PartnersLedger,
   PartnersLedgerQuery,
   LedgerQuery,
@@ -20,6 +21,10 @@ import {
 export const LEDGER_PAGE_SIZE = 50;
 /** Accounts per page of the balance: the server's most, a company's whole balance in practice. */
 export const BALANCE_PAGE_SIZE = 200;
+/** Entries per page of the livre-journal on screen; printing reads every page. */
+export const JOURNAL_BOOK_PAGE_SIZE = 50;
+/** The server's most: the pages read to print the whole livre-journal. */
+export const JOURNAL_BOOK_PRINT_SIZE = 200;
 /** Lines of an unfolded account of the general ledger, then « Charger plus », as Odoo's. */
 export const GENERAL_LEDGER_LINES = 80;
 
@@ -79,6 +84,23 @@ export class ReportingApi {
         search: query.search || null,
         page: query.page > 1 ? query.page : null,
         page_size: BALANCE_PAGE_SIZE,
+      },
+    });
+  }
+
+  /** `reporting.read`: the livre-journal (note backend 0068), one page of entries. */
+  journalBook(
+    dateFrom: string,
+    dateTo: string,
+    page = 1,
+    pageSize = JOURNAL_BOOK_PAGE_SIZE,
+  ): Observable<JournalBook> {
+    return this.api.get<JournalBook>('reporting/journal-book/', {
+      params: {
+        date_from: dateFrom,
+        date_to: dateTo,
+        page: page > 1 ? page : null,
+        page_size: pageSize,
       },
     });
   }

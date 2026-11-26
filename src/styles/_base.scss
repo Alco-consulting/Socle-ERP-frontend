@@ -330,3 +330,36 @@ a {
     @include logo-dark-theme;
   }
 }
+
+// Printing a report (the livre-journal, note backend 0068): the screen's content alone, the
+// application's frame and controls left out, the pages numbered.
+.alco-print-only {
+  display: none;
+}
+
+@media print {
+  // The id outweighs a component's own display (`.report-bar`, a pagination).
+  alco-module-shell > .sticky,
+  alco-module-shell .trail,
+  alco-module-shell alco-module-nav,
+  #contenu .alco-no-print {
+    display: none;
+  }
+
+  .alco-print-only {
+    display: block;
+  }
+
+  body {
+    background: var(--color-surface);
+  }
+
+  @page {
+    margin: 15mm 12mm;
+
+    @bottom-right {
+      content: 'Page ' counter(page) ' / ' counter(pages);
+      font-size: var(--font-size-caption);
+    }
+  }
+}

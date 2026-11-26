@@ -217,6 +217,13 @@ export const ACCOUNTING_ROUTES: Routes = [
         (m) => m.IncomeStatementPage,
       ),
   },
+  // Analyse › Livre-journal: the posted entries in date order, printable (note backend 0068).
+  {
+    path: 'analyse/livre-journal',
+    data: { breadcrumb: 'Livre-journal' },
+    loadComponent: () =>
+      import('../reporting/journal-book/journal-book-page').then((m) => m.JournalBookPage),
+  },
   // Analyse › Grand livre général, as Odoo's (note backend 0053).
   {
     path: 'analyse/grand-livre',

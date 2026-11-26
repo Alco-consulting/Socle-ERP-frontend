@@ -1,0 +1,124 @@
+@use '../report-frame';
+
+// The livre-journal (note backend 0068): each entry a head row, then its lines; the totals.
+.sheet {
+  overflow-x: auto;
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  font-variant-numeric: tabular-nums;
+}
+
+th,
+td {
+  padding: var(--space-1) var(--space-2);
+  text-align: left;
+  vertical-align: top;
+}
+
+thead th {
+  border-bottom: var(--border-width) solid var(--color-border-strong);
+  color: var(--color-text-muted);
+  font-size: var(--font-size-caption);
+  font-weight: var(--font-weight-semibold);
+}
+
+.num {
+  text-align: right;
+  white-space: nowrap;
+}
+
+.col-date {
+  width: 6.5rem;
+  white-space: nowrap;
+}
+
+.col-account {
+  width: 16rem;
+}
+
+.col-partner {
+  width: 12rem;
+}
+
+.mono {
+  font-family: var(--font-family-mono);
+}
+
+.sub {
+  margin-left: var(--space-2);
+  color: var(--color-text-muted);
+}
+
+// One entry: never cut between two pages when printed.
+.entry {
+  break-inside: avoid;
+  border-bottom: var(--border-width) solid var(--color-border);
+}
+
+.entry-head td {
+  padding-top: var(--space-3);
+  font-weight: var(--font-weight-semibold);
+}
+
+.number {
+  font-family: var(--font-family-mono);
+}
+
+.journal,
+.reference {
+  margin-left: var(--space-3);
+  color: var(--color-text-muted);
+  font-weight: var(--font-weight-regular);
+}
+
+.description {
+  margin-left: var(--space-3);
+}
+
+.totals {
+  max-width: 48rem;
+  margin-left: auto;
+
+  caption {
+    padding-bottom: var(--space-2);
+    font-weight: var(--font-weight-semibold);
+    text-align: left;
+  }
+
+  tbody td {
+    border-bottom: var(--border-width) solid var(--color-border);
+  }
+
+  tfoot th,
+  tfoot td {
+    border-top: calc(var(--border-width) * 2) solid var(--color-border-strong);
+    font-weight: var(--font-weight-bold);
+  }
+}
+
+.empty {
+  margin: 0;
+  color: var(--color-text-muted);
+}
+
+.print-head {
+  margin-bottom: var(--space-3);
+
+  > * {
+    display: block;
+  }
+}
+
+@media print {
+  .sheet {
+    overflow: visible;
+  }
+
+  .number {
+    color: inherit;
+    text-decoration: none;
+  }
+}

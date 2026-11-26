@@ -22,6 +22,8 @@ jobs:
   quality:
     name: Lint, production build (unit tests on demand)
     runs-on: ubuntu-latest
+    # A build that never exits (seen since 2026-11-25) fails here, not after GitHub's 6 hours.
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4

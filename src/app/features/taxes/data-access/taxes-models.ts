@@ -72,12 +72,28 @@ export interface Declaration {
   readonly declared_amount: string;
   /** Declared − calculated. */
   readonly difference: string;
+  /** The VAT credit of the previous periods used at the liquidation (note backend 0067). */
+  readonly carried_credit: string;
+  /** What the liquidation leaves to pay; null until the validation. */
+  readonly amount_due: string | null;
+  /** The liquidation entry (public id and number), posted at the validation. */
+  readonly closing_entry: string | null;
+  readonly closing_entry_number: string;
+  /** The payment's entry in the bank or cash journal. */
+  readonly payment_entry: string | null;
+  readonly payment_entry_number: string;
   readonly checked_at: string | null;
   readonly validated_at: string | null;
   readonly declared_at: string | null;
   readonly paid_at: string | null;
   readonly created_at: string;
   readonly updated_at: string;
+}
+
+/** `mark-paid/`: the journal the VAT due is paid from, and when (note backend 0067). */
+export interface DeclarationPayment {
+  readonly journal: string | null;
+  readonly payment_date: string | null;
 }
 
 export interface VatLine {

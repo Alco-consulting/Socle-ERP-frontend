@@ -5,6 +5,7 @@ import { ApiClient, Paginated } from '../../../core/http/api-client';
 import {
   Declaration,
   DeclarationCommand,
+  DeclarationPayment,
   DeclarationDetail,
   DefaultTaxes,
   Tax,
@@ -106,10 +107,15 @@ export class TaxesApi {
     });
   }
 
+  /** One step; `mark-paid` takes the payment's journal and date (note backend 0067). */
   runDeclarationStep(
     declarationId: string,
     command: DeclarationCommand,
+    payment?: DeclarationPayment,
   ): Observable<DeclarationDetail> {
-    return this.api.post<DeclarationDetail>(`${declarations}${id(declarationId)}/${command}/`);
+    return this.api.post<DeclarationDetail>(
+      `${declarations}${id(declarationId)}/${command}/`,
+      payment,
+    );
   }
 }

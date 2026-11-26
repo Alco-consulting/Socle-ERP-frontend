@@ -8,6 +8,20 @@
 }
 
 // The figures in two columns: the word on the left, the amount on the right.
+// The payment of the VAT due: journal, date, then the button (note backend 0067).
+.pay {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+  margin-top: var(--space-3);
+
+  > select {
+    flex: 1 1 14rem;
+    min-width: 0;
+  }
+}
+
 .figures {
   display: flex;
   flex-direction: column;

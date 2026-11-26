@@ -113,6 +113,66 @@
     </p>
   </alco-card>
 
+  @if (current.amount_due !== null) {
+    <!-- The liquidation posted at the validation, then its payment (note backend 0067). -->
+    <alco-card title="Liquidation" icon="check">
+      <dl class="figures">
+        @if (!isZero(current.carried_credit)) {
+          <div>
+            <dt>Crédit de TVA reporté</dt>
+            <dd>{{ current.carried_credit | alcoAmount: places() }}</dd>
+          </div>
+        }
+        <div class="total">
+          <dt>Reste à payer</dt>
+          <dd>{{ current.amount_due | alcoAmount: places() }}</dd>
+        </div>
+        <div>
+          <dt>Écriture de liquidation</dt>
+          <dd>
+            @if (current.closing_entry; as entry) {
+              <a [routerLink]="[entriesUrl, entry]">{{ current.closing_entry_number }}</a>
+            } @else {
+              Aucune (rien à liquider)
+            }
+          </dd>
+        </div>
+        @if (current.payment_entry; as payment) {
+          <div>
+            <dt>Paiement</dt>
+            <dd>
+              <a [routerLink]="[entriesUrl, payment]">{{ current.payment_entry_number }}</a>
+            </dd>
+          </div>
+        }
+      </dl>
+      @if (paying()) {
+        <form class="pay" (submit)="$event.preventDefault(); pay(current)" novalidate>
+          <select alcoSelect [formControl]="payJournal" aria-label="Journal du paiement">
+            <option value="">Journal de banque ou de caisse</option>
+            @for (journal of payJournals(); track journal.public_id) {
+              <option [value]="journal.public_id">{{ journal.code }} — {{ journal.name }}</option>
+            }
+          </select>
+          <input alcoDatePicker type="date" aria-label="Date du paiement" [formControl]="payDate" />
+          <button
+            alcoButton
+            type="submit"
+            variant="primary"
+            [loading]="busy() === 'mark-paid'"
+            loadingLabel="Paiement…"
+          >
+            Payer {{ current.amount_due | alcoAmount: places() }}
+          </button>
+          <button alcoButton type="button" (click)="paying.set(false)">Annuler</button>
+        </form>
+        @if (payError(); as message) {
+          <p class="alco-caption gap" role="alert">{{ message }}</p>
+        }
+      }
+    </alco-card>
+  }
+
   <alco-card title="Détail par taxe" icon="file">
     @if (current.vat.lines.length === 0) {
       <p class="alco-caption">Aucune écriture validée avec de la TVA sur la période.</p>

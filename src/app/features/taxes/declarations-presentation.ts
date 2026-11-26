@@ -83,4 +83,21 @@ export const DECLARATION_ERRORS: ErrorCatalog = {
     title: 'La déclaration est validée.',
     message: 'Ses montants ne changent plus.',
   },
+  accounting_vat_account_missing: {
+    title: 'Un compte de la liquidation manque au plan comptable.',
+    message:
+      'Créez le compte 4441 « État, TVA due » et le compte 4449 « État, crédit de TVA à reporter », puis validez à nouveau.',
+  },
+  accounting_vat_journal_missing: {
+    title: 'Aucun journal d’opérations diverses actif.',
+    message: 'La liquidation de la TVA y est passée : créez ou réactivez ce journal.',
+  },
+  taxes_declaration_payment_journal_required: {
+    title: 'Le journal du paiement manque.',
+    message: 'Choisissez le journal de banque ou de caisse d’où la TVA est payée.',
+  },
+  treasury_vat_payment_journal: {
+    title: 'Ce journal ne peut pas payer la TVA.',
+    message: 'Choisissez un journal de banque ou de caisse de la société.',
+  },
 };

@@ -34,6 +34,12 @@ function declaration(extra: Partial<DeclarationDetail> = {}): DeclarationDetail 
     calculated_amount: '72000.000000',
     declared_amount: '72000.000000',
     difference: '0.000000',
+    carried_credit: '0.000000',
+    amount_due: null,
+    closing_entry: null,
+    closing_entry_number: '',
+    payment_entry: null,
+    payment_entry_number: '',
     checked_at: null,
     validated_at: null,
     declared_at: null,
@@ -211,6 +217,79 @@ describe('Déclarations de TVA', () => {
     await stable();
 
     expect(element.querySelector('.gap')?.textContent).toMatch(/-2\s000/);
+  });
+
+  it('validated: its liquidation; « Marquer payée » asks the journal and pays (note backend 0067)', async () => {
+    const { element, stable, button } = await open('/declarations/d-1');
+    const liquidated = declaration({
+      status: 'declared',
+      next_steps: ['mark-paid'],
+      carried_credit: '10000.000000',
+      amount_due: '62000.000000',
+      closing_entry: 'e-liq',
+      closing_entry_number: 'OD-2026-000012',
+    });
+    httpMock().expectOne(`${BASE}d-1/`).flush(liquidated);
+    await stable();
+    expect(element.textContent).toContain('Crédit de TVA reporté');
+    expect(element.textContent).toMatch(/Reste à payer\s*62\s000/);
+    expect(element.querySelector('a[href$="/comptabilite/ecritures/e-liq"]')?.textContent).toBe(
+      'OD-2026-000012',
+    );
+
+    button('Marquer payée')!.click();
+    await stable();
+    httpMock()
+      .expectOne((req) => req.url === '/api/v1/accounting/journals/')
+      .flush(
+        page([
+          { public_id: 'j-od', code: 'OD', name: 'Opérations diverses', journal_type: 'general' },
+          { public_id: 'j-bq', code: 'BQ', name: 'Banque', journal_type: 'bank' },
+        ]),
+      );
+    await stable();
+    const journal = element.querySelector<HTMLSelectElement>(
+      'select[aria-label="Journal du paiement"]',
+    )!;
+    expect(Array.from(journal.options).map((option) => option.value)).toEqual(['', 'j-bq']);
+    const date = element.querySelector<HTMLInputElement>('input[aria-label="Date du paiement"]')!;
+    date.value = '2026-04-15';
+    date.dispatchEvent(new Event('input'));
+    await stable();
+    element.querySelector<HTMLFormElement>('form.pay')!.dispatchEvent(new Event('submit'));
+    await stable();
+
+    const paid = httpMock().expectOne({ method: 'POST', url: `${BASE}d-1/mark-paid/` });
+    expect(paid.request.body).toEqual({ journal: 'j-bq', payment_date: '2026-04-15' });
+    paid.flush({
+      ...liquidated,
+      status: 'paid',
+      next_steps: [],
+      payment_entry: 'e-pay',
+      payment_entry_number: 'BQ-2026-000003',
+    });
+    await stable();
+    expect(element.querySelector('a[href$="/comptabilite/ecritures/e-pay"]')?.textContent).toBe(
+      'BQ-2026-000003',
+    );
+    expect(element.querySelector('form.pay')).toBeNull();
+  });
+
+  it('nothing due (a credit): « Marquer payée » asks nothing', async () => {
+    const { stable, button } = await open('/declarations/d-1');
+    httpMock()
+      .expectOne(`${BASE}d-1/`)
+      .flush(
+        declaration({ status: 'declared', next_steps: ['mark-paid'], amount_due: '0.000000' }),
+      );
+    await stable();
+
+    button('Marquer payée')!.click();
+    await stable();
+    const paid = httpMock().expectOne({ method: 'POST', url: `${BASE}d-1/mark-paid/` });
+    expect(paid.request.body).toBeNull();
+    paid.flush(declaration({ status: 'paid', next_steps: [], amount_due: '0.000000' }));
+    await stable();
   });
 
   it('entries changed since the computation: said, recomputed at the next step', async () => {

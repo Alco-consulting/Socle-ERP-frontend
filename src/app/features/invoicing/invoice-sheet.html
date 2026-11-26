@@ -345,7 +345,17 @@
                         }
                       </td>
                       <td class="hide-below-tablet">
-                        @if (accountOf(i); as account) {
+                        @if (editable()) {
+                          <!-- As Odoo's « Compte »: the product's, or another (note 0066). -->
+                          <alco-autocomplete
+                            class="account"
+                            formControlName="account"
+                            [search]="searchAccounts"
+                            label="Compte"
+                            placeholder="Compte"
+                            emptyText="Aucun compte ne correspond."
+                          />
+                        } @else if (accountOf(i); as account) {
                           @let name = account.code + ' ' + account.name;
                           <span class="cut account" [title]="name">{{ name }}</span>
                         }

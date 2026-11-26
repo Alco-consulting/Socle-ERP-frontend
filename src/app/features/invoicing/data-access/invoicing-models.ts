@@ -207,6 +207,8 @@ export interface InvoiceLineWrite {
   readonly tax?: string | null;
   /** Empty: the distribution models of the account apply at posting. */
   readonly analytic_distribution?: readonly { value: string; percentage: string }[];
+  /** Any account that takes entries; null: the product's for the side (note backend 0066). */
+  readonly account?: string | null;
 }
 
 /** `InvoicingInvoiceWriteRequest`: a draft invoice (a credit note comes from its invoice). */

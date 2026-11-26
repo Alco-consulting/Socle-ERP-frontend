@@ -231,7 +231,7 @@ describe('Facturation (invoicing/)', () => {
       await settle();
       await harness.fixture.whenStable();
     };
-    return { element, stable };
+    return { element, stable, harness };
   }
 
   async function openDraft(invoice: Invoice = DRAFT) {
@@ -322,7 +322,11 @@ describe('Facturation (invoicing/)', () => {
     expect(row.querySelector<HTMLSelectElement>('select[aria-label="Produit"]')?.value).toBe(
       'r-MAR',
     );
-    expect(text(row)).toContain('701100 Ventes de marchandises');
+    // « Compte », as Odoo's: the line's, to change (note backend 0066).
+    expect(
+      row.querySelector<HTMLInputElement>('alco-autocomplete[formControlName="account"] input')
+        ?.value,
+    ).toBe('701100 Ventes de marchandises');
     // The units of the product's category (note backend 0047).
     const units = row.querySelector<HTMLSelectElement>('select[aria-label="Unité"]')!;
     expect(units.value).toBe('u-kg');
@@ -363,6 +367,7 @@ describe('Facturation (invoicing/)', () => {
           tax: 't-vat',
           unit: 'u-kg',
           analytic_distribution: [],
+          account: 'r-701100',
         },
       ],
     });
@@ -427,6 +432,30 @@ describe('Facturation (invoicing/)', () => {
       entry_lines: [],
     });
     await stable();
+  });
+
+  it('« Compte »: another account chosen on the line is sent with it (note backend 0066)', async () => {
+    const { element, stable, harness } = await openDraft();
+    const line = harness.routeDebugElement!.componentInstance.lines.at(0);
+    line.controls.account.setValue({ id: 'r-706100', label: '706100 Services vendus' });
+    await wait(350);
+    await stable();
+
+    const preview = httpMock().expectOne('/api/v1/invoicing/invoices/preview/');
+    expect(preview.request.body.lines[0].account).toBe('r-706100');
+    preview.flush({
+      lines: [{ amount_untaxed: '1000000.000000' }],
+      taxes: [],
+      amount_untaxed: '1000000.000000',
+      amount_tax: '0.000000',
+      amount_total: '1000000.000000',
+      entry_lines: [],
+    });
+    await stable();
+    expect(
+      element.querySelector<HTMLInputElement>('alco-autocomplete[formControlName="account"] input')
+        ?.value,
+    ).toBe('706100 Services vendus');
   });
 
   it('another unit of the category: the price follows it, as in Odoo', async () => {

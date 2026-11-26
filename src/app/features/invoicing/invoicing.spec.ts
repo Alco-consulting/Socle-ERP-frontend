@@ -10,6 +10,7 @@ import { clearCookie, httpMock, provideHttpTesting, setCookie } from '../../core
 import { SessionStore } from '../../core/session/session.store';
 import { openTestSession } from '../../core/session/testing';
 import { AlcoConfirmService } from '../../shared/ui/confirm-dialog/confirm-dialog';
+import { DistributionDialogService } from '../analytics/distribution-dialog';
 import { InvoicingApi } from './data-access/invoicing-api';
 import { Invoice, Product } from './data-access/invoicing-models';
 import { InvoiceListPage } from './invoice-list';
@@ -361,6 +362,7 @@ describe('Facturation (invoicing/)', () => {
           description: '',
           tax: 't-vat',
           unit: 'u-kg',
+          analytic_distribution: [],
         },
       ],
     });
@@ -396,6 +398,35 @@ describe('Facturation (invoicing/)', () => {
     expect(buttons(element)).toEqual(['Nouveau', 'Avoir', 'Remettre en brouillon']);
     expect(element.querySelector('input[aria-label="Quantité"]')).toBeNull();
     expect(text(element.querySelector('[aria-current=step]'))).toBe('Comptabilisé');
+  });
+
+  it('a line distributed to analytic accounts, as Odoo: shown on the line, sent with it', async () => {
+    const { element, stable } = await openDraft();
+    vi.spyOn(TestBed.inject(DistributionDialogService), 'ask').mockResolvedValue([
+      { value: 'v-kipe', percentage: '70', code: 'KIPE', axis: 'SITE' },
+      { value: 'v-ratoma', percentage: '30', code: 'RATOMA', axis: 'SITE' },
+    ]);
+    const row = element.querySelector('[data-line="0"]')!;
+
+    row.querySelector<HTMLButtonElement>('button.analytics')!.click();
+    await wait(350);
+    await stable();
+
+    expect(text(row)).toContain('KIPE 70 %, RATOMA 30 %');
+    const preview = httpMock().expectOne('/api/v1/invoicing/invoices/preview/');
+    expect(preview.request.body.lines[0].analytic_distribution).toEqual([
+      { value: 'v-kipe', percentage: '70' },
+      { value: 'v-ratoma', percentage: '30' },
+    ]);
+    preview.flush({
+      lines: [{ amount_untaxed: '1000000.000000' }],
+      taxes: [],
+      amount_untaxed: '1000000.000000',
+      amount_tax: '0.000000',
+      amount_total: '1000000.000000',
+      entry_lines: [],
+    });
+    await stable();
   });
 
   it('another unit of the category: the price follows it, as in Odoo', async () => {

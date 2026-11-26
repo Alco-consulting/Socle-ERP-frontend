@@ -344,6 +344,12 @@
     select + .description {
       margin-top: var(--space-1);
     }
+
+    // The line's analytic distribution, under its description (note backend 0063).
+    .analytics {
+      margin-top: var(--space-1);
+      max-width: 100%;
+    }
   }
 
   td.num input {

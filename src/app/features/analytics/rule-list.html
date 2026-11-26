@@ -1,0 +1,56 @@
+<alco-page-header
+  title="Modèles de répartition"
+  subtitle="Un modèle avec un début de compte (ex. 62) répartit seul chaque ligne de ces comptes."
+>
+  @if (canManage()) {
+    <div alcoPageActions>
+      <a alcoButton variant="primary" icon="plus" routerLink="nouveau">Nouveau modèle</a>
+    </div>
+  }
+</alco-page-header>
+
+@if (rules.status() === 'forbidden') {
+  <alco-error-state
+    title="Vous n’avez pas accès à l’analytique de cette société."
+    message="Demandez l’accès à un administrateur de la société si vous en avez besoin."
+  />
+} @else if (loadError(); as failure) {
+  <alco-error-state
+    [title]="failure.title"
+    [message]="failure.message"
+    [code]="failure.code"
+    [correlationId]="failure.correlationId ?? ''"
+    retryLabel="Réessayer"
+    (retry)="rules.reload()"
+  />
+} @else if (rules.value(); as rows) {
+  @if (rows.length === 0) {
+    <div class="empty-frame">
+      <alco-empty-state
+        icon="analytics"
+        title="Aucun modèle de répartition pour l’instant."
+        message="Ex. : comptes 62 → 60 % Chantier Kipé, 40 % Chantier Ratoma, sans rien saisir sur les factures."
+      />
+    </div>
+  } @else {
+    <alco-table caption="Modèles de répartition" [columns]="columns" [rows]="rows" [rowId]="rowId">
+      <ng-template alcoCell="name" let-row>
+        <a [routerLink]="row.public_id">{{ row.name }}</a>
+        <span class="muted"> · {{ row.axis.name }}</span>
+      </ng-template>
+      <ng-template alcoCell="accounts" let-row>
+        {{ row.account_prefix ? row.account_prefix + '…' : 'Sur demande' }}
+      </ng-template>
+      <ng-template alcoCell="shares" let-row>{{ sharesOf(row) }}</ng-template>
+      <ng-template alcoCell="status" let-row>
+        @if (row.status === 'active') {
+          <alco-badge tone="primary" icon="check">Actif</alco-badge>
+        } @else {
+          <alco-badge tone="neutral" icon="close">Désactivé</alco-badge>
+        }
+      </ng-template>
+    </alco-table>
+  }
+} @else {
+  <alco-loading variant="table" [rows]="3" [columns]="4" label="Chargement des modèles…" />
+}

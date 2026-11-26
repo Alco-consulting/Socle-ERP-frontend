@@ -1,0 +1,104 @@
+@if (plan.status() === 'forbidden') {
+  <alco-page-header title="Plan analytique" />
+  <alco-error-state
+    title="Vous n’avez pas accès à l’analytique de cette société."
+    message="Demandez l’accès à un administrateur de la société si vous en avez besoin."
+  />
+} @else if (loadError(); as failure) {
+  <alco-page-header title="Plan analytique" />
+  <alco-error-state
+    [title]="failure.title"
+    [message]="failure.message"
+    [code]="failure.code"
+    [correlationId]="failure.correlationId ?? ''"
+    retryLabel="Réessayer"
+    (retry)="plan.reload()"
+  />
+} @else if (plan.value(); as current) {
+  <alco-page-header [title]="current.name" [subtitle]="'Plan analytique · ' + current.code">
+    @if (current.status === 'active') {
+      <alco-badge alcoPageStatus tone="primary" icon="check">Actif</alco-badge>
+    } @else {
+      <alco-badge alcoPageStatus tone="neutral" icon="close">Désactivé</alco-badge>
+    }
+    @if (canDisable() || canModel()) {
+      <div alcoPageActions>
+        @if (canModel()) {
+          <a
+            alcoButton
+            variant="ghost"
+            icon="plus"
+            [routerLink]="newRuleUrl"
+            [queryParams]="{ plan: current.public_id }"
+          >
+            Modèle de répartition
+          </a>
+        }
+        @if (canDisable()) {
+          <button
+            alcoButton
+            type="button"
+            variant="ghost"
+            [loading]="busy() === 'plan'"
+            loadingLabel="…"
+            (click)="togglePlan()"
+          >
+            {{ current.status === 'active' ? 'Désactiver' : 'Réactiver' }}
+          </button>
+        }
+      </div>
+    }
+  </alco-page-header>
+
+  <alco-card title="Comptes analytiques" icon="analytics">
+    @if (canAdd()) {
+      <form class="add" [formGroup]="form" (ngSubmit)="add()" novalidate>
+        <alco-form-field label="Nouveau compte" [required]="true" hint="Ex. Chantier Kipé.">
+          <input alcoInput formControlName="label" maxlength="100" autocomplete="off" />
+        </alco-form-field>
+        <button alcoButton type="submit" icon="plus" [loading]="adding()" loadingLabel="Ajout…">
+          Ajouter
+        </button>
+      </form>
+      @if (error(); as failure) {
+        <alco-error-state [inline]="true" [title]="failure.title" [message]="failure.message" />
+      }
+    }
+    @if (accounts.value(); as rows) {
+      @if (rows.length === 0) {
+        <p class="muted">Aucun compte analytique dans ce plan.</p>
+      } @else {
+        <alco-table caption="Comptes analytiques" [columns]="columns" [rows]="rows" [rowId]="rowId">
+          <ng-template alcoCell="code" let-row>{{ row.code }}</ng-template>
+          <ng-template alcoCell="label" let-row>{{ row.label }}</ng-template>
+          <ng-template alcoCell="status" let-row>
+            @if (row.status === 'active') {
+              <alco-badge tone="primary" icon="check">Actif</alco-badge>
+            } @else {
+              <alco-badge tone="neutral" icon="close">Désactivé</alco-badge>
+            }
+          </ng-template>
+          <ng-template alcoCell="action" let-row>
+            @if (canDisable()) {
+              <button
+                alcoButton
+                type="button"
+                variant="ghost"
+                size="sm"
+                [loading]="busy() === row.public_id"
+                loadingLabel="…"
+                (click)="toggleAccount(row)"
+              >
+                {{ row.status === 'active' ? 'Désactiver' : 'Réactiver' }}
+              </button>
+            }
+          </ng-template>
+        </alco-table>
+      }
+    } @else {
+      <alco-loading variant="table" [rows]="3" [columns]="3" label="Chargement des comptes…" />
+    }
+  </alco-card>
+} @else {
+  <alco-loading [rows]="4" label="Chargement du plan…" />
+}

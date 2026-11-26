@@ -1,0 +1,28 @@
+// The plan and the period, on one line above the report.
+.bench {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  align-items: flex-end;
+}
+
+.plan {
+  min-width: 14rem;
+}
+
+.totals {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3) var(--space-6);
+  margin: 0;
+
+  dt {
+    color: var(--color-text-muted);
+    font-size: var(--font-size-caption);
+  }
+
+  dd {
+    margin: var(--space-1) 0 0;
+    font-weight: var(--font-weight-semibold);
+  }
+}

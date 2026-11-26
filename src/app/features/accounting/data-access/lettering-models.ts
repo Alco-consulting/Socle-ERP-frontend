@@ -115,10 +115,12 @@ export interface LetteringProposal {
   readonly credit: ProposalLine;
 }
 
-/** `AccountingLetteringWriteRequest` (`write_off` is never sent: no rule exists). */
+/** `AccountingLetteringWriteRequest` (`write_off` is never sent: the account is enough). */
 export interface LetteringRequest {
   readonly lines: readonly string[];
   readonly allow_partial: boolean;
+  /** The difference between the sides goes to this account; all lettered in full (note 0065). */
+  readonly write_off_account?: string | null;
   readonly idempotency_key?: string;
 }
 

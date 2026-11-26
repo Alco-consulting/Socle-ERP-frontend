@@ -13,14 +13,21 @@ import {
   untracked,
   viewChild,
 } from '@angular/core';
+import { toSignal } from '@angular/core/rxjs-interop';
+import { FormControl, ReactiveFormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
-import { firstValueFrom } from 'rxjs';
+import { firstValueFrom, map } from 'rxjs';
 
 import { UserError, toUserError } from '../../../core/errors/user-error';
 import { ApiError, toApiError } from '../../../core/http/api-error';
 import { requestState } from '../../../core/http/request-state';
 import { APP_ROOT } from '../../../core/navigation/applications';
 import { SessionStore } from '../../../core/session/session.store';
+import {
+  AlcoAutocomplete,
+  AutocompleteOption,
+  AutocompleteSearch,
+} from '../../../shared/forms/autocomplete';
 import { AlcoAmountPipe } from '../../../shared/pipes/amount.pipe';
 import { AlcoCell, AlcoTable, TableColumn } from '../../../shared/tables/table';
 import { AlcoBadge } from '../../../shared/ui/badge/badge';
@@ -37,6 +44,7 @@ import {
   sumDecimals,
   trimDecimalZeros,
 } from '../../../shared/utils/decimal';
+import { EntriesApi } from '../data-access/entries-api';
 import { LETTERING_PAGE_SIZE, LetteringApi } from '../data-access/lettering-api';
 import { LetterableLine, LetteringPreview, PreviewRow } from '../data-access/lettering-models';
 import { isoDay } from '../entries/entry-presentation';
@@ -70,8 +78,10 @@ interface Unbalanced {
 @Component({
   selector: 'alco-letterable-lines',
   imports: [
+    ReactiveFormsModule,
     RouterLink,
     AlcoAmountPipe,
+    AlcoAutocomplete,
     AlcoBadge,
     AlcoButton,
     AlcoCell,
@@ -87,6 +97,7 @@ interface Unbalanced {
 })
 export class AlcoLetterableLines {
   private readonly api = inject(LetteringApi);
+  private readonly entries = inject(EntriesApi);
   private readonly toast = inject(AlcoToastService);
   private readonly injector = inject(Injector);
   private readonly session = inject(SessionStore);
@@ -167,6 +178,30 @@ export class AlcoLetterableLines {
   protected readonly unbalanced = signal<Unbalanced | null>(null);
   /** An error of the last command, after which the lines were read again. */
   protected readonly staleError = signal<UserError | null>(null);
+  /** Where an unbalanced selection's difference goes (note backend 0065), as typed. */
+  protected readonly writeOffField = new FormControl<AutocompleteOption | null>(null);
+  protected readonly writeOffChoice = toSignal(this.writeOffField.valueChanges, {
+    initialValue: null,
+  });
+  /** The account the shown preview was asked with: its difference settled there. */
+  protected readonly writeOff = signal<AutocompleteOption | null>(null);
+  /** The difference of the shown preview, as the server gave its totals (no sign). */
+  protected readonly previewGap = computed(() => {
+    const result = this.preview();
+    return result
+      ? subtractDecimals(result.debit_total, result.credit_total).replace(/^-/, '')
+      : '0';
+  });
+  protected readonly searchAccounts: AutocompleteSearch = (term) =>
+    this.entries.postableAccounts(term).pipe(
+      map((found) =>
+        found.map((account) => ({
+          id: account.public_id,
+          label: account.code,
+          detail: account.name,
+        })),
+      ),
+    );
   private idempotencyKey: string | null = null;
   private readonly previewTitle = viewChild<ElementRef<HTMLElement>>('previewTitle');
   private lastScope = '';
@@ -237,6 +272,7 @@ export class AlcoLetterableLines {
 
   protected setAllowPartial(value: boolean): void {
     this.allowPartial.set(value);
+    this.clearWriteOff();
     this.discardPreview();
   }
 
@@ -266,6 +302,7 @@ export class AlcoLetterableLines {
         this.api.preview({
           lines: [...this.selected().keys()],
           allow_partial: this.allowPartial(),
+          ...this.writeOffRequest(),
         }),
       );
       this.preview.set(preview);
@@ -283,7 +320,19 @@ export class AlcoLetterableLines {
 
   /** The unbalanced selection, previewed again as a partial lettering (asked by the user). */
   protected previewPartial(): void {
+    this.clearWriteOff();
     this.allowPartial.set(true);
+    void this.showPreview();
+  }
+
+  /** The difference settled on the account chosen: every line lettered in full. */
+  protected previewWriteOff(): void {
+    const account = this.writeOffField.value;
+    if (!account) {
+      return;
+    }
+    this.allowPartial.set(false);
+    this.writeOff.set(account);
     void this.showPreview();
   }
 
@@ -301,13 +350,17 @@ export class AlcoLetterableLines {
         this.api.letter({
           lines: [...this.selected().keys()],
           allow_partial: this.allowPartial(),
+          ...this.writeOffRequest(),
           idempotency_key: this.idempotencyKey,
         }),
       );
+      const account = this.writeOff();
       this.toast.success(
-        created.partial
-          ? `Lettrage ${created.reference} créé. Le résiduel reste ouvert.`
-          : `Lettrage ${created.reference} créé.`,
+        account
+          ? `Lettrage ${created.reference} créé. L’écart est passé sur le compte ${account.label}.`
+          : created.partial
+            ? `Lettrage ${created.reference} créé. Le résiduel reste ouvert.`
+            : `Lettrage ${created.reference} créé.`,
       );
       this.afterCommand();
     } catch (failure) {
@@ -325,12 +378,25 @@ export class AlcoLetterableLines {
   }
 
   protected closePreview(): void {
+    this.clearWriteOff();
     this.discardPreview();
   }
 
   private select(next: ReadonlyMap<string, LetterableLine>): void {
     this.selected.set(next);
+    this.clearWriteOff();
     this.discardPreview();
+  }
+
+  /** `write_off_account` only when an account was chosen. */
+  private writeOffRequest(): { write_off_account?: string } {
+    const account = this.writeOff();
+    return account ? { write_off_account: account.id } : {};
+  }
+
+  private clearWriteOff(): void {
+    this.writeOff.set(null);
+    this.writeOffField.setValue(null);
   }
 
   private discardPreview(): void {

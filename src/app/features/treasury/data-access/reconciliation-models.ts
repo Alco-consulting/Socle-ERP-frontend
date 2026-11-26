@@ -109,6 +109,8 @@ export interface TransactionWrite {
   readonly settled_line: string | null;
   /** The counterpart account when no line is settled. */
   readonly offset_account: string | null;
+  /** With a settled line: its difference with the amount goes there (note backend 0065). */
+  readonly write_off_account?: string | null;
   /** An internal transfer sent: the journal where its line « à rapprocher » is created. */
   readonly destination?: string | null;
   readonly idempotency_key: string;
@@ -117,7 +119,7 @@ export interface TransactionWrite {
 /** What a line « à rapprocher » is set against (note backend 0050). */
 export type TransactionCounterpart = Pick<
   TransactionWrite,
-  'partner' | 'settled_line' | 'offset_account'
+  'partner' | 'settled_line' | 'offset_account' | 'write_off_account'
 >;
 
 /** A line « à rapprocher » taken back: its fields as typed, its counterpart if chosen. */

@@ -508,17 +508,75 @@ describe('Comptabilité › Lettrage (V2.1 A4)', () => {
     expect(text(view.element())).toContain('Ce compte n’est pas lettrable.');
   });
 
-  it('write-off: never asked; the server’s refusal has its own message', () => {
+  it('unbalanced: the difference settled on the account chosen, all lettered (note backend 0065)', async () => {
+    const view = await open(BASE, LETTERER);
+    await lines(view.stable);
+    await selectBoth(view);
+    view.button('Aperçu du lettrage')!.click();
+    await view.stable();
+    httpMock()
+      .expectOne(is('accounting/letterings/preview/', 'POST'))
+      .flush(
+        {
+          error: {
+            code: 'accounting_lettering_unbalanced',
+            message: 'x',
+            details: { debit: '1200.000000', credit: '1000.000000', difference: '200.000000' },
+            correlation_id: 'c',
+          },
+        },
+        { status: 400, statusText: 'x' },
+      );
+    await view.stable();
+    const settleButton = () => view.button('Solder l’écart sur ce compte')!;
+    expect(settleButton().disabled).toBe(true);
+
+    const component = view.harness.fixture.debugElement.query(
+      (node) => node.name === 'alco-letterable-lines',
+    ).componentInstance;
+    component.writeOffField.setValue({ id: 'a-631', label: '631100', detail: 'Frais bancaires' });
+    await view.stable();
+    settleButton().click();
+    await view.stable();
+    const previewed = httpMock().expectOne(is('accounting/letterings/preview/', 'POST'));
+    expect(previewed.request.body).toEqual({
+      lines: ['l-inv', 'l-pay'],
+      allow_partial: false,
+      write_off_account: 'a-631',
+    });
+    previewed.flush(preview(true));
+    await view.stable();
+    const panel = view.element().querySelector('.preview')!;
+    expect(text(panel)).toContain(
+      'Lettrage complet : l’écart de 200 GNF sera passé sur le compte 631100',
+    );
+    expect(text(panel)).toContain('Écart soldé');
+
+    view.button('Confirmer le lettrage')!.click();
+    await view.stable();
+    const created = httpMock().expectOne(is('accounting/letterings/', 'POST'));
+    expect(created.request.body).toEqual({
+      lines: ['l-inv', 'l-pay'],
+      allow_partial: false,
+      write_off_account: 'a-631',
+      idempotency_key: expect.stringMatching(UUID),
+    });
+    created.flush(lettering({ amount: '1200.000000' }));
+    await view.stable();
+    expect(view.toasts()).toContain(
+      'Lettrage LET-000001 créé. L’écart est passé sur le compte 631100.',
+    );
+    httpMock().expectOne(is('accounting/letterable-lines/')).flush(page([]));
+    await view.stable();
+  });
+
+  it('write-off refusals have their own message', () => {
     TestBed.configureTestingModule({ providers: [...provideHttpTesting()] });
-    const error = toUserError(
-      envelope('accounting_lettering_write_off_unavailable'),
-      LETTERING_ERRORS,
-    );
-    expect(error.title).toBe('Le passage d’un écart en perte ou profit n’est pas disponible.');
-    expect(error.code).toBe('accounting_lettering_write_off_unavailable');
-    expect(LETTERING_ERRORS['accounting_lettering_unbalanced'].help).toContain(
-      'jamais passé en perte ou profit',
-    );
+    const error = toUserError(envelope('accounting_write_off_journal_missing'), LETTERING_ERRORS);
+    expect(error.title).toBe('Aucun journal d’opérations diverses actif.');
+    expect(
+      toUserError(envelope('accounting_write_off_account_invalid'), LETTERING_ERRORS).title,
+    ).toBe('Ce compte ne peut pas recevoir l’écart.');
   });
 
   // ---- Proposals --------------------------------------------------------------------------

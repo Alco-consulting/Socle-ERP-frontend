@@ -38,14 +38,36 @@
           </div>
         </dl>
       }
+      @if (unbalanced() && !writeOff()) {
+        <!-- As Odoo's « marquer comme payé »: the difference settled on an account. -->
+        <div class="write-off">
+          <alco-autocomplete
+            [formControl]="writeOffField"
+            [search]="searchAccounts"
+            label="Compte de l’écart"
+            placeholder="Compte de l’écart (ex. 631 frais bancaires)"
+            emptyText="Aucun compte ne correspond."
+          />
+          <button
+            alcoButton
+            type="button"
+            variant="primary"
+            [disabled]="!writeOffChoice()"
+            [loading]="previewing() && !allowPartial()"
+            loadingLabel="Aperçu en cours…"
+            (click)="previewWriteOff()"
+          >
+            Solder l’écart sur ce compte
+          </button>
+        </div>
+      }
       <div class="preview-actions">
         <button alcoButton type="button" (click)="closePreview()">Modifier la sélection</button>
         @if (unbalanced() && !allowPartial()) {
           <button
             alcoButton
             type="button"
-            variant="primary"
-            [loading]="previewing()"
+            [loading]="previewing() && allowPartial()"
             loadingLabel="Aperçu en cours…"
             (click)="previewPartial()"
           >
@@ -57,8 +79,13 @@
     @if (preview(); as result) {
       @let currencyCode = currency();
       @let places = decimalsOf(currencyCode);
-      <p class="outcome" [class.outcome--partial]="result.partial">
-        @if (result.partial) {
+      @let account = writeOff();
+      <p class="outcome" [class.outcome--partial]="result.partial && !account">
+        @if (account) {
+          Lettrage complet : l’écart de {{ previewGap() | alcoAmount: places }}
+          {{ currencyCode }} sera passé sur le compte {{ account.label }} par une écriture
+          d’opérations diverses.
+        } @else if (result.partial) {
           Lettrage partiel : un résiduel restera ouvert sur les lignes indiquées. Rien n’est passé
           en perte ou profit.
         } @else {
@@ -98,7 +125,7 @@
               <th scope="col">Sens</th>
               <th scope="col" class="num">Ouvert</th>
               <th scope="col" class="num">Lettré</th>
-              <th scope="col" class="num">Résiduel</th>
+              <th scope="col" class="num">{{ writeOff() ? 'Écart soldé' : 'Résiduel' }}</th>
             </tr>
           </thead>
           <tbody>

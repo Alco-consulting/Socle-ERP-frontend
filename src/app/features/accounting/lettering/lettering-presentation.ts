@@ -44,8 +44,22 @@ export const LINE_VIEWS: readonly { id: LineView; label: string }[] = [
   { id: 'all', label: 'Toutes les lignes' },
 ];
 
+/** Errors of a payment difference written off (note backend 0065), on lettering or bank. */
+export const WRITE_OFF_ERRORS: ErrorCatalog = {
+  accounting_write_off_account_invalid: {
+    title: 'Ce compte ne peut pas recevoir l’écart.',
+    message: 'Choisissez un autre compte que celui des lignes lettrées (ex. 631 frais bancaires).',
+  },
+  accounting_write_off_journal_missing: {
+    title: 'Aucun journal d’opérations diverses actif.',
+    message:
+      'L’écart passe par une écriture d’opérations diverses : créez ou réactivez ce journal.',
+  },
+};
+
 /** Errors of the lettering, by their stable code (backend apps/accounting). */
 export const LETTERING_ERRORS: ErrorCatalog = {
+  ...WRITE_OFF_ERRORS,
   accounting_account_not_letterable: {
     title: 'Ce compte n’est pas lettrable.',
     message: 'Seules les lignes d’un compte configuré pour le lettrage peuvent être lettrées.',
@@ -82,12 +96,12 @@ export const LETTERING_ERRORS: ErrorCatalog = {
   },
   accounting_lettering_unbalanced: {
     title: 'Le débit et le crédit sélectionnés ne sont pas égaux.',
-    message: 'Changez la sélection, ou demandez un lettrage partiel : le résiduel restera ouvert.',
-    help: 'L’écart n’est jamais passé en perte ou profit : aucune règle n’est configurée.',
+    message:
+      'Soldez l’écart sur un compte, demandez un lettrage partiel (le résiduel reste ouvert) ou changez la sélection.',
   },
   accounting_lettering_write_off_unavailable: {
-    title: 'Le passage d’un écart en perte ou profit n’est pas disponible.',
-    message: 'Aucune règle n’est configurée : lettrez partiellement, le résiduel reste ouvert.',
+    title: 'Le compte de l’écart manque.',
+    message: 'Choisissez le compte sur lequel solder l’écart.',
   },
   accounting_lettering_exists: {
     title: 'Ce lettrage a déjà été enregistré.',

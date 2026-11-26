@@ -38,7 +38,9 @@ import { AlcoToastService } from '../../../shared/ui/toast/toast.service';
 import { localToday } from '../../../shared/utils/dates';
 import {
   formatDecimal,
+  isZeroDecimal,
   normalizeDecimalInput,
+  subtractDecimals,
   trimDecimalZeros,
 } from '../../../shared/utils/decimal';
 import { EntriesApi } from '../../accounting/data-access/entries-api';
@@ -208,6 +210,8 @@ export class TransactionsPage {
     line: new FormControl('', { nonNullable: true }),
     /** « Compte »: any account of the chart that takes entries. */
     account: new FormControl<AutocompleteOption | null>(null),
+    /** Where the invoice's difference with the amount goes, as Odoo's « marquer comme payé ». */
+    writeOff: new FormControl<AutocompleteOption | null>(null),
     amountIn: new FormControl('', { nonNullable: true }),
     amountOut: new FormControl('', { nonNullable: true }),
   });
@@ -225,6 +229,28 @@ export class TransactionsPage {
   protected readonly hasPartner = computed(
     () => this.counterpart() === 'partner' && this.value().partner !== null,
   );
+  /**
+   * The difference between the invoice chosen and the amount typed (note backend 0065), shown
+   * with its currency; '' when they match or nothing is chosen.
+   */
+  protected readonly gap = computed(() => {
+    const value = this.value();
+    const line = this.openLines().find((item) => item.public_id === value.line);
+    if (!this.hasPartner() || !line) {
+      return '';
+    }
+    const typed = normalizeDecimalInput(
+      (line.side === 'debit' ? value.amountIn : value.amountOut).trim(),
+    );
+    if (!typed) {
+      return '';
+    }
+    const difference = subtractDecimals(line.open_amount, typed);
+    if (isZeroDecimal(difference)) {
+      return '';
+    }
+    return `${this.money(difference.replace(/^-/, ''))} ${line.currency}`;
+  });
   /** The balance after the line typed, as Odoo's « Solde courant » of the new row. */
   protected readonly preview = computed(() => {
     const found = this.balance.value();
@@ -382,7 +408,7 @@ export class TransactionsPage {
       this.invalid.set(missing);
       return;
     }
-    const chosen: TransactionCounterpart = {
+    let chosen: TransactionCounterpart = {
       partner: counterpart === 'partner' ? (value.partner?.id ?? null) : null,
       // An invoice of the partner.
       settled_line: counterpart === 'partner' ? value.line || null : null,
@@ -392,6 +418,11 @@ export class TransactionsPage {
           ? (value.account?.id ?? null)
           : null,
     };
+    // An invoice not paid exactly: its difference settled on this account, if chosen.
+    const writeOff = counterpart === 'partner' && value.line && this.gap() ? value.writeOff : null;
+    if (writeOff) {
+      chosen = { ...chosen, write_off_account: writeOff.id };
+    }
     this.invalid.set(null);
     this.saving.set(true);
     try {
@@ -446,6 +477,7 @@ export class TransactionsPage {
       partner: null,
       line: '',
       account: null,
+      writeOff: null,
       amountIn: '',
       amountOut: '',
     });

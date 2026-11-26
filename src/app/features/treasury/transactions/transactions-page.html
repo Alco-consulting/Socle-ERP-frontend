@@ -133,6 +133,20 @@
                               placeholder="Compte du contact"
                               emptyText="Aucun compte ne correspond."
                             />
+                          } @else if (gap(); as difference) {
+                            <!-- Not paid exactly: the difference settled on an account, if chosen. -->
+                            <alco-autocomplete
+                              formControlName="writeOff"
+                              [search]="searchAccounts"
+                              label="Compte de l’écart (facultatif : sinon la facture reste partiellement payée)"
+                              [placeholder]="'Écart ' + difference + ' : solder sur…'"
+                              [title]="
+                                'Écart de ' +
+                                difference +
+                                ' avec la facture : choisissez un compte pour la solder entièrement, ou laissez vide pour un paiement partiel.'
+                              "
+                              emptyText="Aucun compte ne correspond."
+                            />
                           }
                         </span>
                       }

@@ -9,6 +9,7 @@ import {
   Statement,
   TreasuryAccountType,
 } from './data-access/reconciliation-models';
+import { WRITE_OFF_ERRORS } from '../accounting/lettering/lettering-presentation';
 import { RECONCILIATION_ERRORS } from './reconciliation/reconciliation-presentation';
 
 /**
@@ -89,6 +90,7 @@ export const OPERATION_DOCUMENTS = 'treasury.operation';
 /** Errors of the treasury, by their stable code (backend apps/treasury). */
 export const TREASURY_ERRORS: ErrorCatalog = {
   ...RECONCILIATION_ERRORS,
+  ...WRITE_OFF_ERRORS,
   treasury_transaction_line: {
     title: 'Cette facture ne correspond pas.',
     message:

@@ -223,6 +223,52 @@ describe('Réconciliation bancaire (treasury/accounts/{id}/transactions/, note b
     expect(text(row(element).querySelector('.running'))).toBe('12 008 500 GNF');
   });
 
+  it('an invoice not paid exactly: its difference, settled on the account chosen (note backend 0065)', async () => {
+    const { component, element, stable } = await open();
+    const form = component['form'];
+    await press(element, 'Partenaire', stable);
+    form.controls.partner.setValue({ id: 'p-1', label: 'Société Kaloum SARL' });
+    httpMock()
+      .expectOne((req) => req.url === '/api/v1/accounting/letterable-lines/')
+      .flush(page([INVOICE]));
+    await stable();
+    form.controls.line.setValue('l-fv1');
+    await stable();
+    // The invoice's amount: nothing to settle.
+    const writeOff = () =>
+      row(element).querySelector('alco-autocomplete[formControlName="writeOff"]');
+    expect(writeOff()).toBeNull();
+
+    form.patchValue({ amountIn: '5 899 500' });
+    await stable();
+    expect(writeOff()?.querySelector('input')?.placeholder).toBe('Écart 500 GNF : solder sur…');
+    form.controls.writeOff.setValue({ id: 'a-631', label: '631100', detail: 'Frais bancaires' });
+    await stable();
+    Array.from(element.querySelectorAll<HTMLButtonElement>('alco-page-header button'))
+      .find((button) => text(button) === 'Enregistrer')!
+      .click();
+    await stable();
+
+    const post = httpMock().expectOne('/api/v1/treasury/accounts/t-css/transactions/');
+    expect(post.request.body).toMatchObject({
+      direction: 'inflow',
+      amount: '5899500',
+      partner: 'p-1',
+      settled_line: 'l-fv1',
+      offset_account: null,
+      write_off_account: 'a-631',
+    });
+    post.flush(ROWS[1]);
+    await stable();
+    httpMock()
+      .expectOne('/api/v1/treasury/accounts/t-css/balance/')
+      .flush({ balance: '0', currency: 'GNF' });
+    httpMock()
+      .expectOne((req) => req.url === '/api/v1/treasury/accounts/t-css/transactions/')
+      .flush(page(ROWS));
+    await stable();
+  });
+
   it('Entrée in the row: one request, the lines read again, a new line to type', async () => {
     const { component, element, stable } = await open();
     const form = component['form'];

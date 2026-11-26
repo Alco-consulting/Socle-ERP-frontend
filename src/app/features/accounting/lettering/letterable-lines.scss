@@ -112,6 +112,19 @@
   }
 }
 
+// The difference settled on an account (note backend 0065): the account, then the button.
+.write-off {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+
+  > alco-autocomplete {
+    flex: 1 1 16rem;
+    min-width: 0;
+  }
+}
+
 .preview-actions,
 .bar-actions {
   display: flex;
